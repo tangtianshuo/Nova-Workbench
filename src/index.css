@@ -1,0 +1,129 @@
+/* Fonts - Geist Sans + Mono (self-hosted via @fontsource) */
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/500.css';
+@import '@fontsource/geist/600.css';
+@import '@fontsource/geist/700.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/500.css';
+
+/* Design Tokens */
+@import './styles/tokens.css';
+
+/* Tailwind CSS v4 */
+@import 'tailwindcss';
+
+/* === Tailwind v4 Theme Bridge === */
+/* Maps CSS custom properties to Tailwind utility classes */
+@theme {
+  /* Colors */
+  --color-accent: hsl(var(--accent));
+  --color-accent-hover: hsl(var(--accent-hover));
+  --color-accent-active: hsl(var(--accent-active));
+  --color-accent-subtle: hsl(var(--accent-subtle));
+  --color-accent-muted: hsl(var(--accent-muted));
+
+  --color-bg-app: hsl(var(--bg-app));
+  --color-bg-primary: hsl(var(--bg-primary));
+  --color-bg-secondary: hsl(var(--bg-secondary));
+  --color-bg-tertiary: hsl(var(--bg-tertiary));
+  --color-bg-glass: hsl(var(--bg-glass));
+  --color-bg-sidebar: hsl(var(--bg-sidebar));
+  --color-bg-overlay: hsl(var(--bg-overlay));
+  --color-bg-input: hsl(var(--bg-input));
+
+  --color-text-primary: hsl(var(--text-primary));
+  --color-text-secondary: hsl(var(--text-secondary));
+  --color-text-tertiary: hsl(var(--text-tertiary));
+  --color-text-placeholder: hsl(var(--text-placeholder));
+  --color-text-inverted: hsl(var(--text-inverted));
+
+  --color-border: hsl(var(--border-primary));
+  --color-border-subtle: hsl(var(--border-secondary));
+
+  --color-success: hsl(var(--color-success));
+  --color-success-subtle: hsl(var(--color-success-subtle));
+  --color-warning: hsl(var(--color-warning));
+  --color-warning-subtle: hsl(var(--color-warning-subtle));
+  --color-danger: hsl(var(--color-danger));
+  --color-danger-subtle: hsl(var(--color-danger-subtle));
+
+  /* Font families */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Radius */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+}
+
+/* === Custom Utilities === */
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  /* Glassmorphism material */
+  .glass {
+    background: hsl(var(--bg-glass));
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  .glass-subtle {
+    background: hsl(var(--bg-sidebar));
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+  }
+
+  /* Tauri drag region */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Focus ring utility */
+  .focus-ring {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--accent) / 0.3);
+  }
+
+  /* Smooth text truncation */
+  .text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* === Tauri Desktop Window === */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Rounded corners for frameless window */
+#root {
+  height: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: hsl(var(--bg-app));
+}
+
+/* Resize grip for frameless window (Windows/Linux) */
+@media not all and (display-mode: standalone) {
+  #root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+  }
+}

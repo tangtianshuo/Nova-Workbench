@@ -1,0 +1,6 @@
+{
+  "name": "PM Workspace",
+  "description": "A comprehensive Product & R&D lifecycle workspace featuring AI automated requirements design, interactive UI prototyping, product knowledge base, code architecture scaffolds, automated test management, competitor analysis, and full-lifecycle deliverables generation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

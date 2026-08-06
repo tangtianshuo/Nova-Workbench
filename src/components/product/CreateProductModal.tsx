@@ -1,0 +1,269 @@
+import { useState } from 'react';
+import { useApp } from '../../store/AppContext';
+import { Product } from '../../data/mockProducts';
+import { X, Layers, Sparkles, Target, Tag, User, Calendar, Cpu } from 'lucide-react';
+
+interface Props {
+  onClose: () => void;
+}
+
+export function CreateProductModal({ onClose }: Props) {
+  const { addProduct } = useApp();
+  const [name, setName] = useState('');
+  const [tagline, setTagline] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<Product['category']>('AI 协同 / SaaS');
+  const [stage, setStage] = useState<Product['stage']>('规划中');
+  const [owner, setOwner] = useState('Brandon (产品经理)');
+  const [version, setVersion] = useState('v1.0.0');
+  const [deadline, setDeadline] = useState('2025-09-30');
+  const [positioning, setPositioning] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const newProduct: Product = {
+      id: `p-${Date.now()}`,
+      name: name.trim(),
+      tagline: tagline.trim() || '大模型驱动的创新产品系统',
+      description: description.trim() || '该产品的详细背景与全生命周期管理记录。',
+      category,
+      stage,
+      status: '按期推进',
+      progress: stage === '已发布' ? 100 : stage === '公测灰度' ? 70 : stage === '研发中' ? 40 : 15,
+      health: 'healthy',
+      owner,
+      version: version.trim() || 'v1.0.0',
+      deadline,
+      positioning: positioning.trim() || `为企业提供专属高效的 ${name} 解决方案。`,
+      team: [
+        { name: 'Brandon', role: 'Lead PM', avatar: 'BR', color: 'bg-indigo-600' },
+        { name: 'Alex', role: 'Tech Lead', avatar: 'AL', color: 'bg-blue-600' }
+      ],
+      targetAudience: ['互联网与创新型产研团队', '业务决策层与数字化专家'],
+      coreValues: [
+        { title: '智能化协同流转', desc: '打通需求、架构、任务与代码资产链路。', icon: 'Bot' },
+        { title: '全生命周期度量', desc: '实时掌控产品健康度与指标漏斗。', icon: 'LineChart' }
+      ],
+      techStack: ['React 19', 'TypeScript', 'Tailwind CSS', 'Vite', 'DeepSeek-V3'],
+      featureMatrix: [
+        { name: '核心能力 MVP', module: 'Core Module', status: '开发中', priority: 'P0', desc: '实现首期核心业务流程与交互闭环。' },
+        { name: '数据统计大盘', module: 'Analytics', status: '规划中', priority: 'P1', desc: '业务数据流转与关键漏斗监控。' }
+      ],
+      documents: [
+        {
+          id: `doc-${Date.now()}`,
+          title: `PRD_${name.replace(/\s+/g, '_')}_需求规格说明书_v1.0.docx`,
+          category: 'PRD需求',
+          version: 'v1.0',
+          author: owner,
+          updatedAt: '刚刚',
+          wordCount: '4,500 字',
+          summary: '初步定义了业务目标、用户故事与首期交付边界。',
+          content: `### 1. 项目背景\n${description || name}\n\n### 2. 目标受众与定位\n${positioning || '面向企业核心产研团队'}`
+        }
+      ],
+      associatedSkills: [
+        {
+          id: `sk-${Date.now()}`,
+          name: 'PRD 智能扩写与规范校验 Agent',
+          code: 'skill-prd-synthesizer',
+          category: '需求分析',
+          description: '自动对齐标准模板，智能检测业务逻辑漏洞与异常分支。',
+          triggerType: '按需调用',
+          invocations: 0,
+          successRate: '100%',
+          avgRuntime: '1.2s',
+          lastInvoked: '尚未调用',
+          status: 'active',
+          config: { model: 'DeepSeek-V3', temperature: 0.3, autoSyncWorkspace: true }
+        }
+      ],
+      milestones: [
+        { id: `m-${Date.now()}-1`, title: '需求调研与立项评审', date: '2025-06-01', stage: '需求阶段', status: 'completed', owner: 'Brandon', deliverables: ['PRD v1.0'] },
+        { id: `m-${Date.now()}-2`, title: '原型设计与技术预研', date: '2025-07-01', stage: '设计阶段', status: 'in-progress', owner: 'Alex', deliverables: ['交互原型', '架构设计'] },
+        { id: `m-${Date.now()}-3`, title: '首期 MVP 上线公测', date: deadline, stage: '发布阶段', status: 'pending', owner: 'Brandon', deliverables: ['Release Note'] }
+      ],
+      risksAndBlockers: [],
+      metrics: {
+        dau: '1.2k',
+        dauGrowth: '+0.0%',
+        mau: '4.5k',
+        mauGrowth: '+0.0%',
+        retention7d: '62.0%',
+        retentionTrend: '+0.0%',
+        featureAdoption: '75.0%',
+        conversionRate: '8.5%',
+        avgLatency: '210ms',
+        csatScore: '4.8 / 5.0',
+        trafficTrend: [
+          { date: '周一', dau: 800, mau: 4000, apiCalls: 3200 },
+          { date: '周二', dau: 920, mau: 4100, apiCalls: 3600 },
+          { date: '周三', dau: 1050, mau: 4200, apiCalls: 4100 },
+          { date: '周四', dau: 1100, mau: 4300, apiCalls: 4300 },
+          { date: '周五', dau: 1200, mau: 4500, apiCalls: 4800 },
+          { date: '周六', dau: 650, mau: 4500, apiCalls: 2100 },
+          { date: '周日', dau: 700, mau: 4500, apiCalls: 2400 }
+        ],
+        featureUsageFunnel: [
+          { stage: '首屏访问', users: 1200, conversion: '100%', dropRate: '0%' },
+          { stage: '功能体验', users: 960, conversion: '80.0%', dropRate: '20.0%' },
+          { stage: '核心交互', users: 780, conversion: '65.0%', dropRate: '15.0%' }
+        ],
+        retentionCohort: [
+          { period: '第 1 周', day1: 80, day3: 70, day7: 62, day14: 55, day30: 45 }
+        ],
+        aiPerformance: [
+          { metric: '意图识别准确率', score: 96.5, target: 95.0, status: '达标' }
+        ]
+      }
+    };
+
+    addProduct(newProduct);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Layers size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">创建新产品 / 项目</h2>
+              <p className="text-xs text-slate-400">开启产品全生命周期管理、PRD文档与智能Agent联动</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">产品名称 *</label>
+              <input
+                type="text"
+                required
+                placeholder="例如: SmartVision 视觉问答系统"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">一句话定位 (Tagline)</label>
+              <input
+                type="text"
+                placeholder="例如: 下一代基于多模态大模型的视觉理解工具"
+                value={tagline}
+                onChange={e => setTagline(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">产品类别</label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value as any)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                <option value="AI 协同 / SaaS">AI 协同 / SaaS</option>
+                <option value="移动端应用">移动端应用</option>
+                <option value="品牌数字资产">品牌数字资产</option>
+                <option value="数据中台">数据中台</option>
+                <option value="智能硬件">智能硬件</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">生命周期阶段</label>
+              <select
+                value={stage}
+                onChange={e => setStage(e.target.value as any)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                <option value="规划中">规划中 (Planning)</option>
+                <option value="研发中">研发中 (In Development)</option>
+                <option value="公测灰度">公测灰度 (Beta)</option>
+                <option value="商业化运营">商业化运营 (Commercial)</option>
+                <option value="已发布">已发布 (Released)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">版本规划</label>
+              <input
+                type="text"
+                placeholder="v1.0.0"
+                value={version}
+                onChange={e => setVersion(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1.5">核心价值与定位简述</label>
+            <textarea
+              rows={2}
+              placeholder="简述该产品的核心用户场景、解决的关键痛点与商业价值..."
+              value={positioning}
+              onChange={e => setPositioning(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">主负责人</label>
+              <input
+                type="text"
+                value={owner}
+                onChange={e => setOwner(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">目标上线/交付时间</label>
+              <input
+                type="date"
+                value={deadline}
+                onChange={e => setDeadline(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-medium"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              立即创建产品
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

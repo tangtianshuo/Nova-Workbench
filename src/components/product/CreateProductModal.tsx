@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
 import { Product } from '../../data/mockProducts';
-import { X, Layers, Sparkles, Target, Tag, User, Calendar, Cpu } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogBody,
+  Button,
+  Input,
+  Textarea,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '../ui';
 
 interface Props {
   onClose: () => void;
@@ -125,145 +139,112 @@ export function CreateProductModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Layers size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">创建新产品 / 项目</h2>
-              <p className="text-xs text-slate-400">开启产品全生命周期管理、PRD文档与智能Agent联动</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader
+          title="创建新产品 / 项目"
+          description="开启产品全生命周期管理、PRD文档与智能Agent联动"
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">产品名称 *</label>
-              <input
+        <DialogBody>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="产品名称 *"
                 type="text"
                 required
                 placeholder="例如: SmartVision 视觉问答系统"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
               />
-            </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">一句话定位 (Tagline)</label>
-              <input
+              <Input
+                label="一句话定位 (Tagline)"
                 type="text"
                 placeholder="例如: 下一代基于多模态大模型的视觉理解工具"
                 value={tagline}
                 onChange={e => setTagline(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">产品类别</label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                <option value="AI 协同 / SaaS">AI 协同 / SaaS</option>
-                <option value="移动端应用">移动端应用</option>
-                <option value="品牌数字资产">品牌数字资产</option>
-                <option value="数据中台">数据中台</option>
-                <option value="智能硬件">智能硬件</option>
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-text-primary">产品类别</label>
+                <Select value={category} onValueChange={(v) => setCategory(v as Product['category'])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AI 协同 / SaaS">AI 协同 / SaaS</SelectItem>
+                    <SelectItem value="移动端应用">移动端应用</SelectItem>
+                    <SelectItem value="品牌数字资产">品牌数字资产</SelectItem>
+                    <SelectItem value="数据中台">数据中台</SelectItem>
+                    <SelectItem value="智能硬件">智能硬件</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">生命周期阶段</label>
-              <select
-                value={stage}
-                onChange={e => setStage(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                <option value="规划中">规划中 (Planning)</option>
-                <option value="研发中">研发中 (In Development)</option>
-                <option value="公测灰度">公测灰度 (Beta)</option>
-                <option value="商业化运营">商业化运营 (Commercial)</option>
-                <option value="已发布">已发布 (Released)</option>
-              </select>
-            </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-text-primary">生命周期阶段</label>
+                <Select value={stage} onValueChange={(v) => setStage(v as Product['stage'])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="规划中">规划中 (Planning)</SelectItem>
+                    <SelectItem value="研发中">研发中 (In Development)</SelectItem>
+                    <SelectItem value="公测灰度">公测灰度 (Beta)</SelectItem>
+                    <SelectItem value="商业化运营">商业化运营 (Commercial)</SelectItem>
+                    <SelectItem value="已发布">已发布 (Released)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">版本规划</label>
-              <input
+              <Input
+                label="版本规划"
                 type="text"
                 placeholder="v1.0.0"
                 value={version}
                 onChange={e => setVersion(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                className="font-mono"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1.5">核心价值与定位简述</label>
-            <textarea
+            <Textarea
+              label="核心价值与定位简述"
               rows={2}
               placeholder="简述该产品的核心用户场景、解决的关键痛点与商业价值..."
               value={positioning}
               onChange={e => setPositioning(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
             />
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">主负责人</label>
-              <input
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="主负责人"
                 type="text"
                 value={owner}
                 onChange={e => setOwner(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
-            </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">目标上线/交付时间</label>
-              <input
+              <Input
+                label="目标上线/交付时间"
                 type="date"
                 value={deadline}
                 onChange={e => setDeadline(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
-          </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-medium"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              立即创建产品
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={onClose}>
+                取消
+              </Button>
+              <Button type="submit" variant="primary">
+                立即创建产品
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 }

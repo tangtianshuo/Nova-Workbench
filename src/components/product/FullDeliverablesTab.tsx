@@ -7,44 +7,45 @@ import { useState } from 'react';
 import { Product } from '../../data/mockProducts';
 import { FullLifecycleDeliverable } from '../../data/mockRndData';
 import { useApp } from '../../store/AppContext';
-import { 
-  Sparkles, 
-  Bot, 
-  FileText, 
-  CheckCircle2, 
-  Clock, 
-  RefreshCw, 
-  Download, 
-  Copy, 
-  Check, 
-  Search, 
-  Filter, 
-  ExternalLink, 
-  FolderPlus, 
-  Zap, 
-  Eye, 
-  X, 
-  Share2, 
-  Tag, 
-  Award,
-  Layers,
-  Code2,
-  Table,
+import {
+  Sparkle,
+  FileText,
+  CheckCircle,
+  Clock,
+  ArrowClockwise,
+  Download,
+  Copy,
+  Check,
+  MagnifyingGlass,
+  FolderPlus,
+  Lightning,
+  Eye,
+  X,
+  Tag,
+  Trophy,
+  Stack,
+  Code,
   Cpu,
-  ChevronRight
-} from 'lucide-react';
+  CaretRight,
+} from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
+import { motion } from 'motion/react';
+import { Card } from '@/src/components/ui/Card';
+import { Button } from '@/src/components/ui/Button';
+import { Badge } from '@/src/components/ui/Badge';
+import { Input } from '@/src/components/ui/Input';
+import { ProgressBar } from '@/src/components/ui/ProgressBar';
 
 interface Props {
   product: Product;
 }
 
 export function FullDeliverablesTab({ product }: Props) {
-  const { 
-    getDeliverablesForProduct, 
-    generateDeliverableAI, 
-    generateAllDeliverablesBatchAI, 
-    syncDeliverableToDocs 
+  const {
+    getDeliverablesForProduct,
+    generateDeliverableAI,
+    generateAllDeliverablesBatchAI,
+    syncDeliverableToDocs,
   } = useApp();
 
   const deliverables = getDeliverablesForProduct(product.id);
@@ -65,8 +66,8 @@ export function FullDeliverablesTab({ product }: Props) {
 
   const filteredDeliverables = deliverables.filter(d => {
     const matchPhase = activePhase === 'all' || d.phase === activePhase;
-    const matchQuery = !searchQuery || 
-      d.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchQuery = !searchQuery ||
+      d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.summary.toLowerCase().includes(searchQuery.toLowerCase());
     return matchPhase && matchQuery;
@@ -124,307 +125,316 @@ export function FullDeliverablesTab({ product }: Props) {
     showToast(`📁 已将【${d.title}】归档至【产品文档】中心`);
   };
 
+  const phaseButtons: Array<{ key: string; label: string }> = [
+    { key: 'all', label: `全部阶段 (${deliverables.length})` },
+    { key: 'requirement', label: '1. 需求与规划' },
+    { key: 'design', label: '2. 交互与系统架构' },
+    { key: 'dev', label: '3. 工程实现与代码' },
+    { key: 'qa', label: '4. 质量保障与测试' },
+    { key: 'release', label: '5. 发布运营与商业化' },
+  ];
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ready':
+        return <Badge variant="success">已就绪</Badge>;
+      case 'generating':
+        return <Badge variant="accent">生成中...</Badge>;
+      default:
+        return <Badge variant="neutral">待生成</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-2 animate-in fade-in">
-          <Sparkles className="w-4 h-4 text-emerald-400" />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          className="fixed bottom-6 right-6 z-50 bg-bg-primary text-text-primary text-xs px-4 py-2.5 rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] border border-border-subtle flex items-center gap-2"
+        >
+          <Sparkle size={16} weight="duotone" className="text-success" />
           <span>{toastMessage}</span>
-        </div>
+        </motion.div>
       )}
 
       {/* Hero Overview & Batch Trigger */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-blue-500/20 space-y-6">
+      <Card
+        variant="dark"
+        className="p-6 md:p-8 space-y-6"
+      >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="p-2.5 bg-blue-500/20 text-blue-300 rounded-xl border border-blue-400/30">
-                <Cpu className="w-6 h-6" />
+              <div className="p-2.5 bg-white/10 text-white/90 rounded-[var(--radius-md)] border border-white/20">
+                <Cpu size={24} weight="duotone" />
               </div>
-              <h3 className="text-xl font-black tracking-tight">产品产研全生命周期成果物工厂</h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+              <h3 className="text-xl font-black tracking-tight text-white">产品产研全生命周期成果物工厂</h3>
+              <Badge className="bg-success/20 text-success border border-success/30">
                 18 份工业级交付物
-              </span>
+              </Badge>
             </div>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-xs text-white/70 max-w-2xl leading-relaxed">
               围绕【{product.name}】全生命周期，支持秒级一键推导从需求 PRD、架构拓扑、OpenAPI 协议、建表 SQL、测试用例到发版公告的所有核心成果物。
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/80 flex items-center gap-4 px-4">
+            <div className="bg-white/10 p-3 rounded-[var(--radius-lg)] border border-white/15 flex items-center gap-4 px-4">
               <div>
-                <div className="text-[11px] text-slate-400">已就绪资产</div>
+                <div className="text-[11px] text-white/60">已就绪资产</div>
                 <div className="text-lg font-black text-white">{readyCount} / {totalCount}</div>
               </div>
-              <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-emerald-500 transition-all duration-500" 
-                  style={{ width: `${readyPercent}%` }} 
-                />
-              </div>
+              <ProgressBar value={readyPercent} variant="success" className="w-16" />
             </div>
 
-            <button
+            <Button
               onClick={handleBatchGenerateAll}
               disabled={isBatchGenerating}
-              className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-bold rounded-2xl shadow-lg shadow-emerald-500/25 transition-all disabled:opacity-50"
+              size="lg"
+              className="bg-gradient-to-r from-success to-teal-600 hover:from-success/90 hover:to-teal-500 shadow-[var(--shadow-lg)] shadow-success/25 h-auto py-3.5 px-6 text-xs font-bold rounded-[var(--radius-lg)]"
             >
               {isBatchGenerating ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <ArrowClockwise size={16} weight="duotone" className="animate-spin" />
                   <span>AI 批量推导中 ({batchProgress}%)...</span>
                 </>
               ) : (
                 <>
-                  <Zap className="w-4 h-4" />
+                  <Lightning size={16} weight="duotone" />
                   <span>一键生成全流程所有成果物</span>
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Progress Bar when batch generating */}
         {isBatchGenerating && (
-          <div className="p-4 bg-slate-800/90 rounded-2xl border border-slate-700/80 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-300">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="p-4 bg-white/10 rounded-[var(--radius-lg)] border border-white/15 space-y-2"
+          >
+            <div className="flex items-center justify-between text-xs text-white/70">
               <span className="flex items-center gap-2">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                <ArrowClockwise size={14} weight="duotone" className="animate-spin text-success" />
                 正在推导: <strong className="text-white">{batchCurrentTitle || '初始化产研流水线...'}</strong>
               </span>
-              <span className="font-mono font-bold text-emerald-400">{batchProgress}%</span>
+              <span className="font-mono font-bold text-success">{batchProgress}%</span>
             </div>
-            <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-300"
-                style={{ width: `${batchProgress}%` }}
-              />
-            </div>
-          </div>
+            <ProgressBar value={batchProgress} variant="success" />
+          </motion.div>
         )}
-      </div>
+      </Card>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        {/* Phase Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => setActivePhase('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activePhase === 'all' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            全部阶段 ({deliverables.length})
-          </button>
-          <button
-            onClick={() => setActivePhase('requirement')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activePhase === 'requirement' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            1. 需求与规划
-          </button>
-          <button
-            onClick={() => setActivePhase('design')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activePhase === 'design' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            2. 交互与系统架构
-          </button>
-          <button
-            onClick={() => setActivePhase('dev')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activePhase === 'dev' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            3. 工程实现与代码
-          </button>
-          <button
-            onClick={() => setActivePhase('qa')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activePhase === 'qa' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            4. 质量保障与测试
-          </button>
-          <button
-            onClick={() => setActivePhase('release')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activePhase === 'release' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            5. 发布运营与商业化
-          </button>
-        </div>
+      <Card className="p-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Phase Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {phaseButtons.map(pb => (
+              <Button
+                key={pb.key}
+                onClick={() => setActivePhase(pb.key)}
+                variant={activePhase === pb.key ? 'primary' : 'secondary'}
+                size="xs"
+                className="rounded-[var(--radius-md)] font-bold"
+              >
+                {pb.label}
+              </Button>
+            ))}
+          </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
+          {/* Search */}
+          <Input
+            icon={<MagnifyingGlass size={14} weight="duotone" />}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索成果物名称/编号..."
-            className="w-full bg-slate-50 text-xs text-slate-800 placeholder:text-slate-400 pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            className="w-full md:w-64 h-8 text-xs"
           />
         </div>
-      </div>
+      </Card>
 
       {/* Deliverables Grid Matrix */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredDeliverables.map((d) => (
-          <div
+        {filteredDeliverables.map((d, idx) => (
+          <motion.div
             key={d.id}
-            className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between space-y-4"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25, delay: idx * 0.03 }}
           >
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-slate-100 text-slate-700">
-                    {d.code}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                    {d.phaseName}
-                  </span>
+            <Card variant="interactive" className="p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="neutral" className="font-mono font-bold">
+                      {d.code}
+                    </Badge>
+                    <Badge variant="accent">{d.phaseName}</Badge>
+                  </div>
+                  {getStatusBadge(d.status)}
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                  d.status === 'ready' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                  d.status === 'generating' ? 'bg-blue-50 text-blue-700 border border-blue-200 animate-pulse' :
-                  'bg-slate-50 text-slate-600 border border-slate-200'
-                }`}>
-                  {d.status === 'ready' ? '已就绪' : d.status === 'generating' ? '生成中...' : '待生成'}
-                </span>
+
+                <h4 className="font-bold text-text-primary text-sm leading-snug">{d.title}</h4>
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">{d.summary}</p>
               </div>
 
-              <h4 className="font-bold text-slate-800 text-sm leading-snug">{d.title}</h4>
-              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{d.summary}</p>
-            </div>
+              <div className="space-y-3 pt-3 border-t border-border-subtle">
+                <div className="flex items-center justify-between text-[11px] text-text-tertiary">
+                  <span>格式: <strong className="text-text-secondary font-mono">{d.format.toUpperCase()}</strong></span>
+                  <span>字数: <strong className="text-text-secondary">{d.wordCount || '约3,000字'}</strong></span>
+                </div>
 
-            <div className="space-y-3 pt-3 border-t border-slate-100">
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>格式: <strong className="text-slate-700 font-mono">{d.format.toUpperCase()}</strong></span>
-                <span>字数: <strong className="text-slate-700">{d.wordCount || '约3,000字'}</strong></span>
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <Button
+                    onClick={() => setSelectedDeliverable(d)}
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-xs font-bold"
+                  >
+                    <Eye size={13} weight="duotone" />
+                    <span>查看/编辑</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => handleGenerateSingle(d.code)}
+                    title="重新由 AI 推导"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <ArrowClockwise size={13} weight="duotone" />
+                  </Button>
+
+                  <Button
+                    onClick={() => handleSyncToDocs(d)}
+                    title="归档至产品文档"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <FolderPlus size={13} weight="duotone" />
+                  </Button>
+
+                  <Button
+                    onClick={() => handleDownload(d)}
+                    title="下载文件"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <Download size={13} weight="duotone" />
+                  </Button>
+                </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button
-                  onClick={() => setSelectedDeliverable(d)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-colors"
-                >
-                  <Eye size={13} />
-                  <span>查看/编辑</span>
-                </button>
-
-                <button
-                  onClick={() => handleGenerateSingle(d.code)}
-                  title="重新由 AI 推导"
-                  className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"
-                >
-                  <RefreshCw size={13} />
-                </button>
-
-                <button
-                  onClick={() => handleSyncToDocs(d)}
-                  title="归档至产品文档"
-                  className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"
-                >
-                  <FolderPlus size={13} />
-                </button>
-
-                <button
-                  onClick={() => handleDownload(d)}
-                  title="下载文件"
-                  className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"
-                >
-                  <Download size={13} />
-                </button>
-              </div>
-            </div>
-          </div>
+            </Card>
+          </motion.div>
         ))}
       </div>
 
       {/* Deliverable Full-Screen Preview & Edit Modal */}
       {selectedDeliverable && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in zoom-in-95">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 bg-bg-overlay backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
+          onClick={() => setSelectedDeliverable(null)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="bg-bg-primary rounded-[var(--radius-xl)] w-full max-w-4xl max-h-[90vh] shadow-[var(--shadow-xl)] border border-border-subtle flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+            <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-600/30 text-blue-400 font-mono font-bold text-xs border border-blue-500/30">
+                <div className="p-2 rounded-[var(--radius-md)] bg-white/15 text-white/90 font-mono font-bold text-xs border border-white/20">
                   {selectedDeliverable.code}
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-white">{selectedDeliverable.title}</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-white/60 mt-0.5">
                     所属阶段: {selectedDeliverable.phaseName} · 格式: {selectedDeliverable.format.toUpperCase()} · 字数: {selectedDeliverable.wordCount}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={() => handleCopy(selectedDeliverable.id, selectedDeliverable.content)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="text-white/80 hover:text-white hover:bg-white/10 border border-white/20"
                 >
-                  {copiedId === selectedDeliverable.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  {copiedId === selectedDeliverable.id ? <Check size={13} weight="duotone" className="text-success" /> : <Copy size={13} weight="duotone" />}
                   <span>{copiedId === selectedDeliverable.id ? '已复制' : '复制全文'}</span>
-                </button>
+                </Button>
 
-                <button
+                <Button
                   onClick={() => handleDownload(selectedDeliverable)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="text-white/80 hover:text-white hover:bg-white/10 border border-white/20"
                 >
-                  <Download size={13} />
+                  <Download size={13} weight="duotone" />
                   <span>导出文件</span>
-                </button>
+                </Button>
 
-                <button
+                <Button
                   onClick={() => setSelectedDeliverable(null)}
-                  className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="text-white/60 hover:text-white hover:bg-white/10"
                 >
-                  <X size={18} />
-                </button>
+                  <X size={18} weight="duotone" />
+                </Button>
               </div>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-slate-50 space-y-6">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="prose prose-slate prose-sm max-w-none text-slate-800 font-sans leading-relaxed">
+            <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-bg-secondary space-y-6">
+              <Card className="p-6">
+                <div className="prose prose-sm max-w-none text-text-primary font-sans leading-relaxed">
                   <ReactMarkdown>{selectedDeliverable.content}</ReactMarkdown>
                 </div>
-              </div>
+              </Card>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-white border-t border-slate-100 flex items-center justify-between">
-              <div className="text-xs text-slate-400">
+            <div className="p-4 bg-bg-primary border-t border-border-subtle flex items-center justify-between">
+              <div className="text-xs text-text-tertiary">
                 可一键归档至【产品文档】或同步至本地工作区目录。
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={() => handleSyncToDocs(selectedDeliverable)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                  size="sm"
+                  className="text-xs font-bold"
                 >
-                  <FolderPlus size={14} />
+                  <FolderPlus size={14} weight="duotone" />
                   <span>归档至产品文档中心</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setSelectedDeliverable(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
+                  variant="secondary"
+                  size="sm"
+                  className="text-xs font-semibold"
                 >
                   关闭
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

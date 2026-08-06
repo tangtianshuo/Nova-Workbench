@@ -4,41 +4,49 @@
  */
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Product } from '../../data/mockProducts';
 import { ProductKnowledgeItem } from '../../data/mockRndData';
 import { useApp } from '../../store/AppContext';
-import { 
-  BookOpen, 
-  Sparkles, 
-  Search, 
-  Plus, 
-  Tag, 
-  Clock, 
-  Edit3, 
-  Trash2, 
-  Copy, 
-  Check, 
-  Wand2, 
-  CheckCircle2, 
-  HelpCircle, 
-  BookMarked,
-  Layers,
-  X,
-  FileText
-} from 'lucide-react';
+import {
+  BookOpen as PhBookOpen,
+  Sparkle as PhSparkle,
+  MagnifyingGlass as PhSearch,
+  Plus as PhPlus,
+  Tag as PhTag,
+  Clock as PhClock,
+  PencilSimple as PhEdit3,
+  Trash as PhTrash2,
+  Copy as PhCopy,
+  Check as PhCheck,
+  MagicWand as PhWand2,
+  CheckCircle as PhCheckCircle2,
+  SealQuestion as PhHelpCircle,
+  BookBookmark as PhBookMarked,
+  Stack as PhLayers,
+  X as PhX,
+  FileText as PhFileText,
+} from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
+import { Card } from '@/src/components/ui/Card';
+import { Button } from '@/src/components/ui/Button';
+import { Badge } from '@/src/components/ui/Badge';
+import { Input, Textarea } from '@/src/components/ui/Input';
+import { Separator } from '@/src/components/ui/Separator';
 
 interface Props {
   product: Product;
 }
 
+const springTransition = { type: 'spring' as const, stiffness: 300, damping: 25 };
+
 export function ProductKnowledgeTab({ product }: Props) {
-  const { 
-    getKnowledgeForProduct, 
-    addKnowledgeItem, 
-    updateKnowledgeItem, 
-    deleteKnowledgeItem, 
-    polishKnowledgeArticleAI 
+  const {
+    getKnowledgeForProduct,
+    addKnowledgeItem,
+    updateKnowledgeItem,
+    deleteKnowledgeItem,
+    polishKnowledgeArticleAI
   } = useApp();
 
   const items = getKnowledgeForProduct(product.id);
@@ -62,8 +70,8 @@ export function ProductKnowledgeTab({ product }: Props) {
 
   const filteredItems = items.filter(item => {
     const matchCategory = activeCategory === 'all' || item.category === activeCategory;
-    const matchQuery = !searchQuery || 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchQuery = !searchQuery ||
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchCategory && matchQuery;
@@ -128,56 +136,67 @@ export function ProductKnowledgeTab({ product }: Props) {
   return (
     <div className="space-y-6">
       {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-2 animate-in fade-in">
-          <Sparkles className="w-4 h-4 text-purple-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            className="fixed bottom-6 right-6 z-50 bg-slate-900 text-text-inverted text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={springTransition}
+          >
+            <PhSparkle size={16} weight="duotone" className="text-purple-400" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-purple-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl border border-purple-400/30">
-              <BookOpen className="w-5 h-5" />
+      <Card variant="dark" className="p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl border border-purple-400/30">
+                <PhBookOpen size={20} weight="duotone" />
+              </div>
+              <h3 className="text-lg font-bold">产品领域知识库与沉淀中枢</h3>
             </div>
-            <h3 className="text-lg font-bold">产品领域知识库与沉淀中枢</h3>
+            <p className="text-xs text-text-tertiary">
+              收录【{product.name}】的业务逻辑公理、领域模型字典、安全合规红线与架构准则，支持 AI 辅助润色扩充。
+            </p>
           </div>
-          <p className="text-xs text-slate-300">
-            收录【{product.name}】的业务逻辑公理、领域模型字典、安全合规红线与架构准则，支持 AI 辅助润色扩充。
-          </p>
-        </div>
 
-        <button
-          onClick={() => {
-            setEditTitle('');
-            setEditContent('');
-            setEditTags('核心, 业务');
-            setEditCategory('业务规则');
-            setIsCreatingNew(true);
-          }}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
-        >
-          <Plus size={14} />
-          <span>新建知识词条</span>
-        </button>
-      </div>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setEditTitle('');
+              setEditContent('');
+              setEditTags('核心, 业务');
+              setEditCategory('业务规则');
+              setIsCreatingNew(true);
+            }}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border-0 shrink-0"
+          >
+            <PhPlus size={14} weight="duotone" />
+            <span>新建知识词条</span>
+          </Button>
+        </div>
+      </Card>
 
       {/* Main 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: List & Categories */}
         <div className="lg:col-span-4 space-y-4">
           {/* Search and Category Filter */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+          <Card className="p-4 space-y-3">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <PhSearch size={14} weight="duotone" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索知识库..."
-                className="w-full bg-slate-50 text-xs text-slate-800 placeholder:text-slate-400 pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                className="w-full bg-bg-secondary text-xs text-text-primary placeholder:text-text-placeholder pl-9 pr-3 py-2 rounded-xl border border-border-subtle focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
             </div>
 
@@ -189,68 +208,72 @@ export function ProductKnowledgeTab({ product }: Props) {
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                     activeCategory === cat
                       ? 'bg-purple-600 text-white'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      : 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary'
                   }`}
                 >
                   {cat === 'all' ? '全部' : cat}
                 </button>
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* List of Items */}
           <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
             {filteredItems.map((item) => (
-              <div
+              <motion.div
                 key={item.id}
+                layout
                 onClick={() => {
                   setSelectedItemId(item.id);
                   setIsEditing(false);
                 }}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2 ${
                   selectedItemId === item.id
-                    ? 'bg-purple-50/70 border-purple-200 shadow-sm'
-                    : 'bg-white border-slate-100 hover:border-slate-200 shadow-sm'
+                    ? 'bg-accent-subtle/40 border-accent/30 shadow-sm'
+                    : 'bg-bg-primary border-border-subtle hover:border-border shadow-sm'
                 }`}
+                initial={false}
+                animate={{ scale: selectedItemId === item.id ? 1 : 0.98 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                  <Badge variant="neutral" className="text-[10px] font-bold bg-purple-100 text-purple-800">
                     {item.category}
-                  </span>
-                  <span className="text-[10px] text-slate-400">{item.updatedAt}</span>
+                  </Badge>
+                  <span className="text-[10px] text-text-tertiary">{item.updatedAt}</span>
                 </div>
 
-                <h4 className="font-bold text-xs text-slate-800 line-clamp-1">{item.title}</h4>
-                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                <h4 className="font-bold text-xs text-text-primary line-clamp-1">{item.title}</h4>
+                <p className="text-[11px] text-text-secondary line-clamp-2 leading-relaxed">
                   {item.content.replace(/[#*`]/g, '').slice(0, 80)}...
                 </p>
 
                 <div className="flex flex-wrap gap-1 pt-1">
                   {item.tags.map((t, idx) => (
-                    <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
+                    <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-bg-secondary text-text-secondary font-mono">
                       #{t}
                     </span>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
 
         {/* Right Column: Article Reader / Editor */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm space-y-6">
+        <Card className="lg:col-span-8 p-6 md:p-8 space-y-6">
           {selectedItem ? (
             <>
               {/* Reader Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-subtle pb-5">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                    <Badge variant="neutral" className="text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-0.5 rounded-lg">
                       {selectedItem.category}
-                    </span>
-                    <h3 className="font-bold text-base text-slate-900">{selectedItem.title}</h3>
+                    </Badge>
+                    <h3 className="font-bold text-base text-text-primary">{selectedItem.title}</h3>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-text-tertiary mt-1">
                     维护人: {selectedItem.author} · 最后更新: {selectedItem.updatedAt}
                   </p>
                 </div>
@@ -263,43 +286,37 @@ export function ProductKnowledgeTab({ product }: Props) {
                       disabled={isPolishing}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl border border-purple-200 transition-colors disabled:opacity-50"
                     >
-                      <Wand2 size={13} className={isPolishing ? 'animate-spin' : ''} />
+                      <PhWand2 size={13} weight="duotone" className={isPolishing ? 'animate-spin' : ''} />
                       <span>AI 排版润色</span>
                     </button>
                     <button
                       onClick={() => handleAIPolish('补充异常边界与规约')}
                       disabled={isPolishing}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-subtle hover:bg-accent-muted text-accent text-xs font-bold rounded-xl border border-accent/20 transition-colors disabled:opacity-50"
                     >
-                      <Sparkles size={13} />
+                      <PhSparkle size={13} weight="duotone" />
                       <span>AI 扩充边界</span>
                     </button>
                   </div>
 
                   {!isEditing ? (
-                    <button
-                      onClick={() => handleStartEdit(selectedItem)}
-                      className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors"
-                      title="编辑知识内容"
-                    >
-                      <Edit3 size={14} />
-                    </button>
+                    <Button variant="secondary" size="sm" onClick={() => handleStartEdit(selectedItem)}>
+                      <PhEdit3 size={14} weight="duotone" />
+                    </Button>
                   ) : (
-                    <button
-                      onClick={handleSaveEdit}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors"
-                    >
+                    <Button variant="primary" size="sm" onClick={handleSaveEdit} className="bg-success hover:bg-success/90">
                       保存更新
-                    </button>
+                    </Button>
                   )}
 
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => deleteKnowledgeItem(product.id, selectedItem.id)}
-                    className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors"
-                    title="删除词条"
+                    className="text-danger border-danger/20 bg-danger-subtle hover:bg-danger-subtle/80"
                   >
-                    <Trash2 size={14} />
-                  </button>
+                    <PhTrash2 size={14} weight="duotone" />
+                  </Button>
                 </div>
               </div>
 
@@ -307,140 +324,137 @@ export function ProductKnowledgeTab({ product }: Props) {
               {isEditing ? (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
+                    <Input
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
                       placeholder="词条标题..."
-                      className="w-full text-xs font-bold bg-slate-50 p-2.5 rounded-xl border border-slate-200 focus:outline-none"
+                      className="text-xs font-bold"
                     />
-                    <input
-                      type="text"
+                    <Input
                       value={editTags}
                       onChange={(e) => setEditTags(e.target.value)}
                       placeholder="标签（以逗号分隔，如：RBAC, 架构, 性能）"
-                      className="w-full text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200 focus:outline-none"
+                      className="text-xs"
                     />
                   </div>
 
-                  <textarea
-                    rows={16}
+                  <Textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    className="w-full text-xs font-mono bg-slate-50 p-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30 leading-relaxed resize-none"
+                    placeholder="知识正文..."
+                    className="text-xs font-mono min-h-[320px] leading-relaxed"
                   />
 
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl"
-                    >
+                    <Button variant="secondary" size="md" onClick={() => setIsEditing(false)}>
                       取消
-                    </button>
-                    <button
-                      onClick={handleSaveEdit}
-                      className="px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl shadow-sm"
-                    >
+                    </Button>
+                    <Button variant="primary" size="md" onClick={handleSaveEdit} className="bg-purple-600 hover:bg-purple-700">
                       保存词条
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
-                <div className="prose prose-slate prose-sm max-w-none text-slate-800 font-sans leading-relaxed">
+                <div className="prose prose-slate prose-sm max-w-none text-text-primary font-sans leading-relaxed">
                   <ReactMarkdown>{selectedItem.content}</ReactMarkdown>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-center py-20 text-slate-400 text-xs">
+            <div className="text-center py-20 text-text-tertiary text-xs">
               暂无知识库词条，点击右上角新建词条。
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Create New Item Modal */}
-      {isCreatingNew && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-                <BookMarked className="w-5 h-5 text-purple-600" />
-                <span>新建知识库沉淀词条</span>
-              </h3>
-              <button onClick={() => setIsCreatingNew(false)} className="text-slate-400 hover:text-slate-600">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">词条标题</label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="例如：多租户权限校验与RBAC角色矩阵规约"
-                  className="w-full bg-slate-50 text-xs p-3 rounded-xl border border-slate-200 focus:outline-none"
-                />
+      <AnimatePresence>
+        {isCreatingNew && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="bg-bg-primary rounded-3xl w-full max-w-2xl p-6 shadow-2xl border border-border-subtle space-y-4"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={springTransition}
+            >
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
+                  <PhBookMarked size={20} weight="duotone" className="text-purple-500" />
+                  <span>新建知识库沉淀词条</span>
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => setIsCreatingNew(false)}>
+                  <PhX size={18} weight="duotone" />
+                </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">所属分类</label>
-                  <select
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value as any)}
-                    className="w-full bg-slate-50 text-xs p-3 rounded-xl border border-slate-200 focus:outline-none"
-                  >
-                    <option value="业务规则">业务规则</option>
-                    <option value="领域字典">领域字典</option>
-                    <option value="架构约束">架构约束</option>
-                    <option value="踩坑指南">踩坑指南</option>
-                  </select>
+                  <label className="block text-xs font-bold text-text-secondary mb-1">词条标题</label>
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="例如：多租户权限校验与RBAC角色矩阵规约"
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-text-secondary mb-1">所属分类</label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value as any)}
+                      className="w-full bg-bg-secondary text-xs p-3 rounded-xl border border-border-subtle focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    >
+                      <option value="业务规则">业务规则</option>
+                      <option value="领域字典">领域字典</option>
+                      <option value="架构约束">架构约束</option>
+                      <option value="踩坑指南">踩坑指南</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-text-secondary mb-1">标签</label>
+                    <Input
+                      value={editTags}
+                      onChange={(e) => setEditTags(e.target.value)}
+                      placeholder="以逗号分隔，如：RBAC, 架构"
+                      className="text-xs"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">标签</label>
-                  <input
-                    type="text"
-                    value={editTags}
-                    onChange={(e) => setEditTags(e.target.value)}
-                    placeholder="以逗号分隔，如：RBAC, 架构"
-                    className="w-full bg-slate-50 text-xs p-3 rounded-xl border border-slate-200 focus:outline-none"
+                  <label className="block text-xs font-bold text-text-secondary mb-1">知识正文 (支持 Markdown)</label>
+                  <Textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    placeholder="# 业务背景与规则规范..."
+                    className="text-xs font-mono min-h-[200px]"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">知识正文 (支持 Markdown)</label>
-                <textarea
-                  rows={8}
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  placeholder="# 业务背景与规则规范..."
-                  className="w-full bg-slate-50 text-xs font-mono p-3 rounded-xl border border-slate-200 focus:outline-none resize-none"
-                />
+              <div className="flex justify-end gap-2 pt-2 border-t border-border-subtle">
+                <Button variant="secondary" size="md" onClick={() => setIsCreatingNew(false)}>
+                  取消
+                </Button>
+                <Button variant="primary" size="md" onClick={handleCreateNew} className="bg-purple-600 hover:bg-purple-700">
+                  立即收录
+                </Button>
               </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setIsCreatingNew(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreateNew}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-sm"
-              >
-                立即收录
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
 import { ProductDocument } from '../../data/mockProducts';
-import { X, FileText, Plus, Sparkles, Tag, User } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogBody,
+  Button,
+  Input,
+  Textarea,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '../ui';
 
 interface Props {
   productId: string;
@@ -38,116 +52,87 @@ export function AddDocumentModal({ productId, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <FileText size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">新建产品文档</h2>
-              <p className="text-xs text-slate-400">录入 PRD 需求、技术架构方案、API 协议或用户调研报告</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader
+          title="新建产品文档"
+          description="录入 PRD 需求、技术架构方案、API 协议或用户调研报告"
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block font-bold text-slate-700 mb-1.5">文档名称 *</label>
-            <input
+        <DialogBody>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="文档名称 *"
               type="text"
               required
               placeholder="例如: PRD_核心数据看板与异常预警规格_v2.0.docx"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+              className="font-medium"
             />
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">文档类别</label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                <option value="PRD需求">PRD需求</option>
-                <option value="架构设计">架构设计</option>
-                <option value="API规范">API规范</option>
-                <option value="用户调研">用户调研</option>
-                <option value="发版规划">发版规划</option>
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-text-primary">文档类别</label>
+                <Select value={category} onValueChange={(v) => setCategory(v as ProductDocument['category'])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PRD需求">PRD需求</SelectItem>
+                    <SelectItem value="架构设计">架构设计</SelectItem>
+                    <SelectItem value="API规范">API规范</SelectItem>
+                    <SelectItem value="用户调研">用户调研</SelectItem>
+                    <SelectItem value="发版规划">发版规划</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">版本号</label>
-              <input
+              <Input
+                label="版本号"
                 type="text"
                 placeholder="v1.0"
                 value={version}
                 onChange={e => setVersion(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                className="font-mono"
               />
-            </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">维护作者</label>
-              <input
+              <Input
+                label="维护作者"
                 type="text"
                 value={author}
                 onChange={e => setAuthor(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1.5">文档摘要概览</label>
-            <textarea
+            <Textarea
+              label="文档摘要概览"
               rows={2}
               placeholder="简要概括该文档涉及的核心业务逻辑与影响模块..."
               value={summary}
               onChange={e => setSummary(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
             />
-          </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1.5">Markdown 文档内容</label>
-            <textarea
+            <Textarea
+              label="Markdown 文档内容"
               rows={6}
               placeholder="支持 Markdown 语法，如 ### 1. 背景与目标..."
               value={content}
               onChange={e => setContent(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+              className="font-mono"
             />
-          </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-medium"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              保存并发布文档
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={onClose}>
+                取消
+              </Button>
+              <Button type="submit" variant="primary">
+                保存并发布文档
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 }

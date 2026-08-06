@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, ChevronDown, Bot, Terminal, Folder, Cpu, Layers } from 'lucide-react';
+import { motion } from 'motion/react';
+import { PaperPlaneRight, Paperclip, CaretDown, Robot, Terminal, Folder, Cpu, Stack } from '@phosphor-icons/react';
 import { useApp } from '../store/AppContext';
+import { Card } from '@/src/components/ui/Card';
+import { Button } from '@/src/components/ui/Button';
+import { cn } from '@/src/lib/utils';
 
 export function AIAssistantPanel({ className = '' }: { className?: string }) {
   const { addTask, addEvent } = useApp();
@@ -22,9 +26,9 @@ export function AIAssistantPanel({ className = '' }: { className?: string }) {
 
     setTimeout(() => {
       if (text.includes('明天上午开会沟通需求') || text.includes('开会沟通需求')) {
-        setMessages(prev => [...prev, { 
-          role: 'ai', 
-          text: '好的，我已经解析了您的指令，并执行了以下自动化操作：\n\n✅ 在任务管理中创建了高优先级任务【沟通需求】\n✅ 在日程表中预定了明天上午 10:00 的【沟通需求会议】' 
+        setMessages(prev => [...prev, {
+          role: 'ai',
+          text: '好的，我已经解析了您的指令，并执行了以下自动化操作：\n\n✅ 在任务管理中创建了高优先级任务【沟通需求】\n✅ 在日程表中预定了明天上午 10:00 的【沟通需求会议】'
         }]);
         addTask({
           id: `WXB-2025-00${Math.floor(Math.random() * 900) + 10}`,
@@ -47,55 +51,69 @@ export function AIAssistantPanel({ className = '' }: { className?: string }) {
           location: '会议室 3A'
         });
       } else {
-        setMessages(prev => [...prev, { 
-          role: 'ai', 
-          text: `收到指令："${text}"。这只是一个演示体验。您可以尝试输入：“明天上午开会沟通需求”，体验跨模块创建任务和日程的自动化编排功能。` 
+        setMessages(prev => [...prev, {
+          role: 'ai',
+          text: `收到指令："${text}"。这只是一个演示体验。您可以尝试输入："明天上午开会沟通需求"，体验跨模块创建任务和日程的自动化编排功能。`
         }]);
       }
     }, 1000);
   };
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full overflow-hidden text-slate-700 ${className}`}>
+    <Card className={cn('flex flex-col h-full overflow-hidden', className)}>
       {/* Header */}
-      <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs font-medium">
-        <div className="flex items-center gap-4">
-          <button className="flex items-center gap-1.5 hover:text-slate-900 transition-colors bg-white border border-slate-200 px-2 py-1 rounded shadow-sm">
-            <Folder size={14} className="text-blue-500" />
+      <div className="p-3 bg-bg-secondary/60 border-b border-border-subtle flex items-center justify-between text-xs font-medium">
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" size="xs" className="gap-1.5">
+            <Folder size={14} weight="duotone" className="text-accent" />
             WenXiBuddy 2.0
-            <ChevronDown size={12} className="text-slate-400" />
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-slate-900 transition-colors bg-white border border-slate-200 px-2 py-1 rounded shadow-sm">
-            <Cpu size={14} className="text-blue-500" />
+            <CaretDown size={12} weight="bold" className="text-text-tertiary" />
+          </Button>
+          <Button variant="secondary" size="xs" className="gap-1.5">
+            <Cpu size={14} weight="duotone" className="text-accent" />
             Claude 3.5 Sonnet
-            <ChevronDown size={12} className="text-slate-400" />
-          </button>
+            <CaretDown size={12} weight="bold" className="text-text-tertiary" />
+          </Button>
         </div>
-        <Terminal size={14} className="text-slate-400" />
+        <Terminal size={14} weight="duotone" className="text-text-tertiary" />
       </div>
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
         {messages.map((msg, idx) => (
-          <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-blue-600 text-white shadow-sm' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-              {msg.role === 'user' ? <div className="text-[10px] font-bold">ME</div> : <Bot size={16} />}
+          <motion.div
+            key={idx}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className={cn('flex gap-3', msg.role === 'user' && 'flex-row-reverse')}
+          >
+            <div className={cn(
+              'w-7 h-7 rounded-md flex items-center justify-center shrink-0',
+              msg.role === 'user'
+                ? 'bg-accent text-white shadow-sm'
+                : 'bg-accent/10 text-accent border border-accent/15'
+            )}>
+              {msg.role === 'user'
+                ? <div className="text-[10px] font-bold">ME</div>
+                : <Robot size={16} weight="duotone" />}
             </div>
-            <div className={`max-w-[85%] rounded-xl p-3 text-sm leading-relaxed whitespace-pre-wrap ${
-              msg.role === 'user' 
-                ? 'bg-blue-600 text-white rounded-tr-sm shadow-sm' 
-                : 'bg-slate-50 text-slate-700 rounded-tl-sm border border-slate-200'
-            }`}>
+            <div className={cn(
+              'max-w-[85%] rounded-xl p-3 text-sm leading-relaxed whitespace-pre-wrap',
+              msg.role === 'user'
+                ? 'bg-accent text-white rounded-tr-sm shadow-sm'
+                : 'bg-bg-secondary text-text-primary rounded-tl-sm border border-border-subtle'
+            )}>
               {msg.text}
             </div>
-          </div>
+          </motion.div>
         ))}
         <div ref={chatEndRef} />
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t border-slate-100">
-        <div className="bg-slate-50 rounded-xl border border-slate-200 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all p-1 shadow-sm">
+      <div className="p-4 border-t border-border-subtle">
+        <div className="bg-bg-secondary/60 rounded-xl border border-border focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 transition-all p-1 shadow-xs">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -106,27 +124,29 @@ export function AIAssistantPanel({ className = '' }: { className?: string }) {
               }
             }}
             placeholder="输入指令 (如: 明天上午开会沟通需求)..."
-            className="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 border-none focus:outline-none resize-none px-3 py-2 h-12"
+            className="w-full bg-transparent text-sm text-text-primary placeholder-text-tertiary border-none focus:outline-none resize-none px-3 py-2 h-12"
           />
           <div className="flex justify-between items-center px-2 py-1">
-            <div className="flex items-center gap-2">
-              <button className="text-slate-400 hover:text-slate-700 transition-colors p-1" title="选择本地文件">
-                <Paperclip size={16} />
-              </button>
-              <button className="text-slate-400 hover:text-slate-700 transition-colors p-1" title="调用工具集">
-                <Layers size={16} />
-              </button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="xs" aria-label="选择本地文件">
+                <Paperclip size={16} weight="duotone" />
+              </Button>
+              <Button variant="ghost" size="xs" aria-label="调用工具集">
+                <Stack size={16} weight="duotone" />
+              </Button>
             </div>
-            <button 
-              onClick={handleSubmit}
+            <Button
+              variant="primary"
+              size="xs"
               disabled={!input.trim()}
-              className={`p-1.5 rounded-lg transition-colors shadow-sm ${input.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+              onClick={handleSubmit}
+              className="shadow-sm"
             >
-              <Send size={14} className={input.trim() ? 'translate-x-px' : ''} />
-            </button>
+              <PaperPlaneRight size={14} weight="bold" />
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

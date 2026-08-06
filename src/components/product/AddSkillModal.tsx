@@ -1,7 +1,23 @@
 import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
 import { ProductSkill } from '../../data/mockProducts';
-import { X, Zap, CheckCircle2, Cpu, Plus, Sparkles, Sliders } from 'lucide-react';
+import { Lightning, CheckCircle } from '@phosphor-icons/react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogBody,
+  Button,
+  Input,
+  Textarea,
+  Badge,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '../ui';
 
 interface Props {
   productId: string;
@@ -98,153 +114,129 @@ export function AddSkillModal({ productId, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Zap size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">关联新 AI Skill 技能</h2>
-              <p className="text-xs text-slate-400">为【{currentProduct?.name}】挂载专属自动化 Agent 智能体</p>
-            </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader
+          title="关联新 AI Skill 技能"
+          description={`为【${currentProduct?.name}】挂载专属自动化 Agent 智能体`}
+        />
+
+        <DialogBody>
+          {/* Mode Selector */}
+          <div className="flex items-center gap-2 mb-5 bg-bg-secondary p-1 rounded-[var(--radius-md)] text-sm font-semibold">
+            <button
+              onClick={() => setMode('preset')}
+              className={`flex-1 py-2 rounded-[var(--radius-sm)] transition-colors cursor-pointer ${
+                mode === 'preset' ? 'bg-bg-primary text-accent shadow-shadow-sm font-bold' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              从技能市场精选推荐
+            </button>
+            <button
+              onClick={() => setMode('custom')}
+              className={`flex-1 py-2 rounded-[var(--radius-sm)] transition-colors cursor-pointer ${
+                mode === 'custom' ? 'bg-bg-primary text-accent shadow-shadow-sm font-bold' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              自定义创建新 Agent Skill
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
 
-        {/* Mode Selector */}
-        <div className="flex items-center gap-2 mb-5 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-          <button
-            onClick={() => setMode('preset')}
-            className={`flex-1 py-2 rounded-lg transition-colors ${
-              mode === 'preset' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            从技能市场精选推荐
-          </button>
-          <button
-            onClick={() => setMode('custom')}
-            className={`flex-1 py-2 rounded-lg transition-colors ${
-              mode === 'custom' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            自定义创建新 Agent Skill
-          </button>
-        </div>
-
-        {mode === 'preset' ? (
-          <div className="space-y-3 mb-6">
-            {PRESET_SKILLS.map((preset, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedPresetIndex(idx)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                  selectedPresetIndex === idx
-                    ? 'bg-blue-50/50 border-blue-500 shadow-sm ring-1 ring-blue-500/20'
-                    : 'bg-white border-slate-100 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-800">{preset.name}</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                      {preset.category}
-                    </span>
+          {mode === 'preset' ? (
+            <div className="space-y-3">
+              {PRESET_SKILLS.map((preset, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedPresetIndex(idx)}
+                  className={`p-4 rounded-[var(--radius-lg)] border transition-all cursor-pointer ${
+                    selectedPresetIndex === idx
+                      ? 'bg-accent-subtle border-accent shadow-shadow-sm ring-1 ring-accent/20'
+                      : 'bg-bg-primary border-border-subtle hover:border-text-tertiary/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-text-primary">{preset.name}</span>
+                      <Badge variant="neutral">{preset.category}</Badge>
+                    </div>
+                    {selectedPresetIndex === idx && <CheckCircle size={16} weight="duotone" className="text-accent" />}
                   </div>
-                  {selectedPresetIndex === idx && <CheckCircle2 size={16} className="text-blue-600" />}
-                </div>
 
-                <p className="text-xs text-slate-500 leading-relaxed mb-2">
-                  {preset.description}
-                </p>
+                  <p className="text-sm text-text-secondary leading-relaxed mb-2">
+                    {preset.description}
+                  </p>
 
-                <div className="text-[11px] text-slate-400 flex items-center gap-4">
-                  <span>底座: <strong className="text-slate-700">{preset.config.model}</strong></span>
-                  <span>触发模式: <strong className="text-slate-700">{preset.triggerType}</strong></span>
+                  <div className="text-xs text-text-tertiary flex items-center gap-4">
+                    <span>底座: <strong className="text-text-secondary">{preset.config.model}</strong></span>
+                    <span>触发模式: <strong className="text-text-secondary">{preset.triggerType}</strong></span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4 text-xs mb-6">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">技能名称 *</label>
-              <input
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Input
+                label="技能名称 *"
                 type="text"
                 required
                 placeholder="例如: 智能需求差异比对 Agent"
                 value={customName}
                 onChange={e => setCustomName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">业务类别</label>
-                <select
-                  value={customCategory}
-                  onChange={e => setCustomCategory(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                >
-                  <option value="需求分析">需求分析</option>
-                  <option value="代码审查">代码审查</option>
-                  <option value="质量测试">质量测试</option>
-                  <option value="竞品监控">竞品监控</option>
-                  <option value="用户运营">用户运营</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-primary">业务类别</label>
+                  <Select value={customCategory} onValueChange={(v) => setCustomCategory(v as ProductSkill['category'])}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="需求分析">需求分析</SelectItem>
+                      <SelectItem value="代码审查">代码审查</SelectItem>
+                      <SelectItem value="质量测试">质量测试</SelectItem>
+                      <SelectItem value="竞品监控">竞品监控</SelectItem>
+                      <SelectItem value="用户运营">用户运营</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-primary">底座模型</label>
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DeepSeek-V3">DeepSeek-V3 (推荐)</SelectItem>
+                      <SelectItem value="Gemini 2.5 Pro">Gemini 2.5 Pro</SelectItem>
+                      <SelectItem value="Gemini 2.5 Flash">Gemini 2.5 Flash</SelectItem>
+                      <SelectItem value="DeepSeek-Coder">DeepSeek-Coder</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">底座模型</label>
-                <select
-                  value={model}
-                  onChange={e => setModel(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                >
-                  <option value="DeepSeek-V3">DeepSeek-V3 (推荐)</option>
-                  <option value="Gemini 2.5 Pro">Gemini 2.5 Pro</option>
-                  <option value="Gemini 2.5 Flash">Gemini 2.5 Flash</option>
-                  <option value="DeepSeek-Coder">DeepSeek-Coder</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1.5">技能职责与执行逻辑简述</label>
-              <textarea
+              <Textarea
+                label="技能职责与执行逻辑简述"
                 rows={3}
                 placeholder="详细说明该 Agent 在触发时应当调用的上下文、遵循的 SOP 规范与交付产出格式..."
                 value={customDesc}
                 onChange={e => setCustomDesc(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
               />
             </div>
-          </div>
-        )}
+          )}
+        </DialogBody>
 
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors font-medium text-xs"
-          >
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={onClose}>
             取消
-          </button>
-          <button
-            onClick={handleAttachSkill}
-            className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-xs"
-          >
+          </Button>
+          <Button variant="primary" onClick={handleAttachSkill}>
             立即挂载到产品
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

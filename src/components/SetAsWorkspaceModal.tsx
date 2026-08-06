@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { X, FolderPlus, Link2, PlusCircle, CheckCircle2, Folder, Calendar, Layers } from 'lucide-react';
+import { FolderPlus, Link, PlusCircle, CheckCircle, Folder, Calendar, Stack } from '@phosphor-icons/react';
 import { useApp, Workspace, WorkspaceFile } from '../store/AppContext';
+import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
+import { Button } from '@/src/components/ui/Button';
+import { Input } from '@/src/components/ui/Input';
+import { Textarea } from '@/src/components/ui/Input';
+import { Badge } from '@/src/components/ui/Badge';
+import { cn } from '@/src/lib/utils';
 
 interface SetAsWorkspaceModalProps {
   initialFolder: string;
@@ -22,7 +28,7 @@ export function SetAsWorkspaceModal({
   const folderName = initialFolder.split(/[\\/]/).filter(Boolean).pop() || '新建工作区';
   const [workspaceName, setWorkspaceName] = useState(suggestedName || folderName);
   const [folderPath, setFolderPath] = useState(initialFolder);
-  
+
   // 'existing' or 'new'
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
 
@@ -65,7 +71,7 @@ export function SetAsWorkspaceModal({
         deadline: newProjectDeadline,
         positioning: `为团队打造以 ${targetProjectName} 为核心的智能协同流。`,
         team: [
-          { name: 'Brandon', role: 'PM', avatar: 'BR', color: 'bg-indigo-600' }
+          { name: 'Brandon', role: 'PM', avatar: 'BR', color: 'bg-accent' }
         ],
         targetAudience: ['企业产研团队'],
         coreValues: [
@@ -176,201 +182,161 @@ export function SetAsWorkspaceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
-              <FolderPlus size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">将本地文件夹设为工作区</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                绑定项目总览与进度看板，一键开启 AI 深度归档总结
-              </p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-xl flex flex-col max-h-[90vh]">
+        <DialogHeader
+          title="将本地文件夹设为工作区"
+          description="绑定项目总览与进度看板，一键开启 AI 深度归档总结"
+        />
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-          {/* Workspace Basic Info */}
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                工作区名称 <span className="text-rose-500">*</span>
-              </label>
-              <input 
-                type="text"
+        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto space-y-5 px-1 py-2">
+            {/* Workspace Basic Info */}
+            <div className="space-y-3">
+              <Input
+                label="工作区名称 *"
                 value={workspaceName}
                 onChange={e => setWorkspaceName(e.target.value)}
                 placeholder="例如：WenXiBuddy 核心研发工作区"
-                className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                 required
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                本地文件夹路径
-              </label>
-              <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
-                <Folder size={14} className="text-slate-400 shrink-0" />
-                <input 
-                  type="text"
-                  value={folderPath}
-                  onChange={e => setFolderPath(e.target.value)}
-                  className="bg-transparent w-full focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Project Association Mode Tabs */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-2">
-              项目关联方式 <span className="text-rose-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-3 p-1 bg-slate-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setMode('existing')}
-                className={`py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all ${
-                  mode === 'existing'
-                    ? 'bg-white text-blue-600 shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Link2 size={14} /> 关联已有项目 ({projects.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('new')}
-                className={`py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all ${
-                  mode === 'new'
-                    ? 'bg-white text-blue-600 shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <PlusCircle size={14} /> 创建新项目
-              </button>
-            </div>
-          </div>
-
-          {/* Association Content */}
-          {mode === 'existing' ? (
-            <div className="space-y-2">
-              <label className="block text-xs text-slate-500">选择要关联的项目总览项目：</label>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {projects.map(proj => (
-                  <div
-                    key={proj.id}
-                    onClick={() => setSelectedProjectId(proj.id)}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                      selectedProjectId === proj.id
-                        ? 'border-blue-500 bg-blue-50/50 shadow-xs ring-1 ring-blue-500/20'
-                        : 'border-slate-100 hover:border-slate-200 bg-slate-50/30'
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-slate-800">{proj.name}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
-                          {proj.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-[11px] text-slate-400 mt-1">
-                        <span>进度: {proj.progress}%</span>
-                        {proj.deadline && <span>截止: {proj.deadline}</span>}
-                        <span>里程碑: {proj.milestones.length} 个</span>
-                      </div>
-                    </div>
-                    {selectedProjectId === proj.id && (
-                      <CheckCircle2 size={18} className="text-blue-600 shrink-0 ml-3" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3 p-4 bg-slate-50 border border-slate-100 rounded-xl">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  新项目名称 <span className="text-rose-500">*</span>
-                </label>
-                <input 
-                  type="text"
-                  value={newProjectName}
-                  onChange={e => setNewProjectName(e.target.value)}
-                  placeholder="项目名称..."
-                  className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  required
-                />
-              </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  项目描述
+                <label className="block text-xs font-semibold text-text-primary mb-1">
+                  本地文件夹路径
                 </label>
-                <textarea 
-                  value={newProjectDesc}
-                  onChange={e => setNewProjectDesc(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  预计截止日期
-                </label>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs">
-                  <Calendar size={14} className="text-slate-400" />
-                  <input 
-                    type="date"
-                    value={newProjectDeadline}
-                    onChange={e => setNewProjectDeadline(e.target.value)}
+                <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary/60 border border-border rounded-[var(--radius-md)] text-xs font-mono text-text-secondary">
+                  <Folder size={14} weight="duotone" className="text-text-tertiary shrink-0" />
+                  <input
+                    type="text"
+                    value={folderPath}
+                    onChange={e => setFolderPath(e.target.value)}
                     className="bg-transparent w-full focus:outline-none"
                   />
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Files Preview in Folder */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <Layers size={14} className="text-blue-500" />
-              已检测到该文件夹包含 {filesInFolder.length > 0 ? filesInFolder.length : 2} 个关联文档
-            </span>
-            <span className="text-[11px] text-slate-400">自动同步至工作区</span>
+            {/* Project Association Mode Tabs */}
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-2">
+                项目关联方式 *
+              </label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-bg-secondary/60 rounded-[var(--radius-md)]">
+                <button
+                  type="button"
+                  onClick={() => setMode('existing')}
+                  className={cn(
+                    'py-2 px-3 rounded-[var(--radius-sm)] text-xs font-medium flex items-center justify-center gap-2 transition-all',
+                    mode === 'existing'
+                      ? 'bg-bg-primary text-accent shadow-xs font-bold'
+                      : 'text-text-secondary hover:text-text-primary'
+                  )}
+                >
+                  <Link size={14} weight="duotone" /> 关联已有项目 ({projects.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('new')}
+                  className={cn(
+                    'py-2 px-3 rounded-[var(--radius-sm)] text-xs font-medium flex items-center justify-center gap-2 transition-all',
+                    mode === 'new'
+                      ? 'bg-bg-primary text-accent shadow-xs font-bold'
+                      : 'text-text-secondary hover:text-text-primary'
+                  )}
+                >
+                  <PlusCircle size={14} weight="duotone" /> 创建新项目
+                </button>
+              </div>
+            </div>
+
+            {/* Association Content */}
+            {mode === 'existing' ? (
+              <div className="space-y-2">
+                <label className="block text-xs text-text-secondary">选择要关联的项目总览项目：</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {projects.map(proj => (
+                    <div
+                      key={proj.id}
+                      onClick={() => setSelectedProjectId(proj.id)}
+                      className={cn(
+                        'p-3 rounded-[var(--radius-md)] border transition-all cursor-pointer flex items-center justify-between',
+                        selectedProjectId === proj.id
+                          ? 'border-accent bg-accent/5 shadow-xs ring-1 ring-accent/20'
+                          : 'border-border-subtle hover:border-border bg-bg-secondary/30'
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-text-primary">{proj.name}</span>
+                          <Badge variant="neutral" className="text-[10px]">{proj.status}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-[11px] text-text-tertiary mt-1">
+                          <span>进度: {proj.progress}%</span>
+                          {proj.deadline && <span>截止: {proj.deadline}</span>}
+                          <span>里程碑: {proj.milestones.length} 个</span>
+                        </div>
+                      </div>
+                      {selectedProjectId === proj.id && (
+                        <CheckCircle size={18} weight="fill" className="text-accent shrink-0 ml-3" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 bg-bg-secondary/60 border border-border-subtle rounded-[var(--radius-md)]">
+                <Input
+                  label="新项目名称 *"
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  placeholder="项目名称..."
+                  required
+                />
+
+                <Textarea
+                  label="项目描述"
+                  value={newProjectDesc}
+                  onChange={e => setNewProjectDesc(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-primary mb-1">
+                    预计截止日期
+                  </label>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border rounded-[var(--radius-sm)] text-xs">
+                    <Calendar size={14} weight="duotone" className="text-text-tertiary" />
+                    <input
+                      type="date"
+                      value={newProjectDeadline}
+                      onChange={e => setNewProjectDeadline(e.target.value)}
+                      className="bg-transparent w-full focus:outline-none text-text-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Files Preview in Folder */}
+            <div className="p-3 bg-bg-secondary/60 rounded-[var(--radius-md)] border border-border-subtle flex items-center justify-between text-xs text-text-secondary">
+              <span className="flex items-center gap-1.5">
+                <Stack size={14} weight="duotone" className="text-accent" />
+                已检测到该文件夹包含 {filesInFolder.length > 0 ? filesInFolder.length : 2} 个关联文档
+              </span>
+              <span className="text-[11px] text-text-tertiary">自动同步至工作区</span>
+            </div>
           </div>
 
-          {/* Footer Action */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
-            >
-              <FolderPlus size={14} /> 确认创建工作区
-            </button>
-          </div>
+          <DialogFooter className="mt-4 pt-4 border-t border-border-subtle">
+            <Button variant="secondary" type="button" onClick={onClose}>取消</Button>
+            <Button variant="primary" type="submit">
+              <FolderPlus size={14} weight="duotone" /> 确认创建工作区
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

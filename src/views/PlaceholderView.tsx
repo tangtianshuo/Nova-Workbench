@@ -1,4 +1,5 @@
 import { ElementType } from 'react';
+import { Card } from '@/src/components/ui/Card';
 
 interface PlaceholderViewProps {
   icon: ElementType;
@@ -8,12 +9,12 @@ interface PlaceholderViewProps {
 
 export function PlaceholderView({ icon: Icon, title, description }: PlaceholderViewProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm">
-      <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-        <Icon size={48} className="text-slate-300" />
+    <Card variant="glass" className="flex flex-col items-center justify-center h-full min-h-[400px]">
+      <div className="w-20 h-20 bg-bg-secondary rounded-full flex items-center justify-center mb-5">
+        <Icon size={40} weight="duotone" className="text-text-tertiary" />
       </div>
-      <h2 className="text-xl font-bold text-slate-700 mb-2">{title}</h2>
-      <p className="text-sm text-slate-500 max-w-md text-center">{description}</p>
-    </div>
+      <h2 className="text-lg font-semibold text-text-primary mb-2">{title}</h2>
+      <p className="text-sm text-text-secondary max-w-md text-center leading-relaxed">{description}</p>
+    </Card>
   );
 }

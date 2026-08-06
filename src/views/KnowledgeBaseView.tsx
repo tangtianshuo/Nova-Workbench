@@ -1,119 +1,141 @@
-import { Book, Folder, FileText, Search, ChevronRight, Hash, Star } from 'lucide-react';
+import { BookOpen, Folder, FileText, MagnifyingGlass, CaretRight, Star } from '@phosphor-icons/react';
 import { useState } from 'react';
+import { Card } from '@/src/components/ui/Card';
+import { Button } from '@/src/components/ui/Button';
+import { Input } from '@/src/components/ui/Input';
+import { Separator } from '@/src/components/ui/Separator';
+import { cn } from '@/src/lib/utils';
+
+const FOLDERS = [
+  { id: 'dev', name: '研发规范', color: 'text-accent', icon: Folder, children: [{ id: 'doc-1', title: '前端开发规范 V3.0' }] },
+  { id: 'product', name: '产品文档', color: 'text-success', icon: Folder, children: [{ id: 'doc-2', title: '产品白皮书' }] },
+  { id: 'team', name: '团队管理', color: 'text-warning', icon: Folder, children: [{ id: 'doc-3', title: '新人入职指南' }] },
+];
+
+const DOCS: Record<string, { title: string; content: string }> = {
+  'doc-1': {
+    title: '前端开发规范 V3.0',
+    content: '为了提高团队协作效率，特制定本规范。\n\n1. 目录结构\n- src/components: 共享组件\n- src/views: 页面视图\n- src/hooks: 自定义 Hooks\n\n2. 命名规范\n- 组件名称使用 PascalCase\n- 函数名称使用 camelCase\n- 常量使用 UPPER_SNAKE_CASE\n\n3. 状态管理\n优先使用 React Context 进行轻量级状态共享，复杂全局状态使用 Zustand。',
+  },
+  'doc-2': {
+    title: 'WenXiBuddy 产品白皮书',
+    content: '产品愿景\n打造下一代智能化的项目协作平台。\n\n核心场景\n1. AI 驱动的任务拆解\n2. 智能化的项目进度预测\n3. 自动化的文档总结',
+  },
+  'doc-3': {
+    title: '新人入职指南',
+    content: '欢迎加入！以下是你需要完成的第一周任务：\n\n- [ ] 配置开发环境\n- [ ] 阅读前端开发规范\n- [ ] 参加项目介绍会议',
+  },
+};
 
 export function KnowledgeBaseView() {
   const [activeDoc, setActiveDoc] = useState('doc-1');
+  const currentDoc = DOCS[activeDoc] || DOCS['doc-1'];
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['dev', 'product', 'team']));
 
-  const docs = [
-    { id: 'doc-1', title: '前端开发规范 V3.0', content: '# 前端开发规范 V3.0\n\n为了提高团队协作效率，特制定本规范。\n\n## 1. 目录结构\n- `src/components`: 共享组件\n- `src/views`: 页面视图\n- `src/hooks`: 自定义 Hooks\n\n## 2. 命名规范\n- 组件名称使用 PascalCase\n- 函数名称使用 camelCase\n- 常量使用 UPPER_SNAKE_CASE\n\n## 3. 状态管理\n优先使用 React Context 进行轻量级状态共享，复杂全局状态使用 Zustand。' },
-    { id: 'doc-2', title: 'WenXiBuddy 产品白皮书', content: '# WenXiBuddy 产品白皮书\n\n## 产品愿景\n打造下一代智能化的项目协作平台。\n\n## 核心场景\n1. AI 驱动的任务拆解\n2. 智能化的项目进度预测\n3. 自动化的文档总结' },
-    { id: 'doc-3', title: '新人入职指南', content: '# 新人入职指南\n\n欢迎加入！以下是你需要完成的第一周任务：\n\n- [ ] 配置开发环境\n- [ ] 阅读前端开发规范\n- [ ] 参加项目介绍会议' },
-  ];
+  const toggleFolder = (id: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
-  const currentDoc = docs.find(d => d.id === activeDoc) || docs[0];
+  const getFolderForDoc = (docId: string) => {
+    for (const folder of FOLDERS) {
+      if (folder.children.some(c => c.id === docId)) return folder.name;
+    }
+    return '';
+  };
 
   return (
-    <div className="flex bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden h-[calc(100vh-140px)] min-h-[600px]">
+    <Card className="flex overflow-hidden h-[calc(100vh-140px)] min-h-[600px]">
       {/* Sidebar Navigation */}
-      <div className="w-72 border-r border-slate-100 bg-slate-50/50 flex flex-col">
-        <div className="p-4 border-b border-slate-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="搜索文档..." 
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+      <div className="w-64 border-r border-border-subtle bg-bg-secondary/50 flex flex-col shrink-0">
+        <div className="p-3 border-b border-border-subtle">
+          <Input
+            placeholder="搜索文档..."
+            icon={<MagnifyingGlass size={14} weight="duotone" className="text-text-tertiary" />}
+          />
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-3 space-y-1 text-sm">
-          <div className="font-bold text-slate-400 text-xs px-3 mb-2 mt-2">快速访问</div>
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-            <Star size={16} className="text-amber-400" />
-            <span>我的收藏</span>
+
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="text-[10px] font-bold text-text-tertiary px-3 mb-1.5 mt-1 uppercase tracking-widest">快速访问</div>
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 text-text-secondary hover:bg-bg-secondary hover:text-text-primary rounded-[var(--radius-sm)] text-sm font-medium transition-colors">
+            <Star size={16} weight="duotone" className="text-warning" />
+            我的收藏
           </button>
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-            <Book size={16} className="text-blue-500" />
-            <span>所有文档</span>
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 text-text-secondary hover:bg-bg-secondary hover:text-text-primary rounded-[var(--radius-sm)] text-sm font-medium transition-colors">
+            <BookOpen size={16} weight="duotone" className="text-accent" />
+            所有文档
           </button>
 
-          <div className="font-bold text-slate-400 text-xs px-3 mb-2 mt-6">知识库目录</div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer">
-              <ChevronRight size={16} className="text-slate-400 rotate-90" />
-              <Folder size={16} className="text-indigo-400" />
-              <span className="font-medium">研发规范</span>
-            </div>
-            <div className="pl-9 space-y-1">
-              <button 
-                onClick={() => setActiveDoc('doc-1')}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${activeDoc === 'doc-1' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}
-              >
-                <FileText size={14} className={activeDoc === 'doc-1' ? 'text-blue-500' : 'text-slate-400'} />
-                <span className="truncate">前端开发规范 V3.0</span>
-              </button>
-            </div>
+          <Separator className="my-3" />
+          <div className="text-[10px] font-bold text-text-tertiary px-3 mb-1.5 uppercase tracking-widest">知识库目录</div>
 
-            <div className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer mt-2">
-              <ChevronRight size={16} className="text-slate-400 rotate-90" />
-              <Folder size={16} className="text-emerald-400" />
-              <span className="font-medium">产品文档</span>
-            </div>
-            <div className="pl-9 space-y-1">
-              <button 
-                onClick={() => setActiveDoc('doc-2')}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${activeDoc === 'doc-2' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}
+          {FOLDERS.map(folder => (
+            <div key={folder.id}>
+              <button
+                onClick={() => toggleFolder(folder.id)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-text-secondary hover:bg-bg-secondary rounded-[var(--radius-sm)] transition-colors"
               >
-                <FileText size={14} className={activeDoc === 'doc-2' ? 'text-blue-500' : 'text-slate-400'} />
-                <span className="truncate">产品白皮书</span>
+                <CaretRight
+                  size={14}
+                  weight="bold"
+                  className={cn('text-text-tertiary transition-transform', expandedFolders.has(folder.id) && 'rotate-90')}
+                />
+                <folder.icon size={16} weight="duotone" className={folder.color} />
+                <span className="text-sm font-medium">{folder.name}</span>
               </button>
-            </div>
 
-            <div className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer mt-2">
-              <ChevronRight size={16} className="text-slate-400 rotate-90" />
-              <Folder size={16} className="text-amber-400" />
-              <span className="font-medium">团队管理</span>
+              {expandedFolders.has(folder.id) && (
+                <div className="pl-5 space-y-0.5">
+                  {folder.children.map(child => (
+                    <button
+                      key={child.id}
+                      onClick={() => setActiveDoc(child.id)}
+                      className={cn(
+                        'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
+                        activeDoc === child.id
+                          ? 'bg-accent/10 text-accent font-semibold'
+                          : 'text-text-secondary hover:bg-bg-secondary'
+                      )}
+                    >
+                      <FileText size={14} weight="duotone" className={activeDoc === child.id ? 'text-accent' : 'text-text-tertiary'} />
+                      <span className="truncate">{child.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="pl-9 space-y-1">
-              <button 
-                onClick={() => setActiveDoc('doc-3')}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${activeDoc === 'doc-3' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}
-              >
-                <FileText size={14} className={activeDoc === 'doc-3' ? 'text-blue-500' : 'text-slate-400'} />
-                <span className="truncate">新人入职指南</span>
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Editor/Viewer */}
-      <div className="flex-1 flex flex-col bg-white overflow-hidden">
-        <div className="h-14 border-b border-slate-100 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+      {/* Document Viewer */}
+      <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
+        <div className="h-12 border-b border-border-subtle flex items-center justify-between px-5 shrink-0">
+          <div className="flex items-center gap-1.5 text-sm text-text-tertiary">
             <span>空间</span>
-            <ChevronRight size={14} />
-            <span>研发规范</span>
-            <ChevronRight size={14} />
-            <span className="text-slate-800 font-medium">{currentDoc.title}</span>
+            <CaretRight size={12} weight="bold" />
+            <span>{getFolderForDoc(activeDoc)}</span>
+            <CaretRight size={12} weight="bold" />
+            <span className="text-text-primary font-medium">{currentDoc.title}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">编辑</button>
-            <button className="text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">分享</button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm">编辑</Button>
+            <Button variant="primary" size="sm">分享</Button>
           </div>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-12">
-          <div className="max-w-3xl mx-auto prose prose-slate prose-blue">
-            <h1 className="text-4xl font-bold text-slate-900 mb-8">{currentDoc.title}</h1>
-            <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-              {currentDoc.content.split('\n').slice(2).join('\n')}
+
+        <div className="flex-1 overflow-y-auto p-10">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-3xl font-bold text-text-primary mb-6 tracking-tight">{currentDoc.title}</h1>
+            <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+              {currentDoc.content}
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

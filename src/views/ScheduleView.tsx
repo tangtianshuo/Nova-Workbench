@@ -1,15 +1,25 @@
-import { ChevronLeft, ChevronRight, Clock, MapPin, Video } from 'lucide-react';
+import { CaretLeft, CaretRight, Clock, MapPin, VideoCamera } from '@phosphor-icons/react';
 import { useState } from 'react';
+import { Card } from '@/src/components/ui/Card';
+import { Button } from '@/src/components/ui/Button';
+import { Badge } from '@/src/components/ui/Badge';
+import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { useApp } from '../store/AppContext';
+import { cn } from '@/src/lib/utils';
+
+const EVENT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  meeting: { bg: 'bg-accent/10', text: 'text-accent', dot: 'bg-accent' },
+  review: { bg: 'bg-purple-500/10', text: 'text-purple-600', dot: 'bg-purple-500' },
+  sync: { bg: 'bg-success/10', text: 'text-success', dot: 'bg-success' },
+};
 
 export function ScheduleView() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 4, 15)); // May 15, 2025
   const { events } = useApp();
+  const [viewMode, setViewMode] = useState('month');
 
-  // Generate calendar days for May 2025
   const daysInMonth = 31;
-  const firstDayOfMonth = 4; // Thursday
-  
+  const firstDayOfMonth = 4;
+
   const days = Array.from({ length: 42 }, (_, i) => {
     const day = i - firstDayOfMonth + 1;
     return {
@@ -17,7 +27,7 @@ export function ScheduleView() {
       isCurrentMonth: day > 0 && day <= daysInMonth,
       isToday: day === 15,
       hasEvents: events.some(e => e.date === day),
-      dayEvents: events.filter(e => e.date === day)
+      dayEvents: events.filter(e => e.date === day),
     };
   });
 
@@ -27,103 +37,104 @@ export function ScheduleView() {
     .slice(0, 5);
 
   return (
-    <div className="flex gap-6 h-full min-h-[700px]">
-      {/* Calendar Section */}
-      <div className="flex-1 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col p-6">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-slate-800">2025年 5月</h2>
-            <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1">
-              <button className="p-1.5 hover:bg-white rounded shadow-sm text-slate-600 transition-all"><ChevronLeft size={18} /></button>
-              <button className="px-3 py-1.5 text-sm font-medium hover:bg-white rounded shadow-sm text-slate-700 transition-all">今天</button>
-              <button className="p-1.5 hover:bg-white rounded shadow-sm text-slate-600 transition-all"><ChevronRight size={18} /></button>
+    <div className="flex gap-5 h-full min-h-[700px]">
+      {/* Calendar */}
+      <Card className="flex-1 flex flex-col p-5">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-text-primary">2025年 5月</h2>
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="xs"><CaretLeft size={14} weight="bold" /></Button>
+              <Button variant="ghost" size="xs" className="text-xs font-medium px-2">今天</Button>
+              <Button variant="ghost" size="xs"><CaretRight size={14} weight="bold" /></Button>
             </div>
           </div>
-          <div className="flex gap-2">
-             <button className="px-4 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-xl hover:bg-blue-100 transition-colors">月视图</button>
-             <button className="px-4 py-2 text-slate-500 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">周视图</button>
-          </div>
+          <SegmentedControl
+            options={[{ id: 'month', label: '月视图' }, { id: 'week', label: '周视图' }]}
+            value={viewMode}
+            onChange={setViewMode}
+          />
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-slate-100 rounded-xl overflow-hidden flex-1 border border-slate-100">
+        <div className="grid grid-cols-7 gap-px bg-border-subtle rounded-[var(--radius-md)] overflow-hidden flex-1 border border-border-subtle">
           {['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map(day => (
-            <div key={day} className="bg-slate-50 py-3 text-center text-sm font-medium text-slate-500">
+            <div key={day} className="bg-bg-secondary py-2.5 text-center text-xs font-semibold text-text-tertiary">
               {day}
             </div>
           ))}
-          
+
           {days.map((day, i) => (
-            <div 
-              key={i} 
-              className={`bg-white min-h-[100px] p-2 transition-colors hover:bg-slate-50 ${!day.isCurrentMonth ? 'opacity-30 bg-slate-50' : ''}`}
+            <div
+              key={i}
+              className={cn(
+                'bg-bg-primary min-h-[90px] p-1.5 transition-colors hover:bg-bg-secondary/50',
+                !day.isCurrentMonth && 'opacity-25'
+              )}
             >
-              <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium mb-1 ${day.isToday ? 'bg-blue-600 text-white shadow-md' : 'text-slate-700'}`}>
+              <div className={cn(
+                'w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium mb-0.5',
+                day.isToday ? 'bg-accent text-white' : 'text-text-primary'
+              )}>
                 {day.date > 0 && day.date <= 31 ? day.date : (day.date <= 0 ? 30 + day.date : day.date - 31)}
               </div>
-              
+
               {day.isCurrentMonth && day.hasEvents && (
-                <div className="space-y-1">
-                  {day.dayEvents.map(e => (
-                    <div key={e.id} className={`px-1.5 py-0.5 text-[10px] rounded border truncate font-medium ${
-                      e.type === 'meeting' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                      e.type === 'review' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                      'bg-emerald-50 text-emerald-700 border-emerald-100'
-                    }`}>
-                      {e.time.split(' ')[0]} {e.title}
-                    </div>
-                  ))}
+                <div className="space-y-0.5">
+                  {day.dayEvents.map(e => {
+                    const c = EVENT_COLORS[e.type] || EVENT_COLORS.meeting;
+                    return (
+                      <div key={e.id} className={cn('px-1 py-px text-[10px] rounded font-medium truncate', c.bg, c.text)}>
+                        {e.time.split(' ')[0]} {e.title}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
-      {/* Agenda Section */}
-      <div className="w-80 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center justify-between">
+      {/* Agenda */}
+      <Card className="w-72 p-5 flex flex-col shrink-0">
+        <h3 className="text-base font-bold text-text-primary mb-4 flex items-center justify-between">
           近期日程
-          <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-1 rounded-full">{upcomingEvents.length} 个事件</span>
+          <Badge variant="neutral">{upcomingEvents.length} 个事件</Badge>
         </h3>
-        <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-          {upcomingEvents.map(event => (
-            <div key={event.id} className="relative pl-6 pb-6 border-l-2 border-slate-100 last:border-transparent last:pb-0">
-              <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white ${
-                event.type === 'meeting' ? 'bg-blue-500' : 
-                event.type === 'review' ? 'bg-purple-500' : 'bg-emerald-500'
-              }`}></div>
-              <div className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100/80 transition-colors cursor-pointer group">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{event.title}</h4>
-                  {event.date === 15 ? (
-                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">今天</span>
-                  ) : event.date === 16 ? (
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">明天</span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">5月{event.date}日</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-4 text-xs text-slate-500">
-                  <div className="flex items-center gap-1">
-                    <Clock size={14} className="text-slate-400" />
+        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+          {upcomingEvents.map(event => {
+            const c = EVENT_COLORS[event.type] || EVENT_COLORS.meeting;
+            return (
+              <div key={event.id} className="relative pl-5 pb-4 border-l-2 border-border-subtle last:border-transparent last:pb-0">
+                <div className={cn('absolute -left-[5px] top-0 w-2 h-2 rounded-full', c.dot)} />
+                <div className="bg-bg-secondary rounded-[var(--radius-md)] p-3 hover:bg-bg-tertiary transition-colors cursor-pointer group">
+                  <div className="flex justify-between items-start mb-1.5">
+                    <h4 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">{event.title}</h4>
+                    <Badge
+                      variant={event.date === 15 ? 'accent' : event.date === 16 ? 'success' : 'neutral'}
+                      className="text-[10px]"
+                    >
+                      {event.date === 15 ? '今天' : event.date === 16 ? '明天' : `5月${event.date}日`}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-text-tertiary mb-2">
+                    <Clock size={12} weight="duotone" />
                     {event.time}
                   </div>
-                </div>
-                <div className="mt-3 flex items-center gap-2 text-xs text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 w-fit">
-                  {event.location.includes('线上') || event.location.includes('Meeting') ? 
-                    <Video size={14} className="text-blue-500" /> : 
-                    <MapPin size={14} className="text-rose-500" />
-                  }
-                  {event.location}
+                  <div className="flex items-center gap-1.5 text-xs text-text-secondary bg-bg-primary px-2 py-1 rounded-[var(--radius-sm)] border border-border-subtle w-fit">
+                    {event.location.includes('线上') || event.location.includes('Meeting')
+                      ? <VideoCamera size={12} weight="duotone" className="text-accent" />
+                      : <MapPin size={12} weight="duotone" className="text-danger" />
+                    }
+                    {event.location}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        <button className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-sm font-bold transition-colors shadow-sm">
-          + 新建日程
-        </button>
-      </div>
+        <Button variant="primary" className="w-full mt-3">+ 新建日程</Button>
+      </Card>
     </div>
   );
 }

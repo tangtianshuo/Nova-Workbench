@@ -1,86 +1,116 @@
-import { User, Bell, Shield, Palette, Layout, Globe, Save } from 'lucide-react';
+import { useState } from 'react';
+import { User, Bell, Shield, Palette, Layout, Globe, FloppyDisk } from '@phosphor-icons/react';
+import { Card } from '@/src/components/ui/Card';
+import { Button } from '@/src/components/ui/Button';
+import { Input } from '@/src/components/ui/Input';
+import { Textarea } from '@/src/components/ui/Input';
+import { Avatar } from '@/src/components/ui/Avatar';
+import { Separator } from '@/src/components/ui/Separator';
+import { Switch } from '@/src/components/ui/Switch';
+import { cn } from '@/src/lib/utils';
+
+const NAV_ITEMS = [
+  { id: 'account', icon: User, label: '账号信息', group: '个人设置' },
+  { id: 'notifications', icon: Bell, label: '消息通知', group: '个人设置' },
+  { id: 'privacy', icon: Shield, label: '隐私与安全', group: '个人设置' },
+  { id: 'appearance', icon: Palette, label: '外观主题', group: '系统偏好' },
+  { id: 'layout', icon: Layout, label: '界面布局', group: '系统偏好' },
+  { id: 'locale', icon: Globe, label: '语言与时区', group: '系统偏好' },
+];
 
 export function SettingsView() {
-  return (
-    <div className="flex bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden h-[calc(100vh-140px)] min-h-[600px]">
-      <div className="w-64 border-r border-slate-100 bg-slate-50/50 p-4 space-y-1">
-        <h3 className="text-xs font-bold text-slate-400 mb-4 px-3 uppercase tracking-wider">个人设置</h3>
-        <button className="w-full flex items-center gap-3 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium transition-colors">
-          <User size={18} /> 账号信息
-        </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-          <Bell size={18} /> 消息通知
-        </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-          <Shield size={18} /> 隐私与安全
-        </button>
+  const [activeSection, setActiveSection] = useState('account');
 
-        <h3 className="text-xs font-bold text-slate-400 mb-4 mt-8 px-3 uppercase tracking-wider">系统偏好</h3>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-          <Palette size={18} /> 外观主题
-        </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-          <Layout size={18} /> 界面布局
-        </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-          <Globe size={18} /> 语言与时区
-        </button>
+  // Group nav items
+  const groups = NAV_ITEMS.reduce((acc, item) => {
+    if (!acc[item.group]) acc[item.group] = [];
+    acc[item.group].push(item);
+    return acc;
+  }, {} as Record<string, typeof NAV_ITEMS>);
+
+  return (
+    <Card className="flex overflow-hidden h-[calc(100vh-140px)] min-h-[600px]">
+      {/* Sidebar */}
+      <div className="w-56 border-r border-border-subtle bg-bg-secondary/50 p-3 space-y-4 shrink-0">
+        {Object.entries(groups).map(([group, items]) => (
+          <div key={group}>
+            <h3 className="text-[10px] font-bold text-text-tertiary mb-2 px-3 uppercase tracking-widest">{group}</h3>
+            <div className="space-y-0.5">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-sm font-medium transition-colors',
+                    activeSection === item.id
+                      ? 'bg-accent/10 text-accent'
+                      : 'text-text-secondary hover:bg-bg-secondary hover:text-text-primary'
+                  )}
+                >
+                  <item.icon size={16} weight={activeSection === item.id ? 'fill' : 'regular'} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="flex-1 p-8 overflow-y-auto">
-        <div className="max-w-2xl">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-slate-800">账号信息</h2>
-            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm">
-              <Save size={16} /> 保存修改
-            </button>
+      {/* Content */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="max-w-xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-text-primary">账号信息</h2>
+            <Button variant="primary" size="sm">
+              <FloppyDisk size={14} weight="bold" />
+              保存修改
+            </Button>
           </div>
 
-          <div className="space-y-8">
-            {/* Avatar Section */}
-            <div className="flex items-center gap-6 pb-8 border-b border-slate-100">
-              <div className="w-24 h-24 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-3xl font-bold border-4 border-white shadow-sm">
-                BR
-              </div>
-              <div>
-                <div className="flex gap-3 mb-2">
-                  <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">更换头像</button>
-                  <button className="px-4 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-medium transition-colors">删除</button>
-                </div>
-                <p className="text-xs text-slate-500">支持 JPG, GIF 或 PNG 格式，最大 2MB</p>
-              </div>
-            </div>
+          <Separator className="mb-6" />
 
-            {/* Form Fields */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">姓名</label>
-                <input type="text" defaultValue="Brandon" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+          {/* Avatar */}
+          <div className="flex items-center gap-5 pb-6 mb-6 border-b border-border-subtle">
+            <Avatar size="xl" name="Brandon" className="w-20 h-20 text-2xl" />
+            <div>
+              <div className="flex gap-2 mb-2">
+                <Button variant="secondary" size="sm">更换头像</Button>
+                <Button variant="ghost" size="sm" className="text-danger">删除</Button>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">用户名</label>
-                <input type="text" defaultValue="brandon_dev" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+              <p className="text-xs text-text-tertiary">支持 JPG, GIF 或 PNG 格式，最大 2MB</p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="grid grid-cols-2 gap-5">
+            <Input label="姓名" defaultValue="Brandon" />
+            <Input label="用户名" defaultValue="brandon_dev" />
+            <Input label="邮箱地址" type="email" defaultValue="brandon@example.com" className="col-span-2" />
+            <Input label="职位/角色" defaultValue="产品经理" />
+            <Input label="所在部门" defaultValue="产品研发部" />
+            <Textarea label="个人简介" rows={3} defaultValue="关注用户体验与产品创新。" className="col-span-2 resize-none" />
+          </div>
+
+          {/* Quick toggles */}
+          <Separator className="my-6" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-text-primary">深色模式</p>
+                <p className="text-xs text-text-tertiary">自动跟随系统主题切换</p>
               </div>
-              <div className="col-span-2 space-y-2">
-                <label className="text-sm font-bold text-slate-700">邮箱地址</label>
-                <input type="email" defaultValue="brandon@example.com" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+              <Switch />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-text-primary">桌面通知</p>
+                <p className="text-xs text-text-tertiary">允许系统推送通知</p>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">职位/角色</label>
-                <input type="text" defaultValue="产品经理" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">所在部门</label>
-                <input type="text" defaultValue="产品研发部" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <label className="text-sm font-bold text-slate-700">个人简介</label>
-                <textarea rows={4} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none" defaultValue="关注用户体验与产品创新。"></textarea>
-              </div>
+              <Switch defaultChecked />
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

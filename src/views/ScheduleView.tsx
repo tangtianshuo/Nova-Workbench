@@ -50,7 +50,7 @@ export function ScheduleView() {
             </div>
           </div>
           <SegmentedControl
-            options={[{ id: 'month', label: '月视图' }, { id: 'week', label: '周视图' }]}
+            segments={[{ id: 'month', label: '月视图' }, { id: 'week', label: '周视图' }]}
             value={viewMode}
             onChange={setViewMode}
           />

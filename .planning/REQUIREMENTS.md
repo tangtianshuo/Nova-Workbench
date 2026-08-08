@@ -19,9 +19,9 @@
 
 ### Persistence(Phase 2)
 
-- [ ] **PERSIST-01**: 用户刷新页面或重启 app 后,所有 5 个 Zustand store 数据完整恢复
-- [ ] **PERSIST-02**: 每个存储的 `partialize` 配置正确剔除 transient flag(模态开关、loading 状态等)
-- [ ] **PERSIST-03**: 每个 store 有显式 `version: 1` 和 `migrate` 存根,未来 schema 变更有迁移通道
+- [x] **PERSIST-01**: 用户刷新页面或重启 app 后,所有 5 个 Zustand store 数据完整恢复
+- [x] **PERSIST-02**: 每个存储的 `partialize` 配置正确剔除 transient flag(模态开关、loading 状态等)
+- [x] **PERSIST-03**: 每个 store 有显式 `version: 1` 和 `migrate` 存根,未来 schema 变更有迁移通道
 - [x] **PERSIST-04**: 引入 SQLite(`tauri-plugin-sql`)作为前端持久化后端,而非裸 localStorage
 - [x] **PERSIST-05**: Zustand persist 通过 ~20 行 `createJSONStorage` 适配器对接 `@tauri-apps/plugin-store`
 - [x] **PERSIST-06**: SQLite migration 是 forward-only additive,带启动期 sanity SELECT 和 `schema_version` 表,避免 Tauri SQL 静默失败
@@ -125,9 +125,9 @@
 | DARK-05 | Phase 1 | Complete |
 | DARK-06 | Phase 1 | Complete |
 | DARK-07 | Phase 1 | Pending |
-| PERSIST-01 | Phase 2 | Pending |
-| PERSIST-02 | Phase 2 | Pending |
-| PERSIST-03 | Phase 2 | Pending |
+| PERSIST-01 | Phase 2 | Complete |
+| PERSIST-02 | Phase 2 | Complete |
+| PERSIST-03 | Phase 2 | Complete |
 | PERSIST-04 | Phase 2 | Complete |
 | PERSIST-05 | Phase 2 | Complete |
 | PERSIST-06 | Phase 2 | Complete |

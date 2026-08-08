@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md (Tauri SQL substrate live, cargo check clean, 3 storage adapters ready for Wave 2)
-last_updated: "2026-08-08T06:48:27.290Z"
+stopped_at: Completed 02-03-PLAN.md (all 6 stores wrapped in persist; _hasHydrated ready for Wave 3)
+last_updated: "2026-08-08T06:52:58.883Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 50
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-08)
 ## Current Position
 
 Phase: 02 (persistence-zustand-persist-sqlite) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-08-08
 
@@ -55,6 +55,7 @@ Progress: [██░░░░░░░░] 50%
 | Phase 01 P04 | 22 | 3 tasks | 13 files |
 | Phase 02 P01 | 3 | 2 tasks | 3 files |
 | Phase 02 P02 | 4 | 2 tasks | 13 files |
+| Phase 02 P03 | 3 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 02]: node:test (D-08) chosen for self-checks — tsx already devDep, no jest/vitest, ships with Node 22+
 - [Phase 02]: sql_migrations() fn replaces const slice + to_vec — tauri-plugin-sql Migration does not impl Clone in 2.4.0; add_migrations consumes Vec
 - [Phase 02]: src/lib/api.ts as single home for isTauri + future Tauri IPC chokepoints (Phase 3 IPC adapter lives here too)
+- [Phase 02]: isTauri() gained typeof window SSR guard — sqliteStorage top-level branch no longer crashes node:test when productStore transitively loads it via rndStore
+- [Phase 02]: uiStore partialize drops theme/isSearchOpen/isNewTaskOpen per D-13 — themeStore owns theme, modal flags reset on reload
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T06:48:27.286Z
-Stopped at: Completed 02-02-PLAN.md (Tauri SQL substrate live, cargo check clean, 3 storage adapters ready for Wave 2)
+Last session: 2026-08-08T06:52:58.877Z
+Stopped at: Completed 02-03-PLAN.md (all 6 stores wrapped in persist; _hasHydrated ready for Wave 3)
 Resume file: None

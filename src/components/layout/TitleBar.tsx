@@ -1,14 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow, type Window as TauriWindow } from '@tauri-apps/api/window';
 import { cn } from '@/src/lib/utils';
-
-// ─── Platform Detection ──────────────────────────────────────────────────────
-
-function isTauri(): boolean {
-  // __TAURI_INTERNALS__ is always injected by Tauri v2 (used by drag.js for IPC)
-  // __TAURI__ is only available when withGlobalTauri is enabled
-  return '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
-}
+import { isTauri } from '@/src/lib/api';
 
 type Platform = 'windows' | 'macos' | 'linux' | 'unknown';
 

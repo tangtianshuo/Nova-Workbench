@@ -1,4 +1,18 @@
 use tauri::Manager;
+use tauri_plugin_sql::{Migration, MigrationKind};
+
+// Phase 2 persistence. Forward-only additive — no DROP/ALTER DROP in migrations/.
+// Backstopped by JS-side sanity SELECT + meta.schema_version (PITFALLS Pitfall 2).
+// ponytail: returns fresh Vec each call — tauri-plugin-sql's Migration does not impl Clone
+// (add_migrations consumes Vec), so we cannot .to_vec() a const slice.
+fn sql_migrations() -> Vec<Migration> {
+    vec![Migration {
+        version: 1,
+        description: "init_kv_store_and_meta",
+        sql: include_str!("../migrations/0001_init.sql"),
+        kind: MigrationKind::Up,
+    }]
+}
 
 // Linux-only: read GNOME color-scheme via gsettings.
 // Returns Some("'prefer-dark'") / Some("'default'") / Some("'prefer-light'") or None.
@@ -28,6 +42,11 @@ fn get_gnome_color_scheme() -> Option<String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations("sqlite:nova.db", sql_migrations())
+                .build(),
+        )
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![get_gnome_color_scheme])
         .setup(|app| {

@@ -256,8 +256,9 @@ ${content}
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  // D-23: bind 127.0.0.1 only — dev fallback, never expose on LAN (CONCERNS.md HIGH).
+  app.listen(PORT, "127.0.0.1", () => {
+    console.log(`Dev-only server running at http://127.0.0.1:${PORT} (not for production)`);
   });
 }
 

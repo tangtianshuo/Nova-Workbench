@@ -74,10 +74,9 @@ persistence check).
 
 8 items deferred to user UAT per `--auto` mode.
 
-### 1. Verify capabilities/llm.json permission identifiers
-- **expected:** Identifiers in `src-tauri/capabilities/llm.json` match the format in `src-tauri/gen/schemas/desktop-schema.json`
-- **how to test:** Run `npm run tauri:dev` once (let it boot, then close). Read `src-tauri/gen/schemas/desktop-schema.json`. Find the 4 command permission identifiers — confirm they match `generate-project:allow` etc. If MISMATCH: edit llm.json to use actual identifiers, re-run tauri:dev.
-- **result:** [pending]
+### 1. ~~Verify capabilities/llm.json permission identifiers~~ — RESOLVED (commit `3960ad2`)
+- **Resolution:** Capability file was unnecessary. Tauri 2.x capability permissions only cover plugin commands (core:*, shell:*, sql:*); custom `#[tauri::command]` fns are auto-callable from windows with `core:default` (granted by `default.json`). File deleted after build script rejected `generate-project:allow` as not-a-permission. SEC-03 satisfied by `default.json` + `invoke_handler!` registration.
+- **Action required:** None. Proceed to step 2.
 
 ### 2. Run full production build
 - **expected:** `npm run tauri:build` completes without error. First build may take 5-10 min (rig-core + tokio lto=true + opt-level=s — one-time cost). Output `.exe` (or `.app`/AppImage) in `src-tauri/target/release/bundle/`.

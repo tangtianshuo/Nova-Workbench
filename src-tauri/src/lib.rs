@@ -71,7 +71,7 @@ pub fn run() {
             #[cfg(desktop)]
             {
                 let window = app.get_webview_window("main").unwrap();
-                let _ = window.set_min_size(Some(tauri::LogicalSize::new(1024, 680)));
+                let _ = window.set_min_size(Some(tauri::LogicalSize::new(1200, 760)));
             }
             Ok(())
         })

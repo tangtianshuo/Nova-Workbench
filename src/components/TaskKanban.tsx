@@ -85,7 +85,7 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
       {/* Columns */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden p-4 flex items-start gap-4 h-full">
         {displayGroups.map(group => (
-          <div key={group.id} className="min-w-[300px] w-[300px] bg-bg-secondary/60 rounded-[var(--radius-md)] p-3 flex flex-col max-h-full border border-border-subtle">
+          <div key={group.id} className="min-w-[clamp(240px,22vw,300px)] w-[clamp(240px,22vw,300px)] bg-bg-secondary/60 rounded-[var(--radius-md)] p-3 flex flex-col max-h-full border border-border-subtle">
             <div className="flex items-center justify-between py-1 mb-2 px-1">
               <div className="flex items-center gap-2">
                 <div className={cn('w-2 h-2 rounded-full', group.color)} />
@@ -192,7 +192,7 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
 
         {/* Add Category */}
         {viewMode === 'category' && (isAddingCategory ? (
-          <div className="min-w-[300px] w-[300px] p-3 border border-accent/20 bg-accent/5 rounded-[var(--radius-md)]">
+          <div className="min-w-[clamp(240px,22vw,300px)] w-[clamp(240px,22vw,300px)] p-3 border border-accent/20 bg-accent/5 rounded-[var(--radius-md)]">
             <Input
               autoFocus
               placeholder="输入分类名称..."
@@ -210,7 +210,7 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
             </div>
           </div>
         ) : (
-          <div className="min-w-[300px] w-[300px] pt-1">
+          <div className="min-w-[clamp(240px,22vw,300px)] w-[clamp(240px,22vw,300px)] pt-1">
             <button
               onClick={() => setIsAddingCategory(true)}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-[var(--radius-md)] text-sm font-medium text-text-tertiary hover:text-accent hover:border-accent/30 hover:bg-accent/5 transition-all"

@@ -46,7 +46,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. First run on a clean machine seeds from `mock*.ts` once (gated by `has_seeded`); subsequent runs never re-seed and never silently lose data on schema migration
   4. Render hydration is flicker-free: the app shows a loading state until `_hasHydrated` flips, then paints the real data
   5. The known `rndStore` `INITIAL.p1` fallback bug is fixed (verified by the existing repro) BEFORE persistence ships — so the bug is not frozen into stored state
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 02-01-PLAN.md — Fix rndStore INITIAL.p1 fallback bug (Wave 1, mandatory pre-req per PERSIST-08)
+- [ ] 02-02-PLAN.md — Stand up SQLite substrate: tauri-plugin-sql + adapter + dev fallback + capability + migration (Wave 1)
+- [ ] 02-03-PLAN.md — Wrap all 6 Zustand stores in persist with partialize + _hasHydrated + migrate stub (Wave 2)
+- [ ] 02-04-PLAN.md — Wire startup orchestration: first-run seed (has_seeded gate) + HydrationGate + main.tsx await (Wave 3, has checkpoint)
 **UI hint**: yes
 
 ### Phase 3: Tauri IPC Migration + Security Baseline
@@ -83,7 +87,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Dark Mode Wiring | 4/4 | Complete   | 2026-08-08 |
-| 2. Persistence (Zustand persist + SQLite) | 0/TBD | Not started | - |
+| 2. Persistence (Zustand persist + SQLite) | 0/4 | Not started | - |
 | 3. Tauri IPC Migration + Security Baseline | 0/TBD | Not started | - |
 | 4. GraphFlow + Rig PoC (feature-flagged) | 0/TBD | Not started | - |
 

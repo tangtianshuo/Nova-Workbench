@@ -19,7 +19,7 @@ const variantStyles: Record<Variant, string> = {
   interactive:
     'bg-bg-primary border border-border-subtle shadow-shadow-sm hover:shadow-shadow-md hover:border-border transition-all duration-normal cursor-pointer',
   dark:
-    'bg-gradient-to-r from-slate-950 via-indigo-950/90 to-slate-900 text-white border border-indigo-500/20 shadow-shadow-lg',
+    'bg-gradient-to-r from-accent/20 via-accent-hover/10 to-bg-tertiary text-text-primary border border-accent/20 shadow-shadow-lg',
 };
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(

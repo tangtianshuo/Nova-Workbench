@@ -127,7 +127,7 @@ export function AIRequirementsTab({ product }: Props) {
       <AnimatePresence>
         {toastMessage && (
           <motion.div
-            className="fixed bottom-6 right-6 z-50 bg-slate-900 text-text-inverted text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-2"
+            className="fixed bottom-6 right-6 z-50 bg-bg-primary text-text-primary text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-border-subtle flex items-center gap-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}

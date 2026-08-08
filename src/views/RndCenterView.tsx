@@ -85,34 +85,33 @@ export function RndCenterView({ onNavigateTab }: Props) {
     <div className="space-y-5">
       {/* Top Banner */}
       <Card
-        className="p-6 border-0 text-white overflow-hidden relative"
-        style={{ background: 'linear-gradient(135deg, hsl(220 30% 12%), hsl(240 25% 18%), hsl(220 30% 14%))' }}
+        className="p-6 border-0 text-text-primary overflow-hidden relative bg-gradient-to-r from-accent/20 via-accent-hover/10 to-bg-tertiary border border-accent/20"
       >
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 bg-white/10 rounded-[var(--radius-md)] border border-white/10 shrink-0">
+            <div className="p-2.5 bg-bg-secondary rounded-[var(--radius-md)] border border-border-subtle shrink-0">
               <Cpu size={24} weight="duotone" className="text-accent" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 mb-1">
                 <h1 className="text-xl font-bold tracking-tight">产品研发中心</h1>
-                <Badge className="bg-white/10 text-white/80 border border-white/10 text-[10px]">
+                <Badge className="bg-bg-secondary text-text-secondary border border-border-subtle text-[10px]">
                   <Sparkle size={10} weight="fill" className="text-warning" />
                   AI 成果物生成中枢
                 </Badge>
               </div>
-              <p className="text-xs text-white/60 max-w-xl leading-relaxed">
+              <p className="text-xs text-text-secondary max-w-xl leading-relaxed">
                 通过 AI 大模型全自动推导和生成当前关联产品的 18 份全生命周期交付物、需求规范、高保真原型、全栈代码脚手架与自动化测试集。
               </p>
             </div>
           </div>
 
           {/* Product Selector */}
-          <div className="flex items-center gap-3 bg-white/5 p-3 rounded-[var(--radius-md)] border border-white/10 shrink-0 self-end lg:self-auto">
+          <div className="flex items-center gap-3 bg-bg-secondary/50 p-3 rounded-[var(--radius-md)] border border-border-subtle shrink-0 self-end lg:self-auto">
             <div>
-              <div className="text-[10px] text-white/40 font-medium mb-1">当前关联产品</div>
+              <div className="text-[10px] text-text-tertiary font-medium mb-1">当前关联产品</div>
               <Select value={currentProduct.id} onValueChange={(v) => setSelectedProductId(v)}>
-                <SelectTrigger className="bg-white/10 border-white/15 text-white text-xs font-semibold w-44 h-8 [&_svg]:text-white/60">
+                <SelectTrigger className="bg-bg-secondary border-border-subtle text-text-primary text-xs font-semibold w-44 h-8 [&_svg]:text-text-tertiary">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -135,7 +134,7 @@ export function RndCenterView({ onNavigateTab }: Props) {
         </div>
 
         {/* Stats Strip */}
-        <Separator className="bg-white/10 my-4" />
+        <Separator className="bg-border-subtle my-4" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="已就绪成果物" value={`${readyDeliverablesCount}/${deliverables.length || 18} 份`} icon={CheckCircle} iconColor="text-success" />
           <StatCard label="当前研发阶段" value={currentProduct.stage} icon={Cube} iconColor="text-accent" />
@@ -188,12 +187,12 @@ export function RndCenterView({ onNavigateTab }: Props) {
 
 function StatCard({ label, value, icon: Icon, iconColor }: { label: string; value: string; icon: typeof CheckCircle; iconColor: string }) {
   return (
-    <div className="bg-white/5 p-3 rounded-[var(--radius-md)] border border-white/8 flex items-center justify-between">
+    <div className="bg-bg-secondary/50 p-3 rounded-[var(--radius-md)] border border-border-subtle flex items-center justify-between">
       <div>
-        <div className="text-[10px] text-white/40">{label}</div>
-        <div className="text-sm font-bold text-white font-mono mt-0.5">{value}</div>
+        <div className="text-[10px] text-text-tertiary">{label}</div>
+        <div className="text-sm font-bold text-text-primary font-mono mt-0.5">{value}</div>
       </div>
-      <div className="p-1.5 rounded-[var(--radius-sm)] bg-white/5">
+      <div className="p-1.5 rounded-[var(--radius-sm)] bg-bg-secondary">
         <Icon size={16} weight="duotone" className={iconColor} />
       </div>
     </div>

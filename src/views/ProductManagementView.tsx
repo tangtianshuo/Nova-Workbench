@@ -154,17 +154,16 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
         <div className="space-y-5">
           {/* Top Banner */}
           <Card
-            className="p-6 border-0 text-white overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, hsl(220 30% 12%), hsl(220 40% 20%), hsl(220 30% 14%))' }}
+            className="p-6 border-0 text-text-primary overflow-hidden bg-gradient-to-r from-accent/20 via-accent-hover/10 to-bg-tertiary border border-accent/20"
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="p-2.5 bg-white/10 rounded-[var(--radius-md)] border border-white/10 shrink-0">
+                <div className="p-2.5 bg-bg-secondary rounded-[var(--radius-md)] border border-border-subtle shrink-0">
                   <Stack size={22} weight="duotone" className="text-accent" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">产品全生命周期总览与管控中枢</h2>
-                  <p className="text-xs text-white/60 max-w-2xl leading-relaxed mt-1">
+                  <p className="text-xs text-text-secondary max-w-2xl leading-relaxed mt-1">
                     总览企业产品战略画像、管控生命周期阶段推进与指标看板。AI 成果物生成请联动【产品研发中心】。
                   </p>
                 </div>
@@ -172,7 +171,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
               <Button
                 variant="primary"
                 size="lg"
-                className="shrink-0 bg-white/10 border-white/15 text-white hover:bg-white/15"
+                className="shrink-0 bg-bg-secondary border-border-subtle text-text-primary hover:bg-bg-tertiary"
                 onClick={() => onNavigateToRnd?.(products[0]?.id || '')}
               >
                 <Cpu size={15} weight="duotone" />
@@ -180,7 +179,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
               </Button>
             </div>
 
-            <Separator className="bg-white/10 my-4" />
+            <Separator className="bg-border-subtle my-4" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <BannerStat label="管控产品总数" value={`${totalProducts} 款`} />
               <BannerStat label="商业化 / 已发布" value={`${inOpsCount} 款`} valueColor="text-success" />
@@ -444,10 +443,10 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
   );
 }
 
-function BannerStat({ label, value, valueColor = 'text-white' }: { label: string; value: string; valueColor?: string }) {
+function BannerStat({ label, value, valueColor = 'text-text-primary' }: { label: string; value: string; valueColor?: string }) {
   return (
-    <div className="bg-white/5 p-3 rounded-[var(--radius-md)] border border-white/8">
-      <div className="text-[10px] text-white/40">{label}</div>
+    <div className="bg-bg-secondary/50 p-3 rounded-[var(--radius-md)] border border-border-subtle">
+      <div className="text-[10px] text-text-tertiary">{label}</div>
       <div className={cn('text-xl font-bold font-mono mt-0.5', valueColor)}>{value}</div>
     </div>
   );

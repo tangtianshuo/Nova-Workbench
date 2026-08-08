@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 03-03-PLAN.md (ProjectCreateModal streaming + SettingsApiKeySection + SettingsView privacy wiring; 22 HUMAN-UAT items deferred to 03-HUMAN-UAT.md)
-last_updated: "2026-08-08T08:27:48.365Z"
+status: verifying
+stopped_at: Completed 03-04-PLAN.md (Phase 3 Wave 4 — final wave, ready for verification)
+last_updated: "2026-08-08T08:31:41.685Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
   percent: 50
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-08)
 
 Phase: 03 (tauri-ipc-migration-security-baseline) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
 Progress: [██░░░░░░░░] 50%
@@ -60,6 +60,7 @@ Progress: [██░░░░░░░░] 50%
 | Phase 03 P01 | 30 | 2 tasks | 9 files |
 | Phase 03 P02 | 6 | 2 tasks | 3 files |
 | Phase 03 P03 | 4 | 3 tasks | 4 files |
+| Phase 03 P04 | 2min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 03]: ProjectCreateModal preserved newProject construction block (lines 51-143) verbatim — only swapped fetch() for streamGenerateProject() and wrapped JSON.parse in try/catch with raw-text fallback so plain-markdown LLM output still creates a project
 - [Phase 03]: useEffect cleanup depends on [abortController] not [] — each new controller re-runs cleanup which aborts the previous; modal unmount triggers final cleanup (Pitfall 5 fix)
 - [Phase 03]: SettingsApiKeySection returns null while hasKey === null (loading) rather than Skeleton — flash of nothing preferable to flash of wrong copy; Tauri IPC round-trip sub-ms
+- [Phase 03]: Wave 4 CSP uses RESEARCH.md Pattern 6 corrected string (with ipc: http://ipc.localhost connect-src), NOT CONTEXT.md D-17 verbatim — D-17 was missing ipc: schemes and would silently break invoke() in production
+- [Phase 03]: D-22 (remove Express from prod bundle) zero-effort: beforeBuildCommand already 'bunx vite build' — no change required
+- [Phase 03]: capabilities/llm.json permission identifier verification deferred to UAT step 1 (Pitfall 2 risk) — schema on disk predates Wave 1 LLM commands, user must regenerate via tauri:dev
 
 ### Pending Todos
 
@@ -110,6 +114,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T08:27:48.360Z
-Stopped at: Completed 03-03-PLAN.md (ProjectCreateModal streaming + SettingsApiKeySection + SettingsView privacy wiring; 22 HUMAN-UAT items deferred to 03-HUMAN-UAT.md)
+Last session: 2026-08-08T08:31:41.679Z
+Stopped at: Completed 03-04-PLAN.md (Phase 3 Wave 4 — final wave, ready for verification)
 Resume file: None

@@ -39,14 +39,14 @@
 - [x] **IPC-06**: AI 错误(网络/解析/截断)以用户可读消息呈现(toast/inline),不再以 500 错误吞没
 - [x] **IPC-07**: 引入 `rig-core` 替代 `@google/genai`(Gemini 仍为首选 provider)
 - [x] **IPC-08**: Rust 端 `AppError` enum + 手动 `serde::Serialize` 实现作为统一 IPC 错误类型
-- [ ] **IPC-09**: Express server 收缩到 dev-only,从 Tauri 生产 bundle 路径中移除(`build:server` 不再进 prod)
-- [ ] **IPC-10**: Express dev 服务器绑定 `127.0.0.1` 替代 `0.0.0.0`
+- [x] **IPC-09**: Express server 收缩到 dev-only,从 Tauri 生产 bundle 路径中移除(`build:server` 不再进 prod)
+- [x] **IPC-10**: Express dev 服务器绑定 `127.0.0.1` 替代 `0.0.0.0`
 
 ### Security Baseline(Phase 3)
 
-- [ ] **SEC-01**: Tauri production build 中显式声明 CSP(当前 `csp: null` 是 debt),`style-src self unsafe-inline`、`script-src` default-deny
+- [x] **SEC-01**: Tauri production build 中显式声明 CSP(当前 `csp: null` 是 debt),`style-src self unsafe-inline`、`script-src` default-deny
 - [ ] **SEC-02**: CSP 在 IPC 迁移同 phase 落地,通过 `tauri build`(非 dev)验证 Tailwind v4 inline style + Radix + motion 都正常
-- [ ] **SEC-03**: 每个 feature 一个 capability 文件(sql.json / llm.json / pipeline.json),显式 scope 到 `${appData}/nova.db`
+- [x] **SEC-03**: 每个 feature 一个 capability 文件(sql.json / llm.json / pipeline.json),显式 scope 到 `${appData}/nova.db`
 - [ ] **SEC-04**: 每个 Tauri command 在 CI 或本地脚本中从 webview 烟测,确认 capability 不静默拒绝
 - [x] **SEC-05**: LLM API key 通过 `keyring` crate 直连 OS keychain 存储,不进 `.env`、不进 bundle、不暴露给 webview
 - [x] **SEC-06**: 用户首次启动时(Settings 引导)录入 API key,通过 keychain 持久化,后续启动从 keychain 读
@@ -142,11 +142,11 @@
 | IPC-06 | Phase 3 | Complete |
 | IPC-07 | Phase 3 | Complete |
 | IPC-08 | Phase 3 | Complete |
-| IPC-09 | Phase 3 | Pending |
-| IPC-10 | Phase 3 | Pending |
-| SEC-01 | Phase 3 | Pending |
+| IPC-09 | Phase 3 | Complete |
+| IPC-10 | Phase 3 | Complete |
+| SEC-01 | Phase 3 | Complete |
 | SEC-02 | Phase 3 | Pending |
-| SEC-03 | Phase 3 | Pending |
+| SEC-03 | Phase 3 | Complete |
 | SEC-04 | Phase 3 | Pending |
 | SEC-05 | Phase 3 | Complete |
 | SEC-06 | Phase 3 | Complete |

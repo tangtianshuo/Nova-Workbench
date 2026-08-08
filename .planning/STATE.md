@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered (14 decisions D-01..D-14, all auto-selected defaults; rndStore INITIAL.p1 bug fix is mandatory prerequisite per D-04)
-last_updated: "2026-08-08T06:13:26.475Z"
+stopped_at: "Completed 02-01-PLAN.md (rndStore INITIAL.p1 fallback fixed, 6 node:test self-checks passing)"
+last_updated: "2026-08-08T06:42:34.743Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 8
+  completed_plans: 5
   percent: 50
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-08)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 01 — dark-mode-wiring
+**Current focus:** Phase 02 — persistence-zustand-persist-sqlite
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 02 (persistence-zustand-persist-sqlite) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
 Last activity: 2026-08-08
 
@@ -53,6 +53,7 @@ Progress: [██░░░░░░░░] 50%
 
 *Updated after each plan completion*
 | Phase 01 P04 | 22 | 3 tasks | 13 files |
+| Phase 02 P01 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Phase 3 bundles IPC + Security because both touch the same command perimeter and the same CSP/capabilities surface.
 - [Phase 01]: Card dark variant reworked to accent-tinted gradient (from-accent/20 via-accent-hover/10 to-bg-tertiary) — replaces literal slate-950 that vanished against dark --bg-app
 - [Phase 01]: Per-tab accent identity preserved at reduced opacity (amber/teal/blue-indigo/purple at 20%/10% over bg-tertiary) — keeps tab personality without breaking dark mode
+- [Phase 02]: rndStore accessors return typed EMPTY for unknown productId (synthesis preserved for known); write-on-miss removed for unknown ids
+- [Phase 02]: node:test (D-08) chosen for self-checks — tsx already devDep, no jest/vitest, ships with Node 22+
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T06:13:26.471Z
-Stopped at: Phase 2 context gathered (14 decisions D-01..D-14, all auto-selected defaults; rndStore INITIAL.p1 bug fix is mandatory prerequisite per D-04)
-Resume file: .planning/phases/02-persistence-zustand-persist-sqlite/02-CONTEXT.md
+Last session: 2026-08-08T06:42:34.738Z
+Stopped at: Completed 02-01-PLAN.md (rndStore INITIAL.p1 fallback fixed, 6 node:test self-checks passing)
+Resume file: None

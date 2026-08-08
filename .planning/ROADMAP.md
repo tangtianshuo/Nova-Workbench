@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 - [ ] 01-01-PLAN.md — themeStore + Linux GTK detection shim (Wave 1)
 - [ ] 01-02-PLAN.md — SettingsView SegmentedControl + Header quick-toggle (Wave 2)
-- [ ] 01-03-PLAN.md — CSS color transitions in tokens.css (Wave 1)
+- [x] 01-03-PLAN.md — CSS color transitions in tokens.css (Wave 1)
 - [ ] 01-04-PLAN.md — Card dark variant rework + 47-component audit (Wave 2)
 **UI hint**: yes
 

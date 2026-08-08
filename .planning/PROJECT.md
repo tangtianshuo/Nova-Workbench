@@ -22,15 +22,13 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - ✓ Gemini AI 集成(5 个 Express 端点,无 key 时回退到模板)
 - ✓ 路由懒加载 + Framer Motion 页面切换动画
 - ✓ 暗色模式 token 已定义(`tokens.css` 116-156 行)但未连到 UI
+- ✓ 暗色模式上线 — 三态切换(SettingsView SegmentedControl + Header Sun/Moon cycle)、Linux GTK 检测垫片、200ms 颜色过渡、47 组件暗色调色板审计 — **Validated in Phase 1: Dark Mode Wiring (2026-08-08)**
 
 ### Active
 
 <!-- 当前 v1 范围 — 用户 2026-08-08 指示的两条主线 -->
 
-**A. 暗色模式上线(技术债清偿)**
-- [ ] SettingsView 接入 `useTheme()`(三态:light/dark/system)
-- [ ] Header 快速主题切换入口
-- [ ] 验证 token 驱动的组件在暗色调色板下的视觉效果(shadows/glass/borders)
+**A. 暗色模式上线(技术债清偿)** — ✓ 完成(Phase 1, 2026-08-08)。5 项运行时视觉 UAT 待用户在 `01-HUMAN-UAT.md` 中确认。
 
 **B. Tauri 原生能力集成(向设计文档的零-Sidecar 架构迁移)**
 - [ ] 引入 SQLite 持久化层(GraphFlow SqliteSaver 路径),解决"刷新即重置"问题
@@ -79,7 +77,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 暗色模式优先于功能扩展 | CLAUDE.md 标记为 Phase 7 技术债,tokens 已就绪,80 行代码即可解锁价值 | — Pending |
+| 暗色模式优先于功能扩展 | CLAUDE.md 标记为 Phase 7 技术债,tokens 已就绪,80 行代码即可解锁价值 | ✓ Validated in Phase 1 (2026-08-08) — DARK-01..07 全部满足,5 项运行时 UAT 待人工确认 |
 | Tauri IPC 替代 Express AI 端点 | API key 当前必须bundled 进 Tauri app,有泄漏风险;Express 监听 0.0.0.0 无 CORS/auth | — Pending |
 | SQLite via Tauri SQL 插件(而非 Node sqlite) | 设计文档零-Sidecar 原则;GraphFlow SqliteSaver 已内置 | — Pending |
 | GraphFlow + Rig PoC 作为 v1 最后一步 | 这两个 crate 相对新,文档不完善,先验证可行性再绑定 | — Pending |
@@ -104,4 +102,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-08 after initialization*
+*Last updated: 2026-08-08 after Phase 1 completion (Dark Mode Wiring)*

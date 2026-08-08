@@ -31,7 +31,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 **A. 暗色模式上线(技术债清偿)** — ✓ 完成(Phase 1, 2026-08-08)。5 项运行时视觉 UAT 待用户在 `01-HUMAN-UAT.md` 中确认。
 
 **B. Tauri 原生能力集成(向设计文档的零-Sidecar 架构迁移)**
-- [ ] 引入 SQLite 持久化层(GraphFlow SqliteSaver 路径),解决"刷新即重置"问题
+- [✓ Phase 2, 2026-08-08] 引入 SQLite 持久化层(`tauri-plugin-sql` + Zustand `persist` 适配器),解决"刷新即重置"问题。5 项运行时 UAT 待用户在 `02-HUMAN-UAT.md` 中确认。
 - [ ] 把 5 个 Gemini AI 端点从 Express 迁移到 Tauri IPC commands(API key 不再触碰 Node 层)
 - [ ] 绑定 `127.0.0.1` 替代 `0.0.0.0`(若保留 Express 作为 dev fallback)
 - [ ] 探索 GraphFlow + Rig 在 Tauri Rust 后端的集成可行性(PoC)
@@ -79,7 +79,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 |----------|-----------|---------|
 | 暗色模式优先于功能扩展 | CLAUDE.md 标记为 Phase 7 技术债,tokens 已就绪,80 行代码即可解锁价值 | ✓ Validated in Phase 1 (2026-08-08) — DARK-01..07 全部满足,5 项运行时 UAT 待人工确认 |
 | Tauri IPC 替代 Express AI 端点 | API key 当前必须bundled 进 Tauri app,有泄漏风险;Express 监听 0.0.0.0 无 CORS/auth | — Pending |
-| SQLite via Tauri SQL 插件(而非 Node sqlite) | 设计文档零-Sidecar 原则;GraphFlow SqliteSaver 已内置 | — Pending |
+| SQLite via Tauri SQL 插件(而非 Node sqlite) | 设计文档零-Sidecar 原则;GraphFlow SqliteSaver 已内置 | ✓ Validated in Phase 2 (2026-08-08) — `tauri-plugin-sql` 2.4 + Zustand `persist` `createJSONStorage` 适配器,9 个 PERSIST-* 需求全部满足,5 项运行时 UAT 待人工确认 |
 | GraphFlow + Rig PoC 作为 v1 最后一步 | 这两个 crate 相对新,文档不完善,先验证可行性再绑定 | — Pending |
 | 暂不实现 Pipeline / 第二大脑 | 设计文档 Phase 2-4 范围,v1 只做架构铺垫 | — Pending |
 | docs/ 设计文档作为目标架构真相源 | 2026-08-07 已确认,8 个 ADR 锁定核心选型 | ✓ Good |
@@ -102,4 +102,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-08 after Phase 1 completion (Dark Mode Wiring)*
+*Last updated: 2026-08-08 after Phase 2 completion (Persistence — Zustand persist + SQLite)*

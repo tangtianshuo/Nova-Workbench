@@ -175,7 +175,12 @@
 
 html {
   font-family: var(--font-sans);
-  font-size: var(--text-base);
+  /* ponytail: 100% = browser default 16px. Was var(--text-base) = 0.875rem = 14px,
+   * which made every other rem unit (text-*, radius-*, leading-*) shrink 14%
+   * because they all resolve against html's font-size. User feedback: 字体过小.
+   * Side effect: spacing/radius also scale up 14% — visually roomier, matches
+   * the "easier to read" goal. */
+  font-size: 100%;
   line-height: var(--leading-normal);
   color: hsl(var(--text-primary));
   background: hsl(var(--bg-app));

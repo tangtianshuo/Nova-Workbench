@@ -171,7 +171,7 @@ export function FullDeliverablesTab({ product }: Props) {
               <div className="p-2.5 bg-bg-secondary text-text-primary rounded-[var(--radius-md)] border border-border-subtle">
                 <Cpu size={24} weight="duotone" />
               </div>
-              <h3 className="text-xl font-black tracking-tight text-white">产品产研全生命周期成果物工厂</h3>
+              <h3 className="text-xl font-black tracking-tight text-text-primary">产品产研全生命周期成果物工厂</h3>
               <Badge className="bg-success/20 text-success border border-success/30">
                 18 份工业级交付物
               </Badge>
@@ -185,7 +185,7 @@ export function FullDeliverablesTab({ product }: Props) {
             <div className="bg-bg-secondary p-3 rounded-[var(--radius-lg)] border border-border-subtle flex items-center gap-4 px-4">
               <div>
                 <div className="text-[11px] text-text-secondary">已就绪资产</div>
-                <div className="text-lg font-black text-white">{readyCount} / {totalCount}</div>
+                <div className="text-lg font-black text-text-primary">{readyCount} / {totalCount}</div>
               </div>
               <ProgressBar value={readyPercent} variant="success" className="w-16" />
             </div>
@@ -222,7 +222,7 @@ export function FullDeliverablesTab({ product }: Props) {
             <div className="flex items-center justify-between text-xs text-text-secondary">
               <span className="flex items-center gap-2">
                 <ArrowClockwise size={14} weight="duotone" className="animate-spin text-success" />
-                正在推导: <strong className="text-white">{batchCurrentTitle || '初始化产研流水线...'}</strong>
+                正在推导: <strong className="text-text-primary">{batchCurrentTitle || '初始化产研流水线...'}</strong>
               </span>
               <span className="font-mono font-bold text-success">{batchProgress}%</span>
             </div>

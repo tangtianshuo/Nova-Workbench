@@ -148,7 +148,7 @@ export function AIRequirementsTab({ product }: Props) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-lg text-white">AI 需求全自动设计与工程中枢</h3>
+                <h3 className="font-bold text-lg text-text-primary">AI 需求全自动设计与工程中枢</h3>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
                   DeepSeek / Gemini 驱动
                 </span>

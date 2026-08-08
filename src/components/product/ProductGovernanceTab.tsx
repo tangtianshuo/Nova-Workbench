@@ -99,7 +99,7 @@ export function ProductGovernanceTab({ product, onNavigateToRnd }: Props) {
               <div className="p-2.5 bg-bg-secondary text-text-primary rounded-[var(--radius-md)] border border-border-subtle">
                 <ShieldCheck size={24} weight="duotone" />
               </div>
-              <h3 className="text-xl font-black text-white">产品全生命周期阶段管控与质量准入</h3>
+              <h3 className="text-xl font-black text-text-primary">产品全生命周期阶段管控与质量准入</h3>
             </div>
             <p className="text-xs text-text-secondary max-w-2xl leading-relaxed">
               管控【{product.name}】的阶段流转、门禁准入条件、风险阻断项审核与发布决策。成果物具体内容请在【产品研发中心】进行 AI 自动化生产。
@@ -122,7 +122,7 @@ export function ProductGovernanceTab({ product, onNavigateToRnd }: Props) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-border-subtle">
           <div className="bg-bg-secondary p-4 rounded-[var(--radius-lg)] border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-secondary">生命周期状态</div>
-            <div className="text-base font-black text-white font-mono">{product.stage}</div>
+            <div className="text-base font-black text-text-primary font-mono">{product.stage}</div>
           </div>
 
           <div className="bg-bg-secondary p-4 rounded-[var(--radius-lg)] border border-border-subtle space-y-1">
@@ -138,14 +138,14 @@ export function ProductGovernanceTab({ product, onNavigateToRnd }: Props) {
 
           <div className="bg-bg-secondary p-4 rounded-[var(--radius-lg)] border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-secondary">成果物就绪率</div>
-            <div className="text-base font-black text-white font-mono">
+            <div className="text-base font-black text-text-primary font-mono">
               {readyCount} / {deliverables.length || 18} 份
             </div>
           </div>
 
           <div className="bg-bg-secondary p-4 rounded-[var(--radius-lg)] border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-secondary">准入安全分</div>
-            <div className="text-base font-black text-white font-mono">96 / 100</div>
+            <div className="text-base font-black text-text-primary font-mono">96 / 100</div>
           </div>
         </div>
       </Card>

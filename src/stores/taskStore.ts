@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Task, TaskCategory, INITIAL_CATEGORIES } from '../data/mockTasks';
+import { sqliteStorage } from './storage/sqliteStorage';
 
 interface TaskState {
   categories: TaskCategory[];
@@ -8,9 +10,15 @@ interface TaskState {
   addTask: (task: Task, categoryId?: string) => void;
   completeTask: (taskId: string) => void;
   getProjectTaskCount: (projectIdOrName?: string) => number;
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: boolean;
+  _setHydrated: () => void;
 }
 
-export const useTaskStore = create<TaskState>((set, get) => ({
+export const useTaskStore = create<TaskState>()(
+  persist(
+    (set, get) => ({
   categories: INITIAL_CATEGORIES,
 
   setCategories: (categories) => set({ categories }),
@@ -62,4 +70,20 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     });
     return count;
   },
-}));
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: false,
+  _setHydrated: () => set({ _hasHydrated: true }),
+    }),
+    {
+      name: 'nova-task',
+      version: 1,
+      storage: sqliteStorage,
+      partialize: (s) => ({ categories: s.categories }),
+      migrate: (persisted, _version) => persisted as Partial<TaskState>,
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated();
+      },
+    },
+  ),
+);

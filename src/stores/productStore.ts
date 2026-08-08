@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
   Product,
   ProductMilestone,
@@ -6,6 +7,7 @@ import {
   ProductSkill,
   INITIAL_PRODUCTS_DATA,
 } from '../data/mockProducts';
+import { sqliteStorage } from './storage/sqliteStorage';
 
 export type { Product, ProductMilestone, ProductDocument, ProductSkill } from '../data/mockProducts';
 export type Project = Product;
@@ -29,9 +31,15 @@ interface ProductState {
   // Milestone operations
   addProductMilestone: (productId: string, milestone: ProductMilestone) => void;
   updateMilestoneStatus: (productId: string, milestoneId: string, status: 'completed' | 'in-progress' | 'pending') => void;
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: boolean;
+  _setHydrated: () => void;
 }
 
-export const useProductStore = create<ProductState>((set) => ({
+export const useProductStore = create<ProductState>()(
+  persist(
+    (set) => ({
   products: INITIAL_PRODUCTS_DATA,
 
   addProduct: (product) =>
@@ -136,4 +144,20 @@ export const useProductStore = create<ProductState>((set) => ({
         };
       }),
     })),
-}));
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: false,
+  _setHydrated: () => set({ _hasHydrated: true }),
+    }),
+    {
+      name: 'nova-product',
+      version: 1,
+      storage: sqliteStorage,
+      partialize: (s) => ({ products: s.products }),
+      migrate: (persisted, _version) => persisted as Partial<ProductState>,
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated();
+      },
+    },
+  ),
+);

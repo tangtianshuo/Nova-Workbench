@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { sqliteStorage } from './storage/sqliteStorage';
 
 export interface ScheduleEvent {
   id: string;
@@ -19,9 +21,15 @@ interface ScheduleState {
   events: ScheduleEvent[];
   addEvent: (event: ScheduleEvent) => void;
   setEvents: (events: ScheduleEvent[]) => void;
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: boolean;
+  _setHydrated: () => void;
 }
 
-export const useScheduleStore = create<ScheduleState>((set) => ({
+export const useScheduleStore = create<ScheduleState>()(
+  persist(
+    (set) => ({
   events: INITIAL_EVENTS,
 
   addEvent: (event) =>
@@ -31,4 +39,20 @@ export const useScheduleStore = create<ScheduleState>((set) => ({
     }),
 
   setEvents: (events) => set({ events }),
-}));
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: false,
+  _setHydrated: () => set({ _hasHydrated: true }),
+    }),
+    {
+      name: 'nova-schedule',
+      version: 1,
+      storage: sqliteStorage,
+      partialize: (s) => ({ events: s.events }),
+      migrate: (persisted, _version) => persisted as Partial<ScheduleState>,
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated();
+      },
+    },
+  ),
+);

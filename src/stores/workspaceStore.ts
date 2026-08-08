@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { sqliteStorage } from './storage/sqliteStorage';
 
 export interface WorkspaceFile {
   id: string;
@@ -115,9 +117,15 @@ interface WorkspaceState {
 
   addLocalIndexedFile: (file: LocalIndexedFile) => void;
   setLocalIndexedFiles: (files: LocalIndexedFile[]) => void;
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: boolean;
+  _setHydrated: () => void;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+export const useWorkspaceStore = create<WorkspaceState>()(
+  persist(
+    (set) => ({
   workspaces: INITIAL_WORKSPACES,
   localIndexedFiles: INITIAL_LOCAL_FILES,
 
@@ -145,4 +153,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set((state) => ({ localIndexedFiles: [file, ...state.localIndexedFiles] })),
 
   setLocalIndexedFiles: (files) => set({ localIndexedFiles: files }),
-}));
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: false,
+  _setHydrated: () => set({ _hasHydrated: true }),
+    }),
+    {
+      name: 'nova-workspace',
+      version: 1,
+      storage: sqliteStorage,
+      partialize: (s) => ({
+        workspaces: s.workspaces,
+        localIndexedFiles: s.localIndexedFiles,
+      }),
+      migrate: (persisted, _version) => persisted as Partial<WorkspaceState>,
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated();
+      },
+    },
+  ),
+);

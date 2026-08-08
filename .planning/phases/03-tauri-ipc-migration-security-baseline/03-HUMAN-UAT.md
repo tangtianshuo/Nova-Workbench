@@ -70,12 +70,60 @@ persistence check).
 - **note:** Tauri desktop build is the production target. Web dev fallback is best-effort per D-21/D-16; "no live tokens in browser" is NOT a blocker.
 - **result:** [pending]
 
+## Phase 3 Production Build Smoke Test (Wave 4)
+
+8 items deferred to user UAT per `--auto` mode.
+
+### 1. Verify capabilities/llm.json permission identifiers
+- **expected:** Identifiers in `src-tauri/capabilities/llm.json` match the format in `src-tauri/gen/schemas/desktop-schema.json`
+- **how to test:** Run `npm run tauri:dev` once (let it boot, then close). Read `src-tauri/gen/schemas/desktop-schema.json`. Find the 4 command permission identifiers — confirm they match `generate-project:allow` etc. If MISMATCH: edit llm.json to use actual identifiers, re-run tauri:dev.
+- **result:** [pending]
+
+### 2. Run full production build
+- **expected:** `npm run tauri:build` completes without error. First build may take 5-10 min (rig-core + tokio lto=true + opt-level=s — one-time cost). Output `.exe` (or `.app`/AppImage) in `src-tauri/target/release/bundle/`.
+- **how to test:** `npm run tauri:build` — record total time + final artifact path.
+- **result:** [pending]
+
+### 3. Install + launch built artifact
+- **expected:** Installer runs cleanly; Nova launches from Start Menu / Applications (NOT `npm run tauri:dev` — must be prod build to exercise CSP).
+- **how to test:** Run installer, launch Nova, open DevTools (F12 or right-click → Inspect Element).
+- **result:** [pending]
+
+### 4. CSP verification across all views + modals (SEC-02)
+- **expected:** DevTools Console shows ZERO red CSP violations during boot, while visiting every view (Product / Tasks / R&D / Schedule / Files / Knowledge / Settings), and while opening every modal (Create Product, Workspace Summary, Add Document).
+- **how to test:** Visit each view + open each modal; watch DevTools console for CSP errors.
+- **result:** [pending]
+
+### 5. IPC reachability from production DevTools (SEC-04)
+- **expected:** Each invoke returns successfully (no "permission denied", no silent rejection).
+- **how to test:** In production DevTools console, paste each line and verify response:
+  - `await window.__TAURI__.core.invoke('has_api_key')` → `true` or `false`
+  - `await window.__TAURI__.core.invoke('set_api_key', { key: 'prod-test' })` → undefined
+  - `await window.__TAURI__.core.invoke('has_api_key')` → `true`
+  - `await window.__TAURI__.core.invoke('cancel_generate_project', { requestId: 'nope' })` → null/undefined (idempotent)
+- **result:** [pending]
+
+### 6. Streaming works in production (CSP connect-src ipc: verified)
+- **expected:** Tokens stream into 实时生成预览 area in ProjectCreateModal. This confirms `connect-src ipc:` is allowing invoke in prod.
+- **how to test:** ProjectCreateModal → fill prompt → 生成项目计划 → watch tokens arrive live.
+- **result:** [pending]
+
+### 7. Express bind to 127.0.0.1 (D-23)
+- **expected:** Server log says "Dev-only server running at http://127.0.0.1:3000 (not for production)". From another LAN machine, `curl http://<this-machine-ip>:3000/` → connection refused.
+- **how to test:** `npm run dev` → check log → from phone or second machine on same Wi-Fi, attempt curl.
+- **result:** [pending]
+
+### 8. Sign + date
+- **expected:** User signs + dates the bottom of this section after all 7 steps pass (or describes failures).
+- **how to test:** Replace [pending] with PASS/FAIL + actual DevTools output for each step.
+- **result:** [pending]
+
 ## Summary
 
-total: 22
+total: 35
 passed: 0
 issues: 0
-pending: 22
+pending: 35
 skipped: 0
 blocked: 0
 

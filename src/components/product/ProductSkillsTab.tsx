@@ -74,10 +74,10 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <Card variant="dark" className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card variant="dark" className="bg-gradient-to-r from-blue-500/20 via-indigo-500/10 to-bg-tertiary border-blue-500/20 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm">
+            <span className="p-1.5 rounded-lg bg-bg-secondary/50 backdrop-blur-sm">
               <Lightning size={16} weight="duotone" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-blue-100">
@@ -87,7 +87,7 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
           <h2 className="text-xl font-bold tracking-tight">
             当前产品已挂载 {product.associatedSkills.length} 项专属智能 Agent 技能
           </h2>
-          <p className="text-xs text-blue-100/90 mt-1 max-w-2xl">
+          <p className="text-xs text-text-secondary mt-1 max-w-2xl">
             智能 Skill 能够深度联动当前产品下的 PRD 文档、接口规范、本地代码工程与历史指标，实现需求自检、用例自动生成与质量巡检。
           </p>
         </div>
@@ -95,7 +95,7 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
         <Button
           onClick={onAddSkill}
           variant="secondary"
-          className="!bg-white !text-accent !border-0 shadow-sm shrink-0 self-start md:self-auto"
+          className="!bg-bg-primary !text-accent !border-0 shadow-sm shrink-0 self-start md:self-auto"
         >
           <Plus size={16} weight="duotone" />
           <span>关联新 Skill</span>

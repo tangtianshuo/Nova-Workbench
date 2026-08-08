@@ -128,10 +128,10 @@ export function CodeManagementTab({ product }: Props) {
                 variant="ghost"
                 onClick={() => handleGenerateScaffold(preset.type as any)}
                 disabled={isGenerating}
-                className="p-3 h-auto bg-white/5 hover:bg-white/10 text-left rounded-[var(--radius-lg)] border border-white/10 hover:border-accent/40 transition-all flex flex-col justify-between group !w-full"
+                className="p-3 h-auto bg-bg-secondary/50 hover:bg-bg-secondary text-left rounded-[var(--radius-lg)] border border-border-subtle hover:border-accent/40 transition-all flex flex-col justify-between group !w-full"
               >
                 <div className="flex items-center justify-between w-full mb-2">
-                  <div className="p-2 rounded-[var(--radius-md)] bg-white/10 text-accent group-hover:bg-accent/20 transition-colors">
+                  <div className="p-2 rounded-[var(--radius-md)] bg-bg-secondary text-accent group-hover:bg-accent/20 transition-colors">
                     <Icon size={16} weight="duotone" />
                   </div>
                   <Sparkle size={12} weight="duotone" className="text-text-tertiary group-hover:text-accent transition-colors" />

@@ -168,7 +168,7 @@ export function FullDeliverablesTab({ product }: Props) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="p-2.5 bg-white/10 text-white/90 rounded-[var(--radius-md)] border border-white/20">
+              <div className="p-2.5 bg-bg-secondary text-text-primary rounded-[var(--radius-md)] border border-border-subtle">
                 <Cpu size={24} weight="duotone" />
               </div>
               <h3 className="text-xl font-black tracking-tight text-white">产品产研全生命周期成果物工厂</h3>
@@ -176,15 +176,15 @@ export function FullDeliverablesTab({ product }: Props) {
                 18 份工业级交付物
               </Badge>
             </div>
-            <p className="text-xs text-white/70 max-w-2xl leading-relaxed">
+            <p className="text-xs text-text-secondary max-w-2xl leading-relaxed">
               围绕【{product.name}】全生命周期，支持秒级一键推导从需求 PRD、架构拓扑、OpenAPI 协议、建表 SQL、测试用例到发版公告的所有核心成果物。
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="bg-white/10 p-3 rounded-[var(--radius-lg)] border border-white/15 flex items-center gap-4 px-4">
+            <div className="bg-bg-secondary p-3 rounded-[var(--radius-lg)] border border-border-subtle flex items-center gap-4 px-4">
               <div>
-                <div className="text-[11px] text-white/60">已就绪资产</div>
+                <div className="text-[11px] text-text-secondary">已就绪资产</div>
                 <div className="text-lg font-black text-white">{readyCount} / {totalCount}</div>
               </div>
               <ProgressBar value={readyPercent} variant="success" className="w-16" />
@@ -217,9 +217,9 @@ export function FullDeliverablesTab({ product }: Props) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="p-4 bg-white/10 rounded-[var(--radius-lg)] border border-white/15 space-y-2"
+            className="p-4 bg-bg-secondary rounded-[var(--radius-lg)] border border-border-subtle space-y-2"
           >
-            <div className="flex items-center justify-between text-xs text-white/70">
+            <div className="flex items-center justify-between text-xs text-text-secondary">
               <span className="flex items-center gap-2">
                 <ArrowClockwise size={14} weight="duotone" className="animate-spin text-success" />
                 正在推导: <strong className="text-white">{batchCurrentTitle || '初始化产研流水线...'}</strong>
@@ -354,14 +354,14 @@ export function FullDeliverablesTab({ product }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-white/10">
+            <div className="p-6 bg-gradient-to-r from-accent/20 via-accent-hover/10 to-bg-tertiary text-text-primary flex items-center justify-between border-b border-border-subtle">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-[var(--radius-md)] bg-white/15 text-white/90 font-mono font-bold text-xs border border-white/20">
+                <div className="p-2 rounded-[var(--radius-md)] bg-bg-secondary text-text-primary font-mono font-bold text-xs border border-border-subtle">
                   {selectedDeliverable.code}
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-white">{selectedDeliverable.title}</h3>
-                  <p className="text-xs text-white/60 mt-0.5">
+                  <h3 className="font-bold text-base text-text-primary">{selectedDeliverable.title}</h3>
+                  <p className="text-xs text-text-secondary mt-0.5">
                     所属阶段: {selectedDeliverable.phaseName} · 格式: {selectedDeliverable.format.toUpperCase()} · 字数: {selectedDeliverable.wordCount}
                   </p>
                 </div>
@@ -372,7 +372,7 @@ export function FullDeliverablesTab({ product }: Props) {
                   onClick={() => handleCopy(selectedDeliverable.id, selectedDeliverable.content)}
                   variant="ghost"
                   size="sm"
-                  className="text-white/80 hover:text-white hover:bg-white/10 border border-white/20"
+                  className="text-text-secondary hover:text-text-primary hover:bg-bg-secondary border border-border-subtle"
                 >
                   {copiedId === selectedDeliverable.id ? <Check size={13} weight="duotone" className="text-success" /> : <Copy size={13} weight="duotone" />}
                   <span>{copiedId === selectedDeliverable.id ? '已复制' : '复制全文'}</span>
@@ -382,7 +382,7 @@ export function FullDeliverablesTab({ product }: Props) {
                   onClick={() => handleDownload(selectedDeliverable)}
                   variant="ghost"
                   size="sm"
-                  className="text-white/80 hover:text-white hover:bg-white/10 border border-white/20"
+                  className="text-text-secondary hover:text-text-primary hover:bg-bg-secondary border border-border-subtle"
                 >
                   <Download size={13} weight="duotone" />
                   <span>导出文件</span>
@@ -392,7 +392,7 @@ export function FullDeliverablesTab({ product }: Props) {
                   onClick={() => setSelectedDeliverable(null)}
                   variant="ghost"
                   size="sm"
-                  className="text-white/60 hover:text-white hover:bg-white/10"
+                  className="text-text-tertiary hover:text-text-primary hover:bg-bg-secondary"
                 >
                   <X size={18} weight="duotone" />
                 </Button>

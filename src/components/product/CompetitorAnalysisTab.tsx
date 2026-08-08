@@ -80,7 +80,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
       )}
 
       {/* Top Banner */}
-      <Card variant="dark" className="bg-gradient-to-r from-amber-950 via-slate-900 to-slate-950 border-amber-500/20 p-6 md:p-8 space-y-6">
+      <Card variant="dark" className="bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-bg-tertiary border-amber-500/20 p-6 md:p-8 space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">

@@ -18,6 +18,16 @@ tauri-plugin-shell = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# --- Phase 3 additions ---
+keyring = "3"
+rig-core = "0.41"
+# ponytail: futures is a transitive dep of rig-core but Cargo does not expose transitive
+# deps to the dependent crate. Added explicitly so llm.rs and the spike example can call
+# `futures::StreamExt::next` on StreamingCompletionResponse. Removed when rig re-exports it.
+futures = "0.3"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
 
 [profile.release]
 panic = "abort"

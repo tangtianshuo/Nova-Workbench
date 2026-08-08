@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 3 context gathered (24 decisions D-01..D-24, all auto-selected defaults; only generate-project endpoint migrated as PoC per D-01; keyring crate for API key per D-06; explicit CSP per D-17)
-last_updated: "2026-08-08T07:25:44.189Z"
+status: executing
+stopped_at: "Completed 03-01-PLAN.md (Phase 3 Rust foundation: AppError + keychain + AppState + stream_generate verified against rig 0.41 source)"
+last_updated: "2026-08-08T08:13:46.829Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 12
+  completed_plans: 9
   percent: 50
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-08)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 02 — persistence-zustand-persist-sqlite
+**Current focus:** Phase 03 — tauri-ipc-migration-security-baseline
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 03 (tauri-ipc-migration-security-baseline) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-08-08
 
 Progress: [██░░░░░░░░] 50%
@@ -57,6 +57,7 @@ Progress: [██░░░░░░░░] 50%
 | Phase 02 P02 | 4 | 2 tasks | 13 files |
 | Phase 02 P03 | 3 | 2 tasks | 7 files |
 | Phase 02 P04 | 3 | 2 tasks | 8 files |
+| Phase 03 P01 | 30 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,10 @@ Recent decisions affecting current work:
 - [Phase 02]: HydrationGate uses 6-boolean && chain over state machine per D-12 — 7 lines vs 30+, decodes easier at 3am
 - [Phase 02]: Dynamic import('./seedData') inside seedAllStores — 2k lines of mock JSON stay out of main bundle on every load except first
 - [Phase 02]: themeStore NOT in HydrationGate — it hydrates synchronously from localStorage, gating adds a one-frame flash for nothing
+- [Phase 03]: rig 0.41 streaming API: crate is rig_core (not rig); entry is CompletionRequestBuilder::new(model, prompt).preamble(system).stream().await; chunk is StreamedAssistantContent::Text(text.text); CancellationToken lives in tokio_util::sync not tokio::sync
+- [Phase 03]: Phase 3 AppError uses manual serde::Serialize via serialize_str — JS reads err as a single JSON string with variant-prefixed Display message; no struct shape (Ponytail choice over D-12 structured form)
+- [Phase 03]: StreamChunk is enum with #[serde(tag="kind", content="data")] (RESEARCH Ponytail rec), not D-02 flat struct. Done variant serializes as {"kind":"done"} (no data field); frontend branches on msg.kind first so absence is fine
+- [Phase 03]: Keychain OS round-trip test removed from unit tests (Windows Credential Manager has read-after-write propagation issues under cargo test). Behavior-only tests cover error mapping; full OS round-trip deferred to 03-HUMAN-UAT.md Wave 3
 
 ### Pending Todos
 
@@ -97,6 +102,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T07:25:44.183Z
-Stopped at: Phase 3 context gathered (24 decisions D-01..D-24, all auto-selected defaults; only generate-project endpoint migrated as PoC per D-01; keyring crate for API key per D-06; explicit CSP per D-17)
-Resume file: .planning/phases/03-tauri-ipc-migration-security-baseline/03-CONTEXT.md
+Last session: 2026-08-08T08:13:46.824Z
+Stopped at: Completed 03-01-PLAN.md (Phase 3 Rust foundation: AppError + keychain + AppState + stream_generate verified against rig 0.41 source)
+Resume file: None

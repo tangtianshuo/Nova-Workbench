@@ -12,6 +12,7 @@ import { Skeleton } from './components/ui/Skeleton';
 import { ToastProvider } from './components/ui/Toast';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { AppProvider, useApp } from './store/AppContext';
+import { HydrationGate } from './components/HydrationGate';
 
 // Lazy-loaded views for code splitting
 const AgentWorkspaceView = lazy(() => import('./views/AgentWorkspaceView').then(m => ({ default: m.AgentWorkspaceView })));
@@ -128,7 +129,9 @@ export default function App() {
     <TooltipProvider>
       <ToastProvider>
         <AppProvider>
-          <MainLayout />
+          <HydrationGate>
+            <MainLayout />
+          </HydrationGate>
         </AppProvider>
       </ToastProvider>
     </TooltipProvider>

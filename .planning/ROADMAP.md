@@ -29,7 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. When the OS theme changes while in System mode, Nova follows it live (no restart) — including on Linux GNOME/KDE via a GTK detection shim (manual override wins over detection)
   4. Every Card variant (default/elevated/glass/interactive/dark) and every one of the 11 views + 16 product sub-components renders with correct contrast in dark mode (no white-on-white, invisible borders, or missing tokens)
   5. Theme switches animate smoothly with no flash of unstyled or wrong-themed content
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 01-01-PLAN.md — themeStore + Linux GTK detection shim (Wave 1)
+- [ ] 01-02-PLAN.md — SettingsView SegmentedControl + Header quick-toggle (Wave 2)
+- [ ] 01-03-PLAN.md — CSS color transitions in tokens.css (Wave 1)
+- [ ] 01-04-PLAN.md — Card dark variant rework + 47-component audit (Wave 2)
 **UI hint**: yes
 
 ### Phase 2: Persistence (Zustand persist + SQLite)
@@ -78,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dark Mode Wiring | 0/TBD | Not started | - |
+| 1. Dark Mode Wiring | 0/4 | Planning complete | - |
 | 2. Persistence (Zustand persist + SQLite) | 0/TBD | Not started | - |
 | 3. Tauri IPC Migration + Security Baseline | 0/TBD | Not started | - |
 | 4. GraphFlow + Rig PoC (feature-flagged) | 0/TBD | Not started | - |

@@ -50,7 +50,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 02-01-PLAN.md — Fix rndStore INITIAL.p1 fallback bug (Wave 1, mandatory pre-req per PERSIST-08)
 - [x] 02-02-PLAN.md — Stand up SQLite substrate: tauri-plugin-sql + adapter + dev fallback + capability + migration (Wave 1)
 - [x] 02-03-PLAN.md — Wrap all 6 Zustand stores in persist with partialize + _hasHydrated + migrate stub (Wave 2)
-- [ ] 02-04-PLAN.md — Wire startup orchestration: first-run seed (has_seeded gate) + HydrationGate + main.tsx await (Wave 3, has checkpoint)
+- [x] 02-04-PLAN.md — Wire startup orchestration: first-run seed (has_seeded gate) + HydrationGate + main.tsx await (Wave 3, has checkpoint)
 **UI hint**: yes
 
 ### Phase 3: Tauri IPC Migration + Security Baseline

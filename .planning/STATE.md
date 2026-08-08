@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02-03-PLAN.md (all 6 stores wrapped in persist; _hasHydrated ready for Wave 3)
-last_updated: "2026-08-08T06:52:58.883Z"
+status: verifying
+stopped_at: "Completed 02-04-PLAN.md (Phase 2 shippable: persistence wired end-to-end)"
+last_updated: "2026-08-08T06:56:15.476Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 50
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-08)
 
 Phase: 02 (persistence-zustand-persist-sqlite) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
 Progress: [██░░░░░░░░] 50%
@@ -56,6 +56,7 @@ Progress: [██░░░░░░░░] 50%
 | Phase 02 P01 | 3 | 2 tasks | 3 files |
 | Phase 02 P02 | 4 | 2 tasks | 13 files |
 | Phase 02 P03 | 3 | 2 tasks | 7 files |
+| Phase 02 P04 | 3 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,10 @@ Recent decisions affecting current work:
 - [Phase 02]: src/lib/api.ts as single home for isTauri + future Tauri IPC chokepoints (Phase 3 IPC adapter lives here too)
 - [Phase 02]: isTauri() gained typeof window SSR guard — sqliteStorage top-level branch no longer crashes node:test when productStore transitively loads it via rndStore
 - [Phase 02]: uiStore partialize drops theme/isSearchOpen/isNewTaskOpen per D-13 — themeStore owns theme, modal flags reset on reload
+- [Phase 02]: Top-level await in main.tsx for initializeDatabase — Vite + ES2022 target, no bundler config change; StrictMode does not double-invoke module top-level
+- [Phase 02]: HydrationGate uses 6-boolean && chain over state machine per D-12 — 7 lines vs 30+, decodes easier at 3am
+- [Phase 02]: Dynamic import('./seedData') inside seedAllStores — 2k lines of mock JSON stay out of main bundle on every load except first
+- [Phase 02]: themeStore NOT in HydrationGate — it hydrates synchronously from localStorage, gating adds a one-frame flash for nothing
 
 ### Pending Todos
 
@@ -92,6 +97,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T06:52:58.877Z
-Stopped at: Completed 02-03-PLAN.md (all 6 stores wrapped in persist; _hasHydrated ready for Wave 3)
+Last session: 2026-08-08T06:56:15.471Z
+Stopped at: Completed 02-04-PLAN.md (Phase 2 shippable: persistence wired end-to-end)
 Resume file: None

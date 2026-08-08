@@ -25,9 +25,9 @@
 - [x] **PERSIST-04**: 引入 SQLite(`tauri-plugin-sql`)作为前端持久化后端,而非裸 localStorage
 - [x] **PERSIST-05**: Zustand persist 通过 ~20 行 `createJSONStorage` 适配器对接 `@tauri-apps/plugin-store`
 - [x] **PERSIST-06**: SQLite migration 是 forward-only additive,带启动期 sanity SELECT 和 `schema_version` 表,避免 Tauri SQL 静默失败
-- [ ] **PERSIST-07**: `_hasHydrated` flag 阻止渲染期空状态闪烁
+- [x] **PERSIST-07**: `_hasHydrated` flag 阻止渲染期空状态闪烁
 - [x] **PERSIST-08**: 修复 `rndStore` 的 `INITIAL.p1` fallback bug(CONCERNS.md HIGH),防止持久化错误产品的数据
-- [ ] **PERSIST-09**: 首次运行时(无 DB 数据)从 `mock*.ts` 播种初始数据,带 `has_seeded` flag 防重复
+- [x] **PERSIST-09**: 首次运行时(无 DB 数据)从 `mock*.ts` 播种初始数据,带 `has_seeded` flag 防重复
 
 ### Tauri IPC & AI Migration(Phase 3)
 
@@ -131,9 +131,9 @@
 | PERSIST-04 | Phase 2 | Complete |
 | PERSIST-05 | Phase 2 | Complete |
 | PERSIST-06 | Phase 2 | Complete |
-| PERSIST-07 | Phase 2 | Pending |
+| PERSIST-07 | Phase 2 | Complete |
 | PERSIST-08 | Phase 2 | Complete |
-| PERSIST-09 | Phase 2 | Pending |
+| PERSIST-09 | Phase 2 | Complete |
 | IPC-01 | Phase 3 | Pending |
 | IPC-02 | Phase 3 | Pending |
 | IPC-03 | Phase 3 | Pending |

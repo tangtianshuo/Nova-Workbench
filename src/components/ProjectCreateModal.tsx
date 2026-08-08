@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Sparkle, Folder, FileText, ArrowsClockwise } from '@phosphor-icons/react';
+import { Sparkle, Folder, FileText, ArrowsClockwise, Stop } from '@phosphor-icons/react';
 import { useApp, Project } from '../store/AppContext';
 import { Task } from '../data/mockTasks';
 import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
 import { Button } from '@/src/components/ui/Button';
 import { Textarea } from '@/src/components/ui/Input';
+import { useToast } from '@/src/components/ui/Toast';
+import { streamGenerateProject, type GenerateProjectResult } from '@/src/lib/api';
 import { cn } from '@/src/lib/utils';
 
 interface ProjectCreateModalProps {
@@ -17,6 +19,9 @@ export function ProjectCreateModal({ onClose }: ProjectCreateModalProps) {
   const [files, setFiles] = useState<any[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [streamedText, setStreamedText] = useState('');
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch('/api/workspace-files')
@@ -25,6 +30,13 @@ export function ProjectCreateModal({ onClose }: ProjectCreateModalProps) {
       .catch(err => console.error(err));
   }, []);
 
+  // Pitfall 5: abort in-flight stream when modal closes/unmounts
+  useEffect(() => {
+    return () => {
+      abortController?.abort();
+    };
+  }, [abortController]);
+
   const toggleFile = (id: string) => {
     setSelectedFileIds(prev =>
       prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
@@ -32,21 +44,38 @@ export function ProjectCreateModal({ onClose }: ProjectCreateModalProps) {
   };
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || isGenerating) return;
     setIsGenerating(true);
+    setStreamedText('');
 
     const filesContext = selectedFileIds.map(id => {
       const f = files.find(f => f.id === id);
       return f ? `- ${f.name} (type: ${f.type})` : '';
     }).join('\n');
 
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    let data: any;
     try {
-      const response = await fetch('/api/generate-project', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, filesContext })
-      });
-      const data = await response.json();
+      const result: GenerateProjectResult = await streamGenerateProject(
+        prompt,
+        filesContext,
+        (token) => setStreamedText(prev => prev + token),
+        controller.signal,
+      );
+
+      // Parse result.content as JSON; fall back to raw text as projectDescription
+      try {
+        data = JSON.parse(result.content);
+      } catch {
+        data = {
+          projectName: 'AI 协同产品工程',
+          projectDescription: result.content,
+          milestones: [],
+          tasks: [],
+        };
+      }
 
       const newProject: Project = {
         id: `p-${Date.now()}`,
@@ -164,11 +193,22 @@ export function ProjectCreateModal({ onClose }: ProjectCreateModalProps) {
 
       onClose();
     } catch (error) {
-      console.error(error);
-      alert('项目生成失败，请重试');
+      // D-14: Cancelled is silent (user-initiated). Other errors → toast with humanized message.
+      const msg = (error as Error).message ?? String(error);
+      if (msg === '已取消' || (error as Error).name === 'AbortError') return;
+      toast({
+        type: 'error',
+        title: '生成失败',
+        description: msg,
+      });
     } finally {
       setIsGenerating(false);
+      setAbortController(null);
     }
+  };
+
+  const handleStop = () => {
+    abortController?.abort();
   };
 
   return (
@@ -219,10 +259,29 @@ export function ProjectCreateModal({ onClose }: ProjectCreateModalProps) {
               ))}
             </div>
           </div>
+
+          {streamedText && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-primary flex items-center gap-2">
+                <Sparkle size={16} weight="duotone" className="text-accent" />
+                实时生成预览
+              </label>
+              <div className="p-3 rounded-[var(--radius-md)] bg-bg-secondary/50 border border-border-subtle max-h-40 overflow-y-auto">
+                <pre className="text-xs text-text-secondary whitespace-pre-wrap font-mono">
+                  {streamedText}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>取消</Button>
+          {isGenerating && (
+            <Button variant="danger" onClick={handleStop} className="gap-2">
+              <Stop size={16} weight="duotone" /> 停止生成
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={handleGenerate}

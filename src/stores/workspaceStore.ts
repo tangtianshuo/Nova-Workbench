@@ -36,7 +36,7 @@ export interface LocalIndexedFile {
   isFavorite?: boolean;
 }
 
-const INITIAL_WORKSPACES: Workspace[] = [
+export const INITIAL_WORKSPACES: Workspace[] = [
   {
     id: 'ws-1',
     name: 'WenXiBuddy 核心研发工作区',
@@ -68,7 +68,7 @@ const INITIAL_WORKSPACES: Workspace[] = [
   }
 ];
 
-const INITIAL_LOCAL_FILES: LocalIndexedFile[] = [
+export const INITIAL_LOCAL_FILES: LocalIndexedFile[] = [
   {
     id: 'lf-1', name: 'PRD_核心业务需求规格说明书_v3.2.docx',
     folder: 'D:\\Projects\\WenXiBuddy\\workspace\\docs',

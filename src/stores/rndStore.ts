@@ -54,7 +54,7 @@ const EMPTY_COMPETITOR: CompetitorAnalysisData = {
 };
 
 // Helper
-function buildInitialDeliverables(product: Product): FullLifecycleDeliverable[] {
+export function buildInitialDeliverables(product: Product): FullLifecycleDeliverable[] {
   return FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((cat, idx) => ({
     id: `del-${product.id}-${cat.code}`,
     productId: product.id,

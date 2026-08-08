@@ -1,6 +1,6 @@
 // src/stores/storage/initializeDatabase.ts
-// Per D-04. Startup orchestration: load → sanity SELECT → version check →
-// read has_seeded (seeding itself is wired in 02-04, this just reads).
+// Per D-04 + D-09. Startup orchestration:
+// load → sanity SELECT → version check → has_seeded gate → seed → flip flag.
 import { lazySqlite } from './lazySqlite';
 
 export const APP_SCHEMA_VERSION = 1;
@@ -46,7 +46,36 @@ export async function initializeDatabase(): Promise<void> {
     );
   }
 
-  // Step 5 (D-04 + D-09): seeding gate read. Seeding itself happens in 02-04.
-  // Read the flag now so 02-04 can act on it without re-querying.
-  // (For 02-02, this function just validates the substrate is healthy.)
+  // Step 5 (D-04 + D-09): one-shot seed gate.
+  // has_seeded is 'true' after the first successful seed and never reset by app code.
+  // Only manual nova.db deletion re-triggers seeding (expected per D-10).
+  const seededRows = await db.select<MetaRow[]>(
+    'SELECT value FROM meta WHERE key = $1',
+    ['has_seeded'],
+  );
+  if (seededRows[0]?.value === 'false') {
+    await seedAllStores(db);
+    await db.execute(
+      "UPDATE meta SET value = 'true' WHERE key = $1",
+      ['has_seeded'],
+    );
+  }
 }
+
+async function seedAllStores(db: Awaited<ReturnType<typeof lazySqlite>>): Promise<void> {
+  const { buildInitialSeed } = await import('./seedData');
+  const seeds = buildInitialSeed();
+
+  // Promise.all is safe: SQLite serializes writes anyway, and partial-fail
+  // mitigation is that has_seeded only flips after ALL inserts resolve.
+  // If any insert throws, has_seeded stays 'false' and next launch retries.
+  await Promise.all(
+    Object.entries(seeds).map(([key, value]) =>
+      db.execute(
+        'INSERT OR REPLACE INTO kv_store (key, value) VALUES ($1, $2)',
+        [key, JSON.stringify(value)],
+      ),
+    ),
+  );
+}
+

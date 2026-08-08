@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Theme switches animate smoothly with no flash of unstyled or wrong-themed content
 **Plans**: 4 plans
 - [x] 01-01-PLAN.md — themeStore + Linux GTK detection shim (Wave 1)
-- [ ] 01-02-PLAN.md — SettingsView SegmentedControl + Header quick-toggle (Wave 2)
+- [x] 01-02-PLAN.md — SettingsView SegmentedControl + Header quick-toggle (Wave 2)
 - [x] 01-03-PLAN.md — CSS color transitions in tokens.css (Wave 1)
 - [ ] 01-04-PLAN.md — Card dark variant rework + 47-component audit (Wave 2)
 **UI hint**: yes
@@ -82,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dark Mode Wiring | 0/4 | Planning complete | - |
+| 1. Dark Mode Wiring | 2/4 | Executing | - |
 | 2. Persistence (Zustand persist + SQLite) | 0/TBD | Not started | - |
 | 3. Tauri IPC Migration + Security Baseline | 0/TBD | Not started | - |
 | 4. GraphFlow + Rig PoC (feature-flagged) | 0/TBD | Not started | - |

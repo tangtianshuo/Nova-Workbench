@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-08)
 ## Current Position
 
 Phase: 01 (dark-mode-wiring) — EXECUTING
-Plan: 2 of 4
-Status: Completed plan 01-01 (themeStore + Linux GTK detection)
-Last activity: 2026-08-08 -- Plan 01-01 committed (273fa5e, b5ada20)
+Plan: 3 of 4
+Status: Completed plan 01-02 (Settings + Header UI wiring)
+Last activity: 2026-08-08 -- Plan 01-02 committed (dd3450f, 53bc864)
 
-Progress: [██░░░░░░░░] 25%
+Progress: [██░░░░░░░░] 50%
 
 ## Performance Metrics
 

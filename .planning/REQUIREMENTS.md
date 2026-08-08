@@ -110,6 +110,7 @@
 | 国际化 (i18n) | UI 文案目前混合中英文,统一化是后续 polish 任务 |
 | 错误边界组件 | 单独的小改进,不放入本里程碑(可在 Phase 1-2 之间穿插) |
 | CI/CD pipeline | 当前 `tsc --noEmit` 仅本地跑,加 GitHub Action 是后续基础设施 |
+| Distribution Hardening(代码签名 / 公证 / auto-updater) | PROJECT.md 未将 distribution 纳入本里程碑;`tauri build` 本地通过即足够,DIST-01/02/03 延后到下一里程碑 |
 
 ## Traceability
 
@@ -117,11 +118,47 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DARK-01 ~ DARK-07 | Phase 1 | Pending |
-| PERSIST-01 ~ PERSIST-09 | Phase 2 | Pending |
-| IPC-01 ~ IPC-10 | Phase 3 | Pending |
-| SEC-01 ~ SEC-07 | Phase 3 | Pending |
-| POC-01 ~ POC-08 | Phase 4 | Pending |
+| DARK-01 | Phase 1 | Pending |
+| DARK-02 | Phase 1 | Pending |
+| DARK-03 | Phase 1 | Pending |
+| DARK-04 | Phase 1 | Pending |
+| DARK-05 | Phase 1 | Pending |
+| DARK-06 | Phase 1 | Pending |
+| DARK-07 | Phase 1 | Pending |
+| PERSIST-01 | Phase 2 | Pending |
+| PERSIST-02 | Phase 2 | Pending |
+| PERSIST-03 | Phase 2 | Pending |
+| PERSIST-04 | Phase 2 | Pending |
+| PERSIST-05 | Phase 2 | Pending |
+| PERSIST-06 | Phase 2 | Pending |
+| PERSIST-07 | Phase 2 | Pending |
+| PERSIST-08 | Phase 2 | Pending |
+| PERSIST-09 | Phase 2 | Pending |
+| IPC-01 | Phase 3 | Pending |
+| IPC-02 | Phase 3 | Pending |
+| IPC-03 | Phase 3 | Pending |
+| IPC-04 | Phase 3 | Pending |
+| IPC-05 | Phase 3 | Pending |
+| IPC-06 | Phase 3 | Pending |
+| IPC-07 | Phase 3 | Pending |
+| IPC-08 | Phase 3 | Pending |
+| IPC-09 | Phase 3 | Pending |
+| IPC-10 | Phase 3 | Pending |
+| SEC-01 | Phase 3 | Pending |
+| SEC-02 | Phase 3 | Pending |
+| SEC-03 | Phase 3 | Pending |
+| SEC-04 | Phase 3 | Pending |
+| SEC-05 | Phase 3 | Pending |
+| SEC-06 | Phase 3 | Pending |
+| SEC-07 | Phase 3 | Pending |
+| POC-01 | Phase 4 | Pending |
+| POC-02 | Phase 4 | Pending |
+| POC-03 | Phase 4 | Pending |
+| POC-04 | Phase 4 | Pending |
+| POC-05 | Phase 4 | Pending |
+| POC-06 | Phase 4 | Pending |
+| POC-07 | Phase 4 | Pending |
+| POC-08 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 41 total(DARK: 7, PERSIST: 9, IPC: 10, SEC: 7, POC: 8)
@@ -130,4 +167,4 @@
 
 ---
 *Requirements defined: 2026-08-08*
-*Last updated: 2026-08-08 after initial definition*
+*Last updated: 2026-08-08 after roadmap creation — traceability expanded to one row per requirement ID*

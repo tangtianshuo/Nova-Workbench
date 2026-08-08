@@ -1,6 +1,16 @@
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+// Phase 3 modules. Wave 1 ships the substrate (error/keychain/state/llm + commands
+// stub); Wave 2 (plan 03-02) wires #[tauri::command] fns into invoke_handler.
+mod commands;
+mod error;
+mod keychain;
+mod llm;
+mod state;
+
+use state::AppState;
+
 // Phase 2 persistence. Forward-only additive — no DROP/ALTER DROP in migrations/.
 // Backstopped by JS-side sanity SELECT + meta.schema_version (PITFALLS Pitfall 2).
 // ponytail: returns fresh Vec each call — tauri-plugin-sql's Migration does not impl Clone
@@ -48,6 +58,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_shell::init())
+        .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![get_gnome_color_scheme])
         .setup(|app| {
             // Set minimum window size

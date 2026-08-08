@@ -26,6 +26,10 @@ rig-core = "0.41"
 # `futures::StreamExt::next` on StreamingCompletionResponse. Removed when rig re-exports it.
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }
+# ponytail: CancellationToken lives in tokio_util::sync, NOT tokio::sync (RESEARCH.md
+# Open Question 2 — confirmed by cargo check Phase 3 Wave 1). tokio's "full" feature
+# set does not re-export it. Only the `rt` feature of tokio-util is needed.
+tokio-util = { version = "0.7", features = ["rt"] }
 uuid = { version = "1", features = ["v4"] }
 thiserror = "1"
 

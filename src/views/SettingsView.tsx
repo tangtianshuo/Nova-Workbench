@@ -9,6 +9,7 @@ import { Separator } from '@/src/components/ui/Separator';
 import { Switch } from '@/src/components/ui/Switch';
 import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { useTheme } from '@/src/hooks/useTheme';
+import { SettingsApiKeySection } from '@/src/components/SettingsApiKeySection';
 import { cn } from '@/src/lib/utils';
 
 const NAV_ITEMS = [
@@ -121,8 +122,11 @@ export function SettingsView() {
             </>
           )}
 
+          {/* Privacy section — API key management (D-07) */}
+          {activeSection === 'privacy' && <SettingsApiKeySection />}
+
           {/* Other nav items fall through to placeholder */}
-          {activeSection !== 'account' && activeSection !== 'appearance' && (
+          {activeSection !== 'account' && activeSection !== 'appearance' && activeSection !== 'privacy' && (
             <div className="text-center text-text-tertiary py-20">即将上线</div>
           )}
         </div>

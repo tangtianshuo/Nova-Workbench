@@ -28,6 +28,29 @@ export type {
   FullLifecycleDeliverable,
 };
 
+// ponytail: typed empty fallbacks for unknown productIds. Replaces the
+// INITIAL_X.p1 silent fallback that froze wrong-product data into persistence.
+const EMPTY_REQUIREMENT: ProductRequirementDesign = {
+  id: '', productId: '', title: '', version: 'v0.0.0', updatedAt: '',
+  status: '草稿', author: '', businessGoal: '', targetAudience: [],
+  coreSummary: '', userStories: [], useCases: [], boundaryChecks: [],
+  flowchartNodes: [], prdMarkdown: '',
+};
+
+const EMPTY_PROTOTYPE: UIPrototypeScreen = {
+  id: '', title: '', device: 'desktop', theme: 'indigo', route: '',
+  description: '', sections: [],
+  designTokens: { primaryColor: '', fontFamily: '', borderRadius: '', spacingScale: '' },
+  reactCode: '',
+};
+
+const EMPTY_COMPETITOR: CompetitorAnalysisData = {
+  productId: '', productName: '', updatedAt: '',
+  radarData: [], competitors: [],
+  swot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+  differentiationStrategy: '', gapAnalysis: [],
+};
+
 // Helper
 function buildInitialDeliverables(product: Product): FullLifecycleDeliverable[] {
   return FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((cat, idx) => ({
@@ -107,9 +130,9 @@ interface RndState {
 }
 
 // Helper to get product from productStore
-const getProd = (productId: string): Product => {
+const getProd = (productId: string): Product | null => {
   const products = useProductStore.getState().products;
-  return products.find((p) => p.id === productId) || products[0];
+  return products.find((p) => p.id === productId) ?? null;
 };
 
 export const useRndStore = create<RndState>((set, get) => ({
@@ -132,6 +155,10 @@ export const useRndStore = create<RndState>((set, get) => ({
     const { requirements } = get();
     if (requirements[productId]) return requirements[productId];
     const prod = getProd(productId);
+    if (!prod) {
+      console.warn('[rndStore] unknown productId in getRequirementForProduct:', productId);
+      return EMPTY_REQUIREMENT;
+    }
     return {
       id: `req-${productId}-1`,
       productId,
@@ -200,6 +227,10 @@ export const useRndStore = create<RndState>((set, get) => ({
     const { prototypes } = get();
     if (prototypes[productId]) return prototypes[productId];
     const prod = getProd(productId);
+    if (!prod) {
+      console.warn('[rndStore] unknown productId in getPrototypeForProduct:', productId);
+      return EMPTY_PROTOTYPE;
+    }
     return {
       id: `proto-${productId}-1`,
       title: `${prod.name} 核心交互原型`,
@@ -252,7 +283,9 @@ export const useRndStore = create<RndState>((set, get) => ({
   // ── Knowledge ───────────────────────────────────────────────────────────
   getKnowledgeForProduct: (productId) => {
     const { knowledgeBase } = get();
-    return knowledgeBase[productId] || INITIAL_KNOWLEDGE_BASE.p1 || [];
+    if (knowledgeBase[productId]) return knowledgeBase[productId];
+    console.warn('[rndStore] unknown productId in getKnowledgeForProduct:', productId);
+    return [];
   },
 
   addKnowledgeItem: (productId, item) =>
@@ -296,7 +329,9 @@ export const useRndStore = create<RndState>((set, get) => ({
   // ── Code Scaffolds ──────────────────────────────────────────────────────
   getCodeScaffoldsForProduct: (productId) => {
     const { codeScaffolds } = get();
-    return codeScaffolds[productId] || INITIAL_CODE_SCAFFOLDS.p1 || [];
+    if (codeScaffolds[productId]) return codeScaffolds[productId];
+    console.warn('[rndStore] unknown productId in getCodeScaffoldsForProduct:', productId);
+    return [];
   },
 
   addCodeScaffold: (productId, item) =>
@@ -320,7 +355,9 @@ export const useRndStore = create<RndState>((set, get) => ({
   // ── Test Cases ──────────────────────────────────────────────────────────
   getTestCasesForProduct: (productId) => {
     const { testCases } = get();
-    return testCases[productId] || INITIAL_TEST_CASES.p1 || [];
+    if (testCases[productId]) return testCases[productId];
+    console.warn('[rndStore] unknown productId in getTestCasesForProduct:', productId);
+    return [];
   },
 
   addTestCase: (productId, item) =>
@@ -366,6 +403,10 @@ export const useRndStore = create<RndState>((set, get) => ({
     const { competitorData } = get();
     if (competitorData[productId]) return competitorData[productId];
     const prod = getProd(productId);
+    if (!prod) {
+      console.warn('[rndStore] unknown productId in getCompetitorDataForProduct:', productId);
+      return EMPTY_COMPETITOR;
+    }
     return { productId, productName: prod.name, updatedAt: '刚刚', radarData: INITIAL_COMPETITOR_DATA.p1.radarData, competitors: INITIAL_COMPETITOR_DATA.p1.competitors, swot: INITIAL_COMPETITOR_DATA.p1.swot, differentiationStrategy: `### 🎯 【${prod.name}】核心破局`, gapAnalysis: INITIAL_COMPETITOR_DATA.p1.gapAnalysis };
   },
 
@@ -400,6 +441,10 @@ export const useRndStore = create<RndState>((set, get) => ({
     const { deliverables } = get();
     if (deliverables[productId]) return deliverables[productId];
     const prod = getProd(productId);
+    if (!prod) {
+      console.warn('[rndStore] unknown productId in getDeliverablesForProduct:', productId);
+      return [];
+    }
     const list = buildInitialDeliverables(prod);
     set((state) => ({ deliverables: { ...state.deliverables, [productId]: list } }));
     return list;

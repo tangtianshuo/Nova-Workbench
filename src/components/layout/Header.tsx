@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/Button';
-import { MagnifyingGlass, Bell, Plus, X } from '@phosphor-icons/react';
+import { MagnifyingGlass, Bell, Plus, X, Sun, Moon } from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter } from '@/src/components/ui/Dialog';
 import { Input, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/src/components/ui';
+import { useTheme } from '@/src/hooks/useTheme';
 
 interface HeaderProps {
   title: string;
@@ -14,6 +15,7 @@ interface HeaderProps {
 export function Header({ title, subtitle }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const { resolved, toggle } = useTheme();
 
   return (
     <>
@@ -48,6 +50,18 @@ export function Header({ title, subtitle }: HeaderProps) {
             <kbd className="ml-1 text-[10px] text-text-tertiary bg-bg-secondary px-1 py-0.5 rounded">
               ⌘K
             </kbd>
+          </Button>
+
+          {/* Theme toggle — cycles light <-> dark, skips System (D-02) */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggle}
+            aria-label={resolved === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+          >
+            {resolved === 'dark'
+              ? <Sun size={16} weight="duotone" />
+              : <Moon size={16} weight="duotone" />}
           </Button>
 
           {/* Notifications */}

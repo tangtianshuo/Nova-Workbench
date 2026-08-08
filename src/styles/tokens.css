@@ -214,3 +214,14 @@ body {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border-primary)) transparent;
 }
+
+/* === Theme Switch Color Transitions === */
+/* D-06: smooth color transition on theme switch (200ms — deliberate departure from --duration-normal=250ms to match Apple HIG). */
+/* D-07: color-only transition, NOT fade-out + fade-in. */
+/* Pitfall 3: NEVER `transition: all` — would animate width/height/top/left causing layout shift. */
+/* D-08: prefers-reduced-motion override already lives above (lines 158-168), sets transition-duration: 0.01ms !important. */
+* {
+  transition-property: background-color, color, border-color, fill, stroke;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { useProductStore } from './productStore';
+import { sqliteStorage } from './storage/sqliteStorage';
 import type { Product } from '../data/mockProducts';
 import {
   type ProductRequirementDesign,
@@ -127,6 +129,10 @@ interface RndState {
 
   // ── Product init helper ───────────────────────────────────────────────────
   initDeliverablesForProduct: (product: Product) => void;
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: boolean;
+  _setHydrated: () => void;
 }
 
 // Helper to get product from productStore
@@ -135,7 +141,9 @@ const getProd = (productId: string): Product | null => {
   return products.find((p) => p.id === productId) ?? null;
 };
 
-export const useRndStore = create<RndState>((set, get) => ({
+export const useRndStore = create<RndState>()(
+  persist(
+    (set, get) => ({
   requirements: INITIAL_REQUIREMENTS,
   prototypes: INITIAL_PROTOTYPES,
   knowledgeBase: INITIAL_KNOWLEDGE_BASE,
@@ -514,4 +522,28 @@ export const useRndStore = create<RndState>((set, get) => ({
     set((state) => ({
       deliverables: { ...state.deliverables, [product.id]: buildInitialDeliverables(product) },
     })),
-}));
+
+  // ── Persistence ────────────────────────────────────────────────────────
+  _hasHydrated: false,
+  _setHydrated: () => set({ _hasHydrated: true }),
+    }),
+    {
+      name: 'nova-rnd',
+      version: 1,
+      storage: sqliteStorage,
+      partialize: (s) => ({
+        requirements: s.requirements,
+        prototypes: s.prototypes,
+        knowledgeBase: s.knowledgeBase,
+        codeScaffolds: s.codeScaffolds,
+        testCases: s.testCases,
+        competitorData: s.competitorData,
+        deliverables: s.deliverables,
+      }),
+      migrate: (persisted, _version) => persisted as Partial<RndState>,
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated();
+      },
+    },
+  ),
+);

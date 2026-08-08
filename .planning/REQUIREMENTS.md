@@ -22,9 +22,9 @@
 - [ ] **PERSIST-01**: 用户刷新页面或重启 app 后,所有 5 个 Zustand store 数据完整恢复
 - [ ] **PERSIST-02**: 每个存储的 `partialize` 配置正确剔除 transient flag(模态开关、loading 状态等)
 - [ ] **PERSIST-03**: 每个 store 有显式 `version: 1` 和 `migrate` 存根,未来 schema 变更有迁移通道
-- [ ] **PERSIST-04**: 引入 SQLite(`tauri-plugin-sql`)作为前端持久化后端,而非裸 localStorage
-- [ ] **PERSIST-05**: Zustand persist 通过 ~20 行 `createJSONStorage` 适配器对接 `@tauri-apps/plugin-store`
-- [ ] **PERSIST-06**: SQLite migration 是 forward-only additive,带启动期 sanity SELECT 和 `schema_version` 表,避免 Tauri SQL 静默失败
+- [x] **PERSIST-04**: 引入 SQLite(`tauri-plugin-sql`)作为前端持久化后端,而非裸 localStorage
+- [x] **PERSIST-05**: Zustand persist 通过 ~20 行 `createJSONStorage` 适配器对接 `@tauri-apps/plugin-store`
+- [x] **PERSIST-06**: SQLite migration 是 forward-only additive,带启动期 sanity SELECT 和 `schema_version` 表,避免 Tauri SQL 静默失败
 - [ ] **PERSIST-07**: `_hasHydrated` flag 阻止渲染期空状态闪烁
 - [x] **PERSIST-08**: 修复 `rndStore` 的 `INITIAL.p1` fallback bug(CONCERNS.md HIGH),防止持久化错误产品的数据
 - [ ] **PERSIST-09**: 首次运行时(无 DB 数据)从 `mock*.ts` 播种初始数据,带 `has_seeded` flag 防重复
@@ -128,9 +128,9 @@
 | PERSIST-01 | Phase 2 | Pending |
 | PERSIST-02 | Phase 2 | Pending |
 | PERSIST-03 | Phase 2 | Pending |
-| PERSIST-04 | Phase 2 | Pending |
-| PERSIST-05 | Phase 2 | Pending |
-| PERSIST-06 | Phase 2 | Pending |
+| PERSIST-04 | Phase 2 | Complete |
+| PERSIST-05 | Phase 2 | Complete |
+| PERSIST-06 | Phase 2 | Complete |
 | PERSIST-07 | Phase 2 | Pending |
 | PERSIST-08 | Phase 2 | Complete |
 | PERSIST-09 | Phase 2 | Pending |

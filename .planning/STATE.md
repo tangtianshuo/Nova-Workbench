@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 03-01-PLAN.md (Phase 3 Rust foundation: AppError + keychain + AppState + stream_generate verified against rig 0.41 source)"
-last_updated: "2026-08-08T08:13:46.829Z"
+stopped_at: Completed 03-02-PLAN.md (4 Tauri commands registered + src/lib/api.ts IPC adapter with streamGenerateProject/cancelGenerateProject/hasAPIKey/setAPIKey branching on isTauri())
+last_updated: "2026-08-08T08:22:59.419Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 50
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-08)
 ## Current Position
 
 Phase: 03 (tauri-ipc-migration-security-baseline) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-08
 
@@ -58,6 +58,7 @@ Progress: [██░░░░░░░░] 50%
 | Phase 02 P03 | 3 | 2 tasks | 7 files |
 | Phase 02 P04 | 3 | 2 tasks | 8 files |
 | Phase 03 P01 | 30 | 2 tasks | 9 files |
+| Phase 03 P02 | 6 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Phase 3 AppError uses manual serde::Serialize via serialize_str — JS reads err as a single JSON string with variant-prefixed Display message; no struct shape (Ponytail choice over D-12 structured form)
 - [Phase 03]: StreamChunk is enum with #[serde(tag="kind", content="data")] (RESEARCH Ponytail rec), not D-02 flat struct. Done variant serializes as {"kind":"done"} (no data field); frontend branches on msg.kind first so absence is fine
 - [Phase 03]: Keychain OS round-trip test removed from unit tests (Windows Credential Manager has read-after-write propagation issues under cargo test). Behavior-only tests cover error mapping; full OS round-trip deferred to 03-HUMAN-UAT.md Wave 3
+- [Phase 03]: Channel::send is synchronous (no .await) — 03-02 PLAN verbatim had on_token.send().await which would not compile; used Wave 1 llm.rs line 80 pattern (let _ = on_token.send(...))
+- [Phase 03]: Used tokio_util::sync::CancellationToken (Wave 1 convention), not tokio::sync::CancellationToken from 03-02 PLAN verbatim — tokio-util v0.7 was added in Wave 1 for this
+- [Phase 03]: src/lib/api.ts filename preserved (Ponytail) instead of renaming to tauri.ts — Phase 2 imports in TitleBar/sqliteStorage unchanged; file header already announced 'Phase 3 IPC adapter will live here too'
 
 ### Pending Todos
 
@@ -102,6 +106,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T08:13:46.824Z
-Stopped at: Completed 03-01-PLAN.md (Phase 3 Rust foundation: AppError + keychain + AppState + stream_generate verified against rig 0.41 source)
+Last session: 2026-08-08T08:22:59.414Z
+Stopped at: Completed 03-02-PLAN.md (4 Tauri commands registered + src/lib/api.ts IPC adapter with streamGenerateProject/cancelGenerateProject/hasAPIKey/setAPIKey branching on isTauri())
 Resume file: None

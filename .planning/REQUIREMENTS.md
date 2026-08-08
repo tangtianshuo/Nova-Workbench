@@ -31,12 +31,12 @@
 
 ### Tauri IPC & AI Migration(Phase 3)
 
-- [ ] **IPC-01**: 创建 `src/lib/tauri.ts` 适配器作为单一 chokepoint,所有 invoke/Channel/listen 经此路由,`invoke` 不出现在 views/stores
-- [ ] **IPC-02**: 适配器内部 `isTauri()` 分支:在 Tauri 环境走 `invoke()`,在 dev/web 环境回退到 `fetch('/api/...')`(保留 dev/prod parity)
-- [ ] **IPC-03**: 至少一个 AI 端点(推荐 `/generate-project` 或新增 chat)迁移到 Tauri command,用 `Channel<StreamChunk>` 流式输出 token
-- [ ] **IPC-04**: 服务端 AI 调用支持 `CancellationToken`,前端可通过 Stop 按钮中断进行中的请求
-- [ ] **IPC-05**: 客户端 AI 调用有 `AbortController`(配合 IPC-04),触发按钮在生成中禁用,防止重复请求堆叠
-- [ ] **IPC-06**: AI 错误(网络/解析/截断)以用户可读消息呈现(toast/inline),不再以 500 错误吞没
+- [x] **IPC-01**: 创建 `src/lib/tauri.ts` 适配器作为单一 chokepoint,所有 invoke/Channel/listen 经此路由,`invoke` 不出现在 views/stores
+- [x] **IPC-02**: 适配器内部 `isTauri()` 分支:在 Tauri 环境走 `invoke()`,在 dev/web 环境回退到 `fetch('/api/...')`(保留 dev/prod parity)
+- [x] **IPC-03**: 至少一个 AI 端点(推荐 `/generate-project` 或新增 chat)迁移到 Tauri command,用 `Channel<StreamChunk>` 流式输出 token
+- [x] **IPC-04**: 服务端 AI 调用支持 `CancellationToken`,前端可通过 Stop 按钮中断进行中的请求
+- [x] **IPC-05**: 客户端 AI 调用有 `AbortController`(配合 IPC-04),触发按钮在生成中禁用,防止重复请求堆叠
+- [x] **IPC-06**: AI 错误(网络/解析/截断)以用户可读消息呈现(toast/inline),不再以 500 错误吞没
 - [x] **IPC-07**: 引入 `rig-core` 替代 `@google/genai`(Gemini 仍为首选 provider)
 - [x] **IPC-08**: Rust 端 `AppError` enum + 手动 `serde::Serialize` 实现作为统一 IPC 错误类型
 - [ ] **IPC-09**: Express server 收缩到 dev-only,从 Tauri 生产 bundle 路径中移除(`build:server` 不再进 prod)
@@ -134,12 +134,12 @@
 | PERSIST-07 | Phase 2 | Complete |
 | PERSIST-08 | Phase 2 | Complete |
 | PERSIST-09 | Phase 2 | Complete |
-| IPC-01 | Phase 3 | Pending |
-| IPC-02 | Phase 3 | Pending |
-| IPC-03 | Phase 3 | Pending |
-| IPC-04 | Phase 3 | Pending |
-| IPC-05 | Phase 3 | Pending |
-| IPC-06 | Phase 3 | Pending |
+| IPC-01 | Phase 3 | Complete |
+| IPC-02 | Phase 3 | Complete |
+| IPC-03 | Phase 3 | Complete |
+| IPC-04 | Phase 3 | Complete |
+| IPC-05 | Phase 3 | Complete |
+| IPC-06 | Phase 3 | Complete |
 | IPC-07 | Phase 3 | Complete |
 | IPC-08 | Phase 3 | Complete |
 | IPC-09 | Phase 3 | Pending |

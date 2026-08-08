@@ -63,7 +63,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. When an AI call fails (network, parse, truncation), the user sees a human-readable message (toast or inline) instead of a swallowed 500
   4. On first launch, the user is prompted in Settings to enter their LLM API key; it is stored in the OS keychain (not `.env`, not the bundle, never exposed to the webview) and read silently on subsequent launches
   5. The production Tauri build ships with an explicit CSP (`style-src self unsafe-inline`, `script-src` default-deny) verified against `tauri build` (not dev), and each Tauri command is reachable from the webview without silent capability rejection — verified against the actual built artifact
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 03-01-PLAN.md — Rust foundation + rig streaming spike (Wave 1)
+- [ ] 03-02-PLAN.md — 4 Tauri commands + frontend adapter (Wave 2)
+- [ ] 03-03-PLAN.md — ProjectCreateModal + SettingsApiKeySection UI wiring (Wave 3, has checkpoint)
+- [ ] 03-04-PLAN.md — CSP + capabilities + Express 127.0.0.1 + smoke test (Wave 4, has checkpoint)
 **UI hint**: yes
 
 ### Phase 4: GraphFlow + Rig PoC (feature-flagged)
@@ -88,7 +92,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Dark Mode Wiring | 4/4 | Complete   | 2026-08-08 |
 | 2. Persistence (Zustand persist + SQLite) | 2/4 | In Progress|  |
-| 3. Tauri IPC Migration + Security Baseline | 0/TBD | Not started | - |
+| 3. Tauri IPC Migration + Security Baseline | 0/4 | In Progress |  |
 | 4. GraphFlow + Rig PoC (feature-flagged) | 0/TBD | Not started | - |
 
 ---

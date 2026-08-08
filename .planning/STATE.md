@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-08-08T05:39:42.015Z"
-last_activity: 2026-08-08 -- Phase 01 execution started
+stopped_at: Completed 01-04-PLAN.md (Card dark variant rework + dark-mode audit)
+last_updated: "2026-08-08T05:54:48.124Z"
+last_activity: 2026-08-08
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-08)
 ## Current Position
 
 Phase: 01 (dark-mode-wiring) — EXECUTING
-Plan: 3 of 4
-Status: Completed plan 01-02 (Settings + Header UI wiring)
-Last activity: 2026-08-08 -- Plan 01-02 committed (dd3450f, 53bc864)
+Plan: 4 of 4
+Status: Ready to execute
+Last activity: 2026-08-08
 
 Progress: [██░░░░░░░░] 50%
 
@@ -52,6 +52,7 @@ Progress: [██░░░░░░░░] 50%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P04 | 22 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Recent decisions affecting current work:
 - [Roadmap]: 4-phase coarse plan derived from research synthesis — dark mode → persistence → IPC+security → PoC. Distribution Hardening deferred to next milestone (out of scope per PROJECT.md).
 - [Roadmap]: Phase 4 PoC is feature-flagged (`NOVA_PIPELINE_POC`), derived from docs.rs/graph-flow (NOT design docs, which fabricate API surface), with an explicit decision gate.
 - [Roadmap]: Phase 3 bundles IPC + Security because both touch the same command perimeter and the same CSP/capabilities surface.
+- [Phase 01]: Card dark variant reworked to accent-tinted gradient (from-accent/20 via-accent-hover/10 to-bg-tertiary) — replaces literal slate-950 that vanished against dark --bg-app
+- [Phase 01]: Per-tab accent identity preserved at reduced opacity (amber/teal/blue-indigo/purple at 20%/10% over bg-tertiary) — keeps tab personality without breaking dark mode
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ Issues that affect future work (carried from research):
 
 ## Session Continuity
 
-Last session: 2026-08-08T05:21:51.380Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-dark-mode-wiring/01-CONTEXT.md
+Last session: 2026-08-08T05:54:48.119Z
+Stopped at: Completed 01-04-PLAN.md (Card dark variant rework + dark-mode audit)
+Resume file: None

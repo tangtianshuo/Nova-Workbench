@@ -12,7 +12,7 @@ Four-phase v1 milestone that converts Nova v0.1.0 from a polished UI shell with 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Dark Mode Wiring** - Three-way theme toggle, palette verification, Linux GTK detection shim
+- [x] **Phase 1: Dark Mode Wiring** - Three-way theme toggle, palette verification, Linux GTK detection shim (completed 2026-08-08)
 - [ ] **Phase 2: Persistence (Zustand persist + SQLite)** - All 5 stores survive refresh, fix rndStore bug, SQLite layer
 - [ ] **Phase 3: Tauri IPC Migration + Security Baseline** - Channel streaming, keychain API key, CSP, capabilities
 - [ ] **Phase 4: GraphFlow + Rig PoC (feature-flagged)** - 2-3 node HITL pipeline with restart-resume decision gate
@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 01-01-PLAN.md — themeStore + Linux GTK detection shim (Wave 1)
 - [x] 01-02-PLAN.md — SettingsView SegmentedControl + Header quick-toggle (Wave 2)
 - [x] 01-03-PLAN.md — CSS color transitions in tokens.css (Wave 1)
-- [ ] 01-04-PLAN.md — Card dark variant rework + 47-component audit (Wave 2)
+- [x] 01-04-PLAN.md — Card dark variant rework + 47-component audit (Wave 2)
 **UI hint**: yes
 
 ### Phase 2: Persistence (Zustand persist + SQLite)
@@ -82,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dark Mode Wiring | 2/4 | Executing | - |
+| 1. Dark Mode Wiring | 4/4 | Complete   | 2026-08-08 |
 | 2. Persistence (Zustand persist + SQLite) | 0/TBD | Not started | - |
 | 3. Tauri IPC Migration + Security Baseline | 0/TBD | Not started | - |
 | 4. GraphFlow + Rig PoC (feature-flagged) | 0/TBD | Not started | - |

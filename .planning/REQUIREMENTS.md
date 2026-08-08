@@ -13,8 +13,8 @@
 - [ ] **DARK-02**: 用户可以在 Header 通过快捷按钮一键切换主题
 - [ ] **DARK-03**: 当系统主题变化时(System 模式),Nova 自动跟随,无需重启
 - [ ] **DARK-04**: 在 Linux 上,System 模式通过 GTK 检测垫片正确响应 GNOME/KDE 主题(避开 Tauri#9427)
-- [ ] **DARK-05**: 所有 Card 变体(default/elevated/glass/interactive/dark)在暗色下视觉正确,无对比度问题
-- [ ] **DARK-06**: 所有 11 个 view + 16 个 Product 子组件在暗色下无 token 缺失(无白底/黑字/不可见边框)
+- [x] **DARK-05**: 所有 Card 变体(default/elevated/glass/interactive/dark)在暗色下视觉正确,无对比度问题
+- [x] **DARK-06**: 所有 11 个 view + 16 个 Product 子组件在暗色下无 token 缺失(无白底/黑字/不可见边框)
 - [ ] **DARK-07**: 主题切换有平滑的颜色过渡动画,无闪烁
 
 ### Persistence(Phase 2)
@@ -122,8 +122,8 @@
 | DARK-02 | Phase 1 | Pending |
 | DARK-03 | Phase 1 | Pending |
 | DARK-04 | Phase 1 | Pending |
-| DARK-05 | Phase 1 | Pending |
-| DARK-06 | Phase 1 | Pending |
+| DARK-05 | Phase 1 | Complete |
+| DARK-06 | Phase 1 | Complete |
 | DARK-07 | Phase 1 | Pending |
 | PERSIST-01 | Phase 2 | Pending |
 | PERSIST-02 | Phase 2 | Pending |

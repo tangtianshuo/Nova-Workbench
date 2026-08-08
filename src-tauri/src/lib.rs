@@ -59,7 +59,13 @@ pub fn run() {
         )
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::new())
-        .invoke_handler(tauri::generate_handler![get_gnome_color_scheme])
+        .invoke_handler(tauri::generate_handler![
+            get_gnome_color_scheme,
+            commands::generate_project,
+            commands::cancel_generate_project,
+            commands::has_api_key,
+            commands::set_api_key,
+        ])
         .setup(|app| {
             // Set minimum window size
             #[cfg(desktop)]

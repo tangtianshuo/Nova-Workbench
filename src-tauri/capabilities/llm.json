@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "llm",
+  "description": "AI generation IPC commands (Phase 3) — streaming + cancellation + keyring access",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "generate-project:allow",
+    "cancel-generate-project:allow",
+    "has-api-key:allow",
+    "set-api-key:allow"
+  ]
+}

@@ -66,7 +66,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 - [x] 03-01-PLAN.md — Rust foundation + rig streaming spike (Wave 1)
 - [x] 03-02-PLAN.md — 4 Tauri commands + frontend adapter (Wave 2)
-- [ ] 03-03-PLAN.md — ProjectCreateModal + SettingsApiKeySection UI wiring (Wave 3, has checkpoint)
+- [x] 03-03-PLAN.md — ProjectCreateModal + SettingsApiKeySection UI wiring (Wave 3, has checkpoint)
 - [ ] 03-04-PLAN.md — CSP + capabilities + Express 127.0.0.1 + smoke test (Wave 4, has checkpoint)
 **UI hint**: yes
 
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Dark Mode Wiring | 4/4 | Complete   | 2026-08-08 |
 | 2. Persistence (Zustand persist + SQLite) | 2/4 | In Progress|  |
-| 3. Tauri IPC Migration + Security Baseline | 2/4 | In Progress|  |
+| 3. Tauri IPC Migration + Security Baseline | 3/4 | In Progress|  |
 | 4. GraphFlow + Rig PoC (feature-flagged) | 0/TBD | Not started | - |
 
 ---

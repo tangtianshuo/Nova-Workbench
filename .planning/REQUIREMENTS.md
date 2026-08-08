@@ -49,7 +49,7 @@
 - [ ] **SEC-03**: 每个 feature 一个 capability 文件(sql.json / llm.json / pipeline.json),显式 scope 到 `${appData}/nova.db`
 - [ ] **SEC-04**: 每个 Tauri command 在 CI 或本地脚本中从 webview 烟测,确认 capability 不静默拒绝
 - [x] **SEC-05**: LLM API key 通过 `keyring` crate 直连 OS keychain 存储,不进 `.env`、不进 bundle、不暴露给 webview
-- [ ] **SEC-06**: 用户首次启动时(Settings 引导)录入 API key,通过 keychain 持久化,后续启动从 keychain 读
+- [x] **SEC-06**: 用户首次启动时(Settings 引导)录入 API key,通过 keychain 持久化,后续启动从 keychain 读
 - [ ] **SEC-07**: AI prompt 中用户输入与系统指令分离(Rig 的 `system_instruction` vs `contents`),减少 prompt injection 面
 
 ### GraphFlow + Rig PoC(Phase 4,feature-flagged)
@@ -149,7 +149,7 @@
 | SEC-03 | Phase 3 | Pending |
 | SEC-04 | Phase 3 | Pending |
 | SEC-05 | Phase 3 | Complete |
-| SEC-06 | Phase 3 | Pending |
+| SEC-06 | Phase 3 | Complete |
 | SEC-07 | Phase 3 | Pending |
 | POC-01 | Phase 4 | Pending |
 | POC-02 | Phase 4 | Pending |

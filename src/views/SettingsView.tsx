@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Bell, Shield, Palette, Layout, Globe, FloppyDisk } from '@phosphor-icons/react';
+import { User, Bell, Shield, Palette, Layout, Globe, FloppyDisk, Sun, Moon, Desktop } from '@phosphor-icons/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -7,6 +7,8 @@ import { Textarea } from '@/src/components/ui/Input';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Separator } from '@/src/components/ui/Separator';
 import { Switch } from '@/src/components/ui/Switch';
+import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
+import { useTheme } from '@/src/hooks/useTheme';
 import { cn } from '@/src/lib/utils';
 
 const NAV_ITEMS = [
@@ -59,58 +61,96 @@ export function SettingsView() {
       {/* Content */}
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-xl">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-text-primary">账号信息</h2>
-            <Button variant="primary" size="sm">
-              <FloppyDisk size={14} weight="bold" />
-              保存修改
-            </Button>
-          </div>
-
-          <Separator className="mb-6" />
-
-          {/* Avatar */}
-          <div className="flex items-center gap-5 pb-6 mb-6 border-b border-border-subtle">
-            <Avatar size="xl" name="Brandon" className="w-20 h-20 text-2xl" />
-            <div>
-              <div className="flex gap-2 mb-2">
-                <Button variant="secondary" size="sm">更换头像</Button>
-                <Button variant="ghost" size="sm" className="text-danger">删除</Button>
+          {/* Account section (default) */}
+          {activeSection === 'account' && (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-text-primary">账号信息</h2>
+                <Button variant="primary" size="sm">
+                  <FloppyDisk size={14} weight="bold" />
+                  保存修改
+                </Button>
               </div>
-              <p className="text-xs text-text-tertiary">支持 JPG, GIF 或 PNG 格式，最大 2MB</p>
-            </div>
-          </div>
 
-          {/* Form */}
-          <div className="grid grid-cols-2 gap-5">
-            <Input label="姓名" defaultValue="Brandon" />
-            <Input label="用户名" defaultValue="brandon_dev" />
-            <Input label="邮箱地址" type="email" defaultValue="brandon@example.com" className="col-span-2" />
-            <Input label="职位/角色" defaultValue="产品经理" />
-            <Input label="所在部门" defaultValue="产品研发部" />
-            <Textarea label="个人简介" rows={3} defaultValue="关注用户体验与产品创新。" className="col-span-2 resize-none" />
-          </div>
+              <Separator className="mb-6" />
 
-          {/* Quick toggles */}
-          <Separator className="my-6" />
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-primary">深色模式</p>
-                <p className="text-xs text-text-tertiary">自动跟随系统主题切换</p>
+              {/* Avatar */}
+              <div className="flex items-center gap-5 pb-6 mb-6 border-b border-border-subtle">
+                <Avatar size="xl" name="Brandon" className="w-20 h-20 text-2xl" />
+                <div>
+                  <div className="flex gap-2 mb-2">
+                    <Button variant="secondary" size="sm">更换头像</Button>
+                    <Button variant="ghost" size="sm" className="text-danger">删除</Button>
+                  </div>
+                  <p className="text-xs text-text-tertiary">支持 JPG, GIF 或 PNG 格式，最大 2MB</p>
+                </div>
               </div>
-              <Switch />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-primary">桌面通知</p>
-                <p className="text-xs text-text-tertiary">允许系统推送通知</p>
+
+              {/* Form */}
+              <div className="grid grid-cols-2 gap-5">
+                <Input label="姓名" defaultValue="Brandon" />
+                <Input label="用户名" defaultValue="brandon_dev" />
+                <Input label="邮箱地址" type="email" defaultValue="brandon@example.com" className="col-span-2" />
+                <Input label="职位/角色" defaultValue="产品经理" />
+                <Input label="所在部门" defaultValue="产品研发部" />
+                <Textarea label="个人简介" rows={3} defaultValue="关注用户体验与产品创新。" className="col-span-2 resize-none" />
               </div>
-              <Switch defaultChecked />
-            </div>
-          </div>
+
+              {/* Quick toggles — old 深色模式 Switch removed (now in 外观主题 section) */}
+              <Separator className="my-6" />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">桌面通知</p>
+                    <p className="text-xs text-text-tertiary">允许系统推送通知</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Appearance section (D-01: SegmentedControl bound to useTheme) */}
+          {activeSection === 'appearance' && (
+            <>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-text-primary">外观主题</h2>
+              </div>
+              <Separator className="mb-6" />
+              <AppearanceSection />
+            </>
+          )}
+
+          {/* Other nav items fall through to placeholder */}
+          {activeSection !== 'account' && activeSection !== 'appearance' && (
+            <div className="text-center text-text-tertiary py-20">即将上线</div>
+          )}
         </div>
       </div>
     </Card>
+  );
+}
+
+/* === Appearance Section (D-01: SegmentedControl bound to themeStore via useTheme) === */
+function AppearanceSection() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-text-primary">外观主题</p>
+          <p className="text-xs text-text-tertiary">选择浅色、深色或跟随系统</p>
+        </div>
+        <SegmentedControl
+          value={theme}
+          onChange={(id) => setTheme(id as 'light' | 'dark' | 'system')}
+          segments={[
+            { id: 'light', label: '浅色', icon: <Sun size={14} weight="duotone" /> },
+            { id: 'dark', label: '深色', icon: <Moon size={14} weight="duotone" /> },
+            { id: 'system', label: '系统', icon: <Desktop size={14} weight="duotone" /> },
+          ]}
+        />
+      </div>
+    </div>
   );
 }

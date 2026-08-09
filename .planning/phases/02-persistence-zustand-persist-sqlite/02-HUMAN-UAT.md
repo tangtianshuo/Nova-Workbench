@@ -3,7 +3,7 @@ status: partial
 phase: 02-persistence-zustand-persist-sqlite
 source: [02-VERIFICATION.md]
 started: 2026-08-08T00:00:00Z
-updated: 2026-08-08T00:00:00Z
+updated: 2026-08-09T00:00:00Z
 ---
 
 # Phase 2: Persistence (Zustand persist + SQLite) — Human UAT
@@ -16,7 +16,7 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
 
 ## Current Test
 
-[awaiting human testing — run `npm run tauri:dev` to begin]
+[testing paused — 4 items outstanding (Tauri-only)]
 
 ## Tests
 
@@ -73,20 +73,20 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
   4. Verify 6 keys present: `nova-task`, `nova-product`, `nova-rnd`, `nova-schedule`, `nova-workspace`, `nova-ui`
   5. Refresh page → state survives
 - **note:** Tauri desktop build is the production target; this fallback only governs web dev mode.
-- **result:** [pending]
+- **result:** pass — verified via Playwright MCP on `npm run dev` (web mode). 6 keys present in localStorage (`nova-ui`=68B, `nova-task`=1578B, `nova-rnd`=93833B, `nova-product`=20647B, `nova-schedule`=328B, `nova-workspace`=2265B). `isTauri` correctly false. Page refresh preserves all 6 keys byte-for-byte. Only console error: favicon.ico 404 (irrelevant).
 
 ## Summary
 
 total: 5
-passed: 0
+passed: 1
 issues: 0
-pending: 5
+pending: 4
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-[none yet — populate after running UAT]
+[none — test 5 passed; tests 1-4 require running Tauri binary, deferred]
 
 ---
 

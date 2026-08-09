@@ -3,7 +3,7 @@ status: partial
 phase: 03-tauri-ipc-migration-security-baseline
 source: [03-03-PLAN.md]
 started: 2026-08-08T00:00:00Z
-updated: 2026-08-08T00:00:00Z
+updated: 2026-08-09T00:00:00Z
 ---
 
 # Phase 3 Plan 3: UI Wiring (Streaming + API Key) — Human UAT
@@ -19,7 +19,7 @@ persistence check).
 
 ## Current Test
 
-[awaiting human testing — run `npm run tauri:dev` to begin]
+[testing paused — Dev parity issue logged, remaining items Tauri-only]
 
 ## Tests
 
@@ -68,7 +68,7 @@ persistence check).
   21. Verify generation completes (via Express fetch fallback, no live streaming tokens — that's expected per Deferred)
   22. Verify NO crashes (adapter branches on isTauri() correctly)
 - **note:** Tauri desktop build is the production target. Web dev fallback is best-effort per D-21/D-16; "no live tokens in browser" is NOT a blocker.
-- **result:** [pending]
+- **result:** issue — `isTauri()` correctly returns `false` in web mode (adapter branch logic verified). However the Express `/api/generate-project` endpoint returns HTTP 500 with body `{"error":"Could not load the default credentials..."}` when `GEMINI_API_KEY` is unset. CLAUDE.md promises "endpoints fall back gracefully when GEMINI_API_KEY is unset — return mock/markdown fallback content" but `/api/generate-project` lacks the `if (process.env.GEMINI_API_KEY)` guard that the other three endpoints have (server.ts:103, 183, 217 vs unguarded at server.ts:17-28). User-facing impact is currently ZERO because ProjectCreateModal is no longer routed (CLAUDE.md: "ProjectOverviewView — not currently routed"); the code path is dead. Severity: minor (latent code debt, no live user impact).
 
 ## Phase 3 Production Build Smoke Test (Wave 4)
 
@@ -121,14 +121,25 @@ persistence check).
 
 total: 35
 passed: 0
-issues: 0
-pending: 35
+issues: 1
+pending: 34
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-[none yet — populate after running UAT]
+- truth: "Express `/api/generate-project` falls back to mock content when GEMINI_API_KEY is unset (per CLAUDE.md 'AI endpoints fall back gracefully when GEMINI_API_KEY is unset')"
+  status: failed
+  reason: "User reported (Playwright MCP probe): POST /api/generate-project → HTTP 500 {\"error\":\"Could not load the default credentials...\"}. server.ts:17-28 constructs GoogleGenAI with undefined apiKey unconditionally; the other three endpoints (server.ts:103, 183, 217) have `if (process.env.GEMINI_API_KEY)` guards + canned-text fallback, this one does not."
+  severity: minor
+  test: P3-UI-4
+  artifacts:
+    - path: "server.ts"
+      issue: "Line 17-28: `/api/generate-project` handler missing `if (process.env.GEMINI_API_KEY)` guard + canned fallback that siblings have"
+  missing:
+    - "Add `if (process.env.GEMINI_API_KEY) { ... } else { res.json(cannedProjectTemplate); }` matching the pattern at server.ts:103-158"
+  root_cause: ""
+  debug_session: ""
 
 ---
 

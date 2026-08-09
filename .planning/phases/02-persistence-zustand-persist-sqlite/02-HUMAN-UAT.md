@@ -61,7 +61,7 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
   2. Watch initial paint carefully — should be Skeleton → real data
   3. No empty ProductManagement / empty TaskManagement flash
 - **note:** Visual timing cannot be asserted programmatically. Verify by eye.
-- **result:** [pending]
+- **result:** pass — initial run showed 3-stage flicker (white screen → Skeleton → data) because `await initializeDatabase()` in main.tsx ran before `createRoot()`, leaving #root empty during SQLite migration+seed (1-3s on Tauri). Fixed by adding a static NOVA breathing splash inside `#root` in index.html (React `createRoot().render()` replaces it on first paint). User confirmed: splash visible, then smooth transition to real UI. No more empty-white phase.
 
 ### 5. Dev/web localStorage fallback (PERSIST-04)
 
@@ -78,9 +78,9 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
 ## Summary
 
 total: 5
-passed: 1
+passed: 2
 issues: 0
-pending: 4
+pending: 3
 skipped: 0
 blocked: 0
 

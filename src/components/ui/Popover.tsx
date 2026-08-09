@@ -17,7 +17,8 @@ export function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-dropdown w-72 p-3',
+          // ponytail: z-tooltip — must clear Dialog z-modal (400). See Select.tsx.
+          'z-tooltip w-72 p-3',
           'bg-bg-primary border border-border-subtle rounded-[var(--radius-lg)] shadow-shadow-lg',
           'focus:outline-none',
           className

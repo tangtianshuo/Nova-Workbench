@@ -27,6 +27,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge, DotBadge } from '@/src/components/ui/Badge';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Input } from '@/src/components/ui/Input';
+import { DatePickerInput } from '@/src/components/ui/DatePickerInput';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
 import { Separator } from '@/src/components/ui/Separator';
 import {
@@ -135,11 +136,10 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
               value={newMilestoneTitle}
               onChange={e => setNewMilestoneTitle(e.target.value)}
             />
-            <Input
+            <DatePickerInput
               label="计划交付日期"
-              type="date"
               value={newMilestoneDate}
-              onChange={e => setNewMilestoneDate(e.target.value)}
+              onChange={setNewMilestoneDate}
             />
             <DialogFooter>
               <Button variant="secondary" type="button" onClick={() => setShowAddMilestoneModal(false)}>取消</Button>

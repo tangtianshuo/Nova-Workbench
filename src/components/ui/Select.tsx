@@ -43,7 +43,9 @@ export function SelectContent({
         position="popper"
         sideOffset={4}
         className={cn(
-          'z-dropdown min-w-[8rem] p-1',
+          // ponytail: z-tooltip (600) — SelectContent portals to body and must render above Dialog (z-modal 400).
+          // z-dropdown (100) is below z-modal and gets occluded when Select opens inside a Dialog.
+          'z-tooltip min-w-[8rem] p-1',
           'bg-bg-primary border border-border-subtle rounded-[var(--radius-md)] shadow-shadow-lg',
           'focus:outline-none',
           className

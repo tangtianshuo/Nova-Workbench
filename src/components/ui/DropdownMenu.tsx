@@ -20,7 +20,8 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'z-dropdown min-w-[8rem] p-1',
+          // ponytail: z-tooltip — must clear Dialog z-modal (400). See Select.tsx.
+          'z-tooltip min-w-[8rem] p-1',
           'bg-bg-primary border border-border-subtle rounded-[var(--radius-md)] shadow-shadow-lg',
           'focus:outline-none',
           className

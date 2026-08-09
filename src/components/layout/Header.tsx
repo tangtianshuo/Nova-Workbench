@@ -4,7 +4,7 @@ import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/Button';
 import { MagnifyingGlass, Bell, Plus, X, Sun, Moon } from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter } from '@/src/components/ui/Dialog';
-import { Input, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/src/components/ui';
+import { Input, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, DatePickerInput } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/useTheme';
 
 interface HeaderProps {
@@ -154,7 +154,7 @@ function NewTaskDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 </SelectContent>
               </Select>
             </div>
-            <Input label="截止日期" type="date" />
+            <DatePickerInput label="截止日期" />
           </div>
         </DialogBody>
         <DialogFooter>

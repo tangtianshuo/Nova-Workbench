@@ -6,6 +6,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Textarea } from '@/src/components/ui/Input';
 import { Badge } from '@/src/components/ui/Badge';
+import { DatePickerInput } from '@/src/components/ui/DatePickerInput';
 import { cn } from '@/src/lib/utils';
 
 interface SetAsWorkspaceModalProps {
@@ -306,15 +307,10 @@ export function SetAsWorkspaceModal({
                   <label className="block text-xs font-semibold text-text-primary mb-1">
                     预计截止日期
                   </label>
-                  <div className="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border rounded-[var(--radius-sm)] text-xs">
-                    <Calendar size={14} weight="duotone" className="text-text-tertiary" />
-                    <input
-                      type="date"
-                      value={newProjectDeadline}
-                      onChange={e => setNewProjectDeadline(e.target.value)}
-                      className="bg-transparent w-full focus:outline-none text-text-primary"
-                    />
-                  </div>
+                  <DatePickerInput
+                    value={newProjectDeadline}
+                    onChange={setNewProjectDeadline}
+                  />
                 </div>
               </div>
             )}

@@ -18,6 +18,7 @@ export { Input, Textarea } from './Input';
 export { Select, SelectTrigger, SelectContent, SelectItem, SelectSeparator, SelectLabel, SelectGroup, SelectValue } from './Select';
 export { Switch } from './Switch';
 export { Checkbox } from './Checkbox';
+export { DatePickerInput } from './DatePickerInput';
 
 // Navigation
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';

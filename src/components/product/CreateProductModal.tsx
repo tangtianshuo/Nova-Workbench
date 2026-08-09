@@ -15,6 +15,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
+  DatePickerInput,
 } from '../ui';
 
 interface Props {
@@ -226,11 +227,10 @@ export function CreateProductModal({ onClose }: Props) {
                 onChange={e => setOwner(e.target.value)}
               />
 
-              <Input
+              <DatePickerInput
                 label="目标上线/交付时间"
-                type="date"
                 value={deadline}
-                onChange={e => setDeadline(e.target.value)}
+                onChange={setDeadline}
               />
             </div>
 

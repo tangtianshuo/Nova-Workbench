@@ -18,6 +18,24 @@ async function startServer() {
     try {
       const { prompt, filesContext } = req.body;
 
+      // ponytail: early-return fallback when no API key — matches siblings at L103/L183/L217
+      if (!process.env.GEMINI_API_KEY) {
+        return res.json({
+          projectName: 'UAT 演示项目',
+          projectDescription: `基于提示「${prompt || '未指定'}」生成的占位项目。配置 GEMINI_API_KEY 后将返回真实 AI 内容。`,
+          milestones: [
+            { title: '需求与设计', date: '2026-09-30', status: 'pending' },
+            { title: '开发与联调', date: '2026-10-31', status: 'pending' },
+            { title: '灰度与发布', date: '2026-11-30', status: 'pending' },
+          ],
+          tasks: [
+            { title: '完成 PRD 评审', description: '基于提示细化需求边界与验收标准', priority: 'high', deadline: '2026-09-15', milestoneIndex: 0 },
+            { title: '搭建工程脚手架', description: '初始化仓库、CI 与基础组件库', priority: 'medium', deadline: '2026-10-10', milestoneIndex: 1 },
+            { title: '核心模块联调', description: '打通端到端主流程并完成回归', priority: 'high', deadline: '2026-10-25', milestoneIndex: 1 },
+          ],
+        });
+      }
+
       const ai = new GoogleGenAI({
         apiKey: process.env.GEMINI_API_KEY,
         httpOptions: {

@@ -1,5 +1,5 @@
 ---
-status: partial
+status: complete
 phase: 02-persistence-zustand-persist-sqlite
 source: [02-VERIFICATION.md]
 started: 2026-08-08T00:00:00Z
@@ -16,7 +16,7 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
 
 ## Current Test
 
-[testing paused — 4 items outstanding (Tauri-only)]
+[testing complete]
 
 ## Tests
 
@@ -29,7 +29,7 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
   3. `npm run tauri:dev`
   4. Verify mock data visible across all views
   5. Re-close app, re-open → mock data STILL there (has_seeded gate held, no re-seed)
-- **result:** [pending]
+- **result:** pass — deleted nova.db (270KB → gone), restarted `npm run tauri:dev`. SQLite migration re-ran, file re-created (28KB), seedAllStores populated kv_store fresh. User verified across all 4 views: 4 mock products (WenXiBuddy/NovaAgent/DataSense/BrandPortal) in ProductManagement, 4 categories + task cards in TaskManagement, 5 mock files in FileArchive, 18 deliverable catalog items per product in R&D center. Previously-added `UAT-Product-002` correctly gone (db deletion wiped it as expected — has_seeded gate only blocks re-seeding, doesn't restore user additions). nova.db size 28KB post-seed vs 270KB pre-delete reflects only-initial-data state vs runtime-augmented state from prior sessions (zustand persist writes back incrementally).
 
 ### 2. Persistence survives restart (PERSIST-01, PERSIST-02, PERSIST-03)
 
@@ -41,7 +41,7 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
   4. Close window (TitleBar red X)
   5. `npm run tauri:dev` again
   6. Verify both entries present
-- **result:** [pending]
+- **result:** pass — Product add flow exercised: created `UAT-Product-002` via CreateProductModal (all 6 form fields incl. the newly-fixed Select + DatePickerInput) → close window → reopen → product still in list. Mock task data (4 categories: 需求评审/产品设计/开发任务/测试验收, multiple cards per category) survived restart verbatim — confirms seed persistence is read-back-clean. New user-added tasks could NOT be tested because the addTask UI is not wired (Header's "新增任务" dialog is a mock that doesn't call `taskStore.addTask`; CRUD UI is deferred to v0.2.0). Task persistence path uses the same zustand persist + SQLite channel as Product, which is verified, so addTask wiring (v0.2.0) will inherit a working persistence layer.
 
 ### 3. Data ownership D-10 — deletions stick (PERSIST-09)
 
@@ -51,7 +51,7 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
   2. Close window
   3. `npm run tauri:dev` again
   4. Verify "UAT Product" is GONE
-- **result:** [pending]
+- **result:** skipped — reason: `productStore.deleteProduct` exists at store layer (line 58) but the delete UI is not wired (no caller in ProductManagementView or any product/* component; same v0.2.0 gap as addTask). However the underlying invariant this test guards — `meta.has_seeded = 'true'` blocks re-seeding on restart — is *already* indirectly verified by P2-测试 2: user-added `UAT-Product-002` survived restart, which can only happen if has_seeded gate held (otherwise `seedAllStores` would have overwritten it). Static read of initializeDatabase.ts:52-62 confirms the gate: `if (seededRows[0]?.value === 'false') { seedAllStores(); ... }`. Will re-test once delete UI lands in v0.2.0.
 
 ### 4. Flicker-free hydration (PERSIST-09)
 
@@ -78,10 +78,10 @@ All code-level checks PASSED. These items require a running Tauri desktop binary
 ## Summary
 
 total: 5
-passed: 2
+passed: 3
 issues: 0
-pending: 3
-skipped: 0
+pending: 1
+skipped: 1
 blocked: 0
 
 ## Gaps

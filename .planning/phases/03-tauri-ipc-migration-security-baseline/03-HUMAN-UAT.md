@@ -164,13 +164,13 @@ blocked: 0
 - **修复:** `api.ts` StreamChunk interface 改为 `{ kind, data?: { text?, message? } }`,onmessage 读 `msg.data?.text`。tsc clean(api.ts 零错误;仓库存量 5 处类型错误见下方债务清单,与本修无关)。
 - **影响 phase:** P3。
 
-### 债务清单(本轮 UAT 顺带发现,未修)
-1. **工作树未提交积压:** Issues #1-#3 的修复(ProductManagementView AI 入口 / tokens.css+index.css token rename / Toast.tsx 色条 / 6 个 product tab polish / vite.config.ts)自 `80895e7` 后全部还在工作树未提交。
-2. **存量 tsc 错误 5 处**(非本轮引入):`ProductGovernanceTab.tsx` 导入不存在的 `FileCheck`(@phosphor-icons/react 无此导出——**Wave 4 prod build 大概率被它卡住**,rollup 会报 missing export);`ProductManagementView/ProjectOverviewView/SettingsView` 给 Avatar 传了不存在的 `name` prop;`SettingsView` 给 Switch 传了不存在的 `defaultChecked`。
+### 债务清单(本轮 UAT 顺带发现 — 2026-08-10 已全部清掉)
+1. ~~工作树未提交积压~~ → 已分 5 批提交:`feae162`(tokens rename + z-index)/ `e47742d`(Toast 色条)/ `a269354`(AI 智能创建入口)/ `fbb14aa`(6 个 product tab polish)/ `cc056f7`(vite es2022 target)。
+2. ~~存量 tsc 错误 5 处~~ → `7cb052d` 清零:FileCheck unused import 删除(该组件在主 bundle 图内,不修 Wave 4 rollup 直接失败);Avatar `name`→`fallback` ×3;SettingsView 桌面通知 Switch 改受控(motion thumb 依赖 checked prop,uncontrolled 下视觉不动)。`npm run lint` exit 0。
 
 ## Gaps
 
-[UAT#1/#3 ✓;UAT#2 Issue #4 已修,等待重测 streaming/Stop;Wave 4 prod build 8 项待跑(注意债务清单 #2:FileCheck 缺失导出可能卡 prod build)]
+[UAT#1/#3 ✓;UAT#2 Issue #4 已修,等待重测 streaming/Stop;Wave 4 prod build 8 项待跑(债务清单已全清,无已知阻塞项)]
 
 ---
 

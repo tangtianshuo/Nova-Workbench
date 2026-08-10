@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.2.0
 milestone_name: 日常管理 CRUD + 弱关联
-status: defining-requirements
-stopped_at: Milestone v0.2.0 started — defining requirements
+status: ready-for-planning
+stopped_at: Roadmap created — ready for Phase 5 planning
 last_updated: "2026-08-10"
 last_activity: 2026-08-10
 progress:
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-08-10 — Milestone v0.2.0 started
+Phase: 5 (Task CRUD 补全)
+Plan: Not started
+Status: Ready for planning
+Last activity: 2026-08-10 — Roadmap created
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -44,18 +44,25 @@ Recent decisions affecting v0.2.0:
 - [Milestone]: 3 phase 拆分 — Phase 5 (Task CRUD) + Phase 6 (Schedule CRUD) + Phase 7 (跨模块联动)
 - [Milestone]: Phase 4 (GraphFlow PoC) deferred 到 v0.3+ — pre-1.0 crate 风险,先跑通 CRUD
 - [Milestone]: 保留 task.project:string legacy 兼容 — AppContext.tsx 依赖,不在 v0.2.0 删
-- [Phase 02]: rndStore accessors return typed EMPTY for unknown productId
-- [Phase 02]: node:test chosen for self-checks — tsx already devDep
-- [Phase 02]: sql_migrations() fn replaces const slice — tauri-plugin-sql Migration does not impl Clone
-- [Phase 02]: src/lib/api.ts as single home for isTauri + future Tauri IPC chokepoints
-- [Phase 02]: HydrationGate uses 6-boolean && chain over state machine
-- [Phase 02]: Dynamic import('./seedData') inside seedAllStores
-- [Phase 03]: rig 0.41 streaming API — crate is rig_core; stream via StreamedAssistantContent::Text
-- [Phase 03]: AppError uses manual serde::Serialize via serialize_str
-- [Phase 03]: StreamChunk is enum with #[serde(tag="kind", content="data")]
-- [Phase 03]: Used tokio_util::sync::CancellationToken, not tokio::sync
-- [Phase 03]: src/lib/api.ts filename preserved — Phase 2 imports unchanged
-- [Phase 03]: CSP uses corrected string with ipc: http://ipc.localhost connect-src
+- [Milestone]: ScheduleEvent.date 全量替换为 string(YYYY-MM-DD) — 比增量 month?/year? 更干净
+- [Milestone]: 新 CRUD 走 direct store hooks — 不新增 AppContext actions(P16 规避)
+- [Milestone]: 跨 store 编排走 AppContext wrapper(deleteProductWrapped 模式) — 避免 store 间循环 import
+- [Milestone]: 任务编辑同时支持内联(展开卡片)和独立对话框(TaskDialog)
+- [Milestone]: 看板拖拽使用 @dnd-kit/core@6.3.1(legacy line,React 19 兼容)
+- [Milestone]: 删除用确认对话框(无 undo) — 本地优先 app 最简方案
+- [Milestone]: "安排到日历"不自动同步截止日期变更 — 弱关联不是同步
+- [Phase 01]: themeStore + Linux GTK detection shim (Wave 1)
+- [Phase 01]: SettingsView SegmentedControl + Header quick-toggle (Wave 2)
+- [Phase 01]: CSS color transitions in tokens.css (Wave 1)
+- [Phase 01]: Card dark variant rework + 47-component audit (Wave 2)
+- [Phase 02]: Fix rndStore INITIAL.p1 fallback bug
+- [Phase 02]: Stand up SQLite substrate (tauri-plugin-sql + adapter + dev fallback)
+- [Phase 02]: Wrap all 6 Zustand stores in persist with partialize + _hasHydrated + migrate
+- [Phase 02]: Wire startup orchestration (first-run seed + HydrationGate)
+- [Phase 03]: Rust foundation + rig streaming spike
+- [Phase 03]: 4 Tauri commands + frontend adapter
+- [Phase 03]: ProjectCreateModal + SettingsApiKeySection UI wiring
+- [Phase 03]: CSP + capabilities + Express 127.0.0.1 + smoke test
 
 ### Pending Todos
 
@@ -64,10 +71,26 @@ Recent decisions affecting v0.2.0:
 
 ### Blockers/Concerns
 
-None for v0.2.0. v0.1.0 concerns carried in PROJECT.md Key Decisions.
+None for v0.2.0.
+
+### Key Pitfalls to Watch (v0.2.0)
+
+| ID | Pitfall | Phase | Severity |
+|----|---------|-------|----------|
+| P1 | ScheduleEvent.date: number → string 迁移 | 6 | CRITICAL |
+| P2 | Task 删除需要扫描嵌套 categories[].tasks[] | 5 | HIGH |
+| P3 | Date.now() ID 碰撞 | 5 | HIGH |
+| P5 | persist migration 函数是 passthrough no-op | 5,6 | HIGH |
+| P7 | 删除产品留孤儿引用 | 7 | HIGH |
+| P8 | 双向链接不一致(task↔event) | 7 | HIGH |
+| P11 | "安排到日历"跨 store 原子性 | 7 | HIGH |
+| P12 | Hydration race — mock data 闪烁 | 5 | HIGH |
+| P13 | 编辑对话框 form state 不复位 | 5 | MEDIUM |
+| P17 | task.project vs projectId 双字段混淆 | 5 | HIGH |
+| P20 | ScheduleView 日历计算全硬编码 | 6 | HIGH |
 
 ## Session Continuity
 
 Last session: 2026-08-10
-Stopped at: Milestone v0.2.0 started — defining requirements
-Resume file: None
+Stopped at: Roadmap created — ready for Phase 5 planning
+Resume file: .planning/ROADMAP.md

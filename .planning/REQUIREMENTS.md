@@ -1,97 +1,71 @@
-# Requirements: Nova PM Workspace
+# Requirements: Nova PM Workspace v0.2.0
 
-**Defined:** 2026-08-08
+**Defined:** 2026-08-10
 **Core Value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
 
 ## v1 Requirements
 
-本里程碑聚焦四条主线:暗色模式上线、本地持久化、Tauri IPC 替代 Express AI、GraphFlow + Rig PoC。每个需求映射到唯一一个 phase。
+本里程碑聚焦三条主线:任务 CRUD 补全、日程 CRUD + 真实日历、跨模块弱关联联动。
 
-### Dark Mode(Phase 1)
+### Task CRUD (Phase 5)
 
-- [ ] **DARK-01**: 用户可以在 Settings 中切换主题为 Light / Dark / System 三态
-- [ ] **DARK-02**: 用户可以在 Header 通过快捷按钮一键切换主题
-- [ ] **DARK-03**: 当系统主题变化时(System 模式),Nova 自动跟随,无需重启
-- [ ] **DARK-04**: 在 Linux 上,System 模式通过 GTK 检测垫片正确响应 GNOME/KDE 主题(避开 Tauri#9427)
-- [x] **DARK-05**: 所有 Card 变体(default/elevated/glass/interactive/dark)在暗色下视觉正确,无对比度问题
-- [x] **DARK-06**: 所有 11 个 view + 16 个 Product 子组件在暗色下无 token 缺失(无白底/黑字/不可见边框)
-- [ ] **DARK-07**: 主题切换有平滑的颜色过渡动画,无闪烁
+- [ ] **TASK-01**: 用户可以在展开的卡片面板中内联编辑任务的所有字段(标题/描述/优先级/截止日期/分类)
+- [ ] **TASK-02**: 用户可以在独立对话框(TaskDialog)中编辑任务,支持创建和编辑双模式
+- [ ] **TASK-03**: 用户可以删除任务,带二次确认对话框防止误删
+- [ ] **TASK-04**: 用户可以把"已完成"任务重新打开为"未开始"
+- [ ] **TASK-05**: 用户可以在看板列之间拖拽任务卡片(@dnd-kit 实现)
+- [ ] **TASK-06**: 用户可以在 TaskKanban 卡片上看到关联产品的徽章(如有 projectId)
+- [ ] **TASK-07**: Task 类型新增 projectId?(弱关联到 Product)和 scheduledEventId?(弱关联到 ScheduleEvent)
+- [ ] **TASK-08**: taskStore persist 版本升级到 2,migrate 函数为已有数据补充新增可选字段
+- [ ] **TASK-09**: 任务 ID 生成使用 crypto.randomUUID() 替代 Date.now(),避免快速操作时的 ID 碰撞
 
-### Persistence(Phase 2)
+### Schedule CRUD (Phase 6)
 
-- [x] **PERSIST-01**: 用户刷新页面或重启 app 后,所有 5 个 Zustand store 数据完整恢复
-- [x] **PERSIST-02**: 每个存储的 `partialize` 配置正确剔除 transient flag(模态开关、loading 状态等)
-- [x] **PERSIST-03**: 每个 store 有显式 `version: 1` 和 `migrate` 存根,未来 schema 变更有迁移通道
-- [x] **PERSIST-04**: 引入 SQLite(`tauri-plugin-sql`)作为前端持久化后端,而非裸 localStorage
-- [x] **PERSIST-05**: Zustand persist 通过 ~20 行 `createJSONStorage` 适配器对接 `@tauri-apps/plugin-store`
-- [x] **PERSIST-06**: SQLite migration 是 forward-only additive,带启动期 sanity SELECT 和 `schema_version` 表,避免 Tauri SQL 静默失败
-- [x] **PERSIST-07**: `_hasHydrated` flag 阻止渲染期空状态闪烁
-- [x] **PERSIST-08**: 修复 `rndStore` 的 `INITIAL.p1` fallback bug(CONCERNS.md HIGH),防止持久化错误产品的数据
-- [x] **PERSIST-09**: 首次运行时(无 DB 数据)从 `mock*.ts` 播种初始数据,带 `has_seeded` flag 防重复
+- [ ] **SCHED-01**: 用户可以创建新日程("新建日程"按钮 → 对话框 + DatePickerInput,选择日期/时间/类型/地点)
+- [ ] **SCHED-02**: 用户可以点击日程事件进行编辑(对话框预填当前值)
+- [ ] **SCHED-03**: 用户可以删除日程,带二次确认
+- [ ] **SCHED-04**: 用户可以在月历上切换月份(上/下月 + "今天"回到当前月),不再写死 2025-5
+- [ ] **SCHED-05**: ScheduleEvent.date 从 number(1-31,仅日)迁移到 string(YYYY-MM-DD,完整日期)
+- [ ] **SCHED-06**: scheduleStore persist 版本升级到 2,migrate 函数将旧 number 日期转为 YYYY-MM-DD 字符串(基于 May 2025 锚点)
+- [ ] **SCHED-07**: ScheduleEvent 新增 projectId?(弱关联到 Product)和 taskId?(弱关联到 Task)
+- [ ] **SCHED-08**: ScheduleEvent.type 新增 'task' 枚举值(用于"安排到日历"生成的日程)
 
-### Tauri IPC & AI Migration(Phase 3)
+### Cross-Module Wiring (Phase 7)
 
-- [x] **IPC-01**: 创建 `src/lib/tauri.ts` 适配器作为单一 chokepoint,所有 invoke/Channel/listen 经此路由,`invoke` 不出现在 views/stores
-- [x] **IPC-02**: 适配器内部 `isTauri()` 分支:在 Tauri 环境走 `invoke()`,在 dev/web 环境回退到 `fetch('/api/...')`(保留 dev/prod parity)
-- [x] **IPC-03**: 至少一个 AI 端点(推荐 `/generate-project` 或新增 chat)迁移到 Tauri command,用 `Channel<StreamChunk>` 流式输出 token
-- [x] **IPC-04**: 服务端 AI 调用支持 `CancellationToken`,前端可通过 Stop 按钮中断进行中的请求
-- [x] **IPC-05**: 客户端 AI 调用有 `AbortController`(配合 IPC-04),触发按钮在生成中禁用,防止重复请求堆叠
-- [x] **IPC-06**: AI 错误(网络/解析/截断)以用户可读消息呈现(toast/inline),不再以 500 错误吞没
-- [x] **IPC-07**: 引入 `rig-core` 替代 `@google/genai`(Gemini 仍为首选 provider)
-- [x] **IPC-08**: Rust 端 `AppError` enum + 手动 `serde::Serialize` 实现作为统一 IPC 错误类型
-- [x] **IPC-09**: Express server 收缩到 dev-only,从 Tauri 生产 bundle 路径中移除(`build:server` 不再进 prod)
-- [x] **IPC-10**: Express dev 服务器绑定 `127.0.0.1` 替代 `0.0.0.0`
-
-### Security Baseline(Phase 3)
-
-- [x] **SEC-01**: Tauri production build 中显式声明 CSP(当前 `csp: null` 是 debt),`style-src self unsafe-inline`、`script-src` default-deny
-- [ ] **SEC-02**: CSP 在 IPC 迁移同 phase 落地,通过 `tauri build`(非 dev)验证 Tailwind v4 inline style + Radix + motion 都正常
-- [x] **SEC-03**: 每个 feature 一个 capability 文件(sql.json / llm.json / pipeline.json),显式 scope 到 `${appData}/nova.db`
-- [ ] **SEC-04**: 每个 Tauri command 在 CI 或本地脚本中从 webview 烟测,确认 capability 不静默拒绝
-- [x] **SEC-05**: LLM API key 通过 `keyring` crate 直连 OS keychain 存储,不进 `.env`、不进 bundle、不暴露给 webview
-- [x] **SEC-06**: 用户首次启动时(Settings 引导)录入 API key,通过 keychain 持久化,后续启动从 keychain 读
-- [ ] **SEC-07**: AI prompt 中用户输入与系统指令分离(Rig 的 `system_instruction` vs `contents`),减少 prompt injection 面
-
-### GraphFlow + Rig PoC(Phase 4,feature-flagged)
-
-- [ ] **POC-01**: 修正 `docs/DECISIONS.md` ADR-002(移除 "v1.4.2 / 99.99% 可用性" 虚构声明,记录 pre-1.0 状态,移除 "Juncture" 引用,替换 fallback 为 `rust-langgraph` 或自研 FSM)
-- [ ] **POC-02**: Phase 4 scope 严格基于 docs.rs/graph-flow 当前 API,不基于设计文档
-- [ ] **POC-03**: 实现 2-3 节点的最小 pipeline(如 `analyze_requirements` → WaitForInput → `generate_prd`),用 trait 隔离 GraphFlow 实现
-- [ ] **POC-04**: 自研 `SqliteSessionStorage` 实现 GraphFlow `SessionStorage` trait(复用 Phase 2 的 sqlx 连接池)
-- [ ] **POC-05**: HITL `WaitForInput` 通过 Tauri IPC 事件/Channel 推到前端,前端展示最小审批 UI(approve / reject)
-- [ ] **POC-06**: 应用关闭-重启-恢复场景通过:Pipeline 在 approve 前关闭,重启后能从 checkpoint 恢复等待 approve
-- [ ] **POC-07**: 整个 PoC 通过 feature flag(`NOVA_PIPELINE_POC`)启用,默认关闭,失败不影响其他功能
-- [ ] **POC-08**: PoC 决策门:落地 → 下一里程碑扩展到完整需求→PRD Pipeline;失败 → 重新评估引擎选型(sidecar fallback 或自研)
+- [ ] **CROSS-01**: 用户可以在任务卡片上点击"安排到日历",自动创建关联的 ScheduleEvent(type='task',日期取自任务截止日期)
+- [ ] **CROSS-02**: "安排到日历"生成的日程 taskId 反向引用任务,标题同步任务标题(可编辑)
+- [ ] **CROSS-03**: 用户删除产品时看到提示"X 个任务、Y 个日程将失去关联",确认后保留记录但清空 projectId 字段(弱关联,不级联)
+- [ ] **CROSS-04**: 日程视图上,关联任务的日程显示任务徽章;点击徽章跳转/高亮任务
+- [ ] **CROSS-05**: 任务卡片上显示关联日程的徽章(如有 scheduledEventId);点击徽章跳转到日程视图
+- [ ] **CROSS-06**: 用户点击关联徽章可跳转到对应模块并定位(产品→ProductManagementView,任务→TaskManagementView,日程→ScheduleView)
+- [ ] **CROSS-07**: 完成任务后,若有关联日程,日程同步标记完成(视觉降饱和,不删除)
 
 ## v2 Requirements
 
 延后到下一里程碑,本里程碑不实现。
 
-### Second Brain(LanceDB 向量检索)
+### Drag-and-Drop Enhancements
 
-- **BRAIN-01**: 用户可以将产品文档、PRD、知识文章索引到 LanceDB 向量库
-- **BRAIN-02**: 用户可以通过自然语言查询知识库,返回语义相关文档
-- **BRAIN-03**: AI 对话时自动检索知识库作为上下文增强(RAG)
+- **DND-01**: 看板列本身的拖拽排序
+- **DND-02**: 跨看板列的批量拖拽
 
-### Full PM Pipeline
+### Calendar Enhancements
 
-- **PIPE-01**: 完整 10 节点 Pipeline(需求分析→PRD→原型→代码→测试→交付物汇总),每个节点带 HITL
-- **PIPE-02**: Pipeline 支持循环(拒绝→修改→重审),iteration_count 限制防无限循环
-- **PIPE-03**: Pipeline 时间旅行(从历史 checkpoint 恢复)
-- **PIPE-04**: 多 Pipeline 并发执行(同一用户多产品并行推进)
-- **PIPE-05**: Pipeline 节点级 progress 事件流式推送
+- **CAL-01**: 周视图(ScheduleView 已有"周视图"按钮占位)
+- **CAL-02**: 日程的重复规则(每天/每周/每月)
 
-### Multi-Provider LLM
+### Task Enhancements
 
-- **LLM-01**: 用户可以在 Settings 中切换 LLM Provider(Anthropic / OpenAI / Google / Ollama)
-- **LLM-02**: 用户可以为不同任务配置不同 Provider(如代码生成用 Claude,聊天用 Gemini)
-- **LLM-03**: 本地 Ollama 模型支持(离线降级)
+- **TASK-10**: 任务子任务/嵌套
+- **TASK-11**: 任务模板
+- **TASK-12**: 批量操作(多选 + 批量删除/状态变更)
+- **TASK-13**: 全局任务搜索
 
-### Distribution Hardening
+### Cross-Module Enhancements
 
-- **DIST-01**: Windows 构建代码签名(避免 SmartScreen 警告)
-- **DIST-02**: macOS 公证(notarization)
-- **DIST-03**: Auto-updater 配置(签名 release artifact + JSON hosting)
+- **CROSS-10**: 日程 → 任务的创建(反向"安排到日历")
+- **CROSS-11**: 周报/日报自动汇总(基于任务完成 + 会议参与)
+- **CROSS-12**: 产品删除时的 undo 机制(toast + 5 秒撤销窗口)
 
 ## Out of Scope
 
@@ -99,18 +73,29 @@
 
 | Feature | Reason |
 |---------|--------|
-| 完整 LanceDB 第二大脑 | 设计文档 Phase 4 范围,本里程碑只做架构铺垫,PoC 完成后下一里程碑立项 |
-| 完整 10 节点 PM Pipeline | 设计文档 Phase 2-3 范围,本里程碑 PoC 验证可行性即止 |
-| 多人协作 / 云同步 | "本地优先"是设计原则;SQLite 单机足够;云同步触发条件未到 |
-| URL 路由 | 当前 `activeTab` state 够用,深链/分享是未来需求 |
+| 级联删除(删产品自动删任务/日程) | 弱关联设计原则;任务有独立价值,数据丢失不可逆 |
 | AppContext 全量移除 | 跟随各 view 迁移到 direct store hook 时逐步消除,不在本里程碑单独 phase |
-| 多窗口 | 当前单窗口足够;多窗口需要 capability scope 重设计 + Zustand 跨窗口同步,不在本里程碑 |
-| Express 5 升级 | Express 路线是收缩到 dev-only 并最终删除,不是现代化 |
-| Tailwind v4 → v5 升级 | 当前 v4 工作良好,无升级驱动 |
-| 国际化 (i18n) | UI 文案目前混合中英文,统一化是后续 polish 任务 |
-| 错误边界组件 | 单独的小改进,不放入本里程碑(可在 Phase 1-2 之间穿插) |
-| CI/CD pipeline | 当前 `tsc --noEmit` 仅本地跑,加 GitHub Action 是后续基础设施 |
-| Distribution Hardening(代码签名 / 公证 / auto-updater) | PROJECT.md 未将 distribution 纳入本里程碑;`tauri build` 本地通过即足够,DIST-01/02/03 延后到下一里程碑 |
+| URL 路由 / 深链 | 当前 activeTab state 够用,深链是未来需求 |
+| 多人协作 / 云同步 | "本地优先"设计原则;SQLite 单机足够 |
+| 完整 PM Pipeline | 依赖 GraphFlow PoC(v0.3+) |
+| 第二大脑(LanceDB 向量检索) | 依赖 PoC 验证结果 |
+| GraphFlow + Rig PoC | deferred 到 v0.3+(pre-1.0 crate 风险) |
+| task.project 字段移除 | legacy 兼容保留,projectId 为权威源;统一清理推到 v0.3+ |
+| 国际化 (i18n) | UI 文案混合中英文,统一化是后续 polish 任务 |
+| CI/CD pipeline | 当前 tsc --noEmit 仅本地,加 GitHub Action 是后续基础设施 |
+
+## Key Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | task.project 保留做 legacy 兼容,新增 projectId? | 已有 3 个调用方依赖 task.project 做名字匹配;统一清理推到 v0.3+ |
+| 2 | 新 CRUD 走 direct store hooks(useTaskStore/useScheduleStore) | CLAUDE.md 推荐模式;类型安全,不受 AppContext any cast 影响 |
+| 3 | 跨 store 编排走 AppContext wrapper(deleteProductWrapped 模式) | 复用已有模式;避免 store 间直接 import 形成循环 |
+| 4 | 任务编辑同时支持内联(展开卡片)和独立对话框(TaskDialog) | 内联匹配现有 click-to-expand 模式;对话框提供更完整的编辑体验 |
+| 5 | 看板拖拽使用 @dnd-kit/core@6.3.1(legacy line) | v0.5.0 pre-1.0 文档不完善;legacy 6.x 与 React 19 兼容 |
+| 6 | ScheduleEvent.date 全量替换为 string(YYYY-MM-DD) | 比增量 month?/year? 更干净;persist migrate 函数处理转换 |
+| 7 | 删除用确认对话框(无 undo) | 本地优先 app 无服务端 undo;确认对话框是最简单的防误删方案 |
+| 8 | "安排到日历"不自动同步截止日期变更 | 弱关联不是同步;修改任务截止日期不影响已创建的日程 |
 
 ## Traceability
 
@@ -118,53 +103,36 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DARK-01 | Phase 1 | Pending |
-| DARK-02 | Phase 1 | Pending |
-| DARK-03 | Phase 1 | Pending |
-| DARK-04 | Phase 1 | Pending |
-| DARK-05 | Phase 1 | Complete |
-| DARK-06 | Phase 1 | Complete |
-| DARK-07 | Phase 1 | Pending |
-| PERSIST-01 | Phase 2 | Complete |
-| PERSIST-02 | Phase 2 | Complete |
-| PERSIST-03 | Phase 2 | Complete |
-| PERSIST-04 | Phase 2 | Complete |
-| PERSIST-05 | Phase 2 | Complete |
-| PERSIST-06 | Phase 2 | Complete |
-| PERSIST-07 | Phase 2 | Complete |
-| PERSIST-08 | Phase 2 | Complete |
-| PERSIST-09 | Phase 2 | Complete |
-| IPC-01 | Phase 3 | Complete |
-| IPC-02 | Phase 3 | Complete |
-| IPC-03 | Phase 3 | Complete |
-| IPC-04 | Phase 3 | Complete |
-| IPC-05 | Phase 3 | Complete |
-| IPC-06 | Phase 3 | Complete |
-| IPC-07 | Phase 3 | Complete |
-| IPC-08 | Phase 3 | Complete |
-| IPC-09 | Phase 3 | Complete |
-| IPC-10 | Phase 3 | Complete |
-| SEC-01 | Phase 3 | Complete |
-| SEC-02 | Phase 3 | Pending |
-| SEC-03 | Phase 3 | Complete |
-| SEC-04 | Phase 3 | Pending |
-| SEC-05 | Phase 3 | Complete |
-| SEC-06 | Phase 3 | Complete |
-| SEC-07 | Phase 3 | Pending |
-| POC-01 | Phase 4 | Pending |
-| POC-02 | Phase 4 | Pending |
-| POC-03 | Phase 4 | Pending |
-| POC-04 | Phase 4 | Pending |
-| POC-05 | Phase 4 | Pending |
-| POC-06 | Phase 4 | Pending |
-| POC-07 | Phase 4 | Pending |
-| POC-08 | Phase 4 | Pending |
+| TASK-01 | Phase 5 | Pending |
+| TASK-02 | Phase 5 | Pending |
+| TASK-03 | Phase 5 | Pending |
+| TASK-04 | Phase 5 | Pending |
+| TASK-05 | Phase 5 | Pending |
+| TASK-06 | Phase 5 | Pending |
+| TASK-07 | Phase 5 | Pending |
+| TASK-08 | Phase 5 | Pending |
+| TASK-09 | Phase 5 | Pending |
+| SCHED-01 | Phase 6 | Pending |
+| SCHED-02 | Phase 6 | Pending |
+| SCHED-03 | Phase 6 | Pending |
+| SCHED-04 | Phase 6 | Pending |
+| SCHED-05 | Phase 6 | Pending |
+| SCHED-06 | Phase 6 | Pending |
+| SCHED-07 | Phase 6 | Pending |
+| SCHED-08 | Phase 6 | Pending |
+| CROSS-01 | Phase 7 | Pending |
+| CROSS-02 | Phase 7 | Pending |
+| CROSS-03 | Phase 7 | Pending |
+| CROSS-04 | Phase 7 | Pending |
+| CROSS-05 | Phase 7 | Pending |
+| CROSS-06 | Phase 7 | Pending |
+| CROSS-07 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 41 total(DARK: 7, PERSIST: 9, IPC: 10, SEC: 7, POC: 8)
-- Mapped to phases: 41
+- v1 requirements: 24 total(TASK: 9, SCHED: 8, CROSS: 7)
+- Mapped to phases: 24
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-08-08*
-*Last updated: 2026-08-08 after roadmap creation — traceability expanded to one row per requirement ID*
+*Requirements defined: 2026-08-10*
+*Last updated: 2026-08-10 after initial definition*

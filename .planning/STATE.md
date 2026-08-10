@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
 status: executing
-stopped_at: Completed 06-01-PLAN.md; ready for 06-02 (ScheduleDialog)
-last_updated: "2026-08-10T11:50:58.891Z"
+stopped_at: Completed 06-02-PLAN.md; ready for 06-03 (ScheduleView 月历重写)
+last_updated: "2026-08-10T11:54:08.339Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 27
-  completed_plans: 6
+  completed_plans: 7
   percent: 23
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (schedule-crud) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-10
 
@@ -89,6 +89,7 @@ Recent decisions affecting v0.2.0:
 - [Phase 05]: Plan 04: TaskKanban 重写 — inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
 - [Phase 05]: Plan 05: UAT checkpoint (deferred to batch UAT)
 - [Phase 06]: Plan 01: ScheduleEvent 类型扩展 (date number→string YYYY-MM-DD, projectId?/taskId? 弱关联, type 联合含 'task') + scheduleStore 3 CRUD action + persist v2 migration (May 2025 锚点) + AppContext 委托
+- [Phase 06]: Plan 02: ScheduleDialog 单文件交付 — dual-mode (create/edit) + 6 字段表单 + Product Combobox + 嵌套删除确认 + Pitfall P13 修复。完整复用 Phase 5 TaskDialog 模式,tsc 一次通过
 
 ### Pending Todos
 
@@ -141,6 +142,6 @@ None blocking. Key risks per phase (executor MUST read PLAN files for full conte
 
 ## Session Continuity
 
-Last session: 2026-08-10T11:50:58.886Z
-Stopped at: Completed 06-01-PLAN.md; ready for 06-02 (ScheduleDialog)
+Last session: 2026-08-10T11:54:08.334Z
+Stopped at: Completed 06-02-PLAN.md; ready for 06-03 (ScheduleView 月历重写)
 Resume action: `/gsd:execute-phase 06` (建议先 /clear 刷新上下文)

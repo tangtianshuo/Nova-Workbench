@@ -5,7 +5,9 @@ export interface Task {
   time?: string;
   status: string;
   description: string;
-  project: string;
+  project: string;          // legacy: human-readable product name (D-10 mirror of projectId)
+  projectId?: string;       // weak link to Product.id (Phase 5)
+  scheduledEventId?: string;// weak link to ScheduleEvent.id (Phase 6/7)
   assignee: string;
   assigneeAvatar: string;
   deadline: string;

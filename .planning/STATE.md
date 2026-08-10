@@ -7,7 +7,7 @@ stopped_at: Roadmap created — ready for Phase 5 planning
 last_updated: "2026-08-10"
 last_activity: 2026-08-10
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -76,6 +76,7 @@ None for v0.2.0.
 ### Roadmap Evolution
 
 - Phase 8 added: 调研 Atomic Editor 用于知识库和 Markdown 编辑场景 (2026-08-10)
+- Phase 9 added: 调研产品模块与产品研发模块的联动 (2026-08-10)
 
 ### Key Pitfalls to Watch (v0.2.0)
 

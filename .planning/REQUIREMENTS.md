@@ -48,6 +48,14 @@
 - [ ] **EDITOR-04**: 对比替代方案(Milkdown/Tiptap/BlockNote/MDXEditor),给出推荐或否决理由
 - [ ] **EDITOR-05**: 输出集成方案建议(包大小/API 设计/Zustand 数据流)
 
+### 产品-研发联动调研 (Phase 9)
+
+- [ ] **LINKAGE-01**: 梳理产品模块当前数据流(productStore → ProductManagementView → 16 个子组件)
+- [ ] **LINKAGE-02**: 梳理研发中心当前数据流(rndStore → RndCenterView → 18 个交付物)
+- [ ] **LINKAGE-03**: 识别产品与研发之间的天然联动点(milestone→deliverable、文档→知识库等)
+- [ ] **LINKAGE-04**: 评估联动模式(弱关联 vs 强关联 vs 事件驱动)的优劣和适用场景
+- [ ] **LINKAGE-05**: 输出联动方案建议(哪些 v0.2.0 实施、哪些 v0.3+,数据流图和接口设计)
+
 ## v2 Requirements
 
 延后到下一里程碑,本里程碑不实现。
@@ -140,10 +148,15 @@
 | EDITOR-03 | Phase 8 | Pending |
 | EDITOR-04 | Phase 8 | Pending |
 | EDITOR-05 | Phase 8 | Pending |
+| LINKAGE-01 | Phase 9 | Pending |
+| LINKAGE-02 | Phase 9 | Pending |
+| LINKAGE-03 | Phase 9 | Pending |
+| LINKAGE-04 | Phase 9 | Pending |
+| LINKAGE-05 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 29 total (TASK: 9, SCHED: 8, CROSS: 7, EDITOR: 5)
-- Mapped to phases: 29
+- v1 requirements: 34 total (TASK: 9, SCHED: 8, CROSS: 7, EDITOR: 5, LINKAGE: 5)
+- Mapped to phases: 34
 - Unmapped: 0 ✓
 
 ---

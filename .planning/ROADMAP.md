@@ -2,7 +2,7 @@
 
 ## Overview
 
-v0.2.0  milestone: **日常管理 CRUD + 弱关联**。四个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动、以及 Atomic Editor 调研。Phase 5-7 为前端 + store 层工作,Phase 8 为技术调研。
+v0.2.0  milestone: **日常管理 CRUD + 弱关联**。五个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动、Atomic Editor 调研、以及产品-研发联动调研。Phase 5-7 为前端 + store 层工作,Phase 8-9 为技术调研。
 
 **Phase numbering continues from v0.1.0 (Phases 1-4).**
 
@@ -21,6 +21,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联**。四个 phase 完成任务
 - [ ] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task'
 - [ ] **Phase 7: 跨模块联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记
 - [ ] **Phase 8: Atomic Editor 调研** — 调研 Atomic Editor 能否用于知识库和其他 Markdown 编辑场景
+- [ ] **Phase 9: 产品-研发联动调研** — 调研产品模块(ProductManagementView)与产品研发中心(RndCenterView)的联动模式
 
 ## Phase Details
 
@@ -81,10 +82,23 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联**。四个 phase 完成任务
 **Plans**: TBD
 **UI hint**: no (research phase)
 
+### Phase 9: 产品-研发联动调研
+**Goal**: 评估产品模块(ProductManagementView/Product 子组件)与产品研发中心(RndCenterView/18 个交付物)之间的联动模式,输出联动方案建议
+**Depends on**: Phase 8 (调研 phase 串行,避免分散注意力)
+**Requirements**: LINKAGE-01, LINKAGE-02, LINKAGE-03, LINKAGE-04, LINKAGE-05
+**Success Criteria** (what must be TRUE):
+  1. 已梳理产品模块当前数据流:productStore → ProductManagementView → 16 个 Product 子组件的数据消费关系
+  2. 已梳理研发中心当前数据流:rndStore → RndCenterView → 18 个 FullLifecycleDeliverable 的数据消费关系
+  3. 已识别产品与研发之间的天然联动点:如产品 milestone → 研发 deliverable 状态,产品文档 → 研发知识库
+  4. 已评估联动模式:弱关联(参考 v0.2.0 Phase 7 模式) vs 强关联(共享 store) vs 事件驱动(zustand subscribe)
+  5. 已输出联动方案建议:哪些联动在 v0.2.0 实施、哪些推迟到 v0.3+,数据流图和接口设计
+**Plans**: TBD
+**UI hint**: no (research phase)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7 → 8
+Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -92,9 +106,10 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
 | 7. 跨模块联动 | 0/TBD | Not started | - |
 | 8. Atomic Editor 调研 | 0/TBD | Not started | - |
+| 9. 产品-研发联动调研 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-08-10*
-*Granularity: coarse (4 phases for v0.2.0)*
-*Coverage: 29/29 v1 requirements mapped, 0 unmapped*
+*Granularity: coarse (5 phases for v0.2.0)*
+*Coverage: 34/34 v1 requirements mapped, 0 unmapped*
 *Previous milestone: v0.1.0 (Phases 1-4, see header)*

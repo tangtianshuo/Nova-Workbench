@@ -116,6 +116,10 @@ interface AppContextType {
   addTask: (task: Task, categoryId?: string) => void;
   addCategory: (name: string, color?: string) => void;
   addEvent: (event: ScheduleEvent) => void;
+  // Phase 6 CRUD delegates (SCHED-01/02/03)
+  createEvent: (event: ScheduleEvent) => void;
+  updateEvent: (eventId: string, updates: Partial<ScheduleEvent>) => void;
+  deleteEvent: (eventId: string) => void;
   addProject: (project: Product) => void;
   addProduct: (product: Product) => void;
   updateProduct: (id: string, updates: Partial<Product>) => void;
@@ -209,6 +213,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setTaskProject = useTaskStore((s) => s.setTaskProject);
 
   const addEvent = useScheduleStore((s) => s.addEvent);
+  // Phase 6 CRUD delegates
+  const createEvent = useScheduleStore((s) => s.createEvent);
+  const updateEvent = useScheduleStore((s) => s.updateEvent);
+  const deleteEvent = useScheduleStore((s) => s.deleteEvent);
 
   const addProduct = useProductStore((s) => s.addProduct);
   const updateProduct = useProductStore((s) => s.updateProduct);
@@ -256,6 +264,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     getDeliverablesForProduct, generateDeliverableAI, generateAllDeliverablesBatchAI, syncDeliverableToDocs,
 
     addTask, addCategory, addEvent, addProject,
+    createEvent, updateEvent, deleteEvent,
     addProduct, updateProduct, deleteProduct: deleteProductWrapped,
     addProductDocument, toggleSkillStatus, runProductSkill,
     addProductMilestone, updateMilestoneStatus,

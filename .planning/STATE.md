@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
 status: executing
-stopped_at: Completed 06-03-PLAN.md (ScheduleView 月历重写); ready for 06-04 (Phase 6 UAT checkpoint)
-last_updated: "2026-08-10T12:03:14.057Z"
+stopped_at: Completed 07-01-PLAN.md (cross-module store contracts); ready for 07-02 (task→calendar UI)
+last_updated: "2026-08-10T12:10:51.244Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 27
-  completed_plans: 9
-  percent: 23
+  completed_plans: 10
+  percent: 37
 ---
 
 # Project State
@@ -21,24 +21,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 06 — schedule-crud
+**Current focus:** Phase 07 — cross-module
 
 ## Current Position
 
-Phase: 07
-Plan: Not started
+Phase: 07 (cross-module) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
 Last activity: 2026-08-10
 
-Progress: [██░░░░░░░░] 23% (Phase 5 完成 5/5, Phase 6-10 规划完成 22 plans,等待执行)
+Progress: [████░░░░░░] 37% (Phase 5 完成 5/5, Phase 6 完成 4/4, Phase 7 完成 1/5)
 
 ## v0.2.0 Execution Status
 
 | Phase | Status | Plans | Notes |
 |-------|--------|-------|-------|
 | 5 Task CRUD | ✅ Complete (2026-08-10) | 5/5 | 9/9 verification passed; deferred to batch UAT |
-| 6 Schedule CRUD | 🟡 Plans ready | 0/4 | 4 plans, 4 sequential waves |
-| 7 跨模块联动 | 🟡 Plans ready | 0/5 | 5 plans, 4 waves (2 checkpoint) |
+| 6 Schedule CRUD | ✅ Complete (2026-08-10) | 4/4 | Plans 01-03 landed + UAT deferred to batch |
+| 7 跨模块联动 | 🟢 Executing (1/5) | 1/5 | Plan 01 store contracts landed; Wave 2 (02/03/04) ready |
 | 8 MDXEditor | 🟡 Plans ready | 0/3 | 3 plans, 3 sequential waves |
 | 9 AI 基础 | 🟡 Plans ready | 0/6 | 6 plans, 6 waves (rig-core 多 provider 风险) |
 | 10 AI 任务+日程 | 🟡 Plans ready | 0/4 | 4 plans, 3 waves (**强依赖 Phase 9**) |
@@ -91,6 +91,9 @@ Recent decisions affecting v0.2.0:
 - [Phase 06]: Plan 01: ScheduleEvent 类型扩展 (date number→string YYYY-MM-DD, projectId?/taskId? 弱关联, type 联合含 'task') + scheduleStore 3 CRUD action + persist v2 migration (May 2025 锚点) + AppContext 委托
 - [Phase 06]: Plan 02: ScheduleDialog 单文件交付 — dual-mode (create/edit) + 6 字段表单 + Product Combobox + 嵌套删除确认 + Pitfall P13 修复。完整复用 Phase 5 TaskDialog 模式,tsc 一次通过
 - [Phase 06-schedule-crud]: Plan 03: ScheduleView 完全重写 — currentMonth state 驱动的 42 格月历,月份切换 (prev/next/today) 实时刷新,事件按 YYYY-MM-DD 归位,ScheduleDialog 三入口接入 (agenda 按钮/空白格/事件 chip)。Pitfall P20 硬编码 2025-5 彻底清除,Wave 1 dayFromDate shim 消失。lint + build 一次通过
+- [Phase 07-cross-module]: Plan 01: ScheduleEvent.status? + setEventStatus/clearTaskLink + persist v3 backfill (CROSS-05/07); rndStore.cleanupProduct + getDeliverableStatusForPhase (L6/L7); ProductMilestone.deliverableCodes? (L5)
+- [Phase 07-cross-module]: Plan 01: taskStore.completeTask/deleteTask 跨 store 副作用 (get() 前置捕获 scheduledEventId 再 set + useScheduleStore.getState 副调用); taskStore.unlinkProjectTasks (CROSS-03)
+- [Phase 07-cross-module]: Plan 01: AppContext.arrangeOnCalendar (task.deadline 'YYYY-MM-DD HH:mm' 拆分为 date/time) + 两阶段删除 getDeleteProductImpact/doDeleteProduct (级联顺序: unlinkTasks → detach event projectIds → rnd cleanup → deleteProduct → clear selection); deleteProduct 回退为 pure delegate
 
 ### Pending Todos
 
@@ -143,6 +146,6 @@ None blocking. Key risks per phase (executor MUST read PLAN files for full conte
 
 ## Session Continuity
 
-Last session: 2026-08-10T11:58:47.948Z
-Stopped at: Completed 06-03-PLAN.md (ScheduleView 月历重写); ready for 06-04 (Phase 6 UAT checkpoint)
+Last session: 2026-08-10T12:10:50.764Z
+Stopped at: Completed 07-01-PLAN.md (cross-module store contracts); ready for 07-02 (task→calendar UI)
 Resume action: `/gsd:execute-phase 06` (建议先 /clear 刷新上下文)

@@ -67,7 +67,11 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   5. ScheduleEvent.date 已全量从 number(1-31)迁移到 string(YYYY-MM-DD),scheduleStore persist v2 migration 将旧 number 日期转为 YYYY-MM-DD 字符串(基于 May 2025 锚点)
   6. ScheduleEvent 支持 projectId?/taskId? 弱关联字段和 type:'task' 枚举值,为 Phase 7 跨模块联动做好准备
   7. 日历网格正确显示事件:事件出现在其 date 对应的日期格中,月份切换后事件位置正确
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 06-01-PLAN.md — scheduleStore 类型扩展 + 3 action + persist v2 + AppContext 委托
+- [ ] 06-02-PLAN.md — ScheduleDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
+- [ ] 06-03-PLAN.md — ScheduleView 重写: currentMonth state + 真实月历 + 月份切换 + Dialog 接入
+- [ ] 06-04-PLAN.md — Phase 6 全量 UAT checkpoint
 **UI hint**: yes
 
 ### Phase 7: 跨模块联动 + 产品-研发联动
@@ -132,7 +136,11 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   6. 截止日期智能建议:AI 基于任务依赖 + 历史数据建议合理的 dueDate (通过 getTaskDependencies tool)
   7. 批量操作:"把所有高优先级任务标记为进行中" → AI 调用 listTasks(filter:{priority:'high'}) → 循环调用 updateTask
   8. 产品规划 AI 辅助:"帮我拆解这个产品的功能矩阵" → AI 调用 getProductDetails → 生成功能建议
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 10-01-PLAN.md — 扩展 8 个任务/批量 tools (updateTask/deleteTask/moveTask/rescheduleTask/setTaskPriority + bulkComplete/bulkDelete/bulkPriority)
+- [ ] 10-02-PLAN.md — 扩展 7 个日程/关联 tools (createEvent/updateEvent/deleteEvent/listEvents + associateTaskWithEvent + getTaskDependencies + getProductFeatureBreakdown)
+- [ ] 10-03-PLAN.md — Prompt engineering: dateContext helper + multi-turn ChatSession + Phase 10 system prompt 扩展
+- [ ] 10-04-PLAN.md — Phase 10 全量 UAT checkpoint
 **UI hint**: yes
 
 ### Phase 11: AI 文件+知识库

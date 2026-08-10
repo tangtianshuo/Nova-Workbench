@@ -143,13 +143,13 @@ export function AIRequirementsTab({ product }: Props) {
       <Card variant="dark" className="p-6 space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-indigo-600/30 text-indigo-400 rounded-2xl border border-indigo-500/30">
+            <div className="p-3 bg-accent/20 text-accent rounded-2xl border border-accent/30">
               <PhBot size={24} weight="duotone" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-lg text-text-primary">AI 需求全自动设计与工程中枢</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-accent/20 text-accent border border-accent/30">
                   DeepSeek / Gemini 驱动
                 </span>
               </div>
@@ -161,7 +161,7 @@ export function AIRequirementsTab({ product }: Props) {
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-tertiary">当前版本:</span>
-            <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 text-xs font-mono border border-slate-700">
+            <span className="px-2.5 py-1 rounded-lg bg-bg-secondary text-text-primary text-xs font-mono border border-border-subtle">
               {reqData.version}
             </span>
           </div>
@@ -178,7 +178,7 @@ export function AIRequirementsTab({ product }: Props) {
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                   selectedScenario === sc.label
                     ? 'bg-accent text-white shadow-md shadow-accent/30 scale-102 border border-accent/40'
-                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
+                    : 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary border border-border-subtle'
                 }`}
               >
                 {sc.label}
@@ -195,13 +195,13 @@ export function AIRequirementsTab({ product }: Props) {
               value={promptInput}
               onChange={(e) => setPromptInput(e.target.value)}
               placeholder={`输入具体需求构想（例如："针对 ${product.name} 新增多 Agent 自动化协同派发与成果物一键导出功能，需支持断网离线降级与权限校验..."）`}
-              className="w-full bg-slate-800/90 text-xs text-slate-100 placeholder:text-slate-500 rounded-2xl p-4 border border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 resize-none"
+              className="w-full bg-bg-secondary text-xs text-text-primary placeholder:text-text-placeholder rounded-2xl p-4 border border-border-subtle focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent resize-none"
             />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs text-text-tertiary">
-              <PhSparkle size={14} weight="duotone" className="text-indigo-400" />
+              <PhSparkle size={14} weight="duotone" className="text-accent" />
               <span>支持自动补齐非功能性指标 (SLA)、Given-When-Then 验收准则与异常分支。</span>
             </div>
 
@@ -209,7 +209,7 @@ export function AIRequirementsTab({ product }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-accent hover:from-indigo-500 hover:to-accent-hover text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/25 transition-all disabled:opacity-50"
               >
                 {isGenerating ? (
                   <>

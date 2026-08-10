@@ -20,6 +20,7 @@ import {
 } from '@phosphor-icons/react';
 import { Card } from '@/src/components/ui/Card';
 import { Badge } from '@/src/components/ui/Badge';
+import { Button } from '@/src/components/ui/Button';
 
 interface Props {
   product: Product;
@@ -110,7 +111,7 @@ export function TestManagementTab({ product }: Props) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="p-2.5 bg-teal-500/20 text-teal-400 rounded-xl border border-teal-400/30">
+              <div className="p-2.5 bg-teal-500/20 text-teal-500 rounded-xl border border-teal-400/30">
                 <ShieldCheck className="w-6 h-6" weight="duotone" />
               </div>
               <h3 className="text-xl font-black">AI 全自动测试管理与质量准入中枢</h3>
@@ -143,22 +144,22 @@ export function TestManagementTab({ product }: Props) {
 
         {/* Quality Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-1">
+          <div className="bg-bg-secondary p-4 rounded-2xl border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-tertiary">用例总规模</div>
             <div className="text-2xl font-black text-text-primary">{totalCount} <span className="text-xs text-text-tertiary font-normal">条</span></div>
           </div>
 
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-1">
+          <div className="bg-bg-secondary p-4 rounded-2xl border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-tertiary">自动化率</div>
-            <div className="text-2xl font-black text-teal-400">{autoRate}%</div>
+            <div className="text-2xl font-black text-teal-500">{autoRate}%</div>
           </div>
 
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-1">
+          <div className="bg-bg-secondary p-4 rounded-2xl border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-tertiary">验证通过率</div>
             <div className="text-2xl font-black text-success">{passRate}%</div>
           </div>
 
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-1">
+          <div className="bg-bg-secondary p-4 rounded-2xl border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-tertiary">缺陷拦截数</div>
             <div className="text-2xl font-black text-warning">{failedCount} <span className="text-xs text-text-tertiary font-normal">个阻断</span></div>
           </div>

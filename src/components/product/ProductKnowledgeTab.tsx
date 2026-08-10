@@ -145,7 +145,7 @@ export function ProductKnowledgeTab({ product }: Props) {
             exit={{ opacity: 0, y: 10 }}
             transition={springTransition}
           >
-            <PhSparkle size={16} weight="duotone" className="text-purple-400" />
+            <PhSparkle size={16} weight="duotone" className="text-accent" />
             <span>{toastMessage}</span>
           </motion.div>
         )}
@@ -156,7 +156,7 @@ export function ProductKnowledgeTab({ product }: Props) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl border border-purple-400/30">
+              <div className="p-2 bg-accent/20 text-accent rounded-xl border border-accent/30">
                 <PhBookOpen size={20} weight="duotone" />
               </div>
               <h3 className="text-lg font-bold">产品领域知识库与沉淀中枢</h3>
@@ -175,7 +175,7 @@ export function ProductKnowledgeTab({ product }: Props) {
               setEditCategory('业务规则');
               setIsCreatingNew(true);
             }}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border-0 shrink-0"
+            className="bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent border-0 shrink-0"
           >
             <PhPlus size={14} weight="duotone" />
             <span>新建知识词条</span>
@@ -207,7 +207,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                   onClick={() => setActiveCategory(cat)}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                     activeCategory === cat
-                      ? 'bg-purple-600 text-white'
+                      ? 'bg-accent text-white'
                       : 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary'
                   }`}
                 >
@@ -237,7 +237,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               >
                 <div className="flex items-center justify-between">
-                  <Badge variant="neutral" className="text-[10px] font-bold bg-purple-100 text-purple-800">
+                  <Badge variant="neutral" className="text-[10px] font-bold bg-accent-subtle text-accent">
                     {item.category}
                   </Badge>
                   <span className="text-[10px] text-text-tertiary">{item.updatedAt}</span>
@@ -268,7 +268,7 @@ export function ProductKnowledgeTab({ product }: Props) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-subtle pb-5">
                 <div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="neutral" className="text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-0.5 rounded-lg">
+                    <Badge variant="neutral" className="text-xs font-bold bg-accent-subtle text-accent border border-accent/20 px-2.5 py-0.5 rounded-lg">
                       {selectedItem.category}
                     </Badge>
                     <h3 className="font-bold text-base text-text-primary">{selectedItem.title}</h3>
@@ -284,7 +284,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                     <button
                       onClick={() => handleAIPolish('结构化排版与要点提炼')}
                       disabled={isPolishing}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl border border-purple-200 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-subtle hover:bg-accent-muted text-accent text-xs font-bold rounded-xl border border-accent/20 transition-colors disabled:opacity-50"
                     >
                       <PhWand2 size={13} weight="duotone" className={isPolishing ? 'animate-spin' : ''} />
                       <span>AI 排版润色</span>
@@ -349,7 +349,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                     <Button variant="secondary" size="md" onClick={() => setIsEditing(false)}>
                       取消
                     </Button>
-                    <Button variant="primary" size="md" onClick={handleSaveEdit} className="bg-purple-600 hover:bg-purple-700">
+                    <Button variant="primary" size="md" onClick={handleSaveEdit}>
                       保存词条
                     </Button>
                   </div>
@@ -387,7 +387,7 @@ export function ProductKnowledgeTab({ product }: Props) {
             >
               <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                 <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
-                  <PhBookMarked size={20} weight="duotone" className="text-purple-500" />
+                  <PhBookMarked size={20} weight="duotone" className="text-accent" />
                   <span>新建知识库沉淀词条</span>
                 </h3>
                 <Button variant="ghost" size="sm" onClick={() => setIsCreatingNew(false)}>
@@ -447,7 +447,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                 <Button variant="secondary" size="md" onClick={() => setIsCreatingNew(false)}>
                   取消
                 </Button>
-                <Button variant="primary" size="md" onClick={handleCreateNew} className="bg-purple-600 hover:bg-purple-700">
+                <Button variant="primary" size="md" onClick={handleCreateNew}>
                   立即收录
                 </Button>
               </div>

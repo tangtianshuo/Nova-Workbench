@@ -137,7 +137,7 @@ export function CodeManagementTab({ product }: Props) {
                   <Sparkle size={12} weight="duotone" className="text-text-tertiary group-hover:text-accent transition-colors" />
                 </div>
                 <div>
-                  <div className="font-bold text-xs text-white group-hover:text-accent transition-colors">{preset.label}</div>
+                  <div className="font-bold text-xs text-text-primary group-hover:text-accent transition-colors">{preset.label}</div>
                   <div className="text-[10px] text-text-tertiary mt-0.5">{preset.desc}</div>
                 </div>
               </Button>

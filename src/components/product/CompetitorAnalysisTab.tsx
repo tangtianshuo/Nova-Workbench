@@ -84,7 +84,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-400/30">
+              <div className="p-2.5 bg-amber-500/20 text-amber-500 rounded-xl border border-amber-400/30">
                 <Crosshair className="w-6 h-6" weight="duotone" />
               </div>
               <h3 className="text-xl font-black">AI 竞品深度分析与商业破局中枢</h3>
@@ -113,7 +113,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
             value={promptInput}
             onChange={(e) => setPromptInput(e.target.value)}
             placeholder="自定义分析侧重点（如：针对国内大模型产研团队的协同提效痛点强化差异化战略...）"
-            className="w-full bg-slate-900/80 text-xs text-slate-200 placeholder:text-slate-500 rounded-xl px-4 py-2.5 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            className="w-full bg-bg-secondary text-xs text-text-primary placeholder:text-text-placeholder rounded-xl px-4 py-2.5 border border-border-subtle focus:outline-none focus:ring-2 focus:ring-amber-500/40"
           />
         </div>
       </Card>

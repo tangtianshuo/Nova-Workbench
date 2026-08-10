@@ -129,13 +129,13 @@ export function UIPrototypeTab({ product }: Props) {
       <Card variant="dark" className="p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-600/30 text-purple-400 rounded-2xl border border-purple-500/30">
+            <div className="p-3 bg-accent/20 text-accent rounded-2xl border border-accent/30">
               <PhLayout size={24} weight="duotone" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-lg text-text-primary">AI 界面设计与交互原型沙箱</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-accent/20 text-accent border border-accent/30">
                   UI Code Engine
                 </span>
               </div>
@@ -146,26 +146,26 @@ export function UIPrototypeTab({ product }: Props) {
           </div>
 
           {/* Quick theme selector */}
-          <div className="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700">
+          <div className="flex items-center gap-2 bg-bg-secondary p-1.5 rounded-2xl border border-border-subtle">
             <span className="text-[11px] text-text-tertiary px-2">配色风格:</span>
             <button
               onClick={() => setTheme('indigo')}
-              className={`w-6 h-6 rounded-full bg-indigo-600 transition-all ${theme === 'indigo' ? 'ring-2 ring-white scale-110' : 'opacity-60'}`}
+              className={`w-6 h-6 rounded-full bg-indigo-600 transition-all ${theme === 'indigo' ? 'ring-2 ring-accent scale-110' : 'opacity-60'}`}
               title="Indigo Tech"
             />
             <button
               onClick={() => setTheme('dark')}
-              className={`w-6 h-6 rounded-full bg-slate-800 border border-slate-500 transition-all ${theme === 'dark' ? 'ring-2 ring-white scale-110' : 'opacity-60'}`}
+              className={`w-6 h-6 rounded-full bg-slate-800 border border-slate-500 transition-all ${theme === 'dark' ? 'ring-2 ring-accent scale-110' : 'opacity-60'}`}
               title="Dark Titanium"
             />
             <button
               onClick={() => setTheme('mint')}
-              className={`w-6 h-6 rounded-full bg-emerald-600 transition-all ${theme === 'mint' ? 'ring-2 ring-white scale-110' : 'opacity-60'}`}
+              className={`w-6 h-6 rounded-full bg-emerald-600 transition-all ${theme === 'mint' ? 'ring-2 ring-accent scale-110' : 'opacity-60'}`}
               title="Mint Emerald"
             />
             <button
               onClick={() => setTheme('sunset')}
-              className={`w-6 h-6 rounded-full bg-orange-600 transition-all ${theme === 'sunset' ? 'ring-2 ring-white scale-110' : 'opacity-60'}`}
+              className={`w-6 h-6 rounded-full bg-orange-600 transition-all ${theme === 'sunset' ? 'ring-2 ring-accent scale-110' : 'opacity-60'}`}
               title="Sunset Orange"
             />
           </div>
@@ -178,12 +178,12 @@ export function UIPrototypeTab({ product }: Props) {
             value={promptInput}
             onChange={(e) => setPromptInput(e.target.value)}
             placeholder="例如：设计包含实时监控仪表盘、Agent 协同看板和交互对话流的现代 SaaS 主界面..."
-            className="flex-1 bg-slate-800/90 text-xs text-slate-100 placeholder:text-slate-500 rounded-xl px-4 py-3 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+            className="flex-1 bg-bg-secondary text-xs text-text-primary placeholder:text-text-placeholder rounded-xl px-4 py-3 border border-border-subtle focus:outline-none focus:ring-2 focus:ring-accent/40"
           />
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-600/25 transition-all disabled:opacity-50 shrink-0"
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/25 transition-all disabled:opacity-50 shrink-0"
           >
             {isGenerating ? <PhRefreshCw size={16} weight="duotone" className="animate-spin" /> : <PhSparkle size={16} weight="duotone" />}
             <span>AI 生成高保真界面</span>
@@ -406,10 +406,10 @@ export function UIPrototypeTab({ product }: Props) {
                 )}
 
                 {activeInteractiveTab === 'analytics' && (
-                  <div className="p-4 bg-slate-900 text-white rounded-xl text-xs space-y-2 font-mono">
+                  <div className="p-4 bg-bg-secondary text-text-primary rounded-xl text-xs space-y-2 font-mono border border-border-subtle">
                     <div className="text-success">● [Agent #1] 需求工程推导引擎 (Running - 0.2s)</div>
                     <div className="text-accent">● [Agent #2] 架构代码脚手架生成 (Idle)</div>
-                    <div className="text-purple-400">● [Agent #3] 自动化测试用例推导 (Ready)</div>
+                    <div className="text-text-tertiary">● [Agent #3] 自动化测试用例推导 (Ready)</div>
                   </div>
                 )}
 
@@ -469,7 +469,7 @@ export function UIPrototypeTab({ product }: Props) {
         >
           <Card className="p-7 space-y-4">
             <h4 className="font-bold text-text-primary text-sm flex items-center gap-2">
-              <PhPalette size={16} weight="duotone" className="text-purple-500" />
+              <PhPalette size={16} weight="duotone" className="text-accent" />
               <span>Design Tokens 规范矩阵</span>
             </h4>
 

@@ -1,22 +1,22 @@
-# Feature Research
+# Feature Research — Task CRUD, Schedule CRUD & Cross-Module Wiring
 
-**Domain:** AI-native PM desktop workbench (Tauri v2 + React 19) — milestone on existing v0.1.0 app, adding dark mode, Tauri-native IPC, persistence, and a GraphFlow PoC.
-**Researched:** 2026-08-08
-**Confidence:** HIGH for dark mode / persistence / Tauri IPC patterns (official docs + well-trodden territory). MEDIUM for GraphFlow PoC scope (the crate is itself a 2025 PoC; what "validates the path" is judgment, not a documented standard).
+**Domain:** AI-native PM desktop workbench (Tauri v2 + React 19) — subsequent milestone adding Task CRUD completion, Schedule CRUD + real calendar, and cross-module weak-association wiring on top of existing v0.1.0 app.
+**Researched:** 2026-08-10
+**Confidence:** HIGH for table-stakes CRUD patterns (well-established across Linear, Notion, Asana, Todoist). MEDIUM for cross-module wiring UX (few open-source references; based on synthesis of commercial tool patterns).
 
 ## Scope of This Research
 
-Nova v0.1.0 already ships the UI shell, design tokens, Zustand stores, and Express+Gemini AI. This milestone adds four capabilities on top of that surface. This document does **not** re-litigate what's already built — it categorizes only the **new** feature work.
+Nova v0.1.0 already ships: task creation (via Header NewTaskDialog + store `addTask`), task display as kanban board (`TaskKanban`), task completion (`completeTask`), schedule event creation (mock data only, `addEvent` in store), schedule display in hardcoded May 2025 calendar (`ScheduleView`), product full CRUD, and 7-tab sidebar navigation.
 
-The five research questions map to features as follows:
+This milestone adds CRUD completion for tasks and schedules plus cross-module linking. This document categorizes only the **new** feature work.
 
-| Question | Feature area |
+The three research areas map to features as follows:
+
+| Area | Feature scope |
 |---|---|
-| 1. Dark mode UX | Theme toggle, system-theme listener, transition polish |
-| 2. Tauri IPC for AI | Streaming chat command, progress events, cancellation, error surfacing |
-| 3. Local persistence | Auto-save layer, schema migration, store-level hydration |
-| 4. GraphFlow + Rig PoC | Minimum-viable Rust workflow run + HITL interrupt |
-| 5. Tauri security baseline | CSP, capability scoping, API-key handling |
+| Task CRUD completion | Edit, delete, reopen, reassign product/category on existing tasks |
+| Schedule CRUD completion | Edit, delete events; real month navigation (replace hardcoded May 2025); date picker for event creation |
+| Cross-module wiring | "Schedule to calendar" from task, product association on delete, relation badges, orphan handling |
 
 ---
 
@@ -24,238 +24,281 @@ The five research questions map to features as follows:
 
 ### Table Stakes (Users Expect These)
 
-Missing any of these and the app reads as broken, half-built, or untrustworthy.
+Missing any of these and the app reads as broken or half-built. These are features every PM tool user takes for granted.
 
 | Feature | Why Expected | Complexity | Notes |
 |---|---|---|---|
-| **Three-way theme toggle (Light / Dark / System)** in Settings | Apple HIG pattern; every native Mac PM tool (Things, Linear, Notion) ships this. A binary toggle or "follow system only" feels limited. NN/g research shows users treat dark mode like brightness — they want it global and predictable. | LOW | `useTheme()` already implements all three modes + system listener. **Work is wiring UI**: a `Select` or `Tabs` in `SettingsView` "appearance" section calling `setTheme('light'\|'dark'\|'system')`. ~1 day. |
-| **Quick theme toggle in Header** | One-click flip without navigating to Settings. Standard in macOS menu bar apps and most Apple-style productivity tools. | LOW | Header already exists. Add a single icon button (Sun/Moon phased icon from Phosphor) calling `toggle()`. ~2 hours. |
-| **System theme change responds live** when set to "system" | Users expect: change OS appearance → app follows within seconds without restart. Apple apps do this natively; web apps that miss it feel broken. | LOW (already built) | `useTheme.ts` already registers `matchMedia('change')` listener. Verify it still works after wiring UI. No new code. |
-| **Smooth color transition when switching themes** | Hard color flips look cheap; Apple apps fade. `transition: background-color 150ms` on token-driven surfaces is the floor. | LOW | Add a scoped CSS transition in `tokens.css` (or a Tailwind utility class) on `background-color`, `border-color`, `color` for body/cards. Watch out: transitioning `box-shadow` can flicker — leave it unanimated. |
-| **Dark palette actually works on every view** | "Dark mode that shows white cards" is the #1 reported dark-mode bug across desktop apps. Shadows disappear, borders vanish, glass effects look wrong. | MEDIUM | Token system already exists. Work is **verification pass**, not new design: open every view + each Card variant (`default/elevated/glass/interactive/dark`) in dark mode, fix token misses. CLAUDE.md already calls out "verify shadows/glass/borders." ~1-2 days of pixel work. |
-| **Persistence: state survives app restart** | The single biggest gap in v0.1.0 per `CONCERNS.md`. A "desktop PM tool" that loses all products/tasks on refresh is not a tool — it's a demo. Users will not tolerate this. | MEDIUM | `zustand/middleware` `persist` on 5 stores + localStorage. Use `partialize` to drop transient flags (`isGenerating`, `modalOpen`, etc.). Add `version: 1` + a `migrate` stub now even if empty — future-you will thank you. ~1 day for plumbing across 5 stores. |
-| **No data loss on schema migration** | App updates that wipe user products = trust destroyed. Migration is table stakes for any persistence layer, not a nice-to-have. | MEDIUM | Two layers: (a) Zustand `version` + `migrate` for shape changes; (b) when SQLite lands later, `tauri-plugin-sql` ships a migration system. Set the convention now (version field, migrate stub) so the SQLite move is mechanical. |
-| **AI call cancellation** | Currently `rndStore` has no `AbortController` — "generate all deliverables" stacks Gemini requests with no way to stop. Users will spam-click and expect a Stop button. | LOW | Track an `AbortController` per in-flight call; expose `cancelGeneration(productId)` action; UI shows "Stop" button when `status === 'generating'`. Whether the call routes through Express or Tauri IPC, the controller lives client-side. |
-| **AI errors surface as user-facing messages, not blank screens** | Today `JSON.parse` failures on Gemini output throw a 500 with raw error (CONCERNS.md). Users see nothing or an opaque crash. Every AI tool shows "AI had trouble, try again." | LOW | Wrap the parse + network call in try/catch, return `{ ok: false, error: 'human message' }`. ~half day. Independent of where the call lives. |
-| **Explicit CSP in Tauri production build** | `csp: null` ships a webview with zero injection protection. Not "best practice" — it's the floor for any distributed app, even single-user. Tauri's own docs treat CSP as required-by-default. | LOW | Define a strict CSP in `tauri.conf.json`: `default-src 'self'`, `connect-src` to your LLM provider origin + `ipc:` + dev server, `style-src 'self' 'unsafe-inline'` (Tailwind needs inline), `img-src 'self' data: blob:`, `script-src 'self'`. Test against actual fetches. ~half day. |
-| **API key not bundled into the app binary** | Shipping `GEMINI_API_KEY` baked into a Tauri bundle is a leak waiting to happen — anyone unzipping the app reads it. Hard requirement for distribution. | MEDIUM | Two viable paths: (1) OS keychain via `tauri-plugin-biometry` or the Rust `keyring` crate, populated on first-run prompt; (2) require user to paste key into Settings, store in keychain, read at call time. Both unblock removing dotenv from prod. Path (2) is the minimum bar. |
+| **Task edit via card context menu or detail panel** | Every PM tool (Linear `E` key, Notion inline edit, Todoist click-to-expand) lets users modify task properties after creation. A kanban card you can't edit is a sticky note, not a task manager. | LOW | Current `TaskKanban` already expands on click to show detail. Add edit fields (title, description, priority, deadline, category) into the expanded panel OR a dedicated edit dialog. Reuse existing `Input`, `Select`, `DatePickerInput` primitives. Store action: `updateTask(taskId, updates)`. ~1 day. |
+| **Task delete with confirmation** | Accidental deletion destroys user work. Linear uses `⌘+Delete` + undo (no modal), Notion uses "Delete" in `...` menu with toast-undo, Asana requires multi-step deletion. For a desktop app with no server-side undo, a lightweight confirmation is appropriate. | LOW | Add `Trash`/`X` button on expanded card or right-click context menu. Show confirmation Dialog ("Delete this task? This cannot be undone."). Store action: `deleteTask(taskId)` removes from whichever category contains it. ~half day. |
+| **Task reopen (un-complete)** | Todoist: uncheck completed task. Linear: `#` to restore. Users routinely complete tasks by mistake or change their mind. A completed task that's permanently locked feels broken. | LOW | Current `completeTask` sets `status: '已完成'`. Add `reopenTask(taskId)` that sets `status: '未开始'` (or previous status). UI: completed tasks in kanban show a "Reopen" button instead of disabled "已完成" button. ~half day. |
+| **Task reassign category (move between kanban columns)** | Tasks evolve: a "需求评审" item becomes a "产品设计" item. Linear/Asana/Trello all support column movement. Without this, users must delete+recreate. | LOW-MEDIUM | Two UX options: (a) drag-and-drop between columns (requires DnD library — heavy), (b) select category in edit dialog/panel and move on save. Option (b) is simpler and matches Nova's click-to-expand pattern. Store action: `moveTask(taskId, fromCategoryId, toCategoryId)`. ~1 day. |
+| **Schedule event edit via click** | Calendar events you can't edit are calendar decoration. Notion calendar: click event → edit in database row. Apple Calendar: double-click → inline edit. Any calendar without event editing is not a calendar. | LOW | Click event chip in calendar grid → open edit dialog pre-filled with current values. Store action: `updateEvent(eventId, updates)`. ~half day. |
+| **Schedule event delete with confirmation** | Same rationale as task delete. Calendar events are commitments; accidental deletion is high-cost. | LOW | Right-click or `...` menu on event chip → "Delete" → confirmation dialog. Store action: `deleteEvent(eventId)`. ~half day. |
+| **Real month navigation in calendar** | Current `ScheduleView` is hardcoded to "2025年 5月" with `daysInMonth = 31` and `firstDayOfMonth = 4`. This is a demo placeholder. A calendar that shows only one month is not a calendar — it's a screenshot. | MEDIUM | Replace hardcoded values with `useState` tracking `currentYear`/`currentMonth`. CaretLeft/CaretRight buttons (already rendered but non-functional) shift month. "今天" button resets to current month. Compute `daysInMonth` and `firstDayOfMonth` dynamically via `new Date(year, month, ...)`. Events filter by matching `date` field against displayed month. ~1-2 days. |
+| **Schedule event creation dialog** | Current "新建日程" button in ScheduleView does nothing. Users expect to create events with title, date, time, type, location. | LOW | Open Dialog on button click. Fields: title (Input), date (DatePickerInput), time range (two time Inputs or single text), type (Select: meeting/review/sync), location (Input). Store action: already have `addEvent`. ~1 day. |
+| **Event date model: full date, not just day-of-month** | Current `ScheduleEvent.date: number` is only day-of-month (1-31). This breaks the moment the calendar navigates past May 2025 — day 15 of May ≠ day 15 of June. Must migrate to full date string (`YYYY-MM-DD`). | MEDIUM | **Schema migration required.** Change `ScheduleEvent.date` from `number` to `string` (ISO date). Update `INITIAL_EVENTS` mock data. Update ScheduleView to parse and filter by month. Update any calendar-day matching logic. Add `version: 2` + `migrate` function to `scheduleStore` persist config to transform old `number` dates to `string` dates. ~1 day including migration. |
+| **Keyboard support for core actions** | Linear's entire UX is keyboard-driven. At minimum: `Escape` closes dialogs, `Enter` confirms, `Delete` triggers delete flow. Users migrating from Linear/Notion will reach for these reflexively. | LOW | Most Dialog/Input primitives already handle Escape. Add explicit `onKeyDown` for Delete key on focused task cards. ~half day. |
 
 ### Differentiators (Competitive Advantage)
 
-These are where Nova earns its "AI-native PM agent" positioning vs Linear/Notion/Things. Not required for "working app," but required for the value prop.
+These are where Nova earns its "AI-native PM agent" positioning for the CRUD experience. Not required for "working app," but required for the value prop of "smart PM workbench."
 
 | Feature | Value Proposition | Complexity | Notes |
 |---|---|---|---|
-| **AI streaming via Tauri Channel (token-by-token)** | Tauri v2 `Channel<T>` is the recommended pattern for streaming. Chat that types out token-by-token feels 10x faster than batch HTTP — perceived latency drops from "wait 8 seconds" to "first token in 500ms, rest streams." This is the moment "AI native" stops being marketing. | MEDIUM | Rust command takes a `Channel<StreamChunk>`, frontend passes `new Channel()` callback. Replaces today's Express POST + wait. Pattern is well-documented in Tauri v2 docs. ~2-3 days for one streaming endpoint (start with `/generate-project` or a new chat). |
-| **In-flight AI cancellation (server-side)** | Today's "abort" only stops the client wait — Express keeps burning Gemini tokens. Moving to Tauri IPC lets a Rust `CancellationToken` actually halt the upstream LLM call. Cost + UX win. | MEDIUM | Comes free with the streaming-channel rewrite: pass a `CancellationToken` into the LLM future, expose a `cancel_chat(run_id)` command. Worth doing in the same phase as streaming, not separately. |
-| **Progress events for long-running AI ops** | Beyond chat tokens: "generating 5 deliverables in batch" should emit per-item progress (`{item: 2/5, status: 'generating'}`) so UI shows a real progress bar instead of a spinner. | LOW-MEDIUM | `app.emit("pipeline-progress", payload)` + frontend `listen()`. Different mechanism from channels (events are broadcast, channels are 1:1). Use events for pipeline-level progress, channels for token streaming. |
-| **Rust-native LLM call via Rig (multi-provider)** | Rig abstracts Claude/GPT/Gemini/Ollama behind one trait. Once the call lives in Rust, swapping providers is config, not code rewrite. Apple-style "just works" multi-provider is rare in PM tools. | MEDIUM-HIGH | Belongs in the GraphFlow PoC phase, not before — Rig's value is best validated by actually driving a workflow node. Don't pre-build a Rig wrapper that has no caller. |
-| **GraphFlow HITL PoC (single workflow + interrupt + resume)** | The differentiator the whole milestone exists to validate. Proof that a Rust-native workflow engine can pause for human input, persist its state, and resume — in a desktop shell. Nothing on the market does this Rust-native today. | HIGH | See "PoC scope" below — keep it ruthlessly minimal. |
-| **SqliteSaver checkpoint persistence** | GraphFlow's built-in checkpointer. Once wired, "crash mid-pipeline, resume from last HITL node" is free. No PM tool survives a crash mid-PRD-generation today. | MEDIUM | Lands as part of the PoC: GraphFlow + SqliteSaver + one interrupt node. ~3-5 days once GraphFlow is integrated. |
-| **Local-first data sovereignty** | "All your PRDs/code/tests live in SQLite on your machine, never on our servers" is a real differentiator vs cloud-only PM tools. Design doc already commits to this. | LOW (messaging) / MEDIUM (delivery) | Mostly delivered for free by the SQLite persistence work. The differentiator is *saying it clearly* in onboarding — that's product/UX, not engineering. |
+| **Cross-module "安排到日历" from task** | The headline cross-module feature. A task with a deadline should be one-click convertible to a calendar event. No other local-first PM tool does this automatically — Asana requires manual calendar entry, Todoist keeps tasks and calendar separate. | MEDIUM | Add "安排到日历" button on expanded task card. Click → creates a `ScheduleEvent` with `title` from task, `date` from task.deadline, `type: 'task'`, and bidirectional weak refs (`event.taskId = task.id`, `task.scheduledEventId = event.id`). UX: toast confirmation "已创建日程: {title}" with link to jump to Schedule tab. ~1-2 days. |
+| **Relation badges on task cards** | Visual indicator that a task is linked to a product and/or a schedule event. Linear shows linked issue pills; Notion shows relation property chips. Without badges, weak associations are invisible — users won't know tasks are connected. | LOW | On kanban card: show small Badge with product name (if `task.projectId` set) and/or calendar icon (if `task.scheduledEventId` set). Click badge → navigate to related item's tab + scroll/focus. ~1 day. |
+| **Relation badges on calendar events** | Same concept on the calendar side. An event linked to a task shows the task title; an event linked to a product shows the product name. | LOW | On calendar event chip: show small icon/badge for linked entity. Click → navigate to task card or product detail. ~half day. |
+| **Smart delete: orphan awareness on product deletion** | When deleting a product, show how many tasks/events reference it. Let user choose: (a) unlink (set `projectId = null`), (b) cancel. This prevents silent orphans. Asana shows "This task belongs to 3 projects" on delete. | MEDIUM | In `deleteProduct` flow: before deletion, query task store + schedule store for references. Show dialog: "This product has 5 linked tasks and 2 linked events. Delete product and unlink all references?" with explicit "Unlink & Delete" button. ~1-2 days. |
+| **Bidirectional navigation: click product badge on task → jump to product tab** | Cross-module links should be navigable both ways. Task → Product, Task → Schedule, Schedule → Task, Schedule → Product. | LOW | Badge click handlers call `setSelectedProductId(id)` + `setActiveTab('product')` or similar. Reuses existing UI store. ~half day. |
+| **Inline date editing on task card (quick edit)** | Notion: click any property inline to edit. Rather than opening a full dialog, let users click the deadline on a kanban card to open the DatePickerInput inline. Faster than full edit flow for the most common change. | LOW-MEDIUM | In expanded card view, make the deadline display clickable → opens DatePickerInput popover inline. On change → `updateTask(taskId, { deadline: newDate })`. ~half day. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Things that look like they belong in this milestone but should be **explicitly deferred** per PROJECT.md's Out of Scope.
+Things that look like they belong in this milestone but should be **explicitly deferred** per PROJECT.md's Out of Scope and weak-association design principle.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---|---|---|---|
-| **Full LanceDB vector search ("second brain")** | Design doc lists it as Phase 4; tempting to spike early since SQLite is being wired anyway. | Doubles the persistence surface (new DB engine, embedding pipeline, ingestion jobs) before the basic SQLite layer is proven. PoC scope creep kills milestones. | Ship SQLite + persistence this milestone. LanceDB is its own milestone when "search my notes" becomes a real user ask. |
-| **Full PM Pipeline (req → PRD → proto → code → test)** | PIPELINE_DESIGN.md specifies it; users will ask "does it actually generate code yet?" | 10 nodes, 4 conditional loops, 5 interrupt points. Building all of it on an unproven engine = months of work with no off-ramp if GraphFlow can't carry the load. | Build **one** minimal end-to-end flow (e.g., 2 nodes + 1 interrupt) as the PoC. If it lands, expand in next milestone. |
-| **Multi-window conflict resolution (CRDT / last-write-wins UI)** | "What if user opens two windows and edits the same product?" Asks for Figma-style multiplayer semantics. | Single-user local app with localStorage has no real concurrency. Multi-window write conflicts are a Phase-N problem nobody has hit yet. YAGNI. | Last-write-wins on store update is fine for v1. Document as known limit. Add real CRDT only when multi-window is actually used. |
-| **Cloud sync / multi-device** | "I want my products on my laptop and phone." | Triggers auth, transport, conflict model, server infra. Whole company-level scope. | Local-first is the design principle. Sync is a future milestone with its own research pass. |
-| **Custom Rig provider plugin system** | "Let users register their own LLM provider." | Plugin systems are 10x the work of supporting 4 hardcoded providers. Premature abstraction. | Hardcode Claude/GPT/Gemini/Ollama via Rig's built-in support. Add plugin system only when a user actually needs a 5th. |
-| **Per-view dark mode override** | "Let me set Product view to dark but keep Schedule light." | No user has asked for this. Adds a settings UI + per-view token scoping for zero real value. Complicates the mental model NN/g warned about. | One global theme. Period. |
-| **AppContext full removal in this milestone** | Tech debt, looks like cleanup that should fit. | 30+ files consume `useApp()`. Touching all of them mid-feature-work = merge conflicts and regression risk. | Out of Scope per PROJECT.md. Migrate opportunistically as each view is touched, but don't make it a milestone goal. |
-| **URL routing / deep links / browser back-button** | Feels like a basic web-app feature. | Custom `activeTab` state works for a single-window desktop app. Retrofitting react-router touches every view + the lazy-load setup. No user need yet. | Keep `activeTab` state. Defer router until a feature actually needs URL state (sharing links, deep linking from notifications). |
-| **Multi-user collaboration on the SQLite store** | "Share a product with my team." | Requires auth, transport, conflict resolution, server. Multi-month scope. | Single-user local. Multi-user is a different product. |
+| **Cascade delete (delete product → auto-delete all tasks/events)** | Seems logical: "if I delete the product, clean up everything." | Violates the weak-association principle in PROJECT.md. Tasks have independent value — a user may delete a product but want to keep the tasks as standalone items. Data loss risk is high and irreversible. | Orphan with notification: delete product → tasks survive with `projectId = null`, user sees "5 tasks unlinked" toast. User can manually delete if desired. |
+| **Drag-and-drop kanban column reordering** | Trello/Linear/Jira all support DnD between columns. | Requires a DnD library (`@dnd-kit/core`, `react-beautiful-dnd`) adding ~30KB + complexity. Current kanban is click-to-expand, not DnD. MVP doesn't need it. | Use category selector in edit dialog to move tasks between columns. DnD can be added later if users demand it. |
+| **Recurring tasks / events** | Todoist has recurring dates; Google Calendar has recurring events. | Complex date math (RRULE parsing), UI for recurrence patterns, edge cases around editing one vs. all instances. Not in v0.2.0 scope. | One-off tasks/events only. Recurring is a v0.3+ feature. |
+| **Task subtasks / nested tasks** | Todoist and Linear support sub-task hierarchies. | Current `Task` type is flat. Adding `subtasks: Task[]` or parent-child refs doubles the data model complexity. Kanban display gets recursive. | Flat tasks only for v0.2.0. Categories serve as the primary grouping mechanism. |
+| **Task/event templates** | Notion database templates, Linear issue templates. | Premature abstraction. Users haven't established workflow patterns yet. Templates optimize for repetition that doesn't exist yet. | Manual creation. Templates when users ask for them. |
+| **Calendar week view** | SegmentedControl already shows "月视图" / "周视图" toggle but week view is not implemented. | Week view requires different grid layout (7 columns × 1 row with hourly rows), time-of-day rendering, scrollable time axis. Significant UI work that duplicates the month view's value. | Ship month view first. Week view is v0.3+ unless user feedback demands it sooner. |
+| **Multi-select / bulk operations on tasks** | Linear: select multiple issues → batch delete/status change. | Requires selection state management, bulk action bar UI, confirmation flows for batch operations. Complexity scales non-linearly. | Single-task operations for v0.2.0. Bulk operations when task volume warrants them. |
+| **Task assignment to team members** | Asana/Linear show assignee avatars. | Current `Task` has `assignee: string` and `assigneeAvatar: string` but no user management system. Real assignment requires user directory. | Keep assignee as free-text string. Real user management is a different product. |
+| **URL routing / deep links to specific tasks or events** | "Share a link to this task." | Single-window desktop app with `activeTab` state. No URL bar. Deep links require router integration touching all views. | In-app navigation only (click badge → switch tab + focus). |
+| **Full-text search across tasks and events** | Header already has a search button but search is unimplemented. | Search requires indexing strategy, relevance ranking, UI for results display. Can be done well later; doing it badly now wastes effort. | Ship CRUD first. Search is its own feature when data volume makes manual browsing painful. |
+| **Strong referential integrity (foreign key constraints)** | "If taskId references a product, enforce that the product exists." | Violates weak-association principle. FK constraints + cascade rules = complex data model for a local-first app. | Weak refs only. UI checks for orphan references and shows badges. No store-level enforcement. |
 
 ---
 
-## Feature Dependencies
+## Edge Cases
+
+### Orphan Records on Delete
+
+| Scenario | Expected Behavior | Implementation |
+|---|---|---|
+| Delete product that has linked tasks | Tasks survive with `projectId = null`. Show toast: "{N} tasks unlinked from {product name}". | `deleteProduct` action queries task store for `task.projectId === product.id`, nullifies the field, then deletes product. |
+| Delete product that has linked events | Events survive with `projectId = null`. Show toast: "{N} events unlinked from {product name}". | Same pattern as tasks. |
+| Delete task that has a linked event | Event survives with `taskId = null`. Event is now a standalone calendar entry. | `deleteTask` checks if `task.scheduledEventId` exists, if so nullifies `event.taskId`. |
+| Delete event that has a linked task | Task survives with `scheduledEventId = null`. Task is now unscheduled. | `deleteEvent` checks if `event.taskId` exists, if so nullifies `task.scheduledEventId`. |
+| Delete task category | All tasks in category survive — they must be reassigned or the category deletion should be blocked. | Two options: (a) prevent deletion of non-empty categories, (b) force reassignment dialog before deletion. Option (a) is simpler for v0.2.0. |
+
+### Date/Time Edge Cases
+
+| Scenario | Expected Behavior | Implementation |
+|---|---|---|
+| Task deadline in the past | Show deadline normally but with visual indicator (e.g., `danger` badge or "overdue" text). Don't auto-complete or auto-delete. | In TaskKanban expanded card: compare `task.deadline` with `new Date()`. If past, show `<Badge variant="danger">已过期</Badge>`. |
+| Event date in the past | Show in calendar normally. Past events are historical records. No auto-deletion. | Calendar cells render events regardless of date. Optional: dim past events slightly. |
+| Event spanning midnight | Current `time: string` is free-text ("10:00 - 11:30"). No special handling needed for v0.2.0. | Keep time as string. Structured time parsing is v0.3+. |
+| Schedule event on month boundary | Events on the 1st or last day should display correctly when navigating months. | Filter events by full `YYYY-MM-DD` date string, not just day-of-month number. |
+| DatePickerInput in Tauri webview | Already handled — custom `DatePickerInput` component exists specifically because native `<input type="date">` doesn't work in Tauri transparent windows on Windows. | Reuse existing `DatePickerInput` for all date fields. |
+
+### Cross-Module Wiring Edge Cases
+
+| Scenario | Expected Behavior | Implementation |
+|---|---|---|
+| "安排到日历" on a task that already has a scheduled event | Don't create a duplicate. Either: (a) navigate to existing event, or (b) show "Already scheduled: {date}" with option to reschedule. | Check `task.scheduledEventId` before creating. If exists, show info toast + option to jump to schedule tab. |
+| Link task to product that's already deleted (stale reference) | Badge should show "Unknown product" or simply not render. Don't crash. | Badge render checks `products.find(p => p.id === task.projectId)`. If not found, skip badge or show neutral "已删除产品" badge. |
+| Circular reference: task A references event B which references task A | Prevent at creation time. When creating event from task, the event gets `taskId`, not the other way around. |单向创建: task → event creates event with `taskId = task.id`. The reverse (event → task) is not offered as a separate action. |
+| Rapid-fire "安排到日历" clicks | Debounce or disable button after first click. | Disable button when `task.scheduledEventId` is set. Optimistic: set immediately on click, rollback if store action fails. |
+| Edit task deadline after "安排到日历" | Changing task deadline does NOT auto-update the linked event's date. They're weakly associated, not synced. | Document this clearly in UI: "日程已创建，修改截止日期不会自动更新日程". Future: offer "sync date" option. |
+
+### Calendar Navigation Edge Cases
+
+| Scenario | Expected Behavior | Implementation |
+|---|---|---|
+| Navigate to month with no events | Show empty calendar grid. Don't crash or show error. | Events filter returns `[]` for that month. Grid renders normally with no event chips. |
+| Navigate far into past/future | No practical limit, but very distant months may feel disorienting. | No hard limit. "今天" button always available to return to current month. |
+| Today indicator in non-current month | Don't highlight today's date when viewing a different month. | `isToday` check only applies when viewing current month. Other months show dates without today highlight. |
+| Month with 6 weeks (42 cells) vs 5 weeks | Grid must handle both. Some months span 6 weeks. | Always render 42 cells (6 rows × 7 cols). Cells outside current month show with reduced opacity (already implemented). |
+
+---
+
+## Complexity Notes
+
+### Data Model Changes
+
+**Task type additions (weak-association fields):**
+```typescript
+// Add to existing Task interface:
+projectId?: string;         // optional FK to Product
+scheduledEventId?: string;  // optional FK to ScheduleEvent
+```
+
+**ScheduleEvent type migration:**
+```typescript
+// BEFORE (v0.1.0):
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  time: string;
+  date: number;        // day-of-month only (1-31) — BROKEN for multi-month
+  type: string;
+  location: string;
+}
+
+// AFTER (v0.2.0):
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  time: string;
+  date: string;        // YYYY-MM-DD — full date
+  type: string;
+  location: string;
+  projectId?: string;  // optional FK to Product
+  taskId?: string;     // optional FK to Task
+}
+```
+
+**Store migration required:** `scheduleStore` persist config needs `version: 2` + `migrate` function to convert old `number` dates to `string` dates. Use `INITIAL_EVENTS` date anchor (May 2025) for migration heuristic.
+
+### New Store Actions Needed
+
+| Store | Action | Signature |
+|---|---|---|
+| `taskStore` | `updateTask` | `(taskId: string, updates: Partial<Task>) => void` |
+| `taskStore` | `deleteTask` | `(taskId: string) => void` |
+| `taskStore` | `reopenTask` | `(taskId: string) => void` |
+| `taskStore` | `moveTask` | `(taskId: string, toCategoryId: string) => void` |
+| `scheduleStore` | `updateEvent` | `(eventId: string, updates: Partial<ScheduleEvent>) => void` |
+| `scheduleStore` | `deleteEvent` | `(eventId: string) => void` |
+| `scheduleStore` | `addEvent` | (already exists, needs signature update for full date) |
+
+### Component Changes Needed
+
+| Component | Change | Complexity |
+|---|---|---|
+| `TaskKanban` | Add edit/delete/reopen controls to expanded card. Add relation badges. | MEDIUM |
+| `ScheduleView` | Replace hardcoded month with stateful navigation. Wire event click → edit dialog. Wire "新建日程" → create dialog. Update date rendering for `YYYY-MM-DD` format. | MEDIUM-HIGH |
+| `Header` (NewTaskDialog) | Wire form to actually call `addTask` store action. Add product association select. | LOW |
+| New: `TaskEditDialog` or inline edit panel | Reuse Dialog primitives + Input/Select/DatePickerInput. Pre-fill with current task values. | LOW-MEDIUM |
+| New: `ScheduleEventDialog` (create/edit) | Same pattern as CreateProductModal. Handles both create and edit via `mode` prop. | LOW-MEDIUM |
+| New: `DeleteConfirmDialog` (reusable) | Generic confirmation dialog with customizable message. Used for task delete, event delete, product delete-with-orphans. | LOW |
+
+### Dependencies on Existing Features
 
 ```
-[Theme toggle UI] ──(uses)──> useTheme() [ALREADY BUILT]
-[Theme transition polish] ──(after)──> [Theme toggle UI]
-[Dark palette verification] ──(after)──> [Theme toggle UI]
+[Task edit/delete/reopen] ──(uses)──> taskStore [EXISTING, needs new actions]
+[Task edit/delete/reopen] ──(uses)──> TaskKanban expanded card [EXISTING UI pattern]
+[Task reassign category] ──(uses)──> categories array in taskStore [EXISTING]
 
-[Persistence: Zustand persist + localStorage] ─┐
-                                                ├──> [No data loss on restart]
-                                                │
-[Persistence: schema version + migrate stub] ──┘
+[Schedule event edit/delete] ──(uses)──> scheduleStore [EXISTING, needs new actions]
+[Schedule month navigation] ──(uses)──> CaretLeft/CaretRight buttons [EXISTING UI, non-functional]
+[Schedule event creation] ──(uses)──> DatePickerInput [EXISTING component]
+[Schedule date model migration] ──(uses)──> scheduleStore persist migrate [PATTERN EXISTS from taskStore]
 
-[AI cancellation client-side] ──(independent)──> works on Express OR Tauri IPC
-
-[Tauri IPC streaming channel] ─┐
-                                ├──> [AI errors surface user-facing]
-[Tauri CSP]                     │   (rewrite is the moment to add error handling)
-[Tauri keychain for API key]   ─┘
-
-[GraphFlow + Rig integration] ─┐
-                                ├──> [SqliteSaver checkpoint persistence]
-[Tauri SQL plugin]              │   (GraphFlow's SqliteSaver needs SQLite)
-[One workflow + interrupt] ────┘
-
-[GraphFlow PoC] ──(unblocks decision)──> [Full Pipeline future milestone]
-[GraphFlow PoC] ──(unblocks decision)──> [LanceDB second-brain future milestone]
+[Cross-module: 安排到日历] ──(needs)──> Task.scheduledEventId [NEW field]
+[Cross-module: 安排到日历] ──(needs)──> ScheduleEvent.taskId [NEW field]
+[Cross-module: 安排到日历] ──(needs)──> scheduleStore.addEvent [EXISTING action]
+[Cross-module: relation badges] ──(needs)──> Task.projectId [NEW field]
+[Cross-module: relation badges] ──(needs)──> useProductStore [EXISTING]
+[Cross-module: orphan awareness] ──(needs)──> deleteProduct flow [EXISTING, needs enhancement]
 ```
 
-### Dependency Notes
-
-- **Persistence must land before GraphFlow PoC.** GraphFlow's `SqliteSaver` needs SQLite wired; SQLite wiring is also the right moment to introduce the `version` + `migrate` convention that Zustand persistence will reuse. Order: Zustand persist (smallest, unblocks UX value) → SQLite via Tauri SQL plugin → GraphFlow PoC.
-- **Tauri IPC streaming and AI cancellation should ship together.** The Channel-based rewrite is the natural moment to add `CancellationToken` server-side. Doing them in separate phases means rewriting the same code twice.
-- **Tauri CSP + keychain must precede any production build.** They are not blocked by features — they can be done independently, but the build cannot ship without them. Pair them in a "security baseline" phase.
-- **Dark mode is fully independent.** No dependency on persistence, IPC, or PoC. Ship first for fastest user-visible value.
-- **GraphFlow PoC blocks the next milestone's scope decision.** If PoC fails (engine can't carry HITL cleanly, or Rig integration is rough), the entire design-doc target architecture needs re-evaluation. This is the highest-risk item — schedule it last so its slip doesn't drag other shipped features.
-- **AI cancellation (client-side only) does NOT require Tauri IPC.** Can ship against current Express layer as a stopgap. But doing it twice (once on Express, once on Tauri) is waste — if Tauri IPC lands in the same milestone, do it once.
-
 ---
 
-## MVP Definition
+## Feature Prioritization for v0.2.0
 
-### Launch With (v1 of this milestone)
+### Phase 5: Task CRUD Completion (P1 — must have)
 
-Minimum to call this milestone done. Maps to roughly 4 phases.
+- [ ] `taskStore`: `updateTask`, `deleteTask`, `reopenTask`, `moveTask` actions
+- [ ] TaskKanban expanded card: edit fields (title, description, priority, deadline, category)
+- [ ] Task delete with confirmation dialog
+- [ ] Task reopen button on completed tasks
+- [ ] Task category reassignment via edit dialog
+- [ ] Task `projectId?` / `scheduledEventId?` weak-association fields
 
-- [ ] **Dark mode UI wired** — Settings three-way toggle + Header quick-toggle. Tokens already exist; this is plumbing.
-- [ ] **Dark palette verification pass** — every Card variant + every view checked in dark mode, token misses fixed.
-- [ ] **Zustand persistence on 5 stores** — `persist` middleware with `partialize` (drop transient flags) and `version: 1` + empty `migrate` stub. State survives restart.
-- [ ] **AI cancellation client-side** — `AbortController` tracked per call, Stop button in UI.
-- [ ] **AI errors as user messages** — try/catch around parse + network, return human-readable errors.
-- [ ] **Tauri CSP declared** — strict policy in `tauri.conf.json`, tested against actual origins.
-- [ ] **API key out of bundle** — keychain (or first-run prompt into keychain), no dotenv in prod.
-- [ ] **Tauri IPC streaming for one AI endpoint** — pick one (recommend `/generate-project` or a new chat endpoint) and rewrite as Rust command + Channel. Validates the IPC path.
-- [ ] **GraphFlow + Rig minimal PoC** — one workflow (2 nodes), one `interrupt!`, SqliteSaver persistence, resume after interrupt. Decision gate for next milestone.
+### Phase 6: Schedule CRUD + Real Calendar (P1 — must have)
 
-### Add After Validation (v1.x)
+- [ ] `scheduleStore`: `updateEvent`, `deleteEvent` actions
+- [ ] `ScheduleEvent.date` migration: `number` → `string` (YYYY-MM-DD) + persist migration
+- [ ] `ScheduleEvent.projectId?` / `taskId?` weak-association fields
+- [ ] ScheduleView: real month navigation (stateful year/month, dynamic grid computation)
+- [ ] ScheduleView: event click → edit dialog (pre-filled)
+- [ ] ScheduleView: "新建日程" → create dialog with DatePickerInput
+- [ ] Event delete with confirmation
 
-- [ ] **All 5 AI endpoints migrated to Tauri IPC** — once one endpoint proves the pattern, the rest is mechanical.
-- [ ] **Progress events for batch AI ops** — `pipeline-progress` event emission, progress bar UI.
-- [ ] **More workflow nodes** — expand PoC into a real req → PRD flow once GraphFlow proves out.
-- [ ] **SQLite as primary store** — migrate Zustand-persisted data to SQLite via Tauri SQL plugin, keep Zustand as cache layer.
+### Phase 7: Cross-Module Wiring (P1 — must have, builds on Phase 5+6)
 
-### Future Consideration (v2+)
+- [ ] "安排到日历" button on task card → creates linked event
+- [ ] Relation badges on task cards (product badge, calendar badge)
+- [ ] Relation badges on calendar events (task badge, product badge)
+- [ ] Bidirectional navigation: click badge → switch tab + focus
+- [ ] Product delete: orphan awareness dialog (count linked tasks/events, offer unlink)
+- [ ] Reusable `DeleteConfirmDialog` component
 
-- [ ] **LanceDB vector search / second brain** — its own milestone after SQLite is stable.
-- [ ] **Full PM Pipeline** — all 10 nodes from PIPELINE_DESIGN.md.
-- [ ] **Multi-window + conflict resolution** — only if real usage emerges.
-- [ ] **Cloud sync** — separate product decision.
-- [ ] **AppContext removal** — opportunistic, not milestone-scoped.
+### Deferred to v0.3+ (explicitly out of scope)
 
----
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---|---|---|---|
-| Theme toggle UI wiring | HIGH (visible) | LOW | P1 |
-| Dark palette verification | HIGH (visible quality) | MEDIUM | P1 |
-| Zustand persist on 5 stores | HIGH (fixes "loses my data") | MEDIUM | P1 |
-| AI errors as user messages | MEDIUM | LOW | P1 |
-| AI cancellation client-side | MEDIUM | LOW | P1 |
-| Tauri CSP | LOW (invisible until attack) | LOW | P1 |
-| API key out of bundle | LOW (invisible) | MEDIUM | P1 |
-| Tauri IPC streaming (1 endpoint) | HIGH (perceived perf) | MEDIUM | P1 |
-| GraphFlow + Rig + interrupt PoC | HIGH (validates architecture) | HIGH | P1 (last) |
-| SqliteSaver checkpoints | MEDIUM | MEDIUM | P1 (part of PoC) |
-| All 5 endpoints on Tauri IPC | MEDIUM | MEDIUM (mechanical) | P2 |
-| Progress events | MEDIUM | LOW | P2 |
-| SQLite as primary store | MEDIUM | MEDIUM | P2 |
-| LanceDB vector search | HIGH (future) | HIGH | P3 |
-| Full PM Pipeline | HIGH (future) | HIGH | P3 |
-
-**Priority key:**
-- P1: Must have for this milestone
-- P2: Add once core P1 lands
-- P3: Future milestone, explicitly deferred
-
----
-
-## PoC Scope: GraphFlow + Rig (Special Section)
-
-This is the highest-risk, highest-uncertainty feature. Defining what "done" means for the PoC up front prevents scope creep.
-
-### What the PoC Must Demonstrate (validates the architecture path)
-
-1. **GraphFlow integrates into Tauri Rust backend** — `Cargo.toml` depends on `graph-flow`, a `StateGraph` builds and compiles.
-2. **Rig LLM call works from inside a node** — at least one node calls `rig::client::*` and gets a real LLM response (provider: pick whichever has a free tier, default Gemini since key already exists).
-3. **`interrupt!` pauses execution and surfaces to frontend** — a node triggers interrupt, Tauri command returns "paused" status with interrupt payload, frontend renders an approval card.
-4. **Resume after human input** — second Tauri command submits the human decision, GraphFlow resumes from the interrupt, runs next node, completes.
-5. **SqliteSaver persists state across app restart** — start a workflow, hit interrupt, **close the app**, reopen, resume from where it paused. This is the killer demo.
-6. **State is typed** — `PmPipelineState` (or simpler) is a real Rust struct, not `serde_json::Value` everywhere. Compile-time guarantees on field access.
-
-### What the PoC Must NOT Do (scope creep traps)
-
-- Do **not** build all 10 nodes from PIPELINE_DESIGN.md. Two nodes + one interrupt is enough.
-- Do **not** build the full frontend approval UI. A minimal "approve / reject" button pair is enough to prove the round-trip.
-- Do **not** wire the PoC into existing product/rnd stores yet. PoC runs in isolation; integration is next milestone.
-- Do **not** support multiple concurrent workflow runs. Single run, single user.
-- Do **not** generalize the LLM provider yet. Hardcode one provider behind a trait, worry about multi-provider later.
-
-### Working Features That Typically Emerge From Such PoCs
-
-Based on comparable Rust workflow-engine PoCs (LangGraph4Rust, rs-graph-llm, GraphFlow's own examples):
-
-- A "run workflow" button that visibly steps through nodes
-- A persisted run that survives restart (the demo that sells the architecture)
-- An approval card pattern reusable for all future HITL nodes
-- A `StateGraph` definition file that becomes the template for the real Pipeline
-- Confidence (or refusal) to commit the next milestone to building the full Pipeline on this engine
-
-If the PoC lands cleanly: next milestone = expand to req → PRD. If it's rough: re-evaluate engine choice before sinking more time.
+- [ ] Drag-and-drop kanban column reordering
+- [ ] Calendar week view
+- [ ] Recurring tasks/events
+- [ ] Task subtasks/nesting
+- [ ] Bulk operations / multi-select
+- [ ] Full-text search across modules
+- [ ] Task/event templates
+- [ ] URL routing / deep links
+- [ ] Real user management / assignment
 
 ---
 
 ## Competitor / Comparable Feature Analysis
 
-Not direct competitors (Nova's "AI-native PM desktop agent" niche is thin), but reference points for what users expect.
+Reference patterns from established PM tools that inform Nova's v0.2.0 design.
 
-| Feature | Linear (web) | Notion (web/desktop) | Things 3 (macOS) | Raycast (macOS) | Nova's Plan |
+| Pattern | Linear | Notion | Asana | Todoist | Nova's Plan |
 |---|---|---|---|---|---|
-| Three-way theme toggle | Light/Dark/System | Light/Dark/System | System only (follows OS) | Light/Dark/System | Light/Dark/System (matches Linear/Notion/Raycast) |
-| Quick theme switch | Profile menu | Settings | N/A (OS-level) | Single command | Header icon button |
-| Local persistence | Cloud | Cloud + local cache | Local (Core Data) | Local | Local-first (SQLite) |
-| AI streaming | Token stream | Token stream | N/A | Token stream | Tauri Channel stream |
-| AI cancellation | Stop button | Stop button | N/A | Cmd+. | Stop button + server-side cancel |
-| HITL workflow | No | No | No | No (extensions are atomic) | GraphFlow interrupt (differentiator) |
-| Multi-provider LLM | OpenAI only | OpenAI only | N/A | OpenAI only | Rig multi-provider (differentiator) |
+| **Task edit** | `E` key → inline edit or side panel | Click row → full-page or modal | Click task → side panel + inline fields | Click task → bottom sheet / modal | Expanded card inline edit (match Nova's existing click-to-expand pattern) |
+| **Task delete** | `⌘+Del` → instant delete, restorable via `#` | `...` menu → Delete → toast with Undo | Right-click → Delete → no confirmation (risky) | Swipe left → Delete (mobile) / `...` → Delete | Confirmation dialog (no server-side undo in local app) |
+| **Task reopen** | Change status back via status dropdown | Uncheck checkbox | Reopen via status change | Uncheck completed task | "Reopen" button on completed task cards |
+| **Calendar month nav** | N/A (no calendar view) | Calendar view with month arrows | Calendar tab with month/week toggle | Calendar view (premium) | CaretLeft/CaretRight + "今天" button (existing UI, needs wiring) |
+| **Event creation** | N/A | New database row in calendar view | Click on date → create event | Quick-add with natural language | "新建日程" button → dialog with DatePickerInput |
+| **Cross-module linking** | Issue relationships (linked issues, blocks/blocked) | Relation property (bidirectional DB relation) | Task ↔ Project association, cross-project links | Task ↔ Project, no calendar linking | Weak-association fields + "安排到日历" + relation badges |
+| **Delete with references** | Archive instead of delete; orphan issues become unassigned | Delete page → linked relations show "deleted" | Delete task → removed from all projects (strong ref) | Delete task → gone from all views | Orphan awareness: show count, offer unlink, don't cascade |
+| **Date model** | `dueDate` as ISO date | Date property with timezone | Due date with time | Due date + recurring rules | Full `YYYY-MM-DD` string (migrating from day-of-month number) |
 
-**Takeaway:** Theme + streaming + cancellation are table stakes — every modern AI-aware tool has them. The HITL workflow and multi-provider are where Nova can actually differentiate. Don't try to out-polish Linear on theme; ship parity and invest the differentiated effort in GraphFlow.
+**Key takeaways for Nova:**
+1. **Confirmation dialogs are appropriate** for local-first apps without server-side undo. Cloud tools can afford instant-delete-with-restore; local apps cannot.
+2. **Weak association is the right model** for v0.2.0. Strong refs (Asana-style) cause data loss on delete. Notion-style relations are closer but require a more sophisticated data model.
+3. **Calendar month navigation is trivial** — every tool has it. The current hardcoded month is a demo artifact, not a design choice.
+4. **Inline editing > modal editing** for task cards. Nova's click-to-expand pattern is already inline — extend it, don't replace it with a separate dialog.
+5. **"安排到日历" is a genuine differentiator** — no local-first PM tool does this one-click task→event conversion automatically.
 
 ---
 
 ## Sources
 
-### Official Documentation (HIGH confidence)
-- [Tauri v2 — Calling Rust from the Frontend](https://v2.tauri.app/develop/calling-rust/) — Channels API for streaming
-- [Tauri v2 — Calling the Frontend from Rust](https://v2.tauri.app/develop/calling-frontend/) — Events / emit
-- [Tauri v2 — CSP](https://v2.tauri.app/security/csp/) — Content Security Policy
-- [Tauri v2 — Capabilities](https://v2.tauri.app/security/capabilities/) — Permission scoping
-- [Tauri v2 — SQL Plugin](https://v2.tauri.app/plugin/sql/) — SQLite + migrations
-- [Tauri v2 — Store Plugin](https://v2.tauri.app/plugin/store/) — Key-value persistence (NOT for secrets)
-- [Apple HIG — Dark Mode](https://developer.apple.com/design/human-interface-guidelines/dark-mode) — macOS dark-mode conventions
-- [Zustand — persist middleware](https://zustand.docs.pmnd.rs/reference/middlewares/persist) — `partialize`, `version`, `migrate`
-- [graph-flow crate](https://crates.io/crates/graph-flow) — Workflow engine reference
-- [rs-graph-llm (GraphFlow source)](https://github.com/a-agmon/rs-graph-llm) — Upstream
+### Industry References (MEDIUM-HIGH confidence)
+- [Linear Docs — Delete and archive issues](https://linear.app/docs/delete-archive-issues) — Delete semantics, restore with `#`
+- [Linear Docs — Create issues](https://linear.app/docs/creating-issues) — Issue creation flow
+- [Linear Docs — Select issues](https://linear.app/docs/select-issues) — Multi-select patterns
+- [Linear — UI Refresh (March 2026)](https://linear.app/changelog/2026-03-12-ui-refresh) — Latest UI patterns
+- [Linear — How we redesigned the Linear UI (part II)](https://linear.app/now/how-we-redesigned-the-linear-ui) — Design philosophy
+- [Notion — Calendar view databases](https://www.notion.com/help/calendars) — Calendar view behavior
+- [Notion — Database properties](https://www.notion.com/help/database-properties) — Property types including relations
+- [Notion — Database views, filters, sorts](https://www.notion.com/help/views-filters-and-sorts) — View management
+- [Todoist — Introduction to sub-tasks](https://www.todoist.com/help/articles/introduction-to-sub-tasks-kMamDo) — Sub-task UX patterns
+- [Todoist — Introduction to recurring dates](https://www.todoist.com/help/articles/introduction-to-recurring-dates-YUYVJJAV) — Date handling patterns
+- [Todoist — 2026 Changelog](https://www.todoist.com/help/articles/2026-changelog-HD3jJAtLd) — Latest feature updates
+- [Asana Forum — Cross-project calendar](https://www.reddit.com/r/Asana/comments/1i5ui0k/crossproject_calendar/) — Cross-project calendar limitations
+- [Nicelydone — Linear Deleting Project Update Flow](https://nicelydone.club/flows/966bfcd3-7a9e-462b-b962-71a982af99c3) — Captured delete confirmation flow
 
-### Community / Tutorials (MEDIUM confidence)
-- [IPC in Tauri: Commands vs Events](https://dev.to/hiyoyok/ipc-in-tauri-tauri-commands-vs-custom-ipc-what-to-use-when-2ab4) — When to use which mechanism
-- [Dark Mode Three-Way Switch](https://dev.to/colinaut/dark-mode-three-way-switch-40e) — UX rationale for three options
-- [NN/g — Dark Mode: How Users Think About It](https://www.nngroup.com/articles/dark-mode-users-issues/) — Mental model research
-- [Tauri 2.0 SQLite + React tutorial](https://dev.to/focuscookie/tauri-20-sqlite-db-react-2aem) — Plugin usage
-- [Figma — Behind the Feature: Autosave](https://www.figma.com/blog/behind-the-feature-autosave/) — Multi-window / concurrent edit lessons
-- [Reddit r/rust — Safest way to store API keys in Tauri](https://www.reddit.com/r/rust/comments/1ia29hp/safest_way_to_store_api_keys_for_production_tauri/) — Keychain consensus
-- [tauri-plugin-biometry](https://crates.io/crates/tauri-plugin-biometry) — OS keychain integration
-
-### Project-Internal Sources
-- `.planning/PROJECT.md` — Active requirements + Out of Scope
-- `.planning/codebase/CONCERNS.md` — Tech debt + bugs being addressed
-- `docs/ARCHITECTURE.md` — Target architecture (8 locked ADRs)
-- `docs/PIPELINE_DESIGN.md` — Full Pipeline spec (deferred to future milestone)
-- `src/hooks/useTheme.ts` — Existing three-way theme hook (already built)
-- `src/styles/tokens.css` — Dark token set (already defined)
-- `src-tauri/tauri.conf.json` — Current `csp: null` (debt to clear)
+### Project-Internal Sources (HIGH confidence)
+- `.planning/PROJECT.md` — Active requirements + Out of Scope for v0.2.0
+- `src/stores/taskStore.ts` — Current task store shape and actions
+- `src/stores/scheduleStore.ts` — Current schedule store shape and actions
+- `src/stores/productStore.ts` — Product CRUD pattern reference (already complete)
+- `src/data/mockTasks.ts` — Task type definition
+- `src/components/TaskKanban.tsx` — Current kanban UI (click-to-expand pattern)
+- `src/views/ScheduleView.tsx` — Current calendar UI (hardcoded May 2025)
+- `src/components/ui/DatePickerInput.tsx` — Existing date picker (Tauri-compatible)
+- `src/components/ui/Dialog.tsx` — Dialog primitives for edit/create forms
+- `src/components/ui/Badge.tsx` — Badge variants for relation indicators
+- `src/components/layout/Header.tsx` — NewTaskDialog pattern (unwired creation form)
+- `src/components/product/CreateProductModal.tsx` — Reference pattern for create/edit dialog
+- `src/store/AppContext.tsx` — `deleteProductWrapped` pattern (clears selection on delete)
+- `src/stores/workspaceStore.ts` — Existing `projectId?` weak-association pattern on Workspace
 
 ---
-*Feature research for: AI-native PM desktop workbench — dark mode + Tauri native capabilities milestone*
-*Researched: 2026-08-08*
+*Feature research for: AI-native PM desktop workbench — Task CRUD + Schedule CRUD + Cross-Module Wiring milestone (v0.2.0)*
+*Researched: 2026-08-10*

@@ -1,452 +1,346 @@
-# Pitfalls Research
+# PITFALLS — Task/Schedule CRUD + Cross-Module Wiring
 
-**Domain:** Adding Tauri-native (IPC + SQLite), Zustand persistence, dark mode, and GraphFlow/Rig PoC to an existing React 19 + Tauri v2 PM desktop app.
-**Researched:** 2026-08-08
-**Confidence:** HIGH for Tauri/SQLite/Zustand/dark-mode; MEDIUM for GraphFlow/Rig (pre-1.0 crate, source: docs.rs + GitHub only — see Critical Pitfall 9).
-
----
-
-## Critical Pitfalls
-
-These cause rewrites, data loss, security incidents, or undetectable regressions. Each ties to a phase of the v1 milestone.
-
-### Pitfall 1: `prefers-color-scheme` does not fire on Linux (Tauri uses WebKitGTK via wry)
-
-**What goes wrong:**
-"System" theme mode silently stays on whatever the app started in. On Linux, `matchMedia('(prefers-color-scheme: dark)')` returns light always, and the `change` event never fires when the user toggles their DE theme. The app appears broken to Linux users; on Windows/macOS the same code works.
-
-**Why it happens:**
-WebKitGTK's `prefers-color-scheme` support is incomplete upstream (WebKit bug #196685). Epiphany (also WebKitGTK) happens to work, but `wry` (Tauri's webview crate) does not configure it the same way. Confirmed in tauri#9427 and wry#884 — open as of research date.
-
-**How to avoid:**
-Don't rely solely on the CSS media query / `matchMedia`. Layer the detection:
-1. Keep `useTheme()` as the source of truth, persisted to localStorage (already done in `src/hooks/useTheme.ts`).
-2. On Linux, expose the GTK setting via a Tauri command using `gtk::Settings::default().gkt_application_prefer_dark_theme()` (or read `GTK_THEME` env / `gsettings get org.gnome.desktop.interface color-scheme`) and seed `useTheme` from it on startup. Poll or listen via a Tauri event if live updates matter.
-3. Provide the user a manual override (already planned: SettingsView three-way switch). Manual override MUST win over system detection.
-
-**Warning signs:**
-- Linux tester reports "theme never changes when I switch system theme."
-- `window.matchMedia('(prefers-color-scheme: dark)').matches` always returns `false` in devtools on Linux.
-
-**Phase to address:**
-**Phase 1 (Dark mode wiring).** Build the GTK detection shim the same phase that ships "system" mode. Shipping system-mode without this on Linux is shipping a known bug.
+**Milestone:** v0.2.0 日常管理 CRUD + 弱关联
+**Researched:** 2026-08-10
+**Context:** Adding CRUD completions and cross-module wiring to 6 existing Zustand stores with SQLite persistence, legacy AppContext.tsx layer, and dual-field association model.
 
 ---
 
-### Pitfall 2: Tauri SQL plugin migrations silently fail / no down migrations
+## Store / Persistence Pitfalls
 
-**What goes wrong:**
-Two failure modes, both confirmed in the official plugin repo:
-- (a) Migrations sometimes do not run and **no error is thrown** (plugins-workspace#509). The app boots against a stale schema, the first write fails with a confusing column-not-found error.
-- (b) The plugin has **no first-class down/rollback migrations** (#1346). Bad migrations cannot be cleanly reverted — you forward-fix in production.
+### P1: ScheduleEvent.date is Day-of-Month Integer, Not a Real Date
+**Risk:** CRITICAL — CRUD makes this unsalvageable
+**Current state:** `ScheduleEvent.date: number` is a hardcoded day-of-month (e.g. `15`). ScheduleView hardcodes `daysInMonth = 31`, `firstDayOfMonth = 4`, `isToday = day === 15`. Month/year labels are static strings.
+**What goes wrong:** The moment a user creates an event for "June 3rd" while viewing May, the integer `3` is meaningless without month context. Edit/delete operations cannot target events across months. Month navigation is impossible.
+**Prevention:**
+1. Replace `date: number` with `date: string` (ISO date `2025-05-15`) in the `ScheduleEvent` interface
+2. Write a `migrate` function for `version: 2` that converts old `{ date: 15 }` → `{ date: '2025-05-15' }` (assume current mock month)
+3. ScheduleView must compute `daysInMonth(year, month)` and `firstDayOfMonth(year, month)` from `Date` math, never hardcode
+4. **Accept that INITIAL_EVENTS mock data must also be updated to ISO dates**
+**Phase to Address:** Phase 6 (Schedule CRUD) — this is a blocker, not an enhancement
 
-**Why it happens:**
-The plugin's migration runner is intentionally minimal. It tracks applied migrations by name in a `__migrations` table but does not surface partial-application state well. Schema versioning is "whatever migrations you list," not a numeric `user_version` PRAGMA you control.
+### P2: Task Deletion Requires Scanning Nested Category Structure
+**Risk:** HIGH — O(n*m) scan or silent no-op
+**Current state:** Tasks live inside `categories[].tasks[]`. There is no flat task index. `completeTask` works by scanning all categories.
+**What goes wrong:** `deleteTask(taskId)` must scan all categories to find the parent. If a task ID somehow exists in multiple categories (ID collision — see P3), only the first match gets deleted. Performance degrades with many categories/tasks.
+**Prevention:**
+1. Add a helper `findTaskCategory(taskId): TaskCategory | undefined` that returns the parent category
+2. `deleteTask` uses this helper then filters: `cat.tasks.filter(t => t.id !== taskId)`
+3. Alternatively, maintain a `Map<taskId, categoryId>` index (but this creates a second source of truth — prefer the scan for now given data volume is low)
+4. **Critical: addTask already has dedup (`some(t => t.id === newTask.id)`). Delete must be equally defensive.**
+**Phase to Address:** Phase 5 (Task CRUD)
 
-**How to avoid:**
-- Pin migrations to one direction: forward-only, always additive. Never edit a shipped migration. New column → new migration `ALTER TABLE ... ADD COLUMN`.
-- After every `Database.load('sqlite:...')` call, run a sanity `SELECT` against a known-required column. If it throws, surface a clear "DB schema is corrupted, see logs" error — do not proceed with stale shape.
-- For risky schema changes, ship the migration in two phases across releases: (R1) add column + dual-write code, (R2) drop old column. Tauri desktop = users on arbitrary old versions; you cannot assume "everyone is on the latest."
-- Track a manual `schema_version` row in a `meta` table inside SQLite so the app can refuse to start on a too-new schema written by a newer app version (prevents downgrade corruption).
+### P3: Date.now() ID Generation Risks Collision
+**Risk:** MEDIUM — not theoretical, `Date.now()` is millisecond-resolution
+**Current state:** Every ID generator in the codebase uses `Date.now()` (category IDs, product IDs, task IDs, event IDs, document IDs). No `crypto.randomUUID()` or `nanoid`.
+**What goes wrong:** Rapid operations (double-click create, batch "schedule to calendar") produce identical timestamps → duplicate IDs → `addTask` dedup silently drops the second item → user thinks their action failed.
+**Prevention:**
+1. Replace `Date.now()` with `crypto.randomUUID()` for all new ID generation (available in Tauri WebView2/WKWebView/WebKitGTK)
+2. For backward compatibility with existing IDs (e.g. `WXB-2025-001`), only change the generator for NEW entities; existing IDs stay as-is
+3. Add a `generateId(prefix?: string)` utility in `src/lib/utils.ts` that all stores call
+4. **Fallback:** If worried about WebView compatibility, use `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+**Phase to Address:** Phase 5 (Task CRUD) — fix the task ID generator first, then propagate to Phase 6
 
-**Warning signs:**
-- App starts but first AI save throws `no such column`.
-- `__migrations` table contains migration names but DB schema doesn't reflect them.
-- Two users on the "same" app version have different column counts.
+### P4: SQLite Persistence is Full-Blob JSON, Not Row-Level
+**Risk:** MEDIUM — data loss window on crash
+**Current state:** `sqliteStorage` stores each Zustand store as a single JSON blob in `kv_store` (one row per store: `nova-task`, `nova-schedule`, etc.). Every `set()` → `setItem()` → `INSERT OR REPLACE` serializes the entire store.
+**What goes wrong:** If the app crashes mid-serialization after a complex multi-field update (e.g. updateTask + linkToSchedule), the blob may be partially written. On restart, the last successful blob is loaded. No transaction across stores.
+**Prevention:**
+1. Accept this as a known limitation for v0.2.0 (the risk is low for single-user desktop app)
+2. Do NOT attempt optimistic update + rollback — it adds complexity for negligible user impact
+3. **DO** ensure each CRUD action completes its `set()` atomically — never split a logical operation across multiple `set()` calls (see P11)
+4. Future: if data volume grows, migrate from kv_store to per-entity tables
+**Phase to Address:** All phases — this is a design constraint to respect, not fix
 
-**Phase to address:**
-**Phase 2 (SQLite persistence).** Bake the sanity-check + version-table pattern in on day one. Retrofitting is expensive.
+### P5: Migration Function is a Passthrough No-Op
+**Risk:** HIGH — new fields silently missing from persisted data
+**Current state:** All 6 stores have `migrate: (persisted, _version) => persisted as Partial<ScheduleState>`. Version is `1` everywhere.
+**What goes wrong:** When Phase 5 adds `task.projectId?` and Phase 6 changes `scheduleEvent.date: string`, persisted data from v0.1.0 won't have these fields. The passthrough `migrate` returns old data as-is. Code that reads `task.projectId` gets `undefined`, which is "fine" because it's optional, but ScheduleView will crash if it tries to call `.split('-')` on a `number`.
+**Prevention:**
+1. **Bump `version: 2` in stores that change shape** and write real `migrate` functions:
+   ```ts
+   migrate: (persisted, version) => {
+     if (version < 2) {
+       // Convert ScheduleEvent.date from number to ISO string
+       return {
+         ...persisted,
+         events: (persisted.events || []).map(e => ({
+           ...e,
+           date: typeof e.date === 'number' ? `2025-05-${String(e.date).padStart(2, '0')}` : e.date,
+         })),
+       };
+     }
+     return persisted;
+   }
+   ```
+2. **Task store version bump** — add `projectId` default:
+   ```ts
+   migrate: (persisted, version) => {
+     if (version < 2) {
+       return {
+         ...persisted,
+         categories: (persisted.categories || []).map(cat => ({
+           ...cat,
+           tasks: cat.tasks.map(t => ({ ...t, projectId: undefined, scheduledEventId: undefined })),
+         })),
+       };
+     }
+     return persisted;
+   }
+   ```
+3. **Test migration** by manually editing the SQLite `kv_store` to remove new fields, then verifying reload
+**Phase to Address:** Phase 5 (task migration) and Phase 6 (schedule migration) — each phase bumps its own store version
+
+### P6: Partialize Must Exclude Ephemeral UI State
+**Risk:** LOW — already handled correctly in uiStore, but risk in new stores
+**Current state:** `uiStore.partialize` correctly excludes `isSearchOpen`, `isNewTaskOpen`. Task/schedule stores partialize only domain data.
+**What goes wrong:** If a new CRUD dialog component puts its form state into a store (instead of local `useState`), that state gets persisted. On reload, a half-filled edit form reappears.
+**Prevention:**
+1. **Enforce rule:** All dialog/modal form state stays in `useState` local to the component. NEVER put form drafts into Zustand stores.
+2. If a store must track "currently editing" state (e.g. `editingTaskId`), put it in `uiStore` and exclude it from `partialize`
+3. Add a code review checklist item: "Does this store's `partialize` only include persisted domain data?"
+**Phase to Address:** Phase 5 — establish the pattern early
 
 ---
 
-### Pitfall 3: Zustand `persist` serializes functions / loses class identity, breaks on schema change
+## Cross-Module Pitfalls
 
-**What goes wrong:**
-Three sub-failures, all common:
-- (a) `partialize` omitted → entire store attempted to JSON.stringify. Any function field, `AbortController`, `Set`, `Map`, or `Date` gets silently mangled (functions vanish, Dates become strings, Sets become `{}`).
-- (b) Store shape changes → rehydrated state from a previous version overrides new defaults. App renders with `undefined` where new fields live.
-- (c) Async rehydration race: React renders a view before `persist` finishes rehydrating, view reads empty initial state and shows "no products" briefly, then state appears. Users see flicker or, worse, a save beats rehydration and overwrites stored data with empty.
+### P7: Delete Product Leaves Orphaned References in Task/Schedule
+**Risk:** HIGH — user-visible broken state
+**Current state:** `productStore.deleteProduct(id)` removes the product. `AppContext.deleteProductWrapped` also clears `selectedProductId`. But tasks with `project: 'ProductName'` or `projectId: 'abc'` are untouched.
+**What goes wrong:** After deleting "WenXiBuddy 2.0":
+- Tasks still show `project: 'WenXiBuddy 2.0'` (the legacy string field)
+- Task badges with `projectId: 'abc'` point to a non-existent product
+- Clicking the badge → navigation to nowhere / crash
+- `getProjectTaskCount('abc')` returns 0 (correct but confusing — the tasks still exist)
+**Prevention:**
+1. **Decision already made:** weak association — delete product = warning toast + keep records + clear `projectId` fields
+2. **Implementation:** `deleteProductWrapped` must also:
+   - Clear `task.projectId` for all tasks where `task.projectId === deletedId`
+   - Clear `event.projectId` for all events where `event.projectId === deletedId`
+   - Clear `event.taskId` for events whose task's `projectId` was cleared
+3. **Do NOT clear `task.project` (legacy string)** — this is intentional per design decision. But document this asymmetry clearly in the code.
+4. **Toast message:** "产品已删除。相关任务和日程已保留但取消关联。" — explicit about what happened
+5. **Edge case:** If a task has `project: 'WenXiBuddy 2.0'` AND `projectId: 'abc'`, after deletion: `project` stays `'WenXiBuddy 2.0'`, `projectId` becomes `undefined`. The display must handle this — show `task.project` (legacy name) but no clickable badge.
+**Phase to Address:** Phase 7 (Cross-module wiring) — requires all three stores to have CRUD first
 
-**Why it happens:**
-- (a) Default behavior of `persist` is "serialize everything."
-- (b) `version` defaults to `0`; bumping it without a `migrate` function silently keeps old state. Zustand v5 made this stricter but the trap remains.
-- (c) `persist` rehydrates synchronously from localStorage by default, but if you swap to an async storage (Tauri store plugin, IndexedDB), you must handle the onRehydrateStorage / hydration flag.
+### P8: Bidirectional Link Inconsistency (task.scheduledEventId ↔ event.taskId)
+**Risk:** HIGH — one-way links confuse users
+**Current state:** Design calls for `task.scheduledEventId?` ↔ `event.taskId?` bidirectional reference.
+**What goes wrong:** If "schedule to calendar" only sets `task.scheduledEventId` but forgets `event.taskId` (or vice versa), the link is one-way. The task shows "has schedule" badge but clicking it goes nowhere. The event shows "linked task" but the task doesn't know about it.
+**Prevention:**
+1. Create a single `linkTaskToSchedule(taskId, eventId)` helper function that sets BOTH sides atomically in one `set()` call (or as close as possible given separate stores)
+2. Similarly, `unlinkTaskFromSchedule(taskId)` clears BOTH sides
+3. **Never set one side without the other** — enforce via code review / shared utility
+4. **Race condition mitigation:** Call `useTaskStore.getState()` and `useScheduleStore.getState()` from a single action function, not from a React component that might re-render between calls
+**Phase to Address:** Phase 7 (Cross-module wiring)
 
-**How to avoid:**
-For each of the 5 stores, add `persist` with explicit config:
+### P9: Cross-Store Reads During Write Can See Stale State
+**Risk:** MEDIUM — subtle inconsistency
+**Current state:** Stores are independent Zustand instances. `useTaskStore.getState()` returns current state, but if called during a `useScheduleStore` `set()` callback, it may or may not reflect the latest task state depending on call order.
+**What goes wrong:** Example: `deleteProduct` triggers a cascade that reads tasks to find linked events. If the task store's state is being written simultaneously (e.g. user also completing a task), the cascade may read stale data.
+**Prevention:**
+1. **Never nest store writes** — if action A needs to update store X and store Y, call them sequentially in the same synchronous function, not inside each other's `set()` callbacks
+2. Use `getState()` for cross-store reads (not hooks — hooks are for components)
+3. For the delete-product cascade: compute the full list of affected task/event IDs first (read), then apply all writes. Do not interleave reads and writes.
+4. **This is sufficient for v0.2.0** — true transactions are overkill for a single-user desktop app
+**Phase to Address:** Phase 7 — but be aware from Phase 5 onward
+
+### P10: getProjectTaskCount Matches on Name OR Category Name
+**Risk:** MEDIUM — false positive counts
+**Current state:**
 ```ts
-persist(creator, {
-  name: 'nova-product-store',
-  version: 1,
-  partialize: (s) => ({ products: s.products }), // only serializable data
-  migrate: (persisted, version) => {
-    if (version < 2) { /* transform old shape */ }
-    return persisted as ProductStore;
-  },
-  onRehydrateStorage: () => (state) => { state?._setHydrated?.() },
-})
+getProjectTaskCount: (projectIdOrName) => {
+  // matches task.project === projectIdOrName OR cat.name === projectIdOrName
+}
 ```
-- Add a `_hasHydrated` flag (or use `createJSONStorage` with sync localStorage and skip the flag for now — sync path is fine for MVP).
-- **Critically for `rndStore`:** the 7 nested `Record<productId, ...>` maps must be partialized carefully, and the existing `INITIAL.p1` fallback footgun (CONCERNS.md "rndStore — God Store") becomes a *persistence* footgun: if a stale productId is rehydrated, the fallback chain shows the wrong product's data. Fix the accessor first, then persist.
+**What goes wrong:** If a product is named "需求评审" (same as a category name), ALL tasks in that category are counted as belonging to the product. Adding `projectId` matching creates a third match dimension.
+**Prevention:**
+1. **Deprecate `getProjectTaskCount`'s `cat.name` fallback** — it was a hack for the mock data era
+2. New version: `getProjectTaskCount(productId: string)` matches ONLY `task.projectId === productId`
+3. Keep old behavior behind a `legacyName?: string` parameter if backward compat is needed
+4. **Or** rename to `getProjectTaskCountById` and create a separate `getCategoryTaskCount`
+**Phase to Address:** Phase 5 (Task CRUD) — clean up when adding `projectId`
 
-**Warning signs:**
-- `JSON.parse` errors in console on startup (corrupt serialized state).
-- Buttons / functions missing after a reload (you serialized the whole store).
-- After shipping a new store field, existing users see `undefined` but new users see the default.
-- "Product list flickers empty for 200ms on launch."
-
-**Phase to address:**
-**Phase 2 (Persistence).** Add persist to all 5 stores in one phase; do NOT ship partial persistence (some stores persisted, others not) — user data gets inconsistent.
+### P11: "Schedule to Calendar" Must Be Atomic Across Two Stores
+**Risk:** HIGH — partial state is confusing
+**Current state:** Creating a ScheduleEvent from a Task requires: (a) creating the event in scheduleStore, (b) setting `task.scheduledEventId` in taskStore. These are separate stores.
+**What goes wrong:** If (a) succeeds but (b) fails (or vice versa), the user sees half the link. The task doesn't show "scheduled" badge, or the event appears without a task reference.
+**Prevention:**
+1. Implement as a single exported function `scheduleTask(taskId: string, eventData: Omit<ScheduleEvent, 'id' | 'taskId'>)` that:
+   - Generates event ID
+   - Calls `useScheduleStore.getState().addEvent({ ...eventData, taskId })`
+   - Calls `useTaskStore.getState().updateTask(taskId, { scheduledEventId: eventId })`
+   - Both calls are synchronous — Zustand `set()` is synchronous
+2. **Wrap in try/catch** — if the second call fails (shouldn't, but defensive), rollback the first
+3. **Do NOT use async/await between the two calls** — keeps the operation atomic
+**Phase to Address:** Phase 7 (Cross-module wiring)
 
 ---
 
-### Pitfall 4: Express → Tauri command migration loses fetch semantics (no AbortController, no streaming, no error types)
+## UI / UX Pitfalls
 
+### P12: Hydration Race Condition — Components Render Before SQLite Data Loads
+**Risk:** HIGH — flash of initial mock data then replacement
+**Current state:** `_hasHydrated` / `_setHydrated` pattern exists but is rarely consumed by views. Components render with `INITIAL_EVENTS` / `INITIAL_CATEGORIES` until SQLite data replaces them.
+**What goes wrong:** After adding CRUD, a user creates a task → sees success toast → reloads → briefly sees INITIAL_CATEGORIES (without the new task) → then SQLite hydrates and the task appears. This "flash" is jarring and undermines trust in persistence.
+**Prevention:**
+1. **Add hydration guard to views** — render a `<Skeleton />` or `<ViewLoading />` until `_hasHydrated` is true:
+   ```tsx
+   const hasHydrated = useTaskStore((s) => s._hasHydrated);
+   if (!hasHydrated) return <ViewLoading />;
+   ```
+2. **Alternatively**, suppress `INITIAL_EVENTS` / `INITIAL_CATEGORIES` when persisted data exists — the `persist` middleware handles this, but only if the storage read completes before first render (which async SQLite cannot guarantee)
+3. **Accept the flash for v0.2.0** if it's < 100ms — but measure and set a budget
+**Phase to Address:** Phase 5 (Task CRUD) — establish the pattern for all views
+
+### P13: Edit Dialog Shows Stale Data If Re-Opened Without Reset
+**Risk:** MEDIUM — confusing form state
+**Current state:** No edit dialog exists yet. When Phase 5/6 adds `<TaskEditDialog>` and `<ScheduleEventDialog>`, they'll need to handle open/close cycles.
+**What goes wrong:** User opens edit dialog for Task A → changes title to "Foo" → cancels → opens dialog for Task B → sees "Foo" in the title field because form state wasn't reset.
+**Prevention:**
+1. **Always reset form state in `onOpenChange`** — use `useEffect` keyed on dialog `open` state:
+   ```tsx
+   useEffect(() => {
+     if (open && task) {
+       setTitle(task.title);
+       // ... reset all fields
+     }
+   }, [open, task]);
+   ```
+2. **Use `key={task.id}`** on the dialog component to force remount when editing a different entity
+3. **Never use uncontrolled form inputs** with Zustand-derived default values
+**Phase to Address:** Phase 5 (Task CRUD dialog) — establish pattern, reuse in Phase 6
+
+### P14: Optimistic Delete Visual Reverts
+**Risk:** LOW-MEDIUM — SQLite is fast but async
+**Current state:** `sqliteStorage.setItem` is async. After `deleteTask()`, the Zustand state updates instantly (UI reflects deletion), but the SQLite write happens in the background.
+**What goes wrong:** In theory, if the SQLite write fails (disk full, DB locked), the next reload shows the "deleted" task reappearing. User thinks delete didn't work.
+**Prevention:**
+1. **Do not over-engineer:** For v0.2.0, SQLite writes are near-instant on local disk. Accept this risk.
+2. **Add error logging** in `sqliteStorage.setItem` — if it fails, log to `console.error` so debugging is possible
+3. **Do NOT show "undo" toasts** unless you implement proper undo state management (too complex for v0.2.0)
+4. **Future:** If write failures become observable, add a write-queue with retry
+**Phase to Address:** All phases — awareness only
+
+### P15: Kanban Date View Grouping Breaks Without Deadline Time Component
+**Risk:** LOW — edge case
+**Current state:** `TaskKanban` date view splits `task.deadline` by space: `task.deadline.split(' ')[0]`. Mock deadlines are `'2025-05-24 18:00'` format.
+**What goes wrong:** If CRUD allows creating tasks with date-only deadlines (`'2025-05-24'` without time), the `split(' ')[0]` still works. But if deadline is empty or in a different format (`'May 24, 2025'`), grouping breaks.
+**Prevention:**
+1. Standardize deadline format as ISO date string (`'2025-05-24'`) — drop the time component from deadlines (use `time` field for time-of-day)
+2. Add defensive parsing: `const dateStr = task.deadline ? task.deadline.slice(0, 10) : '无截止日期'`
+3. Validate deadline format in the task creation/edit dialog
+**Phase to Address:** Phase 5 (Task CRUD) — establish the format in the dialog
+
+### P16: AppContext `setCategories` / `setEvents` are Cast to `any`
+**Risk:** MEDIUM — TypeScript won't catch incorrect usage
+**Current state:**
+```ts
+setCategories: setCategories as any,
+setEvents: setEvents as any,
+```
+These are `Dispatch<SetStateAction<...>>` from Zustand's `set` but exposed as React-style dispatchers via `as any`.
+**What goes wrong:** When new CRUD actions are added to AppContext (updateTask, deleteTask, etc.), developers might follow the `as any` pattern instead of properly typing them. Type errors silently swallowed.
+**Prevention:**
+1. **Do NOT add new actions to AppContext** — new CRUD actions should be accessed via direct store hooks (`useTaskStore()`, `useScheduleStore()`)
+2. If AppContext MUST be extended (for backward compat), add proper types, not `as any`
+3. **Plan to remove `as any` casts** as views migrate to direct store access
+**Phase to Address:** Phase 5 — establish the "no new AppContext actions" convention
+
+---
+
+## Migration Pitfalls
+
+### P17: task.project (Name) vs task.projectId (ID) Dual-Field Confusion
+**Risk:** HIGH — the single most confusing aspect for developers
+**Current state:** `Task.project: string` stores the product NAME (e.g. `'WenXiBuddy 2.0'`). New `Task.projectId?: string` will store the product ID (e.g. `'p-1234'`).
 **What goes wrong:**
-The 5 Gemini endpoints today use `fetch` with implicit semantics: cancellation via AbortController, streaming response bodies, standard HTTP error codes, automatic JSON parsing, network-error fallback. Naive migration to `invoke('generate_project', {...})` loses all of this:
-- No built-in cancellation — long Gemini calls cannot be aborted; user clicking "regenerate" stacks requests.
-- No streaming — the current server.ts returns the whole JSON blob anyway, so this is OK for now, BUT the architecture doc calls for streaming chat, and once streaming lands, the migration must use `Channel<T>`, not events.
-- Errors are opaque `string`s or untyped — `invoke` rejects with whatever the Rust side threw; there is no `Response.status`.
-- Dev experience degrades: Rust hot-reload doesn't exist (cargo rebuild on every change), so iteration on prompt logic gets slower.
+- Components display `task.project` but need `task.projectId` for navigation → two lookups
+- Filtering by product: which field to match? Code that checks `task.project === productName` won't find tasks matched by `projectId`
+- Editing a task: if user changes product association, which field(s) to update?
+- Deleting a product: `task.project` (name string) is NOT cleared but `task.projectId` IS cleared → inconsistent
+**Prevention:**
+1. **Establish clear precedence rule:** `projectId` is authoritative for linking. `project` (name) is a denormalized display cache for legacy tasks without `projectId`.
+2. **Display logic:**
+   ```tsx
+   // Preferred: resolve name from projectId
+   const product = useProductStore(s => s.products.find(p => p.id === task.projectId));
+   const displayName = product?.name || task.project || '未关联';
+   ```
+3. **Write a helper `getTaskProductDisplay(task): string`** in a shared utility — do not inline this logic in every component
+4. **Create task:** if user selects a product, set BOTH `project: product.name` AND `projectId: product.id`. If no product selected: `project: ''` and `projectId: undefined`.
+5. **Document this in CLAUDE.md** — it WILL confuse new developers
+**Phase to Address:** Phase 5 (Task CRUD) — document and implement the convention early
 
-**Why it happens:**
-`invoke` is not a drop-in `fetch` replacement. It's a typed RPC. The primitives map differently:
-| fetch semantic | Tauri equivalent |
-|---|---|
-| `AbortController` | `Channel<T>` ID can be dropped, or pass a cancellation token + have Rust check it |
-| `Response.body` stream | `Channel<T>` (recommended per official docs) or events |
-| HTTP status | Custom error enum returned as `Result<T, AppError>` |
-| Network error | `invoke` rejects — same path as command error, must disambiguate |
+### P18: No Rollback / Undo for Delete Operations
+**Risk:** MEDIUM — user frustration
+**Current state:** `deleteProduct` shows a warning toast before deleting (per design decision). But delete is immediate and permanent.
+**What goes wrong:** User accidentally deletes a product with 20 linked tasks → all associations cleared → no way to recover without manually re-linking each task.
+**Prevention:**
+1. **For v0.2.0:** Accept this as a known limitation. The warning toast is sufficient.
+2. **UX improvement:** Toast after delete should say "产品已删除 (Ctrl+Z 撤销)" — but only implement if undo stack is feasible
+3. **Simpler alternative:** "Soft delete" — mark product as `deleted: true` instead of removing it. Show in a "回收站" view. This is a v0.3+ feature.
+4. **Do NOT implement undo stack in v0.2.0** — scope creep
+**Phase to Address:** Phase 7 (Cross-module) — at minimum, make the delete-product cascade message very clear
 
-**How to avoid:**
-- Define one `AppError` enum in Rust (`#[derive(Serialize)]`): `Network`, `Provider(rate_limit)`, `Provider(parse)`, `NoApiKey`, `Cancelled`. Frontend matches on it for retry / fallback UI.
-- For streaming (Phase 3+ chat), use `Channel<StreamChunk>` — pass a channel from the frontend, Rust emits tokens, frontend listens. Channels have backpressure and ordering guarantees events lack. Official docs explicitly recommend Channel for streaming.
-- Keep `server.ts` alive as the dev fallback (`isTauri()` branch). This preserves hot-reload for prompt iteration. Delete it only when the Rust path has feature parity AND tests.
-- Wrap all `invoke` calls in a typed `api.ts` shim so view components stay agnostic.
+### P19: "Schedule to Calendar" Semantics Are Underspecified
+**Risk:** MEDIUM — design ambiguity leads to inconsistent implementation
+**Current state:** Design says "task → create ScheduleEvent with taskId back-reference." But key questions remain:
+- Is the event a **copy** of the task or a **reference**? (Answer: reference)
+- If the task's deadline changes, does the event auto-update? (Answer: probably not for v0.2.0, but users expect it)
+- If the event is deleted, does the task's `scheduledEventId` get cleared? (Answer: yes)
+- Can one task have multiple schedule events? (Answer: no, `scheduledEventId` is singular)
+**Prevention:**
+1. **Document the semantics explicitly** in PROJECT.md or a design doc:
+   - "Schedule to calendar" creates a new event with `type: 'task'`, pre-filled from task title/deadline
+   - Event and task are linked bidirectionally
+   - Deleting the event clears `task.scheduledEventId`
+   - Deleting the task clears `event.taskId` and optionally removes the event
+   - Editing task deadline does NOT auto-update event (v0.2.0 — manual re-link)
+2. **Add a "unschedule" action** on the task (clears link without deleting either)
+3. **Show clear visual indicators** — badge on task showing "已安排到 5月15日", badge on event showing "关联任务: WXB-2025-001"
+**Phase to Address:** Phase 7 (Cross-module wiring)
 
-**Warning signs:**
-- Rapid clicks on "generate" stack multiple calls in flight; UI shows stale result.
-- Error messages shown to user are raw Rust panic strings.
-- "It works in dev (`isTauri() === false`, falls through to Express) but breaks in prod build."
+### P20: ScheduleView Calendar Computation Must Handle Real Dates
+**Risk:** HIGH — current implementation is entirely hardcoded
+**Current state:** `daysInMonth = 31`, `firstDayOfMonth = 4`, year/month are string literals. This works for the May 2025 mock but fails for any other month.
+**What goes wrong:** Month navigation (prev/next buttons) cannot work without computing actual calendar data. Event placement on wrong days. Weekend detection impossible.
+**Prevention:**
+1. Maintain `currentMonth: Date` (or `{ year: number, month: number }`) in component state
+2. Use `new Date(year, month + 1, 0).getDate()` for days in month
+3. Use `new Date(year, month, 1).getDay()` for first day of week
+4. Event filtering: parse ISO date string and match year/month, then place on correct day cell
+5. **Consider extracting calendar math into a utility** (`src/lib/calendar.ts`) — this logic is reused if week view is added
+**Phase to Address:** Phase 6 (Schedule CRUD) — this is a prerequisite for real calendar
 
-**Phase to address:**
-**Phase 3 (Tauri IPC migration).** The `api.ts` shim + `AppError` enum must land together with the first migrated endpoint; don't migrate endpoint-by-endpoint into ad-hoc error handling.
-
----
-
-### Pitfall 5: Tauri capabilities file under-permissions or missing scope (silent command rejection)
-
-**What goes wrong:**
-Tauri v2's ACL silently rejects commands the webview isn't permitted to call. The rejection is a runtime `invoke` rejection — there's no compile error, no build warning. Two flavors:
-- (a) Forgot to grant a permission → command "doesn't work" with a vague error.
-- (b) Granted the permission but missed the **scope** (e.g., `sql:allow-execute` without a scope pointing at the DB file) → command runs but silently affects nothing, or the SQL plugin ignores it.
-
-This repo currently ships `capabilities/default.json` with `core:default` + window perms + `shell:allow-open`. The moment we add SQL/IPC commands, we must extend it.
-
-**Why it happens:**
-Capabilities are a separate file from the Rust code. Adding a command in `lib.rs` does not auto-grant permission to call it. The permission/scope split is non-obvious (confirmed: `fs:allow-exists` without scope does nothing, plugins-workspace#3536).
-
-**How to avoid:**
-- One capability file per feature: `capabilities/sql.json`, `capabilities/llm.json`. Each lists exactly the permissions + scopes that feature needs.
-- Explicitly scope SQL plugin to the app data dir: use `sql:allow-load` + `sql:allow-execute` + a scope allowing `sqlite://${appData}/nova.db`.
-- Add a smoke test in CI that invokes each command from the webview context. Capabilities bugs surface at runtime, so automated runtime tests are required (unit tests in Rust won't catch a missing capability).
-- Document the capability model in CLAUDE.md so contributors know: "new command → new capability entry."
-
-**Warning signs:**
-- Command returns `command not allowed` rejection in devtools console.
-- SQL `execute` returns 0 rows even when the DB has data (scope mismatch).
-- Works locally (some devs run with broader dev caps) but fails in production build.
-
-**Phase to address:**
-**Phase 3 (Tauri IPC).** Capabilities land alongside commands; never "we'll lock it down later."
-
----
-
-### Pitfall 6: API key bundled into Rust binary (still leaks), or fallback path produces silent mock experience
-
-**What goes wrong:**
-The current Express flow already has this bug (CONCERNS.md): the prod build ships `dist/server.cjs` requiring `GEMINI_API_KEY` at runtime, which end users don't have → all endpoints silently return mock content. Migration to Tauri commands has two new failure modes:
-- (a) Embed the key as a Rust string literal / `env!` at build time → key is recoverable from the binary (strings are not encrypted; this is not "security").
-- (b) Read from `std::env::var` at runtime → end user has no env var, same silent-mock failure as Express.
-
-**Why it happens:**
-A desktop app fundamentally cannot hold a server-side secret — the binary is on the user's machine. There is no "secure" way to ship a provider key in a desktop client.
-
-**How to avoid:**
-- Treat API key as a **per-user concern**, not an app-level secret. Settings UI on first run asks for the key, stored via OS keychain (`tauri-plugin-keyring` or `tauri-plugin-stronghold` for encrypted storage) keyed to the OS user account.
-- Document the bring-your-own-key model in onboarding. Today's mock fallback should be reframed as "demo mode" with an explicit badge in the UI, not silent.
-- For internal/team distribution: ship a `.env` next to the binary for dev builds only; never bake into release builds.
-
-**Warning signs:**
-- Strings tool (`strings nova.exe | grep AIza`) reveals the key.
-- Bug reports "AI always returns fake data" — that's the silent-mock path.
-
-**Phase to address:**
-**Phase 3 (Tauri IPC migration).** Resolve the key-provisioning story BEFORE migrating the first endpoint, or you'll have shipped the same bug in a new language.
+### P21: Batch "Schedule Multiple Tasks" Has No UI Pattern
+**Risk:** LOW — but worth noting for Phase 7 design
+**Current state:** No batch operation pattern exists in the codebase.
+**What goes wrong:** If a user wants to schedule 5 tasks to the same day, they must "schedule to calendar" 5 times individually. Tedious.
+**Prevention:**
+1. **For v0.2.0:** Single-task "schedule to calendar" is sufficient. Document as future enhancement.
+2. **If implemented:** Add multi-select to TaskKanban (checkbox on each card) → batch action bar → "安排到日历" creates N events
+3. **Ensure `scheduleTask` helper (from P11) is called in a loop** — do not try to batch store writes
+**Phase to Address:** Phase 7 (nice-to-have, not blocking)
 
 ---
 
-### Pitfall 7: CSP left at `null` breaks when later tightened (Tailwind/Radix inline styles, motion inline transforms)
+## Phase-to-Pitfall Mapping
 
-**What goes wrong:**
-Today `tauri.conf.json` has `"csp": null` (CONCERNS.md). Tightening CSP later sounds easy but is where Tauri production builds break:
-- Tailwind v4 + Radix emit inline styles dynamically (CSS-in-JS-like patterns). `style-src 'self'` blocks them.
-- `motion/react` sets inline `transform` / `opacity` on every animation frame. Without `'unsafe-inline'` on `style-src`, animations freeze.
-- `dangerouslySetInnerHTML` (markdown rendering via react-markdown — currently safe but worth verifying) needs `script-src` default-deny with no `unsafe-inline`.
-- Migrating from `null` to a real CSP in a later phase surfaces a wave of broken UI that's hard to attribute.
+| Phase | Pitfalls Addressed | Notes |
+|-------|--------------------|-------|
+| **Phase 5: Task CRUD** | P2, P3, P5 (task migration), P6, P10, P12, P13, P15, P16, P17 | Foundation phase — establishes patterns for all others |
+| **Phase 6: Schedule CRUD** | P1, P5 (schedule migration), P20 | Calendar computation is the hardest part |
+| **Phase 7: Cross-module** | P7, P8, P9, P11, P18, P19, P21 | Wire-up phase — depends on Phase 5+6 being solid |
+| **All phases** | P4, P14 | Design constraints to respect, not fix |
 
-**Why it happens:**
-CSP `null` means "no policy" (everything allowed). When you add a policy, you must enumerate every style source your runtime uses. Tailwind and Framer especially push you toward `'unsafe-inline'`, which weakens the policy.
+## Quality Checklist
 
-**How to avoid:**
-- Define CSP early (Phase 3, alongside IPC migration). Use nonce-based or hash-based `style-src` where possible; accept `'unsafe-inline'` only on `style-src` (not `script-src`).
-- Test in production build (`tauri build`) with the policy on. Dev (`tauri dev`) loads Vite which needs different rules — use a separate dev CSP or a `dev` flag.
-- Default-deny `script-src`. Allow only `self`.
-- Verify react-markdown output: confirm no `dangerouslySetInnerHTML` paths and no raw HTML passes through.
-
-**Warning signs:**
-- Console full of `Refused to apply inline style` after enabling CSP.
-- Animations stop working in prod build but work in dev.
-
-**Phase to address:**
-**Phase 3 (Tauri IPC).** Land CSP at the same time as commands — both are security-perimeter decisions.
-
----
-
-### Pitfall 8: HITL state corruption — GraphFlow interrupt + resume across app restarts, multi-window
-
-**What goes wrong:**
-HITL is the killer feature of the Pipeline architecture (ADR-006). It is also where state management gets brutal:
-- (a) Pipeline paused at `interrupt!()` waiting for user → user closes the app → on next launch, GraphFlow must rehydrate the paused state from `SqliteSaver` and re-surface the approval card. If the saver wasn't checkpointed at the interrupt boundary, the workflow is lost.
-- (b) User opens two windows, approves in one, rejects in another — race on the workflow state.
-- (c) LLM provider returns different content on resume (non-determinism) → state mismatch with what was checkpointed → panic or invalid transition.
-
-**Why it happens:**
-HITL requires durability *at the interrupt point*, not just at workflow completion. GraphFlow's `SqliteSaver` supports this but only if you (1) configure checkpointing at every interrupt and (2) resume through the documented API, not by re-running the graph. Multi-window concurrency is an app-level concern GraphFlow doesn't solve for you.
-
-**How to avoid:**
-- One source of truth for "active pipeline." Use a single Tauri command `pipeline_resume(checkpoint_id, decision)` and serialize all resumes through a tokio Mutex in Rust.
-- Persist not just GraphFlow's checkpoint but also the *frontend* pending-approval state to Zustand + SQLite mirror. On app launch: rehydrate Zustand, query GraphFlow for open checkpoints, reconcile.
-- Lock pipelines to a single window. If multi-window is allowed, enforce via Tauri that only the main window can run pipelines.
-- Treat LLM responses as cached at checkpoint time; do not re-invoke on resume. Store the full assistant message in the checkpoint.
-
-**Warning signs:**
-- App restart drops pending approvals.
-- Two windows both show the same approval card.
-- Resume causes a Rust panic (`state mismatch`).
-
-**Phase to address:**
-**Phase 4 (GraphFlow PoC).** PoC MUST include the close-app-mid-approval scenario. If PoC skips this, you'll discover the bug when Pipeline ships in a later milestone.
-
----
-
-### Pitfall 9: GraphFlow API stability — pre-1.0, breaking changes between minor versions
-
-**What goes wrong:**
-`graph-flow` is currently 0.6.x with the repo's ROADMAP explicitly stating "API Stability 0.6.0" with a migration guide — meaning **breaking changes are expected before 1.0**. Locking the crate version doesn't help: Cargo resolves transitive deps, and Rig (a dep) is also fast-moving. Migrating to a new minor can rewrite the entire workflow definition API.
-
-ADR-002 in `docs/DECISIONS.md` claims GraphFlow "v1.4.2 达到 99.99% 可用性" (v1.4.2, 99.99% availability). **This claim is fabricated.** The crate is pre-1.0 as of the research date. Acting on the ADR's stability claim would be a serious mistake.
-
-**Why it happens:**
-The ADR was written without verifying crate maturity. The "GraphFlow + Rig + Tauri" stack is genuinely promising but new — community on r/rust and HN is small, production usage reports are scarce.
-
-**How to avoid:**
-- Treat v1's GraphFlow work as **explicitly a PoC** (PROJECT.md already scopes this correctly — honor it). Do NOT make GraphFlow load-bearing for user data in v1.
-- Pin `graph-flow = "=0.6.x"` (exact version) in Cargo.toml. Document the pin in a comment with the rationale.
-- Build the PoC behind a feature flag / separate view; do not entangle it with the 5 AI endpoints being migrated from Express.
-- Track the upstream ROADMAP. Budget one phase in a future milestone to absorb breaking changes when upgrading.
-- Have a fallback: ADR-002 lists Juncture or self-built state machine. Keep this option open by isolating GraphFlow behind a trait in Rust, so swapping engines is bounded.
-
-**Warning signs:**
-- `cargo update` breaks the build with no code change.
-- A new GraphFlow release changes `interrupt!()` semantics.
-- PoC works on the author's machine but breaks on CI.
-
-**Phase to address:**
-**Phase 4 (GraphFlow PoC).** Pin version, isolate behind trait, document fallback. **Update DECISIONS.md ADR-002 to remove the fabricated 99.99% claim** before this phase starts.
-
----
-
-## Technical Debt Patterns
-
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|---|---|---|---|
-| Serialize entire Zustand store (no `partialize`) | Less code, faster to ship | Functions vanish, rehydrate breaks on shape change, `_hasHydrated` race | Never for v1 stores |
-| One migration file with everything | Easy to start | Rewriting shipped migrations = silent corruption for users on old versions | Never — additive-only always |
-| Hardcode API key in Rust string | App "just works" | Key leak in binary; recovery is trivial | Internal dev builds only, never release |
-| Use Tauri events for streaming | Familiar pattern | No backpressure, ordering not guaranteed, listener leak risk | OK for one-shot broadcast; never for token streams |
-| Skip capabilities smoke test | Faster CI | Capability bugs surface at runtime in prod | Never for v1 |
-| Ship dark mode without Linux GTK detection | Faster ship | Linux users see "system mode" broken | Never — do it in the same phase |
-| Persist `rndStore` without fixing `INITIAL.p1` fallback | Less surface area to touch | Persistence preserves the wrong-product-data footgun | Never — fix accessor first |
-| CSP stays at `null` | Nothing breaks | Late CSP tightening breaks Tailwind/Radix/motion at once | Only until Phase 3, not after |
-
----
-
-## Integration Gotchas
-
-| Integration | Common Mistake | Correct Approach |
-|---|---|---|
-| Tauri SQL plugin (sqlx) | Assuming rusqlite semantics (transactions, explicit conn) | Use `sqlx::Pool` with `max_connections(1)` for SQLite to serialize writes, or migrate to `tauri-plugin-rusqlite2` if transactions are load-bearing |
-| Tauri SQL plugin | Forgetting migrations silently fail (#509) | Post-load sanity SELECT + manual `schema_version` row |
-| Tauri Channel<T> | Treating it like events (broadcast to many listeners) | Channel is 1:1 with the command invocation. Use for streaming RPC; use events only for broadcast. |
-| Tauri capabilities | Adding command without permission entry | New command → new capability entry, in the same PR |
-| Zustand persist v5 | Passing `shallow` to `create` for equality | Use `createWithEqualityFn` (v5 dropped equality-fn from `create`) |
-| Zustand persist + async storage | Reading state before rehydrate completes | Use `_hasHydrated` flag or stick with sync localStorage |
-| GraphFlow SqliteSaver | Assuming default checkpoint frequency is enough | Explicitly checkpoint at every `interrupt!()` and at workflow completion |
-| Rig LLM providers | Hardcoding the provider in workflow definition | Inject provider via Rig's trait so swapping Gemini→Claude doesn't change workflow code |
-| OS keychain (keyring) | Storing key in plaintext config file on first run | Use `tauri-plugin-keyring` from day one; migration from plaintext is painful |
-| Tailwind v4 + Tauri CSP | Forgetting Tailwind injects styles at runtime | Whitelist `style-src 'self' 'unsafe-inline'`; verify in `tauri build`, not just `tauri dev` |
-
----
-
-## Performance Traps
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|---|---|---|---|
-| AppContext re-render (existing debt) + persisted Zustand | Every state change re-renders all 30+ consumers | Finish AppContext removal BEFORE adding persistence (persisted state changes trigger the same blast radius) | Already broken at small scale; persistence makes it worse |
-| Zustand stores doing synchronous JSON.parse on every store update (persist) | UI jank on large stores | Partialize aggressively; only persist what survives reload. ~MB-scale stores parse fast but block main thread. | rndStore at hundreds of products |
-| SQLite writes on main thread (via plugin's `execute`) | UI freezes during save | Batch writes; consider moving heavy writes behind a Tauri command running on a tokio blocking task | Single write OK; batch save (e.g. AI generating 5 deliverables) noticeable |
-| Tauri `invoke` per-row insert | Each insert is an IPC round trip | Use a single `execute_batch` or one Tauri command taking a Vec | Bulk import, pipeline artifact saves |
-| LLM streaming via events (not Channel) | Event listener leak, missed tokens under load | Use `Channel<StreamChunk>` — backpressure-aware, ordered | High token rate (long generations) |
-| Rehydrating ALL stores synchronously on launch | App feels slow to interactive | Sync localStorage is fine for MVP; if it grows, lazy-rehydrate per-view | Several MB of persisted state |
-| Mock seed data eagerly imported (existing 1.3k-line `mockRndData.ts`) | Bundled even in prod | Lazy-load seed data | Already in main bundle today |
-
----
-
-## Security Mistakes
-
-| Mistake | Risk | Prevention |
-|---|---|---|
-| Bundling `GEMINI_API_KEY` into Rust binary | Key recoverable via `strings`; full provider abuse | Per-user key from OS keychain; never bake in |
-| Migrating Express endpoints to Tauri commands without authz | Same prompt-injection risk as today (user input interpolated into system prompt) — but now in Rust, easier to fix structurally | Use Gemini SDK's `systemInstruction` (or Rig equivalent) for instructions; pass user content as separate message |
-| Capabilities over-permission (`sql:*` instead of specific perms) | Webview can run arbitrary SQL if compromised | Minimum capability set, scoped to specific DB file |
-| CSP left `null` after migration | No backstop if react-markdown / any future raw-HTML path slips in | Explicit CSP in Phase 3 |
-| Storing API key in Zustand persist (localStorage) | Any local-process JS can read it | Use keyring; never persist secrets in app state |
-| Multi-window capability leakage | All windows get all capabilities by default | Scope capabilities to specific window labels (`"windows": ["main"]`) |
-| Trusting LLM output as JSON without schema | Existing bug (CONCERNS.md `JSON.parse` on AI output) — migrate to Rust and the parse failure becomes a Rust panic if `unwrap`'d | Return `Result<_, AppError>`; never `unwrap` LLM output |
-| Prompt injection persisted to SQLite then displayed to other windows | Cross-window data exfiltration if a workspace is shared later | Sanitize / fence AI-generated content before persistence |
-
----
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---|---|---|
-| Theme toggle in Settings only | User has to navigate to switch; no quick override | Quick toggle in Header (planned) |
-| "System" theme on Linux appears broken | User thinks the app doesn't respect OS settings | Manual override + GTK detection (Critical Pitfall 1) |
-| Silent mock AI when no key configured (existing bug) | User thinks AI is dumb, not unconfigured | "Demo mode" badge in UI; explicit onboarding for key |
-| Dark mode shadow visibility | Existing shadows tuned for light may vanish in dark (elevation cues lost) | Audit shadows per palette; `--shadow-*` tokens need dark variants |
-| Glass / blur effects in dark mode | `backdrop-blur` over dark surfaces can look muddy or invisible | Test all `variant="glass"` Cards against dark palette; may need different opacity |
-| Persisted state hydration flicker | "No products" briefly shown, then list appears | `_hasHydrated` flag → render skeleton until hydrated |
-| HITL approval card disappears on app restart | User loses their pending review | Rehydrate pending approvals from SQLite checkpoint on launch (Critical Pitfall 8) |
-| Lost work on schema migration | User upgrades, can't open old data | Forward-only additive migrations + version-table guard |
-
----
-
-## "Looks Done But Isn't" Checklist
-
-- [ ] **Dark mode:** Often missing dark-variant shadows/borders in `tokens.css` (light shadows vanish in dark) — audit every `Card` variant against dark palette
-- [ ] **Dark mode system detection:** Often missing Linux GTK detection — `prefers-color-scheme` silently always returns light on Linux
-- [ ] **Zustand persist:** Often missing `partialize` — serializes functions, breaks on shape change
-- [ ] **Zustand persist:** Often missing `migrate` function when bumping `version` — old users get `undefined` fields
-- [ ] **Tauri SQL migrations:** Often missing sanity SELECT after load — silent migration failure looks like "first write crashes"
-- [ ] **Tauri commands:** Often missing capabilities entry — command works in Rust tests, fails in webview
-- [ ] **Tauri IPC streaming:** Often using events instead of `Channel<T>` — leaks listeners, loses ordering under load
-- [ ] **CSP:** Often declared in dev config but not tested against `tauri build` prod artifact — inline-style breakage is prod-only
-- [ ] **API key migration:** Often bundled in binary as `env!` — leaks; or read from env at runtime — end users have no key
-- [ ] **HITL persistence:** Often only tested in happy path — close-app-mid-approval not covered
-- [ ] **GraphFlow PoC:** Often presented as production-ready based on ADR claims — verify crate version independently (it's pre-1.0)
-- [ ] **Distribution:** Often `tauri build` succeeds locally but unsigned binaries trigger SmartScreen / "app is damaged" — code signing configured only at release time
-
----
-
-## Recovery Strategies
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---|---|---|
-| Persisted store includes functions / bad shape | MEDIUM | Bump `version`, write `migrate` to strip functions; existing users get cleaned state on next launch |
-| Bad SQLite migration shipped | HIGH | Forward-fix: ship a corrective migration; cannot un-apply. If destructive (dropped a column), data is lost. Restore from app data dir backup if you took one. |
-| Capabilities too tight (command rejected) | LOW | Add the missing permission to the capability file, rebuild. No data impact. |
-| Capabilities too loose (over-permissioned) | MEDIUM | Tighten scope; requires audit of every command call site to confirm nothing relied on the loose perm |
-| API key leaked in shipped binary | HIGH (cannot undo) | Revoke the key at the provider immediately. Migrate to keychain model. All shipped builds remain compromised — they need an auto-update or recall. |
-| CSP breaks production UI | MEDIUM | Loosen CSP back to permissive in a hotfix; tighten incrementally in next release with proper testing |
-| HITL state lost on restart | MEDIUM | Add checkpoint-on-interrupt; for users already affected, the workflow is unrecoverable — surface as "session expired, please restart pipeline" |
-| GraphFlow breaking change on upgrade | MEDIUM | Stay on pinned version; allocate one phase to absorb breaking changes; isolate behind trait so blast radius is bounded |
-| Linux theme detection broken | LOW | Manual override already exists; ship GTK detection shim |
-| AppContext re-render worsens after persist | MEDIUM | Finish AppContext removal first; don't ship persistence on top of the existing re-render bug |
-
----
-
-## Pitfall-to-Phase Mapping
-
-Based on the v1 milestone scope (dark mode + Tauri persistence + IPC migration + GraphFlow PoC):
-
-| Pitfall | Prevention Phase | Verification |
-|---|---|---|
-| Linux GTK theme detection | Phase 1 (Dark mode) | Manual: test on a Linux VM, toggle GNOME dark mode, app follows within 1s |
-| Dark-variant shadows/glass audit | Phase 1 (Dark mode) | Visual: screenshot every Card variant in both palettes |
-| Zustand `partialize` + `migrate` + `_hasHydrated` | Phase 2 (Persistence) | Unit test: round-trip each store through persist; assert no functions; assert migrate bumps version |
-| `rndStore` accessor fix before persist | Phase 2 (Persistence) | Unit test: unknown productId returns empty, not INITIAL.p1 |
-| SQLite sanity SELECT + `schema_version` table | Phase 2 (Persistence) | Integration test: load DB, run migration, assert required columns exist |
-| Additive-only migration policy | Phase 2 (Persistence) | Code review checklist; CI grep for `DROP TABLE`/`ALTER ... DROP` in migrations |
-| `AppError` enum + typed `api.ts` shim | Phase 3 (IPC migration) | Unit test: each error variant maps to a UI state |
-| `Channel<T>` for any streaming endpoint | Phase 3 (IPC migration) | Code review: no `emit` for token streams |
-| Capabilities per-feature, scoped | Phase 3 (IPC migration) | Smoke test: invoke each command from webview in CI |
-| API key in OS keychain, not bundle | Phase 3 (IPC migration) | `strings nova.exe \| grep -i AIza` returns nothing |
-| CSP declared and tested against prod build | Phase 3 (IPC migration) | Manual: `tauri build` and exercise all views; console clean of CSP errors |
-| Express kept as dev fallback until parity | Phase 3 (IPC migration) | `isTauri()` branch in `api.ts`; both paths tested |
-| GraphFlow version pin + trait isolation | Phase 4 (PoC) | `Cargo.toml` exact pin; PoC code compiles without `graph-flow` types leaking past a trait boundary |
-| HITL checkpoint-on-interrupt | Phase 4 (PoC) | Manual: close app mid-approval, reopen, approval card reappears |
-| Remove fabricated "99.99% uptime" claim from ADR-002 | Before Phase 4 | ADR-002 updated to reflect pre-1.0 status; fallback (Juncture / self-built) documented |
-| Code signing for distribution | Phase 5 (Distribution, if in scope) | `tauri build` produces signed artifact; installer runs without SmartScreen warning |
-| Auto-updater configured | Phase 5 (Distribution, if in scope) | Updater keys generated; latest.json hosted; test downgrade + upgrade paths |
-
-**Phase ordering rationale:**
-1. **Phase 1 (Dark mode)** is the smallest, lowest-risk win and clears existing tech debt. Do it first.
-2. **Phase 2 (Persistence)** comes before Phase 3 because persisted bad data through migrated endpoints is worse than persisted data through Express (which we know works). Get the storage layer right while the existing API is still in place.
-3. **Phase 3 (IPC migration)** depends on Phase 2's persistence and Phase 1's theme (CSP affects how styles load in both modes).
-4. **Phase 4 (GraphFlow PoC)** is explicitly a PoC, gated behind a feature flag, isolated from user-critical paths. Must come last because every other piece (persistence, IPC patterns, error handling) must be stable before introducing a pre-1.0 crate.
-
----
-
-## Sources
-
-**HIGH confidence (official docs, verified):**
-- [Tauri v2: Calling the Frontend from Rust (Channel docs)](https://v2.tauri.app/develop/calling-frontend/) — confirms Channel is recommended for streaming
-- [Tauri v2: Calling Rust from the Frontend](https://v2.tauri.app/develop/calling-rust/)
-- [Tauri v2: SQL Plugin](https://v2.tauri.app/plugin/sql/) — confirms sqlx-based, migration support
-- [Tauri v2: Capabilities](https://v2.tauri.app/security/capabilities/)
-- [Tauri v2: Permissions](https://v2.tauri.app/security/permissions/)
-- [Tauri v2: Windows Code Signing](https://v2.tauri.app/distribute/sign/windows/)
-- [tauri-plugin-sql 2.4.0 docs.rs](https://docs.rs/crate/tauri-plugin-sql/latest)
-- [tauri#9427 — Tauri does not detect system theme preference on Linux](https://github.com/tauri-apps/tauri/issues/9427)
-- [wry#884 — Tauri color scheme detection in Linux](https://github.com/tauri-apps/wry/issues/884)
-- [WebKit bug #196685 — prefers-color-scheme in GTK port](https://bugs.webkit.org/show_bug.cgi?id=196685)
-- [plugins-workspace#509 — SQL migrations silently fail](https://github.com/tauri-apps/plugins-workspace/issues/509)
-- [plugins-workspace#1346 — No down migrations](https://github.com/tauri-apps/plugins-workspace/issues/1346)
-- [plugins-workspace#3536 — Permissions need scopes](https://github.com/tauri-apps/plugins-workspace/issues/3536)
-- [tauri#10011 — Multiple webviews white on load](https://github.com/tauri-apps/tauri/issues/10011)
-- [Zustand: Migrating to v5](https://zustand.docs.pmnd.rs/reference/migrations/migrating-to-v5)
-- [Announcing Zustand v5 — Poimandres](https://pmnd.rs/blog/announcing-zustand-v5/)
-- [graph-flow on crates.io](https://crates.io/crates/graph-flow)
-- [a-agmon/rs-graph-llm on GitHub](https://github.com/a-agmon/rs-graph-llm) — ROADMAP confirms pre-1.0 / breaking changes expected
-
-**MEDIUM confidence (single credible source, community corroboration):**
-- [Fixing the Tauri v2 white screen in production](https://dev.to/leo_zhang_0141218398e1788/fixing-the-tauri-v2-white-screen-in-production-and-the-6-release-bugs-right-behind-it-16jk)
-- [Discussion: dev.to prod bugs](https://github.com/orgs/tauri-apps/discussions/15565)
-- [silvermine/tauri-plugin-sqlite — pooling-focused alternative](https://github.com/silvermine/tauri-plugin-sqlite) — confirms sqlx pooling is suboptimal for SQLite concurrency
-
-**LOW confidence (single source, needs validation):**
-- "Tauri v2 Best Practices — LobeHub" (community skill page, not authoritative)
-- GraphFlow production usage reports (none found beyond author's posts on r/rust + HN)
-
-**Internal context (verified by reading the codebase):**
-- `.planning/codebase/CONCERNS.md` — existing bugs/debt this milestone must not amplify
-- `docs/DECISIONS.md` ADR-002 — contains a fabricated stability claim about GraphFlow; flag for correction
-- `src-tauri/capabilities/default.json` — current capability surface (window + shell only)
-- `src-tauri/tauri.conf.json` — CSP is `null` today
-- `src/hooks/useTheme.ts`, `src/styles/tokens.css` — dark mode tokens already defined, not wired
-
----
-*Pitfalls research for: Tauri-native + persistence + GraphFlow/Rig additions to existing Nova PM app*
-*Researched: 2026-08-08*
+- [x] Pitfalls specific to adding CRUD to existing persistent stores — P1 through P6
+- [x] Integration pitfalls covered (cross-module wiring risks) — P7 through P11
+- [x] UI/UX pitfalls covered — P12 through P16
+- [x] Migration pitfalls covered — P17 through P21
+- [x] Prevention is actionable (specific code patterns, not "be careful")
+- [x] Each pitfall mapped to the phase that should address it
+- [x] Risk levels assigned (CRITICAL / HIGH / MEDIUM / LOW)

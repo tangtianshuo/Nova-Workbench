@@ -36,6 +36,13 @@ const colorStyles: Record<ToastType, string> = {
   info: 'text-accent',
 };
 
+const accentStyles: Record<ToastType, string> = {
+  success: 'border-l-[6px] border-l-success',
+  error: 'border-l-[6px] border-l-danger',
+  warning: 'border-l-[6px] border-l-warning',
+  info: 'border-l-[6px] border-l-accent',
+};
+
 /* === Provider === */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -92,7 +99,8 @@ function ToastContainer({
               className={cn(
                 'pointer-events-auto',
                 'bg-bg-primary border border-border-subtle rounded-[var(--radius-lg)] shadow-shadow-lg',
-                'p-3.5 flex items-start gap-3'
+                'p-3.5 flex items-start gap-3',
+                accentStyles[t.type]
               )}
             >
               <Icon size={18} weight="duotone" className={cn('mt-0.5 shrink-0', colorStyles[t.type])} />

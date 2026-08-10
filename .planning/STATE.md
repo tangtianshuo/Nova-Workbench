@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
 status: executing
-stopped_at: Completed 05-01-PLAN.md (taskStore CRUD + persist v2 + AppContext delegate)
-last_updated: "2026-08-10T08:45:24.496Z"
+stopped_at: Completed 05-03-PLAN.md (TaskDialog + TaskManagementView wiring)
+last_updated: "2026-08-10T08:49:58.367Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 10
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 05 (task-crud) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-08-10
 
@@ -71,6 +71,7 @@ Recent decisions affecting v0.2.0:
 - [Phase 03]: CSP + capabilities + Express 127.0.0.1 + smoke test
 - [Phase 05]: Drawer built on Radix Dialog (translateX spring, width prop default 360) — Phase 9 reuses at width=480
 - [Phase 05]: Phase 5 Plan 01: Task 类型扩展 projectId?/scheduledEventId? 弱关联 + taskStore 5 actions (update/delete/reopen/move/setProject) + persist v2 migration + AppContext 兼容层委托
+- [Phase 05]: Phase 5 Plan 03: TaskDialog 双模式(create/edit) + Combobox 产品选择器(Popover-based)+ 嵌套删除确认 Dialog + TaskManagementView 新建任务按钮接入
 
 ### Pending Todos
 
@@ -116,6 +117,6 @@ None for v0.2.0.
 
 ## Session Continuity
 
-Last session: 2026-08-10T08:45:24.491Z
-Stopped at: Completed 05-01-PLAN.md (taskStore CRUD + persist v2 + AppContext delegate)
+Last session: 2026-08-10T08:49:53.807Z
+Stopped at: Completed 05-03-PLAN.md (TaskDialog + TaskManagementView wiring)
 Resume file: None

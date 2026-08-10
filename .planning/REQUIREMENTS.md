@@ -10,9 +10,9 @@
 ### Task CRUD (Phase 5)
 
 - [ ] **TASK-01**: 用户可以在展开的卡片面板中内联编辑任务的所有字段(标题/描述/优先级/截止日期/分类)
-- [ ] **TASK-02**: 用户可以在独立对话框(TaskDialog)中编辑任务,支持创建和编辑双模式
-- [ ] **TASK-03**: 用户可以删除任务,带二次确认对话框防止误删
-- [ ] **TASK-04**: 用户可以把"已完成"任务重新打开为"未开始"
+- [x] **TASK-02**: 用户可以在独立对话框(TaskDialog)中编辑任务,支持创建和编辑双模式
+- [x] **TASK-03**: 用户可以删除任务,带二次确认对话框防止误删
+- [x] **TASK-04**: 用户可以把"已完成"任务重新打开为"未开始"
 - [ ] **TASK-05**: 用户可以在看板列之间拖拽任务卡片(@dnd-kit 实现)
 - [x] **TASK-06**: 用户可以在 TaskKanban 卡片上看到关联产品的徽章(如有 projectId)
 - [x] **TASK-07**: Task 类型新增 projectId?(弱关联到 Product)和 scheduledEventId?(弱关联到 ScheduleEvent)
@@ -112,9 +112,9 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TASK-01 | Phase 5 | Pending |
-| TASK-02 | Phase 5 | Pending |
-| TASK-03 | Phase 5 | Pending |
-| TASK-04 | Phase 5 | Pending |
+| TASK-02 | Phase 5 | Complete |
+| TASK-03 | Phase 5 | Complete |
+| TASK-04 | Phase 5 | Complete |
 | TASK-05 | Phase 5 | Pending |
 | TASK-06 | Phase 5 | Complete |
 | TASK-07 | Phase 5 | Complete |

@@ -12,6 +12,9 @@ export type ScheduleEventType =
   | 'sync';
 
 // D-01/D-03: date is YYYY-MM-DD string; projectId/taskId are optional weak links
+// D-11/D-12 (Phase 7): status field mirrors Task status vocabulary for CROSS-07 sync
+export type ScheduleEventStatus = '未开始' | '进行中' | '已完成';
+
 export interface ScheduleEvent {
   id: string;
   title: string;
@@ -21,6 +24,7 @@ export interface ScheduleEvent {
   location: string;
   projectId?: string;  // D-03 weak link to Product.id
   taskId?: string;     // D-03 weak link to Task.id (Phase 7 使用)
+  status?: ScheduleEventStatus; // D-11/D-12 Phase 7 (CROSS-07); default '未开始'
 }
 
 export const INITIAL_EVENTS: ScheduleEvent[] = [
@@ -43,6 +47,10 @@ interface ScheduleState {
   updateEvent: (eventId: string, updates: Partial<ScheduleEvent>) => void;
   deleteEvent: (eventId: string) => void;
 
+  // Phase 7 cross-module hooks (CROSS-05/CROSS-07)
+  setEventStatus: (eventId: string, status: ScheduleEventStatus) => void;
+  clearTaskLink: (eventId: string) => void;
+
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: boolean;
   _setHydrated: () => void;
@@ -56,7 +64,8 @@ export const useScheduleStore = create<ScheduleState>()(
       addEvent: (event) =>
         set((state) => {
           if (state.events.some((e) => e.id === event.id)) return state;
-          return { events: sortByDateTime([...state.events, event]) };
+          const withDefaults: ScheduleEvent = { ...event, status: event.status ?? '未开始' };
+          return { events: sortByDateTime([...state.events, withDefaults]) };
         }),
 
       setEvents: (events) => set({ events }),
@@ -65,7 +74,8 @@ export const useScheduleStore = create<ScheduleState>()(
       createEvent: (event) =>
         set((state) => {
           if (state.events.some((e) => e.id === event.id)) return state;
-          return { events: sortByDateTime([...state.events, event]) };
+          const withDefaults: ScheduleEvent = { ...event, status: event.status ?? '未开始' };
+          return { events: sortByDateTime([...state.events, withDefaults]) };
         }),
 
       updateEvent: (eventId, updates) =>
@@ -80,13 +90,28 @@ export const useScheduleStore = create<ScheduleState>()(
           events: state.events.filter((e) => e.id !== eventId),
         })),
 
+      // ── Phase 7 cross-module hooks (CROSS-05/CROSS-07) ─────────────────
+      setEventStatus: (eventId, status) =>
+        set((state) => ({
+          events: state.events.map((e) =>
+            e.id === eventId ? { ...e, status } : e,
+          ),
+        })),
+
+      clearTaskLink: (eventId) =>
+        set((state) => ({
+          events: state.events.map((e) =>
+            e.id === eventId ? { ...e, taskId: undefined } : e,
+          ),
+        })),
+
       // ── Persistence ────────────────────────────────────────────────────
       _hasHydrated: false,
       _setHydrated: () => set({ _hasHydrated: true }),
     }),
     {
       name: 'nova-schedule',
-      version: 2,
+      version: 3,
       storage: sqliteStorage,
       partialize: (s) => ({ events: s.events }),
       migrate: (persisted: any, version: number) => {
@@ -101,6 +126,13 @@ export const useScheduleStore = create<ScheduleState>()(
                 : e.date,
             projectId: e.projectId ?? undefined,
             taskId: e.taskId ?? undefined,
+          }));
+        }
+        if (version < 3) {
+          // v2 → v3 (Phase 7 D-11/D-12): backfill status = '未开始' for legacy rows
+          persisted.events = persisted.events.map((e: any) => ({
+            ...e,
+            status: e.status ?? '未开始',
           }));
         }
         return persisted as Partial<ScheduleState>;

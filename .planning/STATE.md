@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
-status: planning
-stopped_at: Phase 5 context gathered, 12 decisions locked, ready for planning
-last_updated: "2026-08-10T08:21:33.970Z"
-last_activity: "2026-08-10 - Completed quick task 260810-jwv: 项目重命名为 Nova-PM-Workspace"
+status: executing
+stopped_at: Completed 05-01-PLAN.md (taskStore CRUD + persist v2 + AppContext delegate)
+last_updated: "2026-08-10T08:45:24.496Z"
+last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 2
   percent: 10
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Milestone v0.2.0 — 日常管理 CRUD + 弱关联
+**Current focus:** Phase 05 — task-crud
 
 ## Current Position
 
-Phase: 7 phases 已规划 (5-8 CRUD+联动+编辑器, 9-11 AI 驱动)
-Plan: Not started
-Status: 待开始 Phase 5 planning (/gsd:plan-phase 5)
-Last activity: 2026-08-10 - Completed quick task 260810-jwv: 项目重命名为 Nova-PM-Workspace
+Phase: 05 (task-crud) — EXECUTING
+Plan: 3 of 5
+Status: Ready to execute
+Last activity: 2026-08-10
 
 Progress: [█░░░░░░░░░] 10% (前置调研完成, 7 phases 已规划)
 
@@ -69,6 +69,8 @@ Recent decisions affecting v0.2.0:
 - [Phase 03]: 4 Tauri commands + frontend adapter
 - [Phase 03]: ProjectCreateModal + SettingsApiKeySection UI wiring
 - [Phase 03]: CSP + capabilities + Express 127.0.0.1 + smoke test
+- [Phase 05]: Drawer built on Radix Dialog (translateX spring, width prop default 360) — Phase 9 reuses at width=480
+- [Phase 05]: Phase 5 Plan 01: Task 类型扩展 projectId?/scheduledEventId? 弱关联 + taskStore 5 actions (update/delete/reopen/move/setProject) + persist v2 migration + AppContext 兼容层委托
 
 ### Pending Todos
 
@@ -114,6 +116,6 @@ None for v0.2.0.
 
 ## Session Continuity
 
-Last session: 2026-08-10T08:21:33.966Z
-Stopped at: Phase 5 context gathered, 12 decisions locked, ready for planning
-Resume file: .planning/phases/05-task-crud/05-CONTEXT.md
+Last session: 2026-08-10T08:45:24.491Z
+Stopped at: Completed 05-01-PLAN.md (taskStore CRUD + persist v2 + AppContext delegate)
+Resume file: None

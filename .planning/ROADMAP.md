@@ -48,8 +48,8 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   7. taskStore persist 版本升级到 2,旧数据通过 migrate 函数自动补充 projectId?/scheduledEventId? 可选字段,刷新/重启后数据完整
   8. 新建任务的 ID 使用 crypto.randomUUID() 生成,快速连续操作不会产生 ID 碰撞
 **Plans**: 5 plans
-- [ ] 05-01-PLAN.md — taskStore 5 actions + Task 类型扩展 + persist v2 + AppContext 兼容
-- [ ] 05-02-PLAN.md — Drawer 可复用组件 + ProductSummaryDrawer 业务内容
+- [x] 05-01-PLAN.md — taskStore 5 actions + Task 类型扩展 + persist v2 + AppContext 兼容
+- [x] 05-02-PLAN.md — Drawer 可复用组件 + ProductSummaryDrawer 业务内容
 - [ ] 05-03-PLAN.md — TaskDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
 - [ ] 05-04-PLAN.md — TaskKanban 重写: inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
 - [ ] 05-05-PLAN.md — Phase 5 全量 UAT checkpoint
@@ -155,7 +155,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. Task CRUD 补全 | 0/TBD | Not started | - |
+| 5. Task CRUD 补全 | 2/5 | In Progress|  |
 | 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
 | 7. 跨模块联动 + 产品-研发联动 | 0/TBD | Not started | - |
 | 8. MDXEditor 集成 | 0/TBD | Not started | - |

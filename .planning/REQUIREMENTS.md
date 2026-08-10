@@ -14,7 +14,7 @@
 - [ ] **TASK-03**: 用户可以删除任务,带二次确认对话框防止误删
 - [ ] **TASK-04**: 用户可以把"已完成"任务重新打开为"未开始"
 - [ ] **TASK-05**: 用户可以在看板列之间拖拽任务卡片(@dnd-kit 实现)
-- [ ] **TASK-06**: 用户可以在 TaskKanban 卡片上看到关联产品的徽章(如有 projectId)
+- [x] **TASK-06**: 用户可以在 TaskKanban 卡片上看到关联产品的徽章(如有 projectId)
 - [ ] **TASK-07**: Task 类型新增 projectId?(弱关联到 Product)和 scheduledEventId?(弱关联到 ScheduleEvent)
 - [ ] **TASK-08**: taskStore persist 版本升级到 2,migrate 函数为已有数据补充新增可选字段
 - [ ] **TASK-09**: 任务 ID 生成使用 crypto.randomUUID() 替代 Date.now(),避免快速操作时的 ID 碰撞
@@ -116,7 +116,7 @@
 | TASK-03 | Phase 5 | Pending |
 | TASK-04 | Phase 5 | Pending |
 | TASK-05 | Phase 5 | Pending |
-| TASK-06 | Phase 5 | Pending |
+| TASK-06 | Phase 5 | Complete |
 | TASK-07 | Phase 5 | Pending |
 | TASK-08 | Phase 5 | Pending |
 | TASK-09 | Phase 5 | Pending |

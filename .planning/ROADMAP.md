@@ -70,7 +70,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 **Plans**: 4 plans
 - [x] 06-01-PLAN.md — scheduleStore 类型扩展 + 3 action + persist v2 + AppContext 委托
 - [x] 06-02-PLAN.md — ScheduleDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
-- [ ] 06-03-PLAN.md — ScheduleView 重写: currentMonth state + 真实月历 + 月份切换 + Dialog 接入
+- [x] 06-03-PLAN.md — ScheduleView 重写: currentMonth state + 真实月历 + 月份切换 + Dialog 接入
 - [ ] 06-04-PLAN.md — Phase 6 全量 UAT checkpoint
 **UI hint**: yes
 

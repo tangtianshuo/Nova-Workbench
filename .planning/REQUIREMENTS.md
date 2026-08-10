@@ -24,7 +24,7 @@
 - [x] **SCHED-01**: 用户可以创建新日程("新建日程"按钮 → 对话框 + DatePickerInput,选择日期/时间/类型/地点)
 - [x] **SCHED-02**: 用户可以点击日程事件进行编辑(对话框预填当前值)
 - [x] **SCHED-03**: 用户可以删除日程,带二次确认
-- [ ] **SCHED-04**: 用户可以在月历上切换月份(上/下月 + "今天"回到当前月),不再写死 2025-5
+- [x] **SCHED-04**: 用户可以在月历上切换月份(上/下月 + "今天"回到当前月),不再写死 2025-5
 - [x] **SCHED-05**: ScheduleEvent.date 从 number(1-31,仅日)迁移到 string(YYYY-MM-DD,完整日期)
 - [x] **SCHED-06**: scheduleStore persist 版本升级到 2,migrate 函数将旧 number 日期转为 YYYY-MM-DD 字符串(基于 May 2025 锚点)
 - [x] **SCHED-07**: ScheduleEvent 新增 projectId?(弱关联到 Product)和 taskId?(弱关联到 Task)
@@ -123,7 +123,7 @@
 | SCHED-01 | Phase 6 | Complete |
 | SCHED-02 | Phase 6 | Complete |
 | SCHED-03 | Phase 6 | Complete |
-| SCHED-04 | Phase 6 | Pending |
+| SCHED-04 | Phase 6 | Complete |
 | SCHED-05 | Phase 6 | Complete |
 | SCHED-06 | Phase 6 | Complete |
 | SCHED-07 | Phase 6 | Complete |

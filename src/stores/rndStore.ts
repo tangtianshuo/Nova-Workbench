@@ -130,6 +130,13 @@ interface RndState {
   // ── Product init helper ───────────────────────────────────────────────────
   initDeliverablesForProduct: (product: Product) => void;
 
+  // ── Phase 7 product-rnd linkage (L6/L7) ───────────────────────────────────
+  cleanupProduct: (productId: string) => void;
+  getDeliverableStatusForPhase: (
+    productId: string,
+    phase: 'requirement' | 'design' | 'dev' | 'test' | 'release',
+  ) => { total: number; ready: number; generating: number; draft: number };
+
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: boolean;
   _setHydrated: () => void;
@@ -522,6 +529,36 @@ export const useRndStore = create<RndState>()(
     set((state) => ({
       deliverables: { ...state.deliverables, [product.id]: buildInitialDeliverables(product) },
     })),
+
+  // ── Phase 7 product-rnd linkage (L6/L7) ─────────────────────────────────
+  cleanupProduct: (productId) =>
+    set((state) => {
+      const omit = <T,>(rec: Record<string, T>, key: string): Record<string, T> => {
+        const { [key]: _removed, ...rest } = rec;
+        return rest;
+      };
+      return {
+        requirements: omit(state.requirements, productId),
+        prototypes: omit(state.prototypes, productId),
+        knowledgeBase: omit(state.knowledgeBase, productId),
+        codeScaffolds: omit(state.codeScaffolds, productId),
+        testCases: omit(state.testCases, productId),
+        competitorData: omit(state.competitorData, productId),
+        deliverables: omit(state.deliverables, productId),
+      };
+    }),
+
+  getDeliverableStatusForPhase: (productId, phase) => {
+    // getDeliverablesForProduct lazily initializes the entry when missing (existing pattern)
+    const list = get().getDeliverablesForProduct(productId);
+    const phaseList = list.filter((d) => d.phase === phase);
+    return {
+      total: phaseList.length,
+      ready: phaseList.filter((d) => d.status === 'ready').length,
+      generating: phaseList.filter((d) => d.status === 'generating').length,
+      draft: phaseList.filter((d) => d.status === 'draft').length,
+    };
+  },
 
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: false,

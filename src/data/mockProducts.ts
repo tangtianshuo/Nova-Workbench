@@ -5,7 +5,8 @@ export interface ProductMilestone {
   stage?: string;
   status: 'pending' | 'in-progress' | 'completed';
   owner?: string;
-  deliverables?: string[];
+  deliverables?: string[];        // legacy: free-text deliverable labels (v0.1.0)
+  deliverableCodes?: string[];    // Phase 7 L5: references FullLifecycleDeliverable.code
   description?: string;
 }
 

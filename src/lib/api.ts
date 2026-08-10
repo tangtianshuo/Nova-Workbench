@@ -35,10 +35,15 @@ export interface GenerateProjectResult {
 // D-14: map AppError messages to human-readable Chinese strings.
 // ponytail: prefix matching — AppError serializes via thiserror Display,
 // so "network error: ..." / "invalid api key" / "cancelled" / etc. match by prefix.
+// ponytail (UAT Issue #6): auth markers are checked BEFORE the generic
+// 'network error' prefix — a provider 401 (DeepSeek body "Authentication Fails",
+// Google "API key not valid") arrives wrapped as AppError::NetworkError, i.e.
+// "network error: HTTP 401 ... auth ...", and must map to the key-invalid toast,
+// not 网络连接失败.
 function humanizeAIError(message: string): string {
   const lower = message.toLowerCase();
+  if (lower.includes('invalid api key') || lower.includes('auth') || lower.includes('api key not valid')) return 'API key 无效,请到 Settings 更新';
   if (lower.startsWith('network error')) return '网络连接失败,请检查网络';
-  if (lower.includes('invalid api key') || lower.includes('auth')) return 'API key 无效,请到 Settings 更新';
   if (lower.includes('rate')) return '请求过于频繁,稍后再试';
   if (lower === 'cancelled') return '已取消';
   return `AI 调用失败:${message}`;

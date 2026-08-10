@@ -42,7 +42,7 @@ pub struct GenerateProjectResult {
     pub content: String,
 }
 
-/// Stream a Gemini project-generation completion through a `Channel<StreamChunk>`,
+/// Stream a DeepSeek project-generation completion through a `Channel<StreamChunk>`,
 /// racing the LLM stream against a per-`request_id` `CancellationToken` so the
 /// frontend Stop button can halt mid-stream (D-03 + D-04 + D-05).
 #[tauri::command]
@@ -114,7 +114,7 @@ pub async fn cancel_generate_project(
     Ok(())
 }
 
-/// Whether a Gemini API key is stored in the OS keychain (D-08: returns bool,
+/// Whether a DeepSeek API key is stored in the OS keychain (D-08: returns bool,
 /// never the key itself). The frontend calls this on SettingsView mount to
 /// decide whether to show the input card or the "key set" message.
 #[tauri::command]
@@ -122,7 +122,7 @@ pub async fn has_api_key() -> Result<bool, AppError> {
     Ok(keychain::has_api_key())
 }
 
-/// Persist a Gemini API key to the OS keychain (D-07). Overwrites any existing
+/// Persist a DeepSeek API key to the OS keychain (D-07). Overwrites any existing
 /// entry — the user can update an expired/invalid key without uninstalling.
 #[tauri::command]
 pub async fn set_api_key(key: String) -> Result<(), AppError> {

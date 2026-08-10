@@ -8,6 +8,7 @@
 use futures::StreamExt;
 use rig_core::client::CompletionClient;
 use rig_core::completion::CompletionRequestBuilder;
+use rig_core::providers::deepseek;
 use rig_core::streaming::StreamedAssistantContent;
 use tauri::ipc::Channel;
 use tokio_util::sync::CancellationToken;
@@ -20,7 +21,7 @@ use crate::error::AppError;
 // prompt-injection mitigation called out in CONTEXT.md SEC-07.
 const SYSTEM_INSTRUCTION: &str = "You are a senior PM assistant. Generate a structured project plan with milestones and tasks as JSON matching the requested schema. Output only JSON, no markdown fences.";
 
-/// Stream a Gemini completion for the user's project-generation prompt.
+/// Stream a DeepSeek completion for the user's project-generation prompt.
 ///
 /// Each text token is pushed through `on_token` as `StreamChunk::Token`. On
 /// cancellation, returns `AppError::Cancelled` immediately. On any provider /
@@ -39,17 +40,21 @@ pub async fn stream_generate(
     // ponytail: api_key clones into the rig client builder (it needs 'static).
     // One clone per request is cheap; we don't cache the client because api_key
     // can change between calls (Pitfall 4).
-    let client = rig_core::providers::gemini::Client::new(api_key.to_string())
+    let client = deepseek::Client::new(api_key.to_string())
         .map_err(|e| AppError::InternalError(format!("rig client init: {}", e)))?;
-    // ponytail: gemini-2.0-flash was shut down by Google on 2026-06-01
-    // (Gemini API deprecations). Aligned with server.ts's gemini-3.6-flash;
-    // rig takes the model name as a plain string, so no provider change.
-    // Keep the two call sites in sync until multi-model lands (Phase 4).
-    let model = client.completion_model("gemini-3.6-flash");
+    // ponytail: provider switched Gemini → DeepSeek on 2026-08-10 — the user
+    // holds a DeepSeek key, not a Gemini one (UAT Issue #6). DEEPSEEK_V4_FLASH
+    // is the non-thinking successor of `deepseek-chat`, which DeepSeek
+    // deprecated on 2026-07-24 (rig marks DEEPSEEK_CHAT/DEEPSEEK_REASONER
+    // #[deprecated]). Do NOT switch to DEEPSEEK_V4_PRO or the reasoner without
+    // revisiting the stream loop — thinking mode interleaves Reasoning items.
+    // Multi-model selection is a Phase 4 concern.
+    let model = client.completion_model(deepseek::DEEPSEEK_V4_FLASH);
 
-    // D-24: system instruction goes via `.preamble(...)` (rig maps it to
-    // Gemini's `system_instruction` field — verified in
-    // providers/gemini/completion.rs::create_request_body). User input is
+    // D-24: system instruction goes via `.preamble(...)` (rig's DeepSeek
+    // provider rides the OpenAI-compatible path and serializes it as the
+    // `system` role message — verified in providers/deepseek.rs test
+    // deepseek_request_flattens_message_content_to_strings). User input is
     // concatenated into the single user message and never enters the preamble.
     let user_content = if files_context.is_empty() {
         user_prompt
@@ -59,7 +64,10 @@ pub async fn stream_generate(
 
     // ponytail: rig 0.41 API verified by examples/rig_stream_check.rs spike.
     // CompletionRequestBuilder::new(model, prompt).preamble(system).stream().await
-    // yields StreamingCompletionResponse<R> which impls futures::Stream.
+    // yields StreamingCompletionResponse<R> which impls futures::Stream with
+    // Item = Result<StreamedAssistantContent<R>, CompletionError>. That wrapper
+    // (src/streaming.rs) is provider-generic, so the loop below needed zero
+    // changes for the Gemini → DeepSeek switch.
     let mut stream = CompletionRequestBuilder::new(model, user_content)
         .preamble(SYSTEM_INSTRUCTION.to_string())
         .stream()

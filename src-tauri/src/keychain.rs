@@ -1,4 +1,4 @@
-//! OS keychain wrapper for the Gemini API key (RESEARCH.md §Code Examples §keyring
+//! OS keychain wrapper for the DeepSeek API key (RESEARCH.md §Code Examples §keyring
 //! usage, D-06/D-07/D-08).
 //!
 //! Ponytail: bare `keyring` crate called from inside Tauri commands. We do NOT use

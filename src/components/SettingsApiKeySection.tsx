@@ -48,7 +48,7 @@ export function SettingsApiKeySection() {
 
       <div className="rounded-[var(--radius-lg)] border border-border-subtle p-5 space-y-3">
         <div>
-          <p className="text-sm font-medium text-text-primary">Gemini API Key</p>
+          <p className="text-sm font-medium text-text-primary">DeepSeek API Key</p>
           <p className="text-xs text-text-tertiary mt-0.5">
             {hasKey
               ? 'API key is set. Update below to replace.'
@@ -60,7 +60,7 @@ export function SettingsApiKeySection() {
           type="password"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Gemini API key"
+          placeholder="DeepSeek API key(sk-...)"
         />
 
         <Button

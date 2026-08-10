@@ -125,7 +125,13 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   7. Rust 端 `llm.rs` 扩展为 provider-agnostic + tool schema 转发 + tool call 解析;新增 `chat` Tauri command (支持 messages + tools parameter)
   8. Express 简化:删除 5 个旧 AI 端点,保留 Vite middleware (dev HMR) + 单一 `/api/chat` LLM proxy (web 模式 fallback)
   9. 错误处理分层:参数错误 AI 自动修正(最多 1 次重试),其他错误向用户解释
-**Plans**: TBD
+**Plans**: 6 plans
+- [ ] 9-01-PLAN.md — Rust llm.rs provider-agnostic + chat Tauri command + per-provider keychain
+- [ ] 9-02-PLAN.md — Express 简化 (5→1 endpoint) + chatWithTools frontend client
+- [ ] 9-03-PLAN.md — Tool registry (Zod + ~200 LOC hand-rolled) + 10 个基础 tools
+- [ ] 9-04-PLAN.md — Tool loop + ⌘K CmdKPalette (Raycast-style 双模式)
+- [ ] 9-05-PLAN.md — Slide-out ChatPanel (480px,多轮对话,复用 Drawer)
+- [ ] 9-06-PLAN.md — Settings provider selector + Phase 9 端到端 UAT
 **UI hint**: yes
 
 ### Phase 10: AI 任务+日程闭环

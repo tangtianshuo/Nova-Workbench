@@ -7,7 +7,7 @@ stopped_at: Roadmap created — ready for Phase 5 planning
 last_updated: "2026-08-10"
 last_activity: 2026-08-10
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -72,6 +72,10 @@ Recent decisions affecting v0.2.0:
 ### Blockers/Concerns
 
 None for v0.2.0.
+
+### Roadmap Evolution
+
+- Phase 8 added: 调研 Atomic Editor 用于知识库和 Markdown 编辑场景 (2026-08-10)
 
 ### Key Pitfalls to Watch (v0.2.0)
 

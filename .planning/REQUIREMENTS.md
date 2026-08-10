@@ -40,6 +40,14 @@
 - [ ] **CROSS-06**: 用户点击关联徽章可跳转到对应模块并定位(产品→ProductManagementView,任务→TaskManagementView,日程→ScheduleView)
 - [ ] **CROSS-07**: 完成任务后,若有关联日程,日程同步标记完成(视觉降饱和,不删除)
 
+### Atomic Editor 调研 (Phase 8)
+
+- [ ] **EDITOR-01**: 完成 Atomic Editor 能力调研(功能集/扩展机制/主题定制)
+- [ ] **EDITOR-02**: 评估与 React 19 + Tauri WebView + Tailwind v4 的兼容性
+- [ ] **EDITOR-03**: 识别 Nova 中所有需要 Markdown 编辑的场景(知识库/产品文档/R&D 交付物/任务描述)
+- [ ] **EDITOR-04**: 对比替代方案(Milkdown/Tiptap/BlockNote/MDXEditor),给出推荐或否决理由
+- [ ] **EDITOR-05**: 输出集成方案建议(包大小/API 设计/Zustand 数据流)
+
 ## v2 Requirements
 
 延后到下一里程碑,本里程碑不实现。
@@ -127,10 +135,15 @@
 | CROSS-05 | Phase 7 | Pending |
 | CROSS-06 | Phase 7 | Pending |
 | CROSS-07 | Phase 7 | Pending |
+| EDITOR-01 | Phase 8 | Pending |
+| EDITOR-02 | Phase 8 | Pending |
+| EDITOR-03 | Phase 8 | Pending |
+| EDITOR-04 | Phase 8 | Pending |
+| EDITOR-05 | Phase 8 | Pending |
 
 **Coverage:**
-- v1 requirements: 24 total (TASK: 9, SCHED: 8, CROSS: 7)
-- Mapped to phases: 24
+- v1 requirements: 29 total (TASK: 9, SCHED: 8, CROSS: 7, EDITOR: 5)
+- Mapped to phases: 29
 - Unmapped: 0 ✓
 
 ---

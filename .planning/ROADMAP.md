@@ -2,7 +2,7 @@
 
 ## Overview
 
-v0.2.0  milestone: **日常管理 CRUD + 弱关联**。三个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动。所有 phase 均为前端 + store 层工作,无新基础设施。
+v0.2.0  milestone: **日常管理 CRUD + 弱关联**。四个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动、以及 Atomic Editor 调研。Phase 5-7 为前端 + store 层工作,Phase 8 为技术调研。
 
 **Phase numbering continues from v0.1.0 (Phases 1-4).**
 
@@ -20,6 +20,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联**。三个 phase 完成任务
 - [ ] **Phase 5: Task CRUD 补全** — taskStore actions (update/delete/reopen/move) + TaskDialog (create/edit) + TaskKanban 卡片菜单 + DnD 拖拽 + 弱关联字段 (projectId?/scheduledEventId?) + persist v2 migration
 - [ ] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task'
 - [ ] **Phase 7: 跨模块联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记
+- [ ] **Phase 8: Atomic Editor 调研** — 调研 Atomic Editor 能否用于知识库和其他 Markdown 编辑场景
 
 ## Phase Details
 
@@ -67,19 +68,33 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联**。三个 phase 完成任务
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 8: Atomic Editor 调研
+**Goal**: 评估 Atomic Editor 作为 Nova 知识库及所有 Markdown 文本编辑场景的编辑器方案，输出可行性报告和集成建议
+**Depends on**: Phase 7 (不影响 CRUD 主线，但排在后面避免并行调研分散注意力)
+**Requirements**: EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05
+**Success Criteria** (what must be TRUE):
+  1. 已完成 Atomic Editor 的能力调研：支持的功能集(语法高亮/表格/代码块/图片/链接)、扩展机制、主题定制能力
+  2. 已评估 Atomic Editor 与现有 tech stack 的兼容性：React 19 集成方式、Tauri WebView 中的表现、与 Tailwind v4 样式共存
+  3. 已识别 Nova 中所有需要 Markdown 编辑的场景：知识库文章编辑、产品文档编辑、R&D 交付物编辑、任务描述等
+  4. 已对比替代方案(如 Milkdown/Tiptap/BlockNote/MDXEditor)，给出推荐理由或否决理由
+  5. 已输出集成方案建议：包大小、bundle 影响、API 接口设计、与 Zustand store 的数据流
+**Plans**: TBD
+**UI hint**: no (research phase)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7
+Phases execute in numeric order: 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Task CRUD 补全 | 0/TBD | Not started | - |
 | 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
 | 7. 跨模块联动 | 0/TBD | Not started | - |
+| 8. Atomic Editor 调研 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-08-10*
-*Granularity: coarse (3 phases for v0.2.0)*
-*Coverage: 24/24 v1 requirements mapped, 0 unmapped*
+*Granularity: coarse (4 phases for v0.2.0)*
+*Coverage: 29/29 v1 requirements mapped, 0 unmapped*
 *Previous milestone: v0.1.0 (Phases 1-4, see header)*

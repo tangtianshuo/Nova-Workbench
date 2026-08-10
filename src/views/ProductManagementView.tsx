@@ -45,6 +45,7 @@ import { ProductAnalyticsTab } from '../components/product/ProductAnalyticsTab';
 import { ProductSkillsTab } from '../components/product/ProductSkillsTab';
 import { ProductMilestonesTab } from '../components/product/ProductMilestonesTab';
 import { CreateProductModal } from '../components/product/CreateProductModal';
+import { ProjectCreateModal } from '../components/ProjectCreateModal';
 import { AddDocumentModal } from '../components/product/AddDocumentModal';
 import { AddSkillModal } from '../components/product/AddSkillModal';
 
@@ -79,6 +80,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
   const [selectedStage, setSelectedStage] = useState<string>('all');
 
   const [showCreateProductModal, setShowCreateProductModal] = useState(false);
+  const [showProjectCreateModal, setShowProjectCreateModal] = useState(false);
   const [showAddDocModal, setShowAddDocModal] = useState(false);
   const [showAddSkillModal, setShowAddSkillModal] = useState(false);
   const [showAddMilestoneModal, setShowAddMilestoneModal] = useState(false);
@@ -122,6 +124,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
     <div className="flex flex-col gap-5 h-full">
       {/* Modals */}
       {showCreateProductModal && <CreateProductModal onClose={() => setShowCreateProductModal(false)} />}
+      {showProjectCreateModal && <ProjectCreateModal onClose={() => setShowProjectCreateModal(false)} />}
       {showAddDocModal && currentProduct && <AddDocumentModal productId={currentProduct.id} onClose={() => setShowAddDocModal(false)} />}
       {showAddSkillModal && currentProduct && <AddSkillModal productId={currentProduct.id} onClose={() => setShowAddSkillModal(false)} />}
 
@@ -215,6 +218,10 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-56"
               />
+              <Button variant="secondary" onClick={() => setShowProjectCreateModal(true)}>
+                <Sparkle size={14} weight="bold" />
+                AI 智能创建
+              </Button>
               <Button variant="primary" onClick={() => setShowCreateProductModal(true)}>
                 <Plus size={14} weight="bold" />
                 新建产品

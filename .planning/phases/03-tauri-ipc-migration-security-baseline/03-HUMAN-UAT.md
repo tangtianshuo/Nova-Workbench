@@ -23,12 +23,12 @@ persistence check).
 - **轮次 1 — dev mode 核心动线**:`npm run tauri:dev`,3 大项(API key / Streaming / 错误处理)
 - **轮次 2 — prod build 工程验证**:`npm run tauri:build`,8 项(CSP / IPC / 127.0.0.1 / 生产 streaming)
 
-期间发现 5 个问题(全已修,含 1 个 Phase 1 漏检),见 [Issues Found](#issues-found)。
+期间发现 6 个问题(全已修,含 1 个 Phase 1 漏检 + 1 次 provider 切换),见 [Issues Found](#issues-found)。
 
 
 ## Current Test
 
-[轮次 1 进行中 — UAT#3 pass;UAT#2 先后发现 Issue #4(streaming 预览永不渲染,wire shape 错配)与 Issue #5(Rust 硬编码 gemini-2.0-flash 已被 Google 于 2026-06-01 关停),均已修,等待用户换有效 Gemini key 重测 streaming + Stop]
+[轮次 1 进行中 — UAT#3 pass;UAT#2 先后发现 Issue #4(streaming 预览永不渲染,wire shape 错配)、Issue #5(gemini-2.0-flash 已关停)、Issue #6(用户无 Gemini key,provider 整体切换 Gemini → DeepSeek),均已修,等待用户用 DeepSeek key 重测 streaming + Stop]
 
 ## Tests
 
@@ -38,7 +38,7 @@ persistence check).
 - **how to test:**
   1. Navigate to Settings → 隐私与安全 (Shield icon in left nav)
   2. Verify "Stored in OS keychain. Never written to app files." copy + "Save key" button label
-  3. Paste a real Gemini API key (or test string) → click Save key
+  3. Paste a real DeepSeek API key (or test string) → click Save key
   4. Verify toast "API key 已保存 / 存储于系统钥匙串,重启后依然有效"
   5. Close Nova entirely, reopen, navigate back to Settings → 隐私与安全
   6. Verify "API key is set. Update below to replace." copy + "Update key" button label (keychain persisted)
@@ -56,7 +56,7 @@ persistence check).
   12. Click "停止生成" mid-stream
   13. Verify generation halts within 1 second
   14. Verify NO error toast (D-14: Cancelled is silent)
-- **result:** issue (fixed, awaiting retest) — 2026-08-10 用户重测报"没有找到流式输出的位置"。诊断为 Issue #4:`api.ts` onmessage 读扁平 `msg.text`,而 Rust StreamChunk 序列化为嵌套 `{kind:'token', data:{text}}`(serde tag+content,Rust 单测 streamchunk_token_serializes_tagged 断言此形状)→ onToken 从未触发 → `streamedText` 恒空 → 实时生成预览条件渲染永不出现,但 invoke() 仍带完整 content resolve,所以"生成成功但看不到流"。修复:`api.ts` 改读 `msg.data?.text`(tsc clean)。重测时又撞 Issue #5(硬编码模型已下线,有效 key 也必挂),一并修掉。等待用户换有效 Gemini key 重测 streaming 可见性 + Stop 行为。
+- **result:** issue (fixed, awaiting retest) — 2026-08-10 用户重测报"没有找到流式输出的位置"。诊断为 Issue #4:`api.ts` onmessage 读扁平 `msg.text`,而 Rust StreamChunk 序列化为嵌套 `{kind:'token', data:{text}}`(serde tag+content,Rust 单测 streamchunk_token_serializes_tagged 断言此形状)→ onToken 从未触发 → `streamedText` 恒空 → 实时生成预览条件渲染永不出现,但 invoke() 仍带完整 content resolve,所以"生成成功但看不到流"。修复:`api.ts` 改读 `msg.data?.text`(tsc clean)。重测时又撞 Issue #5(硬编码模型已下线,有效 key 也必挂)与 Issue #6(用户只有 DeepSeek key,provider 整体切换),一并修掉。等待用户用 DeepSeek key 重测 streaming 可见性 + Stop 行为。
 
 ### 3. Error handling (IPC-06 + D-14)
 
@@ -130,8 +130,8 @@ persistence check).
 
 total: 35
 passed: 3  (UAT#1 API key flow + UAT#3 error toast + UAT#4 Dev parity)
-issues: 5  (全已修,见 Issues Found)
-pending: 29 (UAT#2 streaming 重测 1 项(Issue #4/#5 已修);Wave 4 prod build 8 项 + 子项 ≈ 28 项)
+issues: 6  (全已修,见 Issues Found)
+pending: 29 (UAT#2 streaming 重测 1 项(Issue #4/#5/#6 已修);Wave 4 prod build 8 项 + 子项 ≈ 28 项)
 skipped: 0
 blocked: 0
 
@@ -168,7 +168,20 @@ blocked: 0
 - **现象:** 用户换 key 重测 UAT#2 仍报"无效 Key",并追问"项目真的能接入 LLM 吗"。
 - **根因:** `src-tauri/src/llm.rs` 硬编码 `gemini-2.0-flash` —— Google 已于 **2026-06-01 正式关停**该模型(Gemini API deprecations),即便持有有效 key 请求也必然失败;而 web 路径 `server.ts` 用的是 `gemini-3.6-flash`,两条 LLM 路径的模型名不一致。Phase 3 实施时 spike(example)与 llm.rs 抄的是当时的现役模型,之后未跟随 Google 的模型生命周期更新。
 - **修复:** `llm.rs` + `examples/rig_stream_check.rs` 对齐到 `gemini-3.6-flash`(rig 按纯字符串传模型名,无需 provider 改动);两处加 ponytail 注释标注关停日期与"保持双调用点同步,多模型支持是 Phase 4"。
-- **顺带结论(已答复用户):** "API key 无效" toast 本身证明 Tauri→rig-core→Google 链路是通的(该文案映射的是 Google 的真实拒绝响应);项目只认 Google Gemini key(`AIza...`,aistudio.google.com/apikey 免费申请),多厂商是 Phase 4;web dev 模式 Settings 存的 key 无效(Express 读 `.env` 的 `GEMINI_API_KEY`,而 `.env` 当前不存在,故 web 模式全走 canned fallback)。
+- **顺带结论(已答复用户):** "API key 无效" toast 本身证明 Tauri→rig-core→Google 链路是通的(该文案映射的是 Google 的真实拒绝响应);~~项目只认 Google Gemini key~~(此结论被 Issue #6 推翻——provider 已整体切到 DeepSeek);多厂商是 Phase 4;web dev 模式 Settings 存的 key 无效(Express 读 `.env` 的 `GEMINI_API_KEY`,而 `.env` 当前不存在,故 web 模式全走 canned fallback)。
+- **影响 phase:** P3。
+
+### #6. Provider 切换 Gemini → DeepSeek(用户只有 DeepSeek key)
+- **现象/动因:** 用户明确表示"我没有 gemini 的 key 只有 deepseek 的"。UAT#2 重测需要真实 LLM,原 Gemini 接入对用户不可用,故将 Tauri 路径的 provider 整体切换为 DeepSeek。
+- **修复:**
+  1. `llm.rs`:`rig_core::providers::gemini::Client` → rig 原生 `providers::deepseek::Client`(OpenAI 兼容路径,base URL 固定 `https://api.deepseek.com`);模型用 `deepseek::DEEPSEEK_V4_FLASH`——旧名 `deepseek-chat`/`deepseek-reasoner` 已被 DeepSeek 于 **2026-07-24** 停用(rig 里标 `#[deprecated]`),v4-flash 是非思考模式的继任者。**流式循环零改动**:`StreamingCompletionResponse<R>` 是 provider-generic wrapper(`Item = Result<StreamedAssistantContent<R>, CompletionError>`),已在 registry 源码确认。
+  2. `examples/rig_stream_check.rs`(仓内唯一 rig API 文档):重写为 DeepSeek 版,env 变量改 `DEEPSEEK_API_KEY`,VERIFIED 段落全部更新(含 401 错误文本 "Authentication Fails")。
+  3. `SettingsApiKeySection.tsx`:文案 "Gemini API Key" → "DeepSeek API Key",placeholder `DeepSeek API key(sk-...)`。
+  4. `api.ts` `humanizeAIError` **分支顺序修复**(切换中顺带发现的真 bug):原代码 `startsWith('network error')` 在 `includes('auth')` 之前,而 provider 401 经 `AppError::NetworkError` 包装后序列化为 `"network error: HTTP 401 ... Authentication Fails ..."` —— 会被误映射成"网络连接失败"。现 auth 标记(`auth` / `invalid api key` / `api key not valid`)优先匹配。
+  5. `commands.rs` / `keychain.rs` 文档注释 Gemini → DeepSeek(keychain service 名 `nova.pm-workspace` 本就 provider 中立,无需迁移)。
+- **验证:** `cargo check --all-targets` clean(仅存量 dead_code warning);`cargo test` 11/11 pass;`npm run lint` exit 0。
+- **未动:** `server.ts`(web dev 路径)仍是 Gemini——web 模式本来就无 `.env` 走 canned fallback,且用户测试走 Tauri 模式;多厂商/多 provider 留 Phase 4。
+- **重测指引更新:** Settings → 隐私与安全 现在要的是 DeepSeek key(`sk-...`,platform.deepseek.com/api_keys)。
 - **影响 phase:** P3。
 
 ### 债务清单(本轮 UAT 顺带发现 — 2026-08-10 已全部清掉)
@@ -177,7 +190,7 @@ blocked: 0
 
 ## Gaps
 
-[UAT#1/#3 ✓;UAT#2 Issue #4/#5 均已修,等待用户换有效 Gemini key 重测 streaming/Stop;Wave 4 prod build 8 项待跑(债务清单已全清,无已知阻塞项)]
+[UAT#1/#3 ✓;UAT#2 Issue #4/#5/#6 均已修(provider 已切 DeepSeek),等待用户用 DeepSeek key 重测 streaming/Stop;Wave 4 prod build 8 项待跑(债务清单已全清,无已知阻塞项)]
 
 ---
 

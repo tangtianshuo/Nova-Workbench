@@ -52,7 +52,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 - [x] 05-02-PLAN.md — Drawer 可复用组件 + ProductSummaryDrawer 业务内容
 - [x] 05-03-PLAN.md — TaskDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
 - [x] 05-04-PLAN.md — TaskKanban 重写: inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
-- [ ] 05-05-PLAN.md — Phase 5 全量 UAT checkpoint
+- [x] 05-05-PLAN.md — Phase 5 全量 UAT checkpoint
 **UI hint**: yes
 
 ### Phase 6: Schedule CRUD + 真实日历
@@ -95,7 +95,10 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   3. KnowledgeBaseView 的 "编辑" 按钮接入 MarkdownEditor,实现完整的知识库文章编辑流程
   4. MDXEditor 使用 React.lazy() 延迟加载,不影响首屏性能;按需引入 plugins(toolbar/tables/code blocks),bundle 增量控制在 ~250KB gzip
   5. 纯渲染场景(6 处 react-markdown)保持不变;Tailwind v4 样式共存验证通过(无 CSS 冲突)
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 08-01-PLAN.md — MarkdownEditor 组件封装 (lazy + plugin subset + barrel + bundle 验证)
+- [ ] 08-02-PLAN.md — ProductKnowledgeTab 编辑面板 + 新建模态框 Textarea → MarkdownEditor
+- [ ] 08-03-PLAN.md — KnowledgeBaseView 编辑模式接入 + Phase 8 全量 UAT
 **UI hint**: yes
 
 ### Phase 9: AI 助手基础
@@ -155,7 +158,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. Task CRUD 补全 | 3/5 | In Progress|  |
+| 5. Task CRUD 补全 | 5/5 | ✅ Complete | 2026-08-10 |
 | 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
 | 7. 跨模块联动 + 产品-研发联动 | 0/TBD | Not started | - |
 | 8. MDXEditor 集成 | 0/TBD | Not started | - |

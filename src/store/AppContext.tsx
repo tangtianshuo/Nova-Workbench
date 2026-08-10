@@ -24,7 +24,7 @@ import type {
   CompetitorAnalysisData,
   FullLifecycleDeliverable,
 } from '../stores/rndStore';
-import type { ScheduleEvent } from '../stores/scheduleStore';
+import type { ScheduleEvent, ScheduleEventStatus } from '../stores/scheduleStore';
 import type { Workspace, WorkspaceFile, LocalIndexedFile } from '../stores/workspaceStore';
 import { useTaskStore } from '../stores/taskStore';
 import { useProductStore } from '../stores/productStore';
@@ -51,6 +51,7 @@ export type {
   WorkspaceFile,
   LocalIndexedFile,
   ScheduleEvent,
+  ScheduleEventStatus,
 };
 
 interface AppContextType {
@@ -142,6 +143,33 @@ interface AppContextType {
   reopenTask: (taskId: string) => void;
   moveTask: (taskId: string, fromCatId: string, toCatId: string) => void;
   setTaskProject: (taskId: string, projectId: string | undefined) => void;
+
+  // Phase 7 schedule delegates (CROSS-05/CROSS-07)
+  setEventStatus: (eventId: string, status: ScheduleEventStatus) => void;
+  clearTaskLink: (eventId: string) => void;
+
+  // Phase 7 rnd delegates (L6/L7)
+  cleanupProduct: (productId: string) => void;
+  getDeliverableStatusForPhase: (
+    productId: string,
+    phase: 'requirement' | 'design' | 'dev' | 'test' | 'release',
+  ) => { total: number; ready: number; generating: number; draft: number };
+
+  // Phase 7 task delegate (CROSS-03)
+  unlinkProjectTasks: (projectId: string) => void;
+
+  // Phase 7 cross-store wrappers (CROSS-01/02/03, L7)
+  arrangeOnCalendar: (taskId: string) => {
+    success: boolean;
+    event?: ScheduleEvent;
+    reason?: 'no-deadline' | 'already-arranged' | 'task-not-found';
+  };
+  getDeleteProductImpact: (productId: string) => {
+    taskCount: number;
+    eventCount: number;
+    hasRndData: boolean;
+  };
+  doDeleteProduct: (productId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -217,6 +245,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const createEvent = useScheduleStore((s) => s.createEvent);
   const updateEvent = useScheduleStore((s) => s.updateEvent);
   const deleteEvent = useScheduleStore((s) => s.deleteEvent);
+  // Phase 7 schedule delegates
+  const setEventStatus = useScheduleStore((s) => s.setEventStatus);
+  const clearTaskLink = useScheduleStore((s) => s.clearTaskLink);
+  // Phase 7 rnd delegates
+  const cleanupProduct = useRndStore((s) => s.cleanupProduct);
+  const getDeliverableStatusForPhase = useRndStore((s) => s.getDeliverableStatusForPhase);
+  // Phase 7 task delegate
+  const unlinkProjectTasks = useTaskStore((s) => s.unlinkProjectTasks);
 
   const addProduct = useProductStore((s) => s.addProduct);
   const updateProduct = useProductStore((s) => s.updateProduct);
@@ -238,10 +274,78 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useRndStore.getState().initDeliverablesForProduct(project);
   };
 
-  // Wrap deleteProduct to clear selection
-  const deleteProductWrapped = (id: string) => {
-    deleteProduct(id);
-    if (selectedProductId === id) setSelectedProductId(null);
+  // Phase 7 (CROSS-01/CROSS-02, D-01/D-02): schedule a task to the calendar and
+  // establish the bidirectional task↔event link. Reads via getState() so this
+  // wrapper stays a plain function (no React state dependency).
+  const arrangeOnCalendar = (taskId: string) => {
+    const task = useTaskStore
+      .getState()
+      .categories.flatMap((c) => c.tasks)
+      .find((t) => t.id === taskId);
+    if (!task) return { success: false as const, reason: 'task-not-found' as const };
+    if (task.scheduledEventId)
+      return { success: false as const, reason: 'already-arranged' as const };
+    if (!task.deadline) return { success: false as const, reason: 'no-deadline' as const };
+
+    // Task.deadline is 'YYYY-MM-DD HH:mm' (or just 'YYYY-MM-DD'). Split into date/time.
+    const [datePart, timePart] = task.deadline.split(' ');
+    const event: ScheduleEvent = {
+      id: crypto.randomUUID(),
+      title: task.title, // D-02: title mirrors task (user can edit later)
+      time: timePart ? timePart : '全天',
+      date: datePart, // YYYY-MM-DD
+      type: 'task',
+      location: '',
+      projectId: task.projectId,
+      taskId: task.id,
+      status: '未开始',
+    };
+    useScheduleStore.getState().createEvent(event);
+    useTaskStore.getState().updateTask(taskId, { scheduledEventId: event.id });
+    return { success: true as const, event };
+  };
+
+  // Phase 7 (CROSS-03, D-04): compute the blast radius of deleting a product
+  // BEFORE the actual delete, so UI can render an accurate confirmation dialog.
+  const getDeleteProductImpact = (productId: string) => {
+    const taskCount = useTaskStore
+      .getState()
+      .categories.flatMap((c) => c.tasks)
+      .filter((t) => t.projectId === productId).length;
+    const eventCount = useScheduleStore
+      .getState()
+      .events.filter((e) => e.projectId === productId).length;
+    const rnd = useRndStore.getState();
+    const hasRndData =
+      !!rnd.deliverables[productId] ||
+      !!rnd.requirements[productId] ||
+      !!rnd.prototypes[productId] ||
+      !!rnd.knowledgeBase[productId] ||
+      !!rnd.codeScaffolds[productId] ||
+      !!rnd.testCases[productId] ||
+      !!rnd.competitorData[productId];
+    return { taskCount, eventCount, hasRndData };
+  };
+
+  // Phase 7 (CROSS-03, D-05/D-06, L7): execute the cascading delete after the
+  // user has confirmed. Order matters: clear reverse links first, then rnd data,
+  // finally the product row and selection state.
+  const doDeleteProduct = (productId: string) => {
+    // 1. Detach all tasks from this product (CROSS-03)
+    useTaskStore.getState().unlinkProjectTasks(productId);
+    // 2. Detach all schedule events from this product (CROSS-03)
+    const eventsForProduct = useScheduleStore
+      .getState()
+      .events.filter((e) => e.projectId === productId);
+    eventsForProduct.forEach((e) =>
+      useScheduleStore.getState().updateEvent(e.id, { projectId: undefined }),
+    );
+    // 3. Cascade-clean rndStore for this product (L7)
+    useRndStore.getState().cleanupProduct(productId);
+    // 4. Remove the product itself
+    deleteProduct(productId);
+    // 5. Clear the selection if it pointed at the deleted product
+    if (selectedProductId === productId) setSelectedProductId(null);
   };
 
   const value: AppContextType = {
@@ -265,12 +369,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     addTask, addCategory, addEvent, addProject,
     createEvent, updateEvent, deleteEvent,
-    addProduct, updateProduct, deleteProduct: deleteProductWrapped,
+    addProduct, updateProduct, deleteProduct,
     addProductDocument, toggleSkillStatus, runProductSkill,
     addProductMilestone, updateMilestoneStatus,
     addWorkspace, updateWorkspace, deleteWorkspace, addLocalIndexedFile,
     completeTask, getProjectTaskCount,
     updateTask, deleteTask, reopenTask, moveTask, setTaskProject,
+    // Phase 7 delegates + wrappers
+    setEventStatus, clearTaskLink,
+    cleanupProduct, getDeliverableStatusForPhase,
+    unlinkProjectTasks,
+    arrangeOnCalendar, getDeleteProductImpact, doDeleteProduct,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

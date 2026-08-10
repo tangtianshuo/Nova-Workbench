@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Task, TaskCategory, INITIAL_CATEGORIES } from '../data/mockTasks';
 import { useProductStore } from './productStore';
+import { useScheduleStore } from './scheduleStore';
 import { sqliteStorage } from './storage/sqliteStorage';
 
 interface TaskState {
@@ -18,6 +19,9 @@ interface TaskState {
   reopenTask: (taskId: string) => void;
   moveTask: (taskId: string, fromCatId: string, toCatId: string) => void;
   setTaskProject: (taskId: string, projectId: string | undefined) => void;
+
+  // Phase 7 cross-module (CROSS-03) — unlink all tasks referencing a product
+  unlinkProjectTasks: (projectId: string) => void;
 
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: boolean;
@@ -55,7 +59,12 @@ export const useTaskStore = create<TaskState>()(
       return { categories: newCats };
     }),
 
-  completeTask: (taskId) =>
+  completeTask: (taskId) => {
+    // Read scheduledEventId BEFORE the state update so we can propagate.
+    const before = get()
+      .categories.flatMap((c) => c.tasks)
+      .find((t) => t.id === taskId);
+    const eventId = before?.scheduledEventId;
     set((state) => ({
       categories: state.categories.map((cat) => ({
         ...cat,
@@ -63,7 +72,12 @@ export const useTaskStore = create<TaskState>()(
           task.id === taskId ? { ...task, status: '已完成' } : task
         ),
       })),
-    })),
+    }));
+    // CROSS-07 (D-11): mark the linked schedule event as completed for visual sync.
+    if (eventId) {
+      useScheduleStore.getState().setEventStatus(eventId, '已完成');
+    }
+  },
 
   getProjectTaskCount: (projectIdOrName) => {
     if (!projectIdOrName) return 0;
@@ -88,13 +102,23 @@ export const useTaskStore = create<TaskState>()(
       })),
     })),
 
-  deleteTask: (taskId) =>
+  deleteTask: (taskId) => {
+    // Read scheduledEventId BEFORE the state update so we can clear the reverse link.
+    const before = get()
+      .categories.flatMap((c) => c.tasks)
+      .find((t) => t.id === taskId);
+    const eventId = before?.scheduledEventId;
+    // CROSS-05: clear the reverse taskId reference on the schedule event.
+    if (eventId) {
+      useScheduleStore.getState().clearTaskLink(eventId);
+    }
     set((state) => ({
       categories: state.categories.map((cat) => ({
         ...cat,
         tasks: cat.tasks.filter((t) => t.id !== taskId),
       })),
-    })),
+    }));
+  },
 
   reopenTask: (taskId) =>
     set((state) => ({
@@ -141,6 +165,17 @@ export const useTaskStore = create<TaskState>()(
         })),
       };
     }),
+
+  // Phase 7 CROSS-03 (D-05): clear projectId/project on every task tied to a deleted product.
+  unlinkProjectTasks: (projectId) =>
+    set((state) => ({
+      categories: state.categories.map((cat) => ({
+        ...cat,
+        tasks: cat.tasks.map((t) =>
+          t.projectId === projectId ? { ...t, projectId: undefined, project: '' } : t
+        ),
+      })),
+    })),
 
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: false,

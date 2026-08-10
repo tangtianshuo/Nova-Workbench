@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2.0
-milestone_name: CRUD + 弱关联 + AI 驱动
+milestone: v0.1.0
+milestone_name: Recap
 status: executing
-stopped_at: All Phase 6-10 plans committed; ready to execute Phase 6
-last_updated: "2026-08-10T17:30:00.000Z"
+stopped_at: Completed 06-01-PLAN.md; ready for 06-02 (ScheduleDialog)
+last_updated: "2026-08-10T11:50:58.891Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 22
-  completed_plans: 5
+  total_plans: 27
+  completed_plans: 6
   percent: 23
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 06 — schedule-crud (ready to execute)
+**Current focus:** Phase 06 — schedule-crud
 
 ## Current Position
 
-Phase: 06 (Schedule CRUD + 真实日历)
-Plan: 06-01 (Store/types layer + persist v2 migrate)
-Status: Ready to execute (4 plans across 4 sequential waves)
+Phase: 06 (schedule-crud) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-08-10
 
 Progress: [██░░░░░░░░] 23% (Phase 5 完成 5/5, Phase 6-10 规划完成 22 plans,等待执行)
@@ -88,6 +88,7 @@ Recent decisions affecting v0.2.0:
 - [Phase 05]: Plan 03: TaskDialog 双模式(create/edit) + Combobox 产品选择器 + 嵌套删除确认
 - [Phase 05]: Plan 04: TaskKanban 重写 — inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
 - [Phase 05]: Plan 05: UAT checkpoint (deferred to batch UAT)
+- [Phase 06]: Plan 01: ScheduleEvent 类型扩展 (date number→string YYYY-MM-DD, projectId?/taskId? 弱关联, type 联合含 'task') + scheduleStore 3 CRUD action + persist v2 migration (May 2025 锚点) + AppContext 委托
 
 ### Pending Todos
 
@@ -140,6 +141,6 @@ None blocking. Key risks per phase (executor MUST read PLAN files for full conte
 
 ## Session Continuity
 
-Last session: 2026-08-10T17:30:00.000Z
-Stopped at: All Phase 6-10 plans committed; ready to execute Phase 6
+Last session: 2026-08-10T11:50:58.886Z
+Stopped at: Completed 06-01-PLAN.md; ready for 06-02 (ScheduleDialog)
 Resume action: `/gsd:execute-phase 06` (建议先 /clear 刷新上下文)

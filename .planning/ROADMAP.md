@@ -68,7 +68,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   6. ScheduleEvent 支持 projectId?/taskId? 弱关联字段和 type:'task' 枚举值,为 Phase 7 跨模块联动做好准备
   7. 日历网格正确显示事件:事件出现在其 date 对应的日期格中,月份切换后事件位置正确
 **Plans**: 4 plans
-- [ ] 06-01-PLAN.md — scheduleStore 类型扩展 + 3 action + persist v2 + AppContext 委托
+- [x] 06-01-PLAN.md — scheduleStore 类型扩展 + 3 action + persist v2 + AppContext 委托
 - [ ] 06-02-PLAN.md — ScheduleDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
 - [ ] 06-03-PLAN.md — ScheduleView 重写: currentMonth state + 真实月历 + 月份切换 + Dialog 接入
 - [ ] 06-04-PLAN.md — Phase 6 全量 UAT checkpoint

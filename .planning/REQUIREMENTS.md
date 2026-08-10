@@ -25,10 +25,10 @@
 - [ ] **SCHED-02**: 用户可以点击日程事件进行编辑(对话框预填当前值)
 - [ ] **SCHED-03**: 用户可以删除日程,带二次确认
 - [ ] **SCHED-04**: 用户可以在月历上切换月份(上/下月 + "今天"回到当前月),不再写死 2025-5
-- [ ] **SCHED-05**: ScheduleEvent.date 从 number(1-31,仅日)迁移到 string(YYYY-MM-DD,完整日期)
-- [ ] **SCHED-06**: scheduleStore persist 版本升级到 2,migrate 函数将旧 number 日期转为 YYYY-MM-DD 字符串(基于 May 2025 锚点)
-- [ ] **SCHED-07**: ScheduleEvent 新增 projectId?(弱关联到 Product)和 taskId?(弱关联到 Task)
-- [ ] **SCHED-08**: ScheduleEvent.type 新增 'task' 枚举值(用于"安排到日历"生成的日程)
+- [x] **SCHED-05**: ScheduleEvent.date 从 number(1-31,仅日)迁移到 string(YYYY-MM-DD,完整日期)
+- [x] **SCHED-06**: scheduleStore persist 版本升级到 2,migrate 函数将旧 number 日期转为 YYYY-MM-DD 字符串(基于 May 2025 锚点)
+- [x] **SCHED-07**: ScheduleEvent 新增 projectId?(弱关联到 Product)和 taskId?(弱关联到 Task)
+- [x] **SCHED-08**: ScheduleEvent.type 新增 'task' 枚举值(用于"安排到日历"生成的日程)
 
 ### Cross-Module Wiring (Phase 7)
 
@@ -124,10 +124,10 @@
 | SCHED-02 | Phase 6 | Pending |
 | SCHED-03 | Phase 6 | Pending |
 | SCHED-04 | Phase 6 | Pending |
-| SCHED-05 | Phase 6 | Pending |
-| SCHED-06 | Phase 6 | Pending |
-| SCHED-07 | Phase 6 | Pending |
-| SCHED-08 | Phase 6 | Pending |
+| SCHED-05 | Phase 6 | Complete |
+| SCHED-06 | Phase 6 | Complete |
+| SCHED-07 | Phase 6 | Complete |
+| SCHED-08 | Phase 6 | Complete |
 | CROSS-01 | Phase 7 | Pending |
 | CROSS-02 | Phase 7 | Pending |
 | CROSS-03 | Phase 7 | Pending |

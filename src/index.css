@@ -40,12 +40,12 @@
   --color-border: hsl(var(--border-primary));
   --color-border-subtle: hsl(var(--border-secondary));
 
-  --color-success: hsl(var(--color-success));
-  --color-success-subtle: hsl(var(--color-success-subtle));
-  --color-warning: hsl(var(--color-warning));
-  --color-warning-subtle: hsl(var(--color-warning-subtle));
-  --color-danger: hsl(var(--color-danger));
-  --color-danger-subtle: hsl(var(--color-danger-subtle));
+  --color-success: hsl(var(--success));
+  --color-success-subtle: hsl(var(--success-subtle));
+  --color-warning: hsl(var(--warning));
+  --color-warning-subtle: hsl(var(--warning-subtle));
+  --color-danger: hsl(var(--danger));
+  --color-danger-subtle: hsl(var(--danger-subtle));
 
   /* Font families */
   --font-sans: var(--font-sans);
@@ -56,6 +56,19 @@
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
+
+  /* Z-index scale — ponytail: registers tokens.css --z-* as Tailwind z-* utilities
+   * (z-base, z-dropdown, z-sticky, z-overlay, z-modal, z-toast, z-tooltip).
+   * Without this, z-modal etc. are dead classes and portal overlays fall back to
+   * z-index:auto, causing in-page z-10 elements (e.g. SegmentedControl buttons)
+   * to bleed through Dialog/Popover/Tooltip overlays. */
+  --z-index-base: var(--z-base);
+  --z-index-dropdown: var(--z-dropdown);
+  --z-index-sticky: var(--z-sticky);
+  --z-index-overlay: var(--z-overlay);
+  --z-index-modal: var(--z-modal);
+  --z-index-toast: var(--z-toast);
+  --z-index-tooltip: var(--z-tooltip);
 }
 
 /* === Custom Utilities === */

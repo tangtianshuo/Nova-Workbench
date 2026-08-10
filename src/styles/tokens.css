@@ -36,14 +36,14 @@
   --border-error: 0 72% 51%;
 
   /* Semantic colors */
-  --color-success: 152 60% 40%;
-  --color-success-subtle: 152 60% 95%;
-  --color-warning: 38 92% 50%;
-  --color-warning-subtle: 38 92% 95%;
-  --color-danger: 0 72% 51%;
-  --color-danger-subtle: 0 72% 95%;
-  --color-info: 211 100% 47%;
-  --color-info-subtle: 211 100% 96%;
+  --success: 152 60% 40%;
+  --success-subtle: 152 60% 95%;
+  --warning: 38 92% 50%;
+  --warning-subtle: 38 92% 95%;
+  --danger: 0 72% 51%;
+  --danger-subtle: 0 72% 95%;
+  --info: 211 100% 47%;
+  --info-subtle: 211 100% 96%;
 
   /* Shadows - Apple soft, tinted to background hue */
   --shadow-xs: 0 1px 2px rgb(220 20% 10% / 0.04);
@@ -139,12 +139,12 @@
   --border-secondary: 220 10% 14%;
   --border-error: 0 72% 55%;
 
-  --color-success: 152 60% 48%;
-  --color-success-subtle: 152 40% 12%;
-  --color-warning: 38 92% 55%;
-  --color-warning-subtle: 38 50% 12%;
-  --color-danger: 0 72% 55%;
-  --color-danger-subtle: 0 40% 12%;
+  --success: 152 60% 48%;
+  --success-subtle: 152 40% 12%;
+  --warning: 38 92% 55%;
+  --warning-subtle: 38 50% 12%;
+  --danger: 0 72% 55%;
+  --danger-subtle: 0 40% 12%;
 
   --shadow-xs: 0 1px 2px rgb(0 0% 0% / 0.2);
   --shadow-sm: 0 1px 3px rgb(0 0% 0% / 0.2), 0 1px 2px rgb(0 0% 0% / 0.15);

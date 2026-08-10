@@ -1,8 +1,8 @@
-# Roadmap: Nova PM Workspace — v0.2.0
+# Roadmap: Nova-PM-Workspace — v0.2.0
 
 ## Overview
 
-v0.2.0  milestone: **日常管理 CRUD + 弱关联**。五个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动、Atomic Editor 调研、以及产品-研发联动调研。Phase 5-7 为前端 + store 层工作,Phase 8-9 为技术调研。
+v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动(含产品-研发联动)、Markdown 编辑器集成、以及 AI 驱动的完整工作闭环。Phase 5-8 为前端 + store 层工作,Phase 10-12 为 AI 驱动功能。
 
 **Phase numbering continues from v0.1.0 (Phases 1-4).**
 
@@ -15,13 +15,22 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联**。五个 phase 完成任务
 | 3 | Tauri IPC Migration + Security Baseline | ✅ Complete | 2026-08-08 |
 | 4 | GraphFlow + Rig PoC | ⏸️ Deferred to v0.3+ | — |
 
+### 前置调研 (completed, 不在 phase 序列中)
+
+| 调研 | 状态 | 完成日期 | 报告 |
+|------|------|----------|------|
+| Atomic Editor 调研 (原 Phase 8) | ✅ 完成 | 2026-08-10 | `.planning/research/ATOMIC-EDITOR.md` |
+| 产品-研发联动调研 (原 Phase 9) | ✅ 完成 | 2026-08-10 | `.planning/research/PRODUCT-RND-LINKAGE.md` |
+
 ## Phases
 
 - [ ] **Phase 5: Task CRUD 补全** — taskStore actions (update/delete/reopen/move) + TaskDialog (create/edit) + TaskKanban 卡片菜单 + DnD 拖拽 + 弱关联字段 (projectId?/scheduledEventId?) + persist v2 migration
 - [ ] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task'
-- [ ] **Phase 7: 跨模块联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记
-- [ ] **Phase 8: Atomic Editor 调研** — 调研 Atomic Editor 能否用于知识库和其他 Markdown 编辑场景
-- [ ] **Phase 9: 产品-研发联动调研** — 调研产品模块(ProductManagementView)与产品研发中心(RndCenterView)的联动模式
+- [ ] **Phase 7: 跨模块联动 + 产品-研发联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记 + 产品-研发联动 (L5 里程碑↔交付物状态 / L6 阶段↔phase 进度 / L7 删除产品级联清理 rndStore)
+- [ ] **Phase 8: MDXEditor 集成** — 新增 MarkdownEditor 组件封装 MDXEditor + React.lazy() 延迟加载 + ProductKnowledgeTab 替换 Textarea + KnowledgeBaseView 实现编辑按钮 + Tailwind v4 样式共存验证
+- [ ] **Phase 10: AI 助手基础** — Tool Use 架构搭建 (tool registry + context injection + step display) + ⌘K command palette UI + 基础工具集 (createTask/listTasks/createProduct 等) + chat panel 多轮对话
+- [ ] **Phase 11: AI 任务+日程闭环** — 自然语言任务创建/编辑/删除 + AI "安排到日历" + 产品规划 AI 辅助 + 截止日期智能建议
+- [ ] **Phase 12: AI 文件+知识库** — Workspace 文件操作 AI + 知识库文章 AI 生成/润色 + 产品文档 AI 辅助 + R&D 交付物 AI 生成增强
 
 ## Phase Details
 
@@ -56,60 +65,91 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联**。五个 phase 完成任务
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 7: 跨模块联动
-**Goal**: 任务/产品/日程三个模块通过弱关联字段自然协作 —— "安排到日历"一键完成、关联徽章可视化、删除产品时关联清理、任务完成联动日程标记
+### Phase 7: 跨模块联动 + 产品-研发联动
+**Goal**: 任务/产品/日程/研发 四个模块通过弱关联字段自然协作 —— "安排到日历"一键完成、关联徽章可视化、删除产品时关联清理、任务完成联动日程标记、里程碑展示交付物状态、产品阶段展示交付物进度、删除产品级联清理 rndStore 孤儿数据
 **Depends on**: Phase 5 (Task CRUD) + Phase 6 (Schedule CRUD)
-**Requirements**: CROSS-01, CROSS-02, CROSS-03, CROSS-04, CROSS-05, CROSS-06, CROSS-07
+**Requirements**: CROSS-01..07 + L5/L6/L7 (产品-研发联动)
 **Success Criteria** (what must be TRUE):
   1. 用户可以在任务卡片/对话框上点击"安排到日历",自动创建关联的 ScheduleEvent(type='task',日期取自任务截止日期),taskId 反向引用任务,标题同步任务标题
-  2. 用户删除产品时看到提示"X 个任务、Y 个日程将失去关联",确认后保留所有记录但清空 projectId 字段(弱关联,不级联删除)
+  2. 用户删除产品时看到提示"X 个任务、Y 个日程将失去关联",确认后保留所有记录但清空 projectId 字段(弱关联,不级联删除);同时 rndStore 中该产品的所有数据被清理(无孤儿)
   3. 日程视图上,关联任务的日程显示任务徽章;任务卡片上显示关联产品/日程的徽章;所有徽章均可点击跳转到对应模块并定位
   4. 用户完成任务后,若有关联日程,日程自动同步标记完成(视觉降饱和,不删除)
   5. 删除已关联的日程时,任务的 scheduledEventId 自动清空;删除已关联的任务时,日程的 taskId 自动清空 —— 双向清理,不留孤儿引用
+  6. 里程碑面板展示关联交付物的 ready/draft/generating 状态(L5 milestone.deliverableCodes → FullLifecycleDeliverable.status)
+  7. 产品治理视图和研发中心视图都展示当前阶段的交付物就绪率(L6 product.stage → deliverable.phase 进度)
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 8: Atomic Editor 调研
-**Goal**: 评估 Atomic Editor 作为 Nova 知识库及所有 Markdown 文本编辑场景的编辑器方案，输出可行性报告和集成建议
-**Depends on**: Phase 7 (不影响 CRUD 主线，但排在后面避免并行调研分散注意力)
-**Requirements**: EDITOR-01, EDITOR-02, EDITOR-03, EDITOR-04, EDITOR-05
+### Phase 8: MDXEditor 集成
+**Goal**: 知识库和产品文档拥有真正的 Markdown WYSIWYG 编辑能力,替换原生 Textarea,提供格式化反馈
+**Depends on**: Phase 7 (不影响 CRUD 主线,但排在后面避免并行开发分散注意力)
+**Requirements**: EDITOR-01..05 (前置调研结论已输出)
 **Success Criteria** (what must be TRUE):
-  1. 已完成 Atomic Editor 的能力调研：支持的功能集(语法高亮/表格/代码块/图片/链接)、扩展机制、主题定制能力
-  2. 已评估 Atomic Editor 与现有 tech stack 的兼容性：React 19 集成方式、Tauri WebView 中的表现、与 Tailwind v4 样式共存
-  3. 已识别 Nova 中所有需要 Markdown 编辑的场景：知识库文章编辑、产品文档编辑、R&D 交付物编辑、任务描述等
-  4. 已对比替代方案(如 Milkdown/Tiptap/BlockNote/MDXEditor)，给出推荐理由或否决理由
-  5. 已输出集成方案建议：包大小、bundle 影响、API 接口设计、与 Zustand store 的数据流
+  1. 新增 `src/components/ui/MarkdownEditor.tsx`,封装 MDXEditor,API 与 Nova 设计系统对齐(value/onChange/readOnly/className)
+  2. ProductKnowledgeTab 的 `<Textarea>` 替换为 `<MarkdownEditor>`,编辑时实时渲染 Markdown 格式化效果
+  3. KnowledgeBaseView 的 "编辑" 按钮接入 MarkdownEditor,实现完整的知识库文章编辑流程
+  4. MDXEditor 使用 React.lazy() 延迟加载,不影响首屏性能;按需引入 plugins(toolbar/tables/code blocks),bundle 增量控制在 ~250KB gzip
+  5. 纯渲染场景(6 处 react-markdown)保持不变;Tailwind v4 样式共存验证通过(无 CSS 冲突)
 **Plans**: TBD
-**UI hint**: no (research phase)
+**UI hint**: yes
 
-### Phase 9: 产品-研发联动调研
-**Goal**: 评估产品模块(ProductManagementView/Product 子组件)与产品研发中心(RndCenterView/18 个交付物)之间的联动模式,输出联动方案建议
-**Depends on**: Phase 8 (调研 phase 串行,避免分散注意力)
-**Requirements**: LINKAGE-01, LINKAGE-02, LINKAGE-03, LINKAGE-04, LINKAGE-05
+### Phase 10: AI 助手基础
+**Goal**: 搭建 AI 驱动的 Tool Use 架构基础,用户可以通过 ⌘K command palette 或 chat panel 使用自然语言执行基础操作
+**Depends on**: Phase 7 (复用弱关联字段作为 AI 操作目标)
+**Requirements**: TBD (AI phase 需求待细化)
 **Success Criteria** (what must be TRUE):
-  1. 已梳理产品模块当前数据流:productStore → ProductManagementView → 16 个 Product 子组件的数据消费关系
-  2. 已梳理研发中心当前数据流:rndStore → RndCenterView → 18 个 FullLifecycleDeliverable 的数据消费关系
-  3. 已识别产品与研发之间的天然联动点:如产品 milestone → 研发 deliverable 状态,产品文档 → 研发知识库
-  4. 已评估联动模式:弱关联(参考 v0.2.0 Phase 7 模式) vs 强关联(共享 store) vs 事件驱动(zustand subscribe)
-  5. 已输出联动方案建议:哪些联动在 v0.2.0 实施、哪些推迟到 v0.3+,数据流图和接口设计
+  1. AI Tool Use 架构搭建完成:tool registry(10-15 个静态工具)、context injection(完整上下文)、step-by-step 工具调用展示 UI
+  2. ⌘K command palette UI 上线,支持快速操作(创建任务、跳转产品、新建日程等)
+  3. Chat panel 支持多轮对话,可执行复杂规划任务(如 "帮我规划下周的工作")
+  4. 基础工具集可用:createTask、listTasks、updateTask、deleteTask、createProduct、listProducts、createScheduleEvent、listScheduleEvents 等
+  5. 错误处理分层:参数错误 AI 自动修正(最多 1 次重试),其他错误向用户解释
 **Plans**: TBD
-**UI hint**: no (research phase)
+**UI hint**: yes
+
+### Phase 11: AI 任务+日程闭环
+**Goal**: AI 深度参与任务管理和日程安排的全流程,用户可以用自然语言完成任务的创建/编辑/删除/安排
+**Depends on**: Phase 10 (AI 基础架构)
+**Requirements**: TBD (AI phase 需求待细化)
+**Success Criteria** (what must be TRUE):
+  1. 自然语言任务创建:"帮我创建一个任务,下周完成产品需求文档,优先级高" → 自动解析标题/截止日期/优先级
+  2. AI "安排到日历":用户说 "把这两个任务安排到下周" → AI 自动创建关联的 ScheduleEvent
+  3. 产品规划 AI 辅助:"帮我拆解这个产品的功能矩阵" → AI 基于产品描述生成功能建议
+  4. 截止日期智能建议:AI 基于任务依赖和历史数据建议合理的截止日期
+  5. 任务批量操作:"把所有高优先级任务标记为进行中" → AI 解析并执行
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 12: AI 文件+知识库
+**Goal**: AI 深度参与文件工作区和知识库的内容生产,用户可以通过自然语言生成/润色/组织知识内容
+**Depends on**: Phase 10 (AI 基础架构) + Phase 8 (MDXEditor 提供编辑能力)
+**Requirements**: TBD (AI phase 需求待细化)
+**Success Criteria** (what must be TRUE):
+  1. Workspace 文件操作 AI:"扫描这个工作区的文档,生成一份总结" → AI 读取文件并输出摘要
+  2. 知识库文章 AI 生成:"基于这次会议记录,写一篇知识库文章" → AI 生成 Markdown 内容并注入 MarkdownEditor
+  3. 产品文档 AI 辅助:"帮我写这个产品的 PRD" → AI 基于产品信息生成 PRD 草稿
+  4. R&D 交付物 AI 生成增强:现有 generateDeliverableAI 升级为 Tool Use 架构,支持更精细的上下文注入
+  5. 知识库内容组织:"把这些文章按主题分类" → AI 自动打标签/归类
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 5 → 6 → 7 → 8 → 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Task CRUD 补全 | 0/TBD | Not started | - |
 | 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
-| 7. 跨模块联动 | 0/TBD | Not started | - |
-| 8. Atomic Editor 调研 | 0/TBD | Not started | - |
-| 9. 产品-研发联动调研 | 0/TBD | Not started | - |
+| 7. 跨模块联动 + 产品-研发联动 | 0/TBD | Not started | - |
+| 8. MDXEditor 集成 | 0/TBD | Not started | - |
+| 10. AI 助手基础 | 0/TBD | Not started | - |
+| 11. AI 任务+日程闭环 | 0/TBD | Not started | - |
+| 12. AI 文件+知识库 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-08-10*
-*Granularity: coarse (5 phases for v0.2.0)*
-*Coverage: 34/34 v1 requirements mapped, 0 unmapped*
+*Last updated: 2026-08-10 after前置调研完成,追加 Phase 8/10-12*
+*Granularity: 7 phases (5-8 CRUD+联动+编辑器, 10-12 AI 驱动)*
+*Coverage: 24/24 v1 CRUD requirements mapped + AI phase requirements TBD*
 *Previous milestone: v0.1.0 (Phases 1-4, see header)*

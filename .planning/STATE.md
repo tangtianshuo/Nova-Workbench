@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v0.2.0
 milestone_name: 日常管理 CRUD + 弱关联
-status: ready-for-planning
-stopped_at: Roadmap created — ready for Phase 5 planning
+status: research-complete
+stopped_at: 前置调研均已完成, 待用户确认调研结论, 之后追加 Phase 10-12 (AI 驱动)
 last_updated: "2026-08-10"
 last_activity: 2026-08-10
 progress:
-  total_phases: 5
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
-  percent: 0
+  percent: 10
+  pre_research: 2 completed (Atomic Editor, 产品-研发联动)
 ---
 
 # Project State
@@ -25,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 5 (Task CRUD 补全)
+Phase: 7 phases 已规划 (5-8 CRUD+联动+编辑器, 10-12 AI 驱动)
 Plan: Not started
-Status: Ready for planning
-Last activity: 2026-08-10 — Roadmap created
+Status: 待开始 Phase 5 planning (/gsd:plan-phase 5)
+Last activity: 2026-08-10 — 前置调研完成 + Phase 8/10-12 追加到 roadmap
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 10% (前置调研完成, 7 phases 已规划)
 
 ## Accumulated Context
 
@@ -51,6 +52,12 @@ Recent decisions affecting v0.2.0:
 - [Milestone]: 看板拖拽使用 @dnd-kit/core@6.3.1(legacy line,React 19 兼容)
 - [Milestone]: 删除用确认对话框(无 undo) — 本地优先 app 最简方案
 - [Milestone]: "安排到日历"不自动同步截止日期变更 — 弱关联不是同步
+- [Milestone]: 产品-研发联动采用弱关联模式 A — rndStore 已有 productId 索引,L5/L6/L7 在 v0.2.0 实施
+- [Milestone]: 产品-研发联动 v0.2.0 实施范围:里程碑↔交付物状态(L5)、阶段↔phase 进度(L6)、删除产品级联清理 rndStore(L7)
+- [前置调研]: Atomic Editor 否决 — v0.6.2 单人项目,非通用组件库; 推荐 MDXEditor 作为 Markdown 编辑器方案
+- [前置调研]: Nova 6 处 react-markdown 使用中,仅 ProductKnowledgeTab + KnowledgeBaseView 有真正编辑需求
+- [前置调研]: MDXEditor (250KB gzip selective) + React.lazy() 延迟加载;纯渲染场景保持 react-markdown (33KB)
+- [前置调研]: 否决 Tiptap 因 Markdown 转换层开发量大(5-10天 vs 1-2天);否决 BlockNote 因 bundle 600KB+ 且 Tailwind 冲突
 - [Phase 01]: themeStore + Linux GTK detection shim (Wave 1)
 - [Phase 01]: SettingsView SegmentedControl + Header quick-toggle (Wave 2)
 - [Phase 01]: CSS color transitions in tokens.css (Wave 1)
@@ -68,6 +75,8 @@ Recent decisions affecting v0.2.0:
 
 - [ ] v0.1.0 各 Phase 运行时 UAT 待用户在 HUMAN-UAT.md 中确认
 - [ ] SEC-02/SEC-04/SEC-07 — UAT 完成后处理
+- [ ] 用户确认前置调研结论后,追加 Phase 10-12 (AI 驱动) 到 ROADMAP.md
+- [ ] 开始 /gsd:plan-phase 5 (Task CRUD 补全)
 
 ### Blockers/Concerns
 
@@ -75,8 +84,11 @@ None for v0.2.0.
 
 ### Roadmap Evolution
 
-- Phase 8 added: 调研 Atomic Editor 用于知识库和 Markdown 编辑场景 (2026-08-10)
-- Phase 9 added: 调研产品模块与产品研发模块的联动 (2026-08-10)
+- Phase 8/9 从 roadmap 中移出,改为前置调研即时执行 (2026-08-10)
+- 调研结果将输出到 `.planning/research/ATOMIC-EDITOR.md` 和 `.planning/research/PRODUCT-RND-LINKAGE.md`
+- 调研完成后将追加 Phase 10-12 (AI 驱动相关) 到 roadmap
+- Phase 8 原内容: Atomic Editor 调研
+- Phase 9 原内容: 产品-研发联动调研
 
 ### Key Pitfalls to Watch (v0.2.0)
 
@@ -97,5 +109,5 @@ None for v0.2.0.
 ## Session Continuity
 
 Last session: 2026-08-10
-Stopped at: Roadmap created — ready for Phase 5 planning
-Resume file: .planning/ROADMAP.md
+Stopped at: 前置调研进行中 — 等待 Atomic Editor + 产品-研发联动调研完成
+Resume file: .planning/research/ATOMIC-EDITOR.md (when complete), .planning/research/PRODUCT-RND-LINKAGE.md (when complete)

@@ -210,7 +210,7 @@ Views are automatically code-split via lazy loading in App.tsx. Product sub-comp
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**Nova PM Workspace**
+**Nova-PM-Workspace**
 
 Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。当前 v0.1.0 已交付完整的 PM 视图框架(产品/任务/研发/日程/文件/知识库)、Apple 风格设计系统、以及 Gemini Express 后端。下一步目标是按 `docs/ARCHITECTURE.md` 蓝图,把"AI native Agent 工作台"从 UI 框架落地到真正的 Rust 原生后端(GraphFlow + Rig + LanceDB + SQLite,零 Sidecar)。
 

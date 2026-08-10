@@ -524,5 +524,5 @@ Phases 5 and 6 are independent and could theoretically be parallelized, but sequ
 - ARCHITECTURE.md Phase A persistence research (JSON-blob pattern, `sqliteStorage` adapter) — HIGH confidence
 
 ---
-*Architecture research for: Nova PM Workspace — v0.2.0 Task/Schedule CRUD + Cross-Module Wiring*
+*Architecture research for: Nova-PM-Workspace — v0.2.0 Task/Schedule CRUD + Cross-Module Wiring*
 *Researched: 2026-08-10*

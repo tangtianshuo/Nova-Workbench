@@ -1,4 +1,4 @@
-# Requirements: Nova PM Workspace v0.2.0
+# Requirements: Nova-PM-Workspace v0.2.0
 
 **Defined:** 2026-08-10
 **Core Value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
@@ -40,21 +40,13 @@
 - [ ] **CROSS-06**: 用户点击关联徽章可跳转到对应模块并定位(产品→ProductManagementView,任务→TaskManagementView,日程→ScheduleView)
 - [ ] **CROSS-07**: 完成任务后,若有关联日程,日程同步标记完成(视觉降饱和,不删除)
 
-### Atomic Editor 调研 (Phase 8)
+### ~~Atomic Editor 调研~~ (前置调研,即时执行)
 
-- [ ] **EDITOR-01**: 完成 Atomic Editor 能力调研(功能集/扩展机制/主题定制)
-- [ ] **EDITOR-02**: 评估与 React 19 + Tauri WebView + Tailwind v4 的兼容性
-- [ ] **EDITOR-03**: 识别 Nova 中所有需要 Markdown 编辑的场景(知识库/产品文档/R&D 交付物/任务描述)
-- [ ] **EDITOR-04**: 对比替代方案(Milkdown/Tiptap/BlockNote/MDXEditor),给出推荐或否决理由
-- [ ] **EDITOR-05**: 输出集成方案建议(包大小/API 设计/Zustand 数据流)
+> EDITOR-01..05 已作为前置调研即时执行,不在 phase 序列中。调研结果输出到 `.planning/research/ATOMIC-EDITOR.md`。
 
-### 产品-研发联动调研 (Phase 9)
+### ~~产品-研发联动调研~~ (前置调研,即时执行)
 
-- [ ] **LINKAGE-01**: 梳理产品模块当前数据流(productStore → ProductManagementView → 16 个子组件)
-- [ ] **LINKAGE-02**: 梳理研发中心当前数据流(rndStore → RndCenterView → 18 个交付物)
-- [ ] **LINKAGE-03**: 识别产品与研发之间的天然联动点(milestone→deliverable、文档→知识库等)
-- [ ] **LINKAGE-04**: 评估联动模式(弱关联 vs 强关联 vs 事件驱动)的优劣和适用场景
-- [ ] **LINKAGE-05**: 输出联动方案建议(哪些 v0.2.0 实施、哪些 v0.3+,数据流图和接口设计)
+> LINKAGE-01..05 已作为前置调研即时执行,不在 phase 序列中。调研结果输出到 `.planning/research/PRODUCT-RND-LINKAGE.md`。
 
 ## v2 Requirements
 
@@ -143,20 +135,21 @@
 | CROSS-05 | Phase 7 | Pending |
 | CROSS-06 | Phase 7 | Pending |
 | CROSS-07 | Phase 7 | Pending |
-| EDITOR-01 | Phase 8 | Pending |
-| EDITOR-02 | Phase 8 | Pending |
-| EDITOR-03 | Phase 8 | Pending |
-| EDITOR-04 | Phase 8 | Pending |
-| EDITOR-05 | Phase 8 | Pending |
-| LINKAGE-01 | Phase 9 | Pending |
-| LINKAGE-02 | Phase 9 | Pending |
-| LINKAGE-03 | Phase 9 | Pending |
-| LINKAGE-04 | Phase 9 | Pending |
-| LINKAGE-05 | Phase 9 | Pending |
+| EDITOR-01 | 前置调研 | In progress |
+| EDITOR-02 | 前置调研 | In progress |
+| EDITOR-03 | 前置调研 | In progress |
+| EDITOR-04 | 前置调研 | In progress |
+| EDITOR-05 | 前置调研 | In progress |
+| LINKAGE-01 | 前置调研 | In progress |
+| LINKAGE-02 | 前置调研 | In progress |
+| LINKAGE-03 | 前置调研 | In progress |
+| LINKAGE-04 | 前置调研 | In progress |
+| LINKAGE-05 | 前置调研 | In progress |
 
 **Coverage:**
-- v1 requirements: 34 total (TASK: 9, SCHED: 8, CROSS: 7, EDITOR: 5, LINKAGE: 5)
-- Mapped to phases: 34
+- v1 requirements: 34 total (TASK: 9, SCHED: 8, CROSS: 7, EDITOR: 5 前置调研, LINKAGE: 5 前置调研)
+- Mapped to phases (5-7): 24
+- 前置调研 (即时执行): 10
 - Unmapped: 0 ✓
 
 ---

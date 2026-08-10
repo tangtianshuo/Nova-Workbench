@@ -1,7 +1,7 @@
 [package]
-name = "nova"
+name = "nova_pm_workspace"
 version = "0.1.0"
-description = "Nova - Product & R&D Lifecycle Workspace"
+description = "Nova-PM-Workspace - Product & R&D Lifecycle Workspace"
 authors = ["Brandon"]
 edition = "2021"
 

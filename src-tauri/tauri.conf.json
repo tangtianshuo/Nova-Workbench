@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicoverbruggen/tauri-v2-schema/main/schema.json",
-  "productName": "Nova",
+  "productName": "Nova-PM-Workspace",
   "version": "0.1.0",
   "identifier": "com.nova.pm-workspace",
   "build": {

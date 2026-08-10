@@ -8,7 +8,7 @@
 
 ## 1. 概述
 
-PM Pipeline 是 Nova PM Workspace 的核心功能，实现 **需求→PRD→原型→代码→测试** 的自动化生成流程，并在关键节点提供 **Human-in-the-Loop (HITL)** 人工确认机制。
+PM Pipeline 是 Nova-PM-Workspace 的核心功能，实现 **需求→PRD→原型→代码→测试** 的自动化生成流程，并在关键节点提供 **Human-in-the-Loop (HITL)** 人工确认机制。
 
 ### 1.1 设计目标
 

@@ -1,4 +1,4 @@
-# Nova PM Workspace - 架构设计文档
+# Nova-PM-Workspace - 架构设计文档
 
 > 版本: 1.0  
 > 日期: 2026-08-07  
@@ -8,7 +8,7 @@
 
 ## 1. 产品定位
 
-**Nova PM Workspace** 是一个 **AI native 的产品经理工作台**，核心愿景：
+**Nova-PM-Workspace** 是一个 **AI native 的产品经理工作台**，核心愿景：
 
 > 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent
 

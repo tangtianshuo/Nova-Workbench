@@ -1,6 +1,6 @@
 # 决策记录 (Architecture Decision Records)
 
-> 本文档记录 Nova PM Workspace 的关键技术决策
+> 本文档记录 Nova-PM-Workspace 的关键技术决策
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### 背景
 
-Nova PM Workspace 作为产品经理工作台，需要处理敏感的产品文档、PRD、代码等数据。需要确定数据存储和 LLM 调用的架构模式。
+Nova-PM-Workspace 作为产品经理工作台，需要处理敏感的产品文档、PRD、代码等数据。需要确定数据存储和 LLM 调用的架构模式。
 
 ### 决策
 

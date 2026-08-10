@@ -1,4 +1,4 @@
-# Nova PM Workspace - 设计文档
+# Nova-PM-Workspace - 设计文档
 
 > AI native 产品经理工作台的技术设计与架构文档
 

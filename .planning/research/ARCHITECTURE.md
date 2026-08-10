@@ -456,5 +456,5 @@ Zustand's `persist` middleware hydrates asynchronously when the storage is async
 - [graph-flow crate](https://crates.io/crates/graph-flow) — HIGH confidence. Version 0.2.x as of research date.
 
 ---
-*Architecture research for: Nova PM Workspace — Tauri-native migration*
+*Architecture research for: Nova-PM-Workspace — Tauri-native migration*
 *Researched: 2026-08-08*

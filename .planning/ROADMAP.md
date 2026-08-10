@@ -86,7 +86,12 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   5. 删除已关联的日程时,任务的 scheduledEventId 自动清空;删除已关联的任务时,日程的 taskId 自动清空 —— 双向清理,不留孤儿引用
   6. 里程碑面板展示关联交付物的 ready/draft/generating 状态(L5 milestone.deliverableCodes → FullLifecycleDeliverable.status)
   7. 产品治理视图和研发中心视图都展示当前阶段的交付物就绪率(L6 product.stage → deliverable.phase 进度)
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 07-01-PLAN.md — store 契约层 (scheduleStore 5 actions + rndStore 2 actions + ProductMilestone.deliverableCodes + AppContext wrappers: arrangeOnCalendar + doDeleteProduct)
+- [ ] 07-02-PLAN.md — 任务->日历 UI + 关联徽章 + 跳转 (TaskKanban DotsMenu + ScheduleView chip 徽章)
+- [ ] 07-03-PLAN.md — 删除产品级联清理 Dialog + CROSS-07/CROSS-05 UAT
+- [ ] 07-04-PLAN.md — 产品-研发联动 L5/L6 (里程碑交付物徽章 + 阶段就绪率)
+- [ ] 07-05-PLAN.md — Phase 7 全量 UAT checkpoint (35 步端到端)
 **UI hint**: yes
 
 ### Phase 8: MDXEditor 集成

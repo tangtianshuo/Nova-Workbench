@@ -19,11 +19,13 @@ export function isTauri(): boolean {
  */
 
 // Wire types matching src-tauri/src/commands.rs StreamChunk enum
-// (tag = "kind", content = "data" — serde internal tagging)
+// (tag = "kind", content = "data" — serde internal tagging). Token payload is
+// NESTED: {"kind":"token","data":{"text":"..."}} (asserted by Rust unit test
+// streamchunk_token_serializes_tagged). `data` is absent on the unit `done`
+// variant — serde omits content for unit variants.
 interface StreamChunk {
   kind: 'token' | 'done' | 'error';
-  text?: string; // present when kind === 'token'
-  message?: string; // present when kind === 'error'
+  data?: { text?: string; message?: string }; // token→data.text, error→data.message
 }
 
 export interface GenerateProjectResult {
@@ -53,7 +55,7 @@ export async function streamGenerateProject(
     const requestId = crypto.randomUUID(); // D-05: frontend generates, Rust uses as map key
     const channel = new Channel<StreamChunk>();
     channel.onmessage = (msg) => {
-      if (msg.kind === 'token' && msg.text) onToken(msg.text);
+      if (msg.kind === 'token' && msg.data?.text) onToken(msg.data.text);
       // 'done' and 'error' handled by invoke() resolve/reject below
     };
     // D-04 + D-05: AbortSignal (frontend) → cancel_generate_project IPC (Rust)

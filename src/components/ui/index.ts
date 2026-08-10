@@ -27,6 +27,7 @@ export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 
 // Overlay & Modal
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogOverlay, DialogHeader, DialogFooter, DialogBody, DialogAnimated } from './Dialog';
+export { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from './Drawer';
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from './Popover';
 export { Tooltip, TooltipProvider } from './Tooltip';
 

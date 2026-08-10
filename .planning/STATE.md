@@ -4,13 +4,13 @@ milestone: v0.1.0
 milestone_name: Recap
 status: executing
 stopped_at: Completed 05-04-PLAN.md (TaskKanban rewrite + @dnd-kit/core)
-last_updated: "2026-08-10T08:54:20.065Z"
+last_updated: "2026-08-10T08:59:41.750Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 10
 ---
 
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 05 (task-crud) — EXECUTING
-Plan: 5 of 5
+Phase: 06
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-08-10
 

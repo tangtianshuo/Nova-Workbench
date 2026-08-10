@@ -64,7 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = gemini::Client::new(&api_key)?;
 
     // completion_model is synchronous — returns the model directly (not Result).
-    let model = client.completion_model("gemini-2.0-flash");
+    // gemini-2.0-flash shut down by Google 2026-06-01; keep in sync with llm.rs.
+    let model = client.completion_model("gemini-3.6-flash");
 
     let prompt = "Say one short sentence about Rust.";
     let system = "You are a terse assistant. Reply in one sentence.";

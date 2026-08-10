@@ -41,7 +41,11 @@ pub async fn stream_generate(
     // can change between calls (Pitfall 4).
     let client = rig_core::providers::gemini::Client::new(api_key.to_string())
         .map_err(|e| AppError::InternalError(format!("rig client init: {}", e)))?;
-    let model = client.completion_model("gemini-2.0-flash");
+    // ponytail: gemini-2.0-flash was shut down by Google on 2026-06-01
+    // (Gemini API deprecations). Aligned with server.ts's gemini-3.6-flash;
+    // rig takes the model name as a plain string, so no provider change.
+    // Keep the two call sites in sync until multi-model lands (Phase 4).
+    let model = client.completion_model("gemini-3.6-flash");
 
     // D-24: system instruction goes via `.preamble(...)` (rig maps it to
     // Gemini's `system_instruction` field — verified in

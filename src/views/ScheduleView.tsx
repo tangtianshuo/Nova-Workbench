@@ -20,20 +20,24 @@ export function ScheduleView() {
   const daysInMonth = 31;
   const firstDayOfMonth = 4;
 
+  // Plan 06-01 temp shim: date is now YYYY-MM-DD string.
+  // Plan 06-03 will completely rewrite this view around currentMonth state.
+  const dayFromDate = (d: string): number => Number(d.slice(-2));
+
   const days = Array.from({ length: 42 }, (_, i) => {
     const day = i - firstDayOfMonth + 1;
     return {
       date: day,
       isCurrentMonth: day > 0 && day <= daysInMonth,
       isToday: day === 15,
-      hasEvents: events.some(e => e.date === day),
-      dayEvents: events.filter(e => e.date === day),
+      hasEvents: events.some(e => dayFromDate(e.date) === day),
+      dayEvents: events.filter(e => dayFromDate(e.date) === day),
     };
   });
 
   const upcomingEvents = events
-    .filter(e => e.date >= 15)
-    .sort((a, b) => a.date - b.date)
+    .filter(e => dayFromDate(e.date) >= 15)
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5);
 
   return (
@@ -111,10 +115,10 @@ export function ScheduleView() {
                   <div className="flex justify-between items-start mb-1.5">
                     <h4 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">{event.title}</h4>
                     <Badge
-                      variant={event.date === 15 ? 'accent' : event.date === 16 ? 'success' : 'neutral'}
+                      variant={dayFromDate(event.date) === 15 ? 'accent' : dayFromDate(event.date) === 16 ? 'success' : 'neutral'}
                       className="text-[10px]"
                     >
-                      {event.date === 15 ? '今天' : event.date === 16 ? '明天' : `5月${event.date}日`}
+                      {dayFromDate(event.date) === 15 ? '今天' : dayFromDate(event.date) === 16 ? '明天' : `5月${dayFromDate(event.date)}日`}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-text-tertiary mb-2">

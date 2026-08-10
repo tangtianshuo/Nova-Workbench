@@ -63,7 +63,7 @@ export function AgentWorkspaceView() {
           id: Date.now().toString(),
           title: '沟通需求会议',
           time: '10:00 - 11:30',
-          date: 16,
+          date: '2025-05-16',
           type: 'meeting',
           location: '会议室 3A'
         });

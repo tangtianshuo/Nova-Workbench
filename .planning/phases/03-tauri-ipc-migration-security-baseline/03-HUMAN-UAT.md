@@ -23,12 +23,12 @@ persistence check).
 - **轮次 1 — dev mode 核心动线**:`npm run tauri:dev`,3 大项(API key / Streaming / 错误处理)
 - **轮次 2 — prod build 工程验证**:`npm run tauri:build`,8 项(CSP / IPC / 127.0.0.1 / 生产 streaming)
 
-期间发现 3 个真 bug + 1 个 Phase 1 漏检(全已修),见 [Issues Found](#issues-found)。
+期间发现 5 个问题(全已修,含 1 个 Phase 1 漏检),见 [Issues Found](#issues-found)。
 
 
 ## Current Test
 
-[轮次 1 进行中 — UAT#3 pass;UAT#2 发现 Issue #4(streaming 预览永不渲染,Rust/JS wire shape 错配)已修,等待用户重测 streaming + Stop]
+[轮次 1 进行中 — UAT#3 pass;UAT#2 先后发现 Issue #4(streaming 预览永不渲染,wire shape 错配)与 Issue #5(Rust 硬编码 gemini-2.0-flash 已被 Google 于 2026-06-01 关停),均已修,等待用户换有效 Gemini key 重测 streaming + Stop]
 
 ## Tests
 
@@ -56,7 +56,7 @@ persistence check).
   12. Click "停止生成" mid-stream
   13. Verify generation halts within 1 second
   14. Verify NO error toast (D-14: Cancelled is silent)
-- **result:** issue (fixed, awaiting retest) — 2026-08-10 用户重测报"没有找到流式输出的位置"。诊断为 Issue #4:`api.ts` onmessage 读扁平 `msg.text`,而 Rust StreamChunk 序列化为嵌套 `{kind:'token', data:{text}}`(serde tag+content,Rust 单测 streamchunk_token_serializes_tagged 断言此形状)→ onToken 从未触发 → `streamedText` 恒空 → 实时生成预览条件渲染永不出现,但 invoke() 仍带完整 content resolve,所以"生成成功但看不到流"。修复:`api.ts` 改读 `msg.data?.text`(tsc clean)。等待用户重测 streaming 可见性 + Stop 行为。
+- **result:** issue (fixed, awaiting retest) — 2026-08-10 用户重测报"没有找到流式输出的位置"。诊断为 Issue #4:`api.ts` onmessage 读扁平 `msg.text`,而 Rust StreamChunk 序列化为嵌套 `{kind:'token', data:{text}}`(serde tag+content,Rust 单测 streamchunk_token_serializes_tagged 断言此形状)→ onToken 从未触发 → `streamedText` 恒空 → 实时生成预览条件渲染永不出现,但 invoke() 仍带完整 content resolve,所以"生成成功但看不到流"。修复:`api.ts` 改读 `msg.data?.text`(tsc clean)。重测时又撞 Issue #5(硬编码模型已下线,有效 key 也必挂),一并修掉。等待用户换有效 Gemini key 重测 streaming 可见性 + Stop 行为。
 
 ### 3. Error handling (IPC-06 + D-14)
 
@@ -130,8 +130,8 @@ persistence check).
 
 total: 35
 passed: 3  (UAT#1 API key flow + UAT#3 error toast + UAT#4 Dev parity)
-issues: 4  (全已修,见 Issues Found)
-pending: 29 (UAT#2 streaming 重测 1 项(Issue #4 已修);Wave 4 prod build 8 项 + 子项 ≈ 28 项)
+issues: 5  (全已修,见 Issues Found)
+pending: 29 (UAT#2 streaming 重测 1 项(Issue #4/#5 已修);Wave 4 prod build 8 项 + 子项 ≈ 28 项)
 skipped: 0
 blocked: 0
 
@@ -164,13 +164,20 @@ blocked: 0
 - **修复:** `api.ts` StreamChunk interface 改为 `{ kind, data?: { text?, message? } }`,onmessage 读 `msg.data?.text`。tsc clean(api.ts 零错误;仓库存量 5 处类型错误见下方债务清单,与本修无关)。
 - **影响 phase:** P3。
 
+### #5. Rust 硬编码模型 gemini-2.0-flash 已被 Google 下线(P3 实施遗漏)
+- **现象:** 用户换 key 重测 UAT#2 仍报"无效 Key",并追问"项目真的能接入 LLM 吗"。
+- **根因:** `src-tauri/src/llm.rs` 硬编码 `gemini-2.0-flash` —— Google 已于 **2026-06-01 正式关停**该模型(Gemini API deprecations),即便持有有效 key 请求也必然失败;而 web 路径 `server.ts` 用的是 `gemini-3.6-flash`,两条 LLM 路径的模型名不一致。Phase 3 实施时 spike(example)与 llm.rs 抄的是当时的现役模型,之后未跟随 Google 的模型生命周期更新。
+- **修复:** `llm.rs` + `examples/rig_stream_check.rs` 对齐到 `gemini-3.6-flash`(rig 按纯字符串传模型名,无需 provider 改动);两处加 ponytail 注释标注关停日期与"保持双调用点同步,多模型支持是 Phase 4"。
+- **顺带结论(已答复用户):** "API key 无效" toast 本身证明 Tauri→rig-core→Google 链路是通的(该文案映射的是 Google 的真实拒绝响应);项目只认 Google Gemini key(`AIza...`,aistudio.google.com/apikey 免费申请),多厂商是 Phase 4;web dev 模式 Settings 存的 key 无效(Express 读 `.env` 的 `GEMINI_API_KEY`,而 `.env` 当前不存在,故 web 模式全走 canned fallback)。
+- **影响 phase:** P3。
+
 ### 债务清单(本轮 UAT 顺带发现 — 2026-08-10 已全部清掉)
 1. ~~工作树未提交积压~~ → 已分 5 批提交:`feae162`(tokens rename + z-index)/ `e47742d`(Toast 色条)/ `a269354`(AI 智能创建入口)/ `fbb14aa`(6 个 product tab polish)/ `cc056f7`(vite es2022 target)。
 2. ~~存量 tsc 错误 5 处~~ → `7cb052d` 清零:FileCheck unused import 删除(该组件在主 bundle 图内,不修 Wave 4 rollup 直接失败);Avatar `name`→`fallback` ×3;SettingsView 桌面通知 Switch 改受控(motion thumb 依赖 checked prop,uncontrolled 下视觉不动)。`npm run lint` exit 0。
 
 ## Gaps
 
-[UAT#1/#3 ✓;UAT#2 Issue #4 已修,等待重测 streaming/Stop;Wave 4 prod build 8 项待跑(债务清单已全清,无已知阻塞项)]
+[UAT#1/#3 ✓;UAT#2 Issue #4/#5 均已修,等待用户换有效 Gemini key 重测 streaming/Stop;Wave 4 prod build 8 项待跑(债务清单已全清,无已知阻塞项)]
 
 ---
 

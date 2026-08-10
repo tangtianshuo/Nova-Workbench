@@ -131,6 +131,13 @@ interface AppContextType {
   addLocalIndexedFile: (file: LocalIndexedFile) => void;
   completeTask: (taskId: string) => void;
   getProjectTaskCount: (projectIdOrName?: string) => number;
+
+  // Phase 5 CRUD delegates (TASK-07/08)
+  updateTask: (taskId: string, updates: Partial<Task>) => void;
+  deleteTask: (taskId: string) => void;
+  reopenTask: (taskId: string) => void;
+  moveTask: (taskId: string, fromCatId: string, toCatId: string) => void;
+  setTaskProject: (taskId: string, projectId: string | undefined) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -194,6 +201,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addCategory = useTaskStore((s) => s.addCategory);
   const completeTask = useTaskStore((s) => s.completeTask);
   const getProjectTaskCount = useTaskStore((s) => s.getProjectTaskCount);
+  // Phase 5 CRUD delegates
+  const updateTask = useTaskStore((s) => s.updateTask);
+  const deleteTask = useTaskStore((s) => s.deleteTask);
+  const reopenTask = useTaskStore((s) => s.reopenTask);
+  const moveTask = useTaskStore((s) => s.moveTask);
+  const setTaskProject = useTaskStore((s) => s.setTaskProject);
 
   const addEvent = useScheduleStore((s) => s.addEvent);
 
@@ -248,6 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addProductMilestone, updateMilestoneStatus,
     addWorkspace, updateWorkspace, deleteWorkspace, addLocalIndexedFile,
     completeTask, getProjectTaskCount,
+    updateTask, deleteTask, reopenTask, moveTask, setTaskProject,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

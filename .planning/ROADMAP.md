@@ -25,7 +25,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 ## Phases
 
 - [ ] **Phase 5: Task CRUD 补全** — taskStore actions (update/delete/reopen/move) + TaskDialog (create/edit) + TaskKanban 卡片菜单 + DnD 拖拽 + 弱关联字段 (projectId?/scheduledEventId?) + persist v2 migration
-- [ ] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task'
+- [x] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task' (completed 2026-08-10)
 - [ ] **Phase 7: 跨模块联动 + 产品-研发联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记 + 产品-研发联动 (L5 里程碑↔交付物状态 / L6 阶段↔phase 进度 / L7 删除产品级联清理 rndStore)
 - [ ] **Phase 8: MDXEditor 集成** — 新增 MarkdownEditor 组件封装 MDXEditor + React.lazy() 延迟加载 + ProductKnowledgeTab 替换 Textarea + KnowledgeBaseView 实现编辑按钮 + Tailwind v4 样式共存验证
 - [ ] **Phase 9: AI 助手基础** — Hand-rolled tool registry + tool loop (JS webview 内,~200 LOC) + ⌘K command palette (Raycast-style) + slide-out chat panel (400-480px) + 10-15 基础 tools + multi-provider LLM (DeepSeek/Claude/GPT/Gemini/Ollama via rig-core) + core context injection (~500-1000 tokens) + 通用 LLM proxy endpoint
@@ -71,7 +71,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 - [x] 06-01-PLAN.md — scheduleStore 类型扩展 + 3 action + persist v2 + AppContext 委托
 - [x] 06-02-PLAN.md — ScheduleDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
 - [x] 06-03-PLAN.md — ScheduleView 重写: currentMonth state + 真实月历 + 月份切换 + Dialog 接入
-- [ ] 06-04-PLAN.md — Phase 6 全量 UAT checkpoint
+- [x] 06-04-PLAN.md — Phase 6 全量 UAT checkpoint
 **UI hint**: yes
 
 ### Phase 7: 跨模块联动 + 产品-研发联动
@@ -178,7 +178,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Task CRUD 补全 | 5/5 | ✅ Complete | 2026-08-10 |
-| 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
+| 6. Schedule CRUD + 真实日历 | 4/4 | Complete   | 2026-08-10 |
 | 7. 跨模块联动 + 产品-研发联动 | 0/TBD | Not started | - |
 | 8. MDXEditor 集成 | 0/TBD | Not started | - |
 | 9. AI 助手基础 | 0/TBD | Context gathered | - |

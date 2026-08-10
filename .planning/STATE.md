@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
 status: planning
-stopped_at: Phase 10 context gathered, 22 decisions locked, ready for planning
+stopped_at: Phase 9 context gathered, 22 decisions locked, ready for planning
 last_updated: "2026-08-10T07:56:08.432Z"
 last_activity: "2026-08-10 - Completed quick task 260810-jwv: 项目重命名为 Nova-PM-Workspace"
 progress:
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 7 phases 已规划 (5-8 CRUD+联动+编辑器, 10-12 AI 驱动)
+Phase: 7 phases 已规划 (5-8 CRUD+联动+编辑器, 9-11 AI 驱动)
 Plan: Not started
 Status: 待开始 Phase 5 planning (/gsd:plan-phase 5)
 Last activity: 2026-08-10 - Completed quick task 260810-jwv: 项目重命名为 Nova-PM-Workspace
@@ -74,7 +74,7 @@ Recent decisions affecting v0.2.0:
 
 - [ ] v0.1.0 各 Phase 运行时 UAT 待用户在 HUMAN-UAT.md 中确认
 - [ ] SEC-02/SEC-04/SEC-07 — UAT 完成后处理
-- [x] 用户确认前置调研结论后,追加 Phase 8/10-12 到 ROADMAP.md
+- [x] 用户确认前置调研结论后,追加 Phase 8/9-11 到 ROADMAP.md
 - [ ] 开始 /gsd:plan-phase 5 (Task CRUD 补全)
 - [ ] Task 3: 用户手动重命名磁盘目录 pm-workspace → Nova-PM-Workspace
 
@@ -92,7 +92,7 @@ None for v0.2.0.
 
 - Phase 8/9 从 roadmap 中移出,改为前置调研即时执行 (2026-08-10)
 - 调研结果将输出到 `.planning/research/ATOMIC-EDITOR.md` 和 `.planning/research/PRODUCT-RND-LINKAGE.md`
-- 调研完成后将追加 Phase 10-12 (AI 驱动相关) 到 roadmap
+- 调研完成后将追加 Phase 9-11 (AI 驱动相关) 到 roadmap
 - Phase 8 原内容: Atomic Editor 调研
 - Phase 9 原内容: 产品-研发联动调研
 
@@ -115,5 +115,5 @@ None for v0.2.0.
 ## Session Continuity
 
 Last session: 2026-08-10T07:56:08.427Z
-Stopped at: Phase 10 context gathered, 22 decisions locked, ready for planning
-Resume file: .planning/phases/10-ai/10-CONTEXT.md
+Stopped at: Phase 9 context gathered, 22 decisions locked, ready for planning
+Resume file: .planning/phases/9-ai/9-CONTEXT.md

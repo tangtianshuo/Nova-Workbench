@@ -1,7 +1,7 @@
-# Phase 10 Discussion Log
+# Phase 9 Discussion Log
 
 **Date:** 2026-08-10  
-**Topic:** AI 架构决策 — Phase 10 基础 Tool Use 架构  
+**Topic:** AI 架构决策 — Phase 9 基础 Tool Use 架构  
 **Duration:** ~60 min (6 areas discussed)  
 **Outcome:** 22 decisions locked (D-01 through D-22)
 
@@ -9,7 +9,7 @@
 
 ## Context
 
-User triggered `/gsd:discuss-phase` with argument "与我讨论一下0.2 阶段的 AI 相关内容。通过什么架构实现ai 功能。" — mapped to Phase 10 (first AI phase in v0.2.0 roadmap).
+User triggered `/gsd:discuss-phase` with argument "与我讨论一下0.2 阶段的 AI 相关内容。通过什么架构实现ai 功能。" — mapped to Phase 9 (first AI phase in v0.2.0 roadmap).
 
 **Critical product positioning revealed mid-discussion:** Nova is primarily a **commercial PM productivity tool** targeting product managers. Resume/portfolio value is Plan B only if commercialization fails. This fundamentally shaped architecture choices — commercial stability > framework buzzwords.
 
@@ -51,10 +51,10 @@ Tool execution loop 放在 JS (webview) 还是 Rust (Tauri backend)?
 ## Area B: GraphFlow 处理
 
 ### Question
-GraphFlow (Rust workflow engine, pre-1.0) 是否在 Phase 10 引入?
+GraphFlow (Rust workflow engine, pre-1.0) 是否在 Phase 9 引入?
 
 ### Options Considered
-- **B1: Introduce GraphFlow in Phase 10** — use for tool orchestration, HITL prep
+- **B1: Introduce GraphFlow in Phase 9** — use for tool orchestration, HITL prep
 - **B2: Defer to v0.3+** — maintain v0.1.0 Phase 4 decision, evaluate maturity later
 - **B3: Use LangGraph.js instead** — JS-native, more mature ecosystem
 
@@ -71,7 +71,7 @@ GraphFlow (Rust workflow engine, pre-1.0) 是否在 Phase 10 引入?
 
 ### Decisions Locked
 - D-06: GraphFlow deferred to v0.3+ (maintain v0.1.0 Phase 4 decision)
-- D-07: Phase 10 tool loop designed to be "GraphFlow-node-wrapable" (registry is Map, not framework)
+- D-07: Phase 9 tool loop designed to be "GraphFlow-node-wrapable" (registry is Map, not framework)
 - D-08: v0.3+ evaluate GraphFlow maturity; if still pre-1.0, continue hand-rolled
 
 ---
@@ -147,17 +147,17 @@ What chat interaction forms to support?
 - **E4: All three forms** — slide-out (primary) + ⌘K + full-page for long conversations
 
 ### Resolution
-- **Selected: E4 (All three, Phase 10 delivers first two)**
+- **Selected: E4 (All three, Phase 9 delivers first two)**
 - Long-term goal:
   1. **Slide-out panel (primary)** — right-side, ⌘K or icon, follows industry standard (Cursor/Claude Desktop/Notion AI/Linear)
   2. **⌘K command palette** — quick commands, also triggers AI conversation (Raycast-style)
   3. **AgentWorkspaceView (existing)** — upgrade to real AI, "long conversation" entry
-- Phase 10 delivers: slide-out + ⌘K
-- Phase 11/12: upgrade AgentWorkspaceView
+- Phase 9 delivers: slide-out + ⌘K
+- Phase 10/12: upgrade AgentWorkspaceView
 - **Rationale:** PM workflow is "look at task board + ask AI" — slide-out doesn't interrupt context. Three forms cover different use cases.
 
 ### Decisions Locked
-- D-16: Three chat forms long-term; Phase 10 delivers first two
+- D-16: Three chat forms long-term; Phase 9 delivers first two
 - D-17: Slide-out panel is primary interaction (industry standard pattern)
 - D-18: ⌘K triggers both command palette and AI conversation (Raycast-style)
 
@@ -207,7 +207,7 @@ What to do with the 5 Express AI endpoints (generate-project, summarize-workspac
 The following were left to Claude's discretion (not explicitly discussed):
 - Tool registry file organization (single file vs domain-split)
 - Slide-out panel animation/styling (follow tokens.css design system)
-- ⌘K command list (derive from Phase 10 success criteria)
+- ⌘K command list (derive from Phase 9 success criteria)
 - Core context serialization format (compact JSON vs Markdown)
 - Error handling layering (parameter error → AI retry 1x vs direct error)
 
@@ -218,7 +218,7 @@ These will be resolved during `/gsd:plan-phase 10`.
 ## Outcome
 
 **22 decisions locked** across 6 areas (A-F).  
-**CONTEXT.md generated:** `.planning/phases/10-ai/10-CONTEXT.md`  
+**CONTEXT.md generated:** `.planning/phases/9-ai/9-CONTEXT.md`  
 **Next step:** `/gsd:plan-phase 10` — downstream agents read CONTEXT.md and produce implementation plan.
 
 ---

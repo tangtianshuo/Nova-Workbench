@@ -1,4 +1,4 @@
-# Phase 10: AI 助手基础 - Context
+# Phase 9: AI 助手基础 - Context
 
 **Gathered:** 2026-08-10
 **Status:** Ready for planning
@@ -8,7 +8,7 @@
 
 搭建 AI 驱动的 Tool Use 架构基础,让用户通过 ⌘K command palette 和 chat panel 使用自然语言执行基础操作。**本 phase 聚焦单轮或短链 tool use (1-2 步)**,不涉及复杂 multi-step pipeline。Pipeline / HITL / checkpointing 留到 v0.3+ 评估 GraphFlow 成熟度后再上。
 
-**In scope (Phase 10):**
+**In scope (Phase 9):**
 - Tool registry + tool loop (hand-rolled in JS)
 - ⌘K command palette
 - Slide-out chat panel + 现有 AgentWorkspaceView 升级
@@ -39,7 +39,7 @@
 
 ### B. GraphFlow 处理
 - **D-06:** GraphFlow 继续 defer 到 v0.3+,维持 v0.1.0 Phase 4 决定
-- **D-07:** Phase 10 的 tool loop 设计时预留"可被 GraphFlow 节点包装"的接口 (tool registry 是 Map,不是 framework)
+- **D-07:** Phase 9 的 tool loop 设计时预留"可被 GraphFlow 节点包装"的接口 (tool registry 是 Map,不是 framework)
 - **D-08:** v0.3+ 时评估 GraphFlow 成熟度,如果仍然是 pre-1.0 则继续 hand-rolled
 
 **Rationale:** 商用产品需要稳定依赖,pre-1.0 crate 不合适。LangGraph.js 也是同样问题 (LangChain 生态 breaking changes 多)。
@@ -70,7 +70,7 @@
 **Rationale:** 商用产品必须支持多 provider (用户 BYOK + 成本优化)。rig-core 0.41 已原生支持,工程量小。
 
 ### E. Chat UI 形态
-- **D-16:** 三种形态长期目标,Phase 10 交付前两种:
+- **D-16:** 三种形态长期目标,Phase 9 交付前两种:
   1. **Slide-out panel (primary)** — 从任何页面右侧滑出,⌘K 或点击图标唤出
   2. **⌘K command palette** — 快速命令 (创建任务、跳转产品、新建日程等)
   3. **AgentWorkspaceView (existing)** — 升级为真 AI,作为"长对话专用"入口
@@ -92,7 +92,7 @@
 ### Claude's Discretion
 - Tool registry 的具体文件组织 (单文件 vs 按 domain 拆分)
 - Slide-out panel 的具体动画 / 样式 (遵循 tokens.css 设计系统)
-- ⌘K 命令列表 (基于 ROADMAP Phase 10 success criteria 推导)
+- ⌘K 命令列表 (基于 ROADMAP Phase 9 success criteria 推导)
 - Core context 的具体序列化格式 (compact JSON vs Markdown)
 - 错误处理分层 (参数错误 AI 重试 1 次 vs 直接报错)
 
@@ -103,7 +103,7 @@
 
 **Downstream agents MUST read these before planning or implementing.**
 
-### Architecture (needs updating to reflect Phase 10 decisions)
+### Architecture (needs updating to reflect Phase 9 decisions)
 - `docs/ARCHITECTURE.md` — 整体架构。需要更新:
   - GraphFlow 状态 (deferred, not active)
   - LangGraph.js 评估结论 (rejected for commercial stability)
@@ -111,11 +111,11 @@
 - `docs/TECH_STACK.md` — 技术选型。需要更新:
   - 工作流引擎选择 (hand-rolled tool loop for v0.2.0, GraphFlow TBD v0.3+)
   - LLM 集成 (rig-core multi-provider)
-- `docs/PIPELINE_DESIGN.md` — Pipeline 设计 (v0.3+ 参考,Phase 10 不实现)
+- `docs/PIPELINE_DESIGN.md` — Pipeline 设计 (v0.3+ 参考,Phase 9 不实现)
 
 ### Planning
-- `.planning/ROADMAP.md` — Phase 10 success criteria 是规划依据
-- `.planning/REQUIREMENTS.md` — Phase 10 的 AI phase requirements 待细化 (当前 TBD)
+- `.planning/ROADMAP.md` — Phase 9 success criteria 是规划依据
+- `.planning/REQUIREMENTS.md` — Phase 9 的 AI phase requirements 待细化 (当前 TBD)
 
 ### Existing Code (integration points)
 - `src/lib/api.ts` — IPC adapter,需扩展 chat 调用 (现有 streamGenerateProject 是参考)
@@ -124,7 +124,7 @@
 - `src/stores/` — 6 个 Zustand stores,tool 实现调用它们的 actions
 - `src/views/AgentWorkspaceView.tsx` — 现有 AI view (UI 壳,需升级)
 
-### Phase 10 Specific
+### Phase 9 Specific
 - `src/components/ui/` — UI primitives,slide-out panel 基于这些构建
 - `src/styles/tokens.css` — design tokens,slide-out panel 样式遵循
 
@@ -193,7 +193,7 @@
 - Web 版 Nova — 如果用户有需求,重新启用 Express 作为 web 后端
 
 ### 可能的未来增强
-- Tool use 可视化 (step-by-step display) — Phase 10 基础版,后续可增强
+- Tool use 可视化 (step-by-step display) — Phase 9 基础版,后续可增强
 - 多 agent 协作 — v0.3+ 评估需求
 - 离线模式 — 本地 LLM (Ollama) 支持,rig-core 已支持
 
@@ -201,5 +201,5 @@
 
 ---
 
-*Phase: 10-ai*
+*Phase: 9-ai*
 *Context gathered: 2026-08-10*

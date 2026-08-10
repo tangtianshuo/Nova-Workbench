@@ -2,7 +2,7 @@
 
 ## Overview
 
-v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动(含产品-研发联动)、Markdown 编辑器集成、以及 AI 驱动的完整工作闭环。Phase 5-8 为前端 + store 层工作,Phase 10-12 为 AI 驱动功能。
+v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 完成任务管理 CRUD 补全、日程管理 CRUD + 真实日历、跨模块弱关联联动(含产品-研发联动)、Markdown 编辑器集成、以及 AI 驱动的完整工作闭环。Phase 5-8 为前端 + store 层工作,Phase 9-11 为 AI 驱动功能。
 
 **Phase numbering continues from v0.1.0 (Phases 1-4).**
 
@@ -28,9 +28,9 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 - [ ] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task'
 - [ ] **Phase 7: 跨模块联动 + 产品-研发联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记 + 产品-研发联动 (L5 里程碑↔交付物状态 / L6 阶段↔phase 进度 / L7 删除产品级联清理 rndStore)
 - [ ] **Phase 8: MDXEditor 集成** — 新增 MarkdownEditor 组件封装 MDXEditor + React.lazy() 延迟加载 + ProductKnowledgeTab 替换 Textarea + KnowledgeBaseView 实现编辑按钮 + Tailwind v4 样式共存验证
-- [ ] **Phase 10: AI 助手基础** — Tool Use 架构搭建 (tool registry + context injection + step display) + ⌘K command palette UI + 基础工具集 (createTask/listTasks/createProduct 等) + chat panel 多轮对话
-- [ ] **Phase 11: AI 任务+日程闭环** — 自然语言任务创建/编辑/删除 + AI "安排到日历" + 产品规划 AI 辅助 + 截止日期智能建议
-- [ ] **Phase 12: AI 文件+知识库** — Workspace 文件操作 AI + 知识库文章 AI 生成/润色 + 产品文档 AI 辅助 + R&D 交付物 AI 生成增强
+- [ ] **Phase 9: AI 助手基础** — Hand-rolled tool registry + tool loop (JS webview 内,~200 LOC) + ⌘K command palette (Raycast-style) + slide-out chat panel (400-480px) + 10-15 基础 tools + multi-provider LLM (DeepSeek/Claude/GPT/Gemini/Ollama via rig-core) + core context injection (~500-1000 tokens) + 通用 LLM proxy endpoint
+- [ ] **Phase 10: AI 任务+日程闭环** — 扩展 tool set (updateTask/deleteTask/moveTask/rescheduleTask) + 自然语言任务 CRUD + AI "安排到日历" + multi-turn conversations + 截止日期智能建议 + 批量操作
+- [ ] **Phase 11: AI 文件+知识库** — 扩展 tool set (listWorkspaceFiles/readKnowledgeArticle/writeKnowledgeArticle) + workspace 文件摘要 + 知识库文章生成/润色 + 产品文档辅助 + R&D 交付物增强 (升级 generateDeliverableAI 到 Tool Use) + 知识组织
 
 ## Phase Details
 
@@ -93,49 +93,60 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 10: AI 助手基础
-**Goal**: 搭建 AI 驱动的 Tool Use 架构基础,用户可以通过 ⌘K command palette 或 chat panel 使用自然语言执行基础操作
+### Phase 9: AI 助手基础
+**Goal**: 搭建 AI 驱动的 Tool Use 架构基础,用户可以通过 ⌘K command palette 或 slide-out chat panel 使用自然语言执行基础操作
 **Depends on**: Phase 7 (复用弱关联字段作为 AI 操作目标)
+**Context**: `.planning/phases/9-ai/9-CONTEXT.md` (22 decisions locked, 2026-08-10)
 **Requirements**: TBD (AI phase 需求待细化)
 **Success Criteria** (what must be TRUE):
-  1. AI Tool Use 架构搭建完成:tool registry(10-15 个静态工具)、context injection(完整上下文)、step-by-step 工具调用展示 UI
-  2. ⌘K command palette UI 上线,支持快速操作(创建任务、跳转产品、新建日程等)
-  3. Chat panel 支持多轮对话,可执行复杂规划任务(如 "帮我规划下周的工作")
-  4. 基础工具集可用:createTask、listTasks、updateTask、deleteTask、createProduct、listProducts、createScheduleEvent、listScheduleEvents 等
-  5. 错误处理分层:参数错误 AI 自动修正(最多 1 次重试),其他错误向用户解释
+  1. Tool Use 架构搭建完成:hand-rolled tool registry (Map<name, tool>) + tool loop (~200 LOC,JS webview 内),tool schema 用 Zod 定义,JSON Schema 传给 Rust LLM call
+  2. ⌘K command palette UI 上线 (Raycast-style),同时触发命令菜单 + AI 对话,支持快速操作(创建任务、跳转产品、新建日程等)
+  3. Slide-out chat panel 从右侧滑出 (400-480px 宽,遵循 tokens.css 设计系统),支持多轮对话
+  4. 10-15 个基础 tools 可用:createTask、listTasks、listProducts、createScheduleEvent、listScheduleEvents、getProductDetails 等 (tool 实现 = Zustand store action 调用)
+  5. Multi-provider LLM 支持:DeepSeek/Claude/GPT/Gemini/Ollama via rig-core,Settings UI 有 provider selector + API key per provider,默认 DeepSeek V4 Flash
+  6. Core context injection 每次 LLM 调用注入 ~500-1000 tokens:selected product + active tasks (top 10) + upcoming events (next 7 days, top 5) + user preferences
+  7. Rust 端 `llm.rs` 扩展为 provider-agnostic + tool schema 转发 + tool call 解析;新增 `chat` Tauri command (支持 messages + tools parameter)
+  8. Express 简化:删除 5 个旧 AI 端点,保留 Vite middleware (dev HMR) + 单一 `/api/chat` LLM proxy (web 模式 fallback)
+  9. 错误处理分层:参数错误 AI 自动修正(最多 1 次重试),其他错误向用户解释
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 11: AI 任务+日程闭环
+### Phase 10: AI 任务+日程闭环
 **Goal**: AI 深度参与任务管理和日程安排的全流程,用户可以用自然语言完成任务的创建/编辑/删除/安排
-**Depends on**: Phase 10 (AI 基础架构)
+**Depends on**: Phase 9 (AI 基础架构) + Phase 7 (弱关联字段)
 **Requirements**: TBD (AI phase 需求待细化)
 **Success Criteria** (what must be TRUE):
-  1. 自然语言任务创建:"帮我创建一个任务,下周完成产品需求文档,优先级高" → 自动解析标题/截止日期/优先级
-  2. AI "安排到日历":用户说 "把这两个任务安排到下周" → AI 自动创建关联的 ScheduleEvent
-  3. 产品规划 AI 辅助:"帮我拆解这个产品的功能矩阵" → AI 基于产品描述生成功能建议
-  4. 截止日期智能建议:AI 基于任务依赖和历史数据建议合理的截止日期
-  5. 任务批量操作:"把所有高优先级任务标记为进行中" → AI 解析并执行
+  1. 扩展 tool set 包含任务/日程高级操作:updateTask、deleteTask、moveTask、rescheduleTask、associateTaskWithEvent
+  2. 自然语言任务 CRUD:"帮我创建一个任务,下周完成产品需求文档,优先级高" → 自动解析 title/dueDate/priority 并调用 createTask
+  3. 自然语言任务编辑/删除:"把这个任务优先级改为低" / "删除那个重复的任务" → AI 解析并调用 updateTask/deleteTask
+  4. AI "安排到日历":用户说 "把这两个任务安排到下周" → AI 调用 associateTaskWithEvent 创建 task→event 弱关联
+  5. Multi-turn conversations:"帮我规划下周工作" → AI 多步 tool use (listTasks → analyze → createScheduleEvents)
+  6. 截止日期智能建议:AI 基于任务依赖 + 历史数据建议合理的 dueDate (通过 getTaskDependencies tool)
+  7. 批量操作:"把所有高优先级任务标记为进行中" → AI 调用 listTasks(filter:{priority:'high'}) → 循环调用 updateTask
+  8. 产品规划 AI 辅助:"帮我拆解这个产品的功能矩阵" → AI 调用 getProductDetails → 生成功能建议
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 12: AI 文件+知识库
+### Phase 11: AI 文件+知识库
 **Goal**: AI 深度参与文件工作区和知识库的内容生产,用户可以通过自然语言生成/润色/组织知识内容
-**Depends on**: Phase 10 (AI 基础架构) + Phase 8 (MDXEditor 提供编辑能力)
+**Depends on**: Phase 9 (AI 基础架构) + Phase 8 (MDXEditor 提供编辑能力)
 **Requirements**: TBD (AI phase 需求待细化)
 **Success Criteria** (what must be TRUE):
-  1. Workspace 文件操作 AI:"扫描这个工作区的文档,生成一份总结" → AI 读取文件并输出摘要
-  2. 知识库文章 AI 生成:"基于这次会议记录,写一篇知识库文章" → AI 生成 Markdown 内容并注入 MarkdownEditor
-  3. 产品文档 AI 辅助:"帮我写这个产品的 PRD" → AI 基于产品信息生成 PRD 草稿
-  4. R&D 交付物 AI 生成增强:现有 generateDeliverableAI 升级为 Tool Use 架构,支持更精细的上下文注入
-  5. 知识库内容组织:"把这些文章按主题分类" → AI 自动打标签/归类
+  1. 扩展 tool set 包含文件/知识库操作:listWorkspaceFiles、readWorkspaceFile、readKnowledgeArticle、writeKnowledgeArticle、updateKnowledgeArticle
+  2. Workspace 文件摘要:"扫描这个工作区的文档,生成一份总结" → AI 调用 listWorkspaceFiles → 循环 readWorkspaceFile → 生成摘要
+  3. 知识库文章生成:"基于这次会议记录,写一篇知识库文章" → AI 生成 Markdown 内容 → 调用 writeKnowledgeArticle 注入 MarkdownEditor
+  4. 知识库文章润色:"帮我润色这篇文章" → AI 调用 readKnowledgeArticle → 优化内容 → 调用 updateKnowledgeArticle
+  5. 产品文档辅助:"帮我写这个产品的 PRD" → AI 调用 getProductDetails → 生成 PRD 草稿 (Markdown 格式)
+  6. R&D 交付物增强:现有 generateDeliverableAI (setTimeout mock) 升级为 Tool Use 架构,调用 getRndDeliverables tool 获取上下文,生成更精细的交付物
+  7. 知识组织:"把这些文章按主题分类" → AI 调用 listKnowledgeArticles → 分析内容 → 调用 updateKnowledgeArticle 打标签/归类
+  8. 知识库搜索 (预留):searchKnowledgeBase tool 接口定义完成,v0.3+ 接 LanceDB 向量检索
 **Plans**: TBD
 **UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7 → 8 → 10 → 11 → 12
+Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -143,13 +154,13 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 10 → 11 → 12
 | 6. Schedule CRUD + 真实日历 | 0/TBD | Not started | - |
 | 7. 跨模块联动 + 产品-研发联动 | 0/TBD | Not started | - |
 | 8. MDXEditor 集成 | 0/TBD | Not started | - |
-| 10. AI 助手基础 | 0/TBD | Not started | - |
-| 11. AI 任务+日程闭环 | 0/TBD | Not started | - |
-| 12. AI 文件+知识库 | 0/TBD | Not started | - |
+| 9. AI 助手基础 | 0/TBD | Context gathered | - |
+| 10. AI 任务+日程闭环 | 0/TBD | Not started | - |
+| 11. AI 文件+知识库 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-08-10*
-*Last updated: 2026-08-10 after前置调研完成,追加 Phase 8/10-12*
-*Granularity: 7 phases (5-8 CRUD+联动+编辑器, 10-12 AI 驱动)*
+*Last updated: 2026-08-10 after Phase 9 (原 Phase 10) context discussion*
+*Granularity: 7 phases (5-8 CRUD+联动+编辑器, 9-11 AI 驱动)*
 *Coverage: 24/24 v1 CRUD requirements mapped + AI phase requirements TBD*
 *Previous milestone: v0.1.0 (Phases 1-4, see header)*

@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1.0
-milestone_name: Recap
+milestone: v0.2.0
+milestone_name: CRUD + 弱关联 + AI 驱动
 status: executing
-stopped_at: Completed 05-04-PLAN.md (TaskKanban rewrite + @dnd-kit/core)
-last_updated: "2026-08-10T08:59:41.750Z"
+stopped_at: All Phase 6-10 plans committed; ready to execute Phase 6
+last_updated: "2026-08-10T17:30:00.000Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 5
+  total_plans: 22
   completed_plans: 5
-  percent: 10
+  percent: 23
 ---
 
 # Project State
@@ -21,16 +21,29 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 05 — task-crud
+**Current focus:** Phase 06 — schedule-crud (ready to execute)
 
 ## Current Position
 
-Phase: 06
-Plan: Not started
-Status: Ready to execute
+Phase: 06 (Schedule CRUD + 真实日历)
+Plan: 06-01 (Store/types layer + persist v2 migrate)
+Status: Ready to execute (4 plans across 4 sequential waves)
 Last activity: 2026-08-10
 
-Progress: [█░░░░░░░░░] 10% (前置调研完成, 7 phases 已规划)
+Progress: [██░░░░░░░░] 23% (Phase 5 完成 5/5, Phase 6-10 规划完成 22 plans,等待执行)
+
+## v0.2.0 Execution Status
+
+| Phase | Status | Plans | Notes |
+|-------|--------|-------|-------|
+| 5 Task CRUD | ✅ Complete (2026-08-10) | 5/5 | 9/9 verification passed; deferred to batch UAT |
+| 6 Schedule CRUD | 🟡 Plans ready | 0/4 | 4 plans, 4 sequential waves |
+| 7 跨模块联动 | 🟡 Plans ready | 0/5 | 5 plans, 4 waves (2 checkpoint) |
+| 8 MDXEditor | 🟡 Plans ready | 0/3 | 3 plans, 3 sequential waves |
+| 9 AI 基础 | 🟡 Plans ready | 0/6 | 6 plans, 6 waves (rig-core 多 provider 风险) |
+| 10 AI 任务+日程 | 🟡 Plans ready | 0/4 | 4 plans, 3 waves (**强依赖 Phase 9**) |
+
+**Execution order:** 6 → 7 → 8 → 9 → 10 (serial, due to dependencies)
 
 ## Accumulated Context
 
@@ -70,21 +83,31 @@ Recent decisions affecting v0.2.0:
 - [Phase 03]: ProjectCreateModal + SettingsApiKeySection UI wiring
 - [Phase 03]: CSP + capabilities + Express 127.0.0.1 + smoke test
 - [Phase 05]: Drawer built on Radix Dialog (translateX spring, width prop default 360) — Phase 9 reuses at width=480
-- [Phase 05]: Phase 5 Plan 01: Task 类型扩展 projectId?/scheduledEventId? 弱关联 + taskStore 5 actions (update/delete/reopen/move/setProject) + persist v2 migration + AppContext 兼容层委托
-- [Phase 05]: Phase 5 Plan 03: TaskDialog 双模式(create/edit) + Combobox 产品选择器(Popover-based)+ 嵌套删除确认 Dialog + TaskManagementView 新建任务按钮接入
-- [Phase 05-task-crud]: Phase 5 Plan 04: TaskKanban 重写 — inline 编辑(4 字段 + 400ms debounced autosave)+ DotsMenu(4 项操作)+ @dnd-kit/core 跨列 DnD(8px PointerSensor 阈值,derivedCount 实时计数)+ 产品徽章触发 ProductSummaryDrawer
+- [Phase 05]: Plan 01: Task 类型扩展 projectId?/scheduledEventId? 弱关联 + taskStore 5 actions + persist v2 migration + AppContext 兼容层委托
+- [Phase 05]: Plan 02: Drawer 可复用组件 + ProductSummaryDrawer 业务内容
+- [Phase 05]: Plan 03: TaskDialog 双模式(create/edit) + Combobox 产品选择器 + 嵌套删除确认
+- [Phase 05]: Plan 04: TaskKanban 重写 — inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
+- [Phase 05]: Plan 05: UAT checkpoint (deferred to batch UAT)
 
 ### Pending Todos
 
-- [ ] v0.1.0 各 Phase 运行时 UAT 待用户在 HUMAN-UAT.md 中确认
+- [ ] 执行 Phase 6 (4 plans, 4 waves)
+- [ ] 执行 Phase 7 (5 plans, 4 waves)
+- [ ] 执行 Phase 8 (3 plans, 3 waves)
+- [ ] 执行 Phase 9 (6 plans, 6 waves)
+- [ ] 执行 Phase 10 (4 plans, 3 waves)
+- [ ] v0.1.0 + v0.2.0 batch UAT (跨 phase 横向, 用户偏好)
 - [ ] SEC-02/SEC-04/SEC-07 — UAT 完成后处理
-- [x] 用户确认前置调研结论后,追加 Phase 8/9-11 到 ROADMAP.md
-- [ ] 开始 /gsd:plan-phase 5 (Task CRUD 补全)
-- [ ] Task 3: 用户手动重命名磁盘目录 pm-workspace → Nova-PM-Workspace
 
 ### Blockers/Concerns
 
-None for v0.2.0.
+None blocking. Key risks per phase (executor MUST read PLAN files for full context):
+
+- **Phase 6:** ScheduleView 在 Plan 01 lint ripple 后处于临时修补态,Plan 03 完整重写
+- **Phase 7:** deleteProduct 入口位置 + ProductSummaryDrawer props 签名需 executor grep 确认
+- **Phase 8:** Tailwind v4 共存(最高风险)+ bundle 控制约 250KB gzip
+- **Phase 9:** rig-core 多 provider 集成 + 流式 tool call 完整性需运行时验证
+- **Phase 10:** 强依赖 Phase 9 — plans 中已加 `<phase9_dependency>` 警示
 
 ### Quick Tasks Completed
 
@@ -95,29 +118,28 @@ None for v0.2.0.
 ### Roadmap Evolution
 
 - Phase 8/9 从 roadmap 中移出,改为前置调研即时执行 (2026-08-10)
-- 调研结果将输出到 `.planning/research/ATOMIC-EDITOR.md` 和 `.planning/research/PRODUCT-RND-LINKAGE.md`
-- 调研完成后将追加 Phase 9-11 (AI 驱动相关) 到 roadmap
-- Phase 8 原内容: Atomic Editor 调研
-- Phase 9 原内容: 产品-研发联动调研
+- 调研结果输出到 `.planning/research/ATOMIC-EDITOR.md` 和 `.planning/research/PRODUCT-RND-LINKAGE.md`
+- 调研完成后追加 Phase 9-11 (AI 驱动相关) 到 roadmap (2026-08-10 完成)
+- v0.2.0 ROADMAP 最终化为 Phase 5-11 (7 phases)
 
 ### Key Pitfalls to Watch (v0.2.0)
 
-| ID | Pitfall | Phase | Severity |
-|----|---------|-------|----------|
-| P1 | ScheduleEvent.date: number → string 迁移 | 6 | CRITICAL |
-| P2 | Task 删除需要扫描嵌套 categories[].tasks[] | 5 | HIGH |
-| P3 | Date.now() ID 碰撞 | 5 | HIGH |
-| P5 | persist migration 函数是 passthrough no-op | 5,6 | HIGH |
-| P7 | 删除产品留孤儿引用 | 7 | HIGH |
-| P8 | 双向链接不一致(task↔event) | 7 | HIGH |
-| P11 | "安排到日历"跨 store 原子性 | 7 | HIGH |
-| P12 | Hydration race — mock data 闪烁 | 5 | HIGH |
-| P13 | 编辑对话框 form state 不复位 | 5 | MEDIUM |
-| P17 | task.project vs projectId 双字段混淆 | 5 | HIGH |
-| P20 | ScheduleView 日历计算全硬编码 | 6 | HIGH |
+| ID | Pitfall | Phase | Severity | Status |
+|----|---------|-------|----------|--------|
+| P1 | ScheduleEvent.date: number → string 迁移 | 6 | CRITICAL | Plan 06-01 已设计 migrate |
+| P2 | Task 删除需要扫描嵌套 categories[].tasks[] | 5 | HIGH | ✅ 已处理 |
+| P3 | Date.now() ID 碰撞 | 5 | HIGH | ✅ 改用 crypto.randomUUID() |
+| P5 | persist migration 函数是 passthrough no-op | 5,6 | HIGH | ✅ Phase 5 修复,Phase 6 待执行 |
+| P7 | 删除产品留孤儿引用 | 7 | HIGH | Plan 07-03 设计级联清理 |
+| P8 | 双向链接不一致(task↔event) | 7 | HIGH | Plan 07-01 设计 wrapper |
+| P11 | "安排到日历"跨 store 原子性 | 7 | HIGH | Plan 07-01 arrangeOnCalendar wrapper |
+| P12 | Hydration race — mock data 闪烁 | 5 | HIGH | ✅ Phase 2 已通过 HydrationGate 处理 |
+| P13 | 编辑对话框 form state 不复位 | 5 | MEDIUM | ✅ Phase 5 TaskDialog 已处理 |
+| P17 | task.project vs projectId 双字段混淆 | 5 | HIGH | ✅ Phase 5 mirror 字段方案 |
+| P20 | ScheduleView 日历计算全硬编码 | 6 | HIGH | Plan 06-03 完整重写 |
 
 ## Session Continuity
 
-Last session: 2026-08-10T08:54:20.060Z
-Stopped at: Completed 05-04-PLAN.md (TaskKanban rewrite + @dnd-kit/core)
-Resume file: None
+Last session: 2026-08-10T17:30:00.000Z
+Stopped at: All Phase 6-10 plans committed; ready to execute Phase 6
+Resume action: `/gsd:execute-phase 06` (建议先 /clear 刷新上下文)

@@ -60,7 +60,7 @@ export function ProjectOverviewView() {
             </div>
 
             <div className="flex justify-between items-center pt-3 border-t border-border-subtle mt-auto">
-              <Avatar size="sm" name={p.owner} />
+              <Avatar size="sm" fallback={p.owner} />
               <div className="flex items-center gap-1 text-xs text-text-tertiary">
                 <Clock size={12} weight="duotone" />
                 {p.deadline || '未设置'}

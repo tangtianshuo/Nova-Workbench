@@ -12,7 +12,6 @@ import {
   CheckCircle,
   Clock,
   ArrowRight,
-  FileCheck,
   Lock,
   Cpu,
   Sparkle,

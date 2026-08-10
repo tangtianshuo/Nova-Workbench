@@ -23,6 +23,7 @@ const NAV_ITEMS = [
 
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState('account');
+  const [desktopNotify, setDesktopNotify] = useState(true);
 
   // Group nav items
   const groups = NAV_ITEMS.reduce((acc, item) => {
@@ -77,7 +78,7 @@ export function SettingsView() {
 
               {/* Avatar */}
               <div className="flex items-center gap-5 pb-6 mb-6 border-b border-border-subtle">
-                <Avatar size="xl" name="Brandon" className="w-20 h-20 text-2xl" />
+                <Avatar size="xl" fallback="Brandon" className="w-20 h-20 text-2xl" />
                 <div>
                   <div className="flex gap-2 mb-2">
                     <Button variant="secondary" size="sm">更换头像</Button>
@@ -105,7 +106,7 @@ export function SettingsView() {
                     <p className="text-sm font-medium text-text-primary">桌面通知</p>
                     <p className="text-xs text-text-tertiary">允许系统推送通知</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch checked={desktopNotify} onCheckedChange={setDesktopNotify} />
                 </div>
               </div>
             </>

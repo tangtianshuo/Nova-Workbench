@@ -301,7 +301,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
                       <div className="flex items-center gap-2">
                         <div className="flex -space-x-1.5">
                           {prod.team.slice(0, 3).map((m, i) => (
-                            <Avatar key={i} size="xs" name={m.avatar} className="ring-2 ring-bg-primary" />
+                            <Avatar key={i} size="xs" fallback={m.avatar} className="ring-2 ring-bg-primary" />
                           ))}
                         </div>
                         <span className="text-[11px] text-text-tertiary">{prod.owner.split(' ')[0]} 负责</span>

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
 status: executing
-stopped_at: Completed 05-03-PLAN.md (TaskDialog + TaskManagementView wiring)
-last_updated: "2026-08-10T08:49:58.367Z"
+stopped_at: Completed 05-04-PLAN.md (TaskKanban rewrite + @dnd-kit/core)
+last_updated: "2026-08-10T08:54:20.065Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 10
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 05 (task-crud) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-10
 
@@ -72,6 +72,7 @@ Recent decisions affecting v0.2.0:
 - [Phase 05]: Drawer built on Radix Dialog (translateX spring, width prop default 360) — Phase 9 reuses at width=480
 - [Phase 05]: Phase 5 Plan 01: Task 类型扩展 projectId?/scheduledEventId? 弱关联 + taskStore 5 actions (update/delete/reopen/move/setProject) + persist v2 migration + AppContext 兼容层委托
 - [Phase 05]: Phase 5 Plan 03: TaskDialog 双模式(create/edit) + Combobox 产品选择器(Popover-based)+ 嵌套删除确认 Dialog + TaskManagementView 新建任务按钮接入
+- [Phase 05-task-crud]: Phase 5 Plan 04: TaskKanban 重写 — inline 编辑(4 字段 + 400ms debounced autosave)+ DotsMenu(4 项操作)+ @dnd-kit/core 跨列 DnD(8px PointerSensor 阈值,derivedCount 实时计数)+ 产品徽章触发 ProductSummaryDrawer
 
 ### Pending Todos
 
@@ -117,6 +118,6 @@ None for v0.2.0.
 
 ## Session Continuity
 
-Last session: 2026-08-10T08:49:53.807Z
-Stopped at: Completed 05-03-PLAN.md (TaskDialog + TaskManagementView wiring)
+Last session: 2026-08-10T08:54:20.060Z
+Stopped at: Completed 05-04-PLAN.md (TaskKanban rewrite + @dnd-kit/core)
 Resume file: None

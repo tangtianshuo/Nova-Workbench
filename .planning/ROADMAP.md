@@ -51,7 +51,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 - [x] 05-01-PLAN.md — taskStore 5 actions + Task 类型扩展 + persist v2 + AppContext 兼容
 - [x] 05-02-PLAN.md — Drawer 可复用组件 + ProductSummaryDrawer 业务内容
 - [x] 05-03-PLAN.md — TaskDialog 创建/编辑双模式 + Combobox + 嵌套删除确认
-- [ ] 05-04-PLAN.md — TaskKanban 重写: inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
+- [x] 05-04-PLAN.md — TaskKanban 重写: inline 编辑 + DotsMenu + @dnd-kit DnD + 产品徽章
 - [ ] 05-05-PLAN.md — Phase 5 全量 UAT checkpoint
 **UI hint**: yes
 

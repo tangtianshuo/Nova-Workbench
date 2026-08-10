@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     base: isTauri ? './' : '/',
+    build: { target: 'es2022' },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

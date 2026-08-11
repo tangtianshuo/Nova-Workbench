@@ -105,6 +105,7 @@ Recent decisions affecting v0.2.0:
 - [ ] 如需云端模型对比，再配置 provider 凭据执行 DeepSeek/OpenAI/Anthropic/Gemini 专项 UAT；本地 Ollama 已验证
 - [ ] v0.1.0 + v0.2.0 batch UAT (跨 phase 横向, 用户偏好)
 - [ ] SEC-02/SEC-04/SEC-07 — UAT 完成后处理
+- [ ] 优化日历单元格日程密度防止溢出 ([todo](./todos/pending/2026-08-11-calendar-density-overflow.md))
 
 ### Blockers/Concerns
 

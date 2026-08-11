@@ -1,51 +1,96 @@
-import { BookOpen, Folder, FileText, MagnifyingGlass, CaretRight, Star } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { BookOpen, FileText, MagnifyingGlass, CaretRight, Star, Tag } from '@phosphor-icons/react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { Separator } from '@/src/components/ui/Separator';
 import { cn } from '@/src/lib/utils';
+import { useRndStore } from '@/src/stores/rndStore';
+import { useProductStore } from '@/src/stores/productStore';
+import type { ProductKnowledgeItem } from '@/src/data/mockRndData';
 
-const FOLDERS = [
-  { id: 'dev', name: '研发规范', color: 'text-accent', icon: Folder, children: [{ id: 'doc-1', title: '前端开发规范 V3.0' }] },
-  { id: 'product', name: '产品文档', color: 'text-success', icon: Folder, children: [{ id: 'doc-2', title: '产品白皮书' }] },
-  { id: 'team', name: '团队管理', color: 'text-warning', icon: Folder, children: [{ id: 'doc-3', title: '新人入职指南' }] },
-];
-
-const DOCS: Record<string, { title: string; content: string }> = {
-  'doc-1': {
-    title: '前端开发规范 V3.0',
-    content: '为了提高团队协作效率，特制定本规范。\n\n1. 目录结构\n- src/components: 共享组件\n- src/views: 页面视图\n- src/hooks: 自定义 Hooks\n\n2. 命名规范\n- 组件名称使用 PascalCase\n- 函数名称使用 camelCase\n- 常量使用 UPPER_SNAKE_CASE\n\n3. 状态管理\n优先使用 React Context 进行轻量级状态共享，复杂全局状态使用 Zustand。',
-  },
-  'doc-2': {
-    title: 'WenXiBuddy 产品白皮书',
-    content: '产品愿景\n打造下一代智能化的项目协作平台。\n\n核心场景\n1. AI 驱动的任务拆解\n2. 智能化的项目进度预测\n3. 自动化的文档总结',
-  },
-  'doc-3': {
-    title: '新人入职指南',
-    content: '欢迎加入！以下是你需要完成的第一周任务：\n\n- [ ] 配置开发环境\n- [ ] 阅读前端开发规范\n- [ ] 参加项目介绍会议',
-  },
-};
+// ponytail: aggregated view over rndStore.knowledgeBase (all productIds).
+// Sidebar groups by `category` field (the only native grouping on the data).
 
 export function KnowledgeBaseView() {
-  const [activeDoc, setActiveDoc] = useState('doc-1');
-  const currentDoc = DOCS[activeDoc] || DOCS['doc-1'];
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['dev', 'product', 'team']));
+  // ── Store subscriptions ───────────────────────────────────────────────────
+  const knowledgeBase = useRndStore((s) => s.knowledgeBase);
+  const updateKnowledgeItem = useRndStore((s) => s.updateKnowledgeItem);
+  const products = useProductStore((s) => s.products);
+
+  // ── Derived aggregated data ───────────────────────────────────────────────
+  // Flatten all productId buckets; tag each item with its source productId so
+  // saveEditing can route back through updateKnowledgeItem(productId, itemId, …).
+  // ponytail: items already carry productId, so we can flatten without re-tagging.
+  const allItems = useMemo<ProductKnowledgeItem[]>(
+    () => Object.values(knowledgeBase).flat(),
+    [knowledgeBase]
+  );
+
+  const categories = useMemo(
+    () => Array.from(new Set(allItems.map((i) => i.category).filter(Boolean))),
+    [allItems]
+  );
+
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    () => new Set(categories)
+  );
+
+  // First render with no selection → pick first item once data is available.
+  useEffect(() => {
+    if (activeItemId === null && allItems.length > 0) {
+      setActiveItemId(allItems[0].id);
+    }
+  }, [activeItemId, allItems]);
+
+  // Keep expanded set in sync when categories change (new articles add groups).
+  useEffect(() => {
+    setExpandedFolders((prev) => new Set([...prev, ...categories]));
+  }, [categories]);
+
+  const currentItem = useMemo<ProductKnowledgeItem | null>(() => {
+    if (!activeItemId) return allItems[0] ?? null;
+    return allItems.find((i) => i.id === activeItemId) ?? allItems[0] ?? null;
+  }, [activeItemId, allItems]);
+
+  // Reset edit state when switching articles.
+  useEffect(() => {
+    setIsEditing(false);
+    setEditContent(currentItem?.content ?? '');
+  }, [activeItemId, currentItem?.content]);
+
+  const startEditing = () => {
+    setEditContent(currentItem?.content ?? '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditContent(currentItem?.content ?? '');
+    setIsEditing(false);
+  };
+
+  const saveEditing = () => {
+    if (!currentItem) return;
+    // Route through store action — persists via Zustand persist layer (F5 safe).
+    updateKnowledgeItem(currentItem.productId, currentItem.id, { content: editContent });
+    setIsEditing(false);
+  };
 
   const toggleFolder = (id: string) => {
-    setExpandedFolders(prev => {
+    setExpandedFolders((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  const getFolderForDoc = (docId: string) => {
-    for (const folder of FOLDERS) {
-      if (folder.children.some(c => c.id === docId)) return folder.name;
-    }
-    return '';
-  };
+  const productNameFor = (productId: string) =>
+    products.find((p) => p.id === productId)?.name ?? '未知产品';
 
   return (
     <Card className="flex overflow-hidden h-[calc(100vh-140px)] min-h-[600px]">
@@ -72,42 +117,59 @@ export function KnowledgeBaseView() {
           <Separator className="my-3" />
           <div className="text-[10px] font-bold text-text-tertiary px-3 mb-1.5 uppercase tracking-widest">知识库目录</div>
 
-          {FOLDERS.map(folder => (
-            <div key={folder.id}>
-              <button
-                onClick={() => toggleFolder(folder.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-text-secondary hover:bg-bg-secondary rounded-[var(--radius-sm)] transition-colors"
-              >
-                <CaretRight
-                  size={14}
-                  weight="bold"
-                  className={cn('text-text-tertiary transition-transform', expandedFolders.has(folder.id) && 'rotate-90')}
-                />
-                <folder.icon size={16} weight="duotone" className={folder.color} />
-                <span className="text-sm font-medium">{folder.name}</span>
-              </button>
-
-              {expandedFolders.has(folder.id) && (
-                <div className="pl-5 space-y-0.5">
-                  {folder.children.map(child => (
-                    <button
-                      key={child.id}
-                      onClick={() => setActiveDoc(child.id)}
-                      className={cn(
-                        'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
-                        activeDoc === child.id
-                          ? 'bg-accent/10 text-accent font-semibold'
-                          : 'text-text-secondary hover:bg-bg-secondary'
-                      )}
-                    >
-                      <FileText size={14} weight="duotone" className={activeDoc === child.id ? 'text-accent' : 'text-text-tertiary'} />
-                      <span className="truncate">{child.title}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+          {allItems.length === 0 ? (
+            <div className="text-center text-text-tertiary text-xs py-8 leading-relaxed">
+              暂无知识库文章<br />请在产品管理的知识库 tab 中创建
             </div>
-          ))}
+          ) : (
+            categories.map((category) => {
+              const itemsInCategory = allItems.filter((i) => i.category === category);
+              return (
+                <div key={category}>
+                  <button
+                    onClick={() => toggleFolder(category)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-text-secondary hover:bg-bg-secondary rounded-[var(--radius-sm)] transition-colors"
+                  >
+                    <CaretRight
+                      size={14}
+                      weight="bold"
+                      className={cn(
+                        'text-text-tertiary transition-transform',
+                        expandedFolders.has(category) && 'rotate-90'
+                      )}
+                    />
+                    <Tag size={16} weight="duotone" className="text-accent" />
+                    <span className="text-sm font-medium">{category}</span>
+                    <span className="ml-auto text-[10px] text-text-tertiary">{itemsInCategory.length}</span>
+                  </button>
+
+                  {expandedFolders.has(category) && (
+                    <div className="pl-5 space-y-0.5">
+                      {itemsInCategory.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveItemId(item.id)}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
+                            currentItem?.id === item.id
+                              ? 'bg-accent/10 text-accent font-semibold'
+                              : 'text-text-secondary hover:bg-bg-secondary'
+                          )}
+                        >
+                          <FileText
+                            size={14}
+                            weight="duotone"
+                            className={currentItem?.id === item.id ? 'text-accent' : 'text-text-tertiary'}
+                          />
+                          <span className="truncate">{item.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -115,25 +177,61 @@ export function KnowledgeBaseView() {
       <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
         <div className="h-12 border-b border-border-subtle flex items-center justify-between px-5 shrink-0">
           <div className="flex items-center gap-1.5 text-sm text-text-tertiary">
-            <span>空间</span>
+            <span>知识库</span>
             <CaretRight size={12} weight="bold" />
-            <span>{getFolderForDoc(activeDoc)}</span>
+            <span>{currentItem?.category ?? ''}</span>
             <CaretRight size={12} weight="bold" />
-            <span className="text-text-primary font-medium">{currentDoc.title}</span>
+            <span className="text-text-primary font-medium">{currentItem?.title ?? ''}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm">编辑</Button>
-            <Button variant="primary" size="sm">分享</Button>
+            {!isEditing ? (
+              <Button variant="ghost" size="sm" onClick={startEditing} disabled={!currentItem}>
+                编辑
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={cancelEditing}>
+                  取消
+                </Button>
+                <Button variant="primary" size="sm" onClick={saveEditing}>
+                  保存
+                </Button>
+              </>
+            )}
+            <Button variant="primary" size="sm">
+              分享
+            </Button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-10">
-          <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold text-text-primary mb-6 tracking-tight">{currentDoc.title}</h1>
-            <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-              {currentDoc.content}
+          {currentItem ? (
+            <div className="max-w-2xl mx-auto">
+              <h1 className="text-3xl font-bold text-text-primary mb-2 tracking-tight">
+                {currentItem.title}
+              </h1>
+              <p className="text-xs text-text-tertiary mb-6">
+                维护人: {currentItem.author} · 最后更新: {currentItem.updatedAt} · 来源产品:{' '}
+                {productNameFor(currentItem.productId)}
+              </p>
+              {isEditing ? (
+                <MarkdownEditor
+                  value={editContent}
+                  onChange={setEditContent}
+                  placeholder="输入 Markdown 内容..."
+                  minHeight="480px"
+                />
+              ) : (
+                <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                  {currentItem.content}
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-text-tertiary">
+              请选择或创建一篇文章
+            </div>
+          )}
         </div>
       </div>
     </Card>

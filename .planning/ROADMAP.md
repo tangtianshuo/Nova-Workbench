@@ -205,7 +205,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 9. AI 助手基础 | 6/6 | ✅ Complete | 2026-08-11；mock UAT + Ollama 生产 tool-call UAT 通过；云 provider 无凭据未测 |
 | 10. AI 任务+日程闭环 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + Ollama `createTask` UAT 通过；云 provider 无凭据未测 |
 | 11. AI 文件+知识库 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + provider transport UAT 通过；云 provider 无凭据未测 |
-| 12. v0.2.0 Gap Closure | 3/3 | Complete   | 2026-08-11 |
+| 12. v0.2.0 Gap Closure | 3/3 | Complete    | 2026-08-11 |
 
 ---
 *Roadmap created: 2026-08-10*

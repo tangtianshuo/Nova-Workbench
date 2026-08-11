@@ -3,6 +3,7 @@ import { Trash } from '@phosphor-icons/react';
 import { Task } from '@/src/data/mockTasks';
 import { useTaskStore } from '@/src/stores/taskStore';
 import { useProductStore } from '@/src/stores/productStore';
+import { useApp } from '@/src/store/AppContext';
 import { useToast } from '@/src/components/ui/Toast';
 import {
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
@@ -39,6 +40,7 @@ export function TaskDialog({ open, onOpenChange, mode, task, defaultCategoryId }
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const setTaskProject = useTaskStore((s) => s.setTaskProject);
   const products = useProductStore((s) => s.products);
+  const { syncTaskSchedule } = useApp();
   const { toast } = useToast();
 
   // Form state
@@ -83,10 +85,11 @@ export function TaskDialog({ open, onOpenChange, mode, task, defaultCategoryId }
     const deadline = deadlineDate ? `${deadlineDate} ${String(deadlineHour).padStart(2, '0')}:00` : '';
     const productName = projectId ? products.find((p) => p.id === projectId)?.name ?? '' : '';
     if (mode === 'create') {
+      const newId = crypto.randomUUID();
       addTask(
         {
           ...DEFAULT_TASK,
-          id: crypto.randomUUID(),
+          id: newId,
           createdAt: Date.now(),
           title: title.trim(),
           description: description.trim(),
@@ -98,8 +101,10 @@ export function TaskDialog({ open, onOpenChange, mode, task, defaultCategoryId }
         },
         categoryId,
       );
+      syncTaskSchedule(newId);
       toast({ type: 'success', title: '任务已创建' });
     } else if (task) {
+      const prevDeadline = task.deadline;
       updateTask(task.id, {
         title: title.trim(),
         description: description.trim(),
@@ -110,6 +115,7 @@ export function TaskDialog({ open, onOpenChange, mode, task, defaultCategoryId }
       if ((task.projectId ?? undefined) !== projectId) {
         setTaskProject(task.id, projectId);
       }
+      syncTaskSchedule(task.id, prevDeadline);
       toast({ type: 'success', title: '已保存' });
     }
     onOpenChange(false);

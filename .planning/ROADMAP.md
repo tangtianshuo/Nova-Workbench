@@ -31,7 +31,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 - [x] **Phase 9: AI 助手基础** — Tool registry、tool loop、⌘K、ChatPanel、基础 tools、多 provider 设置与 web proxy 边界已通过本地/mock UAT；Ollama `gemma4:e2b` 已通过生产 Rust tool-call UAT（2026-08-11）
 - [x] **Phase 10: AI 任务+日程闭环** — 高级任务/日程 tools、日期上下文、多轮会话、关联幂等与产品拆解能力已通过 focused/mock UAT，Ollama 真实 `createTask` tool-call round trip 已验证（2026-08-11）
 - [x] **Phase 11: AI 文件+知识库** — 文件/知识库读取、候选生成/取消/确认、产品 PRD 草稿上下文和 R&D 交付物读取已通过 focused/mock UAT；provider transport/tool-call path 已由 Ollama UAT 验证（2026-08-11）
-- [ ] **Phase 12: v0.2.0 Gap Closure** — 修 INT-01(KnowledgeBaseView 接 rndStore)+ backfill 5 个 phase 缺 VERIFICATION.md + Express 3 个 MEDIUM 安全加固 + REQUIREMENTS traceability 表修正（created 2026-08-11）
+- [x] **Phase 12: v0.2.0 Gap Closure** — 修 INT-01(KnowledgeBaseView 接 rndStore)+ backfill 5 个 phase 缺 VERIFICATION.md + Express 3 个 MEDIUM 安全加固 + REQUIREMENTS traceability 表修正（created 2026-08-11） (completed 2026-08-11)
 
 ## Phase Details
 
@@ -186,9 +186,9 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   4. `REQUIREMENTS.md` Traceability 表中 CROSS-04/05/06 从 `Pending` 改为 `Complete`,从 `[ ]` 改为 `[x]`
   5. 重跑 `/gsd:audit-milestone v0.2.0`,status 从 `gaps_found` 变为 `passed`
 **Plans**: 3 plans
-- [ ] 12-01-PLAN.md — KnowledgeBaseView 接 rndStore.knowledgeBase(INT-01 修复)
+- [x] 12-01-PLAN.md — KnowledgeBaseView 接 rndStore.knowledgeBase(INT-01 修复)
 - [x] 12-02-PLAN.md — Backfill 5 个 VERIFICATION.md(Phase 7/8/9/10/11,纯文档)
-- [ ] 12-03-PLAN.md — Express 3 MEDIUM 加固 + REQUIREMENTS traceibility 修正
+- [x] 12-03-PLAN.md — Express 3 MEDIUM 加固 + REQUIREMENTS traceibility 修正
 **UI hint**: yes (Plan 12-01 改 UI)
 
 ## Progress
@@ -205,7 +205,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 9. AI 助手基础 | 6/6 | ✅ Complete | 2026-08-11；mock UAT + Ollama 生产 tool-call UAT 通过；云 provider 无凭据未测 |
 | 10. AI 任务+日程闭环 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + Ollama `createTask` UAT 通过；云 provider 无凭据未测 |
 | 11. AI 文件+知识库 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + provider transport UAT 通过；云 provider 无凭据未测 |
-| 12. v0.2.0 Gap Closure | 1/3 | In Progress|  |
+| 12. v0.2.0 Gap Closure | 3/3 | Complete   | 2026-08-11 |
 
 ---
 *Roadmap created: 2026-08-10*

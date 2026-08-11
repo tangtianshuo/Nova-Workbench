@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: Recap
-status: executing
-stopped_at: Completed 12-02-PLAN.md (5 VERIFICATION.md backfilled)
-last_updated: "2026-08-11T06:02:05.835Z"
+status: verifying
+stopped_at: Completed 12-gap-closure/12-01-PLAN.md
+last_updated: "2026-08-11T06:03:02.533Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 7
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 12 (gap-closure) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
+Plan: 3 of 3
+Status: Phase complete — ready for verification
 Last activity: 2026-08-11
 
 Progress: [██████████] 100% (Phase 5-11 code plans complete; unified browser/store UAT and Ollama production tool-call UAT passed)
@@ -96,6 +96,8 @@ Recent decisions affecting v0.2.0:
 - [Phase 07-cross-module]: Plan 01: taskStore.completeTask/deleteTask 跨 store 副作用 (get() 前置捕获 scheduledEventId 再 set + useScheduleStore.getState 副调用); taskStore.unlinkProjectTasks (CROSS-03)
 - [Phase 07-cross-module]: Plan 01: AppContext.arrangeOnCalendar (task.deadline 'YYYY-MM-DD HH:mm' 拆分为 date/time) + 两阶段删除 getDeleteProductImpact/doDeleteProduct (级联顺序: unlinkTasks → detach event projectIds → rnd cleanup → deleteProduct → clear selection); deleteProduct 回退为 pure delegate
 - [Phase 12]: Phase 12-02: Backfilled 5 missing VERIFICATION.md (Phase 7/8/9/10/11) from audit integration_check evidence; Phase 11 marks INT-01 closed via parallel Plan 12-01
+- [Phase 12]: Origin allowlist (6 entries) + error redaction (name+truncate+AIza redact) for /api/chat — defense-in-depth on top of 127.0.0.1 bind
+- [Phase 12-gap-closure]: KnowledgeBaseView 接 rndStore.knowledgeBase 聚合,按 category 分组;saveEditing 走 updateKnowledgeItem;关闭 INT-01/FLOW-D-FAIL/FLOW-E-FAIL
 
 ### Pending Todos
 
@@ -146,6 +148,6 @@ None blocking. Current follow-up risks and verification gaps:
 
 ## Session Continuity
 
-Last session: 2026-08-11T06:02:05.829Z
-Stopped at: Completed 12-02-PLAN.md (5 VERIFICATION.md backfilled)
+Last session: 2026-08-11T06:03:02.528Z
+Stopped at: Completed 12-gap-closure/12-01-PLAN.md
 Resume action: Optional cloud-provider comparison and release-signoff regression

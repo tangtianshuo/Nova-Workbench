@@ -164,6 +164,12 @@ interface AppContextType {
     event?: ScheduleEvent;
     reason?: 'no-deadline' | 'already-arranged' | 'task-not-found';
   };
+  // Quick 260811-v3i: auto-sync task↔schedule based on deadline changes.
+  // One call covers create/update/remove/noop — see implementation below.
+  syncTaskSchedule: (
+    taskId: string,
+    prevDeadline?: string,
+  ) => { action: 'created' | 'updated' | 'removed' | 'noop'; eventId?: string };
   getDeleteProductImpact: (productId: string) => {
     taskCount: number;
     eventCount: number;
@@ -305,6 +311,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { success: true as const, event };
   };
 
+  // Quick 260811-v3i: auto-sync task↔schedule. Covers all deadline-change cases
+  // in one call: noop / remove old event / create new / update existing.
+  // prevDeadline enables case (5) "deadline unchanged" → noop, avoiding spurious updates.
+  const syncTaskSchedule = (
+    taskId: string,
+    prevDeadline?: string,
+  ): { action: 'created' | 'updated' | 'removed' | 'noop'; eventId?: string } => {
+    const task = useTaskStore
+      .getState()
+      .categories.flatMap((c) => c.tasks)
+      .find((t) => t.id === taskId);
+    if (!task) return { action: 'noop' as const };
+
+    const hasDeadline = !!task.deadline;
+    const linkedId = task.scheduledEventId;
+
+    // (1) no deadline, no link → noop
+    if (!hasDeadline && !linkedId) return { action: 'noop' as const };
+
+    // (2) no deadline but linked → remove old event (deleteEvent is pure filter,
+    // reverse taskId link disappears with the event)
+    if (!hasDeadline && linkedId) {
+      useScheduleStore.getState().deleteEvent(linkedId);
+      useTaskStore.getState().updateTask(taskId, { scheduledEventId: undefined });
+      return { action: 'removed' as const };
+    }
+
+    // Has deadline: split date/time
+    const [datePart, timePart] = task.deadline!.split(' ');
+
+    // (3) deadline but no link → create via arrangeOnCalendar
+    if (hasDeadline && !linkedId) {
+      const result = arrangeOnCalendar(taskId);
+      return result.success
+        ? { action: 'created' as const, eventId: result.event!.id }
+        : { action: 'noop' as const };
+    }
+
+    // (4)+(5) deadline + link → update only if deadline actually changed
+    if (prevDeadline !== task.deadline) {
+      useScheduleStore.getState().updateEvent(linkedId!, {
+        date: datePart,
+        time: timePart ?? '全天',
+        title: task.title, // weak sync: align title on deadline change
+      });
+      return { action: 'updated' as const, eventId: linkedId };
+    }
+    return { action: 'noop' as const };
+  };
+
   // Phase 7 (CROSS-03, D-04): compute the blast radius of deleting a product
   // BEFORE the actual delete, so UI can render an accurate confirmation dialog.
   const getDeleteProductImpact = (productId: string) => {
@@ -379,7 +435,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setEventStatus, clearTaskLink,
     cleanupProduct, getDeliverableStatusForPhase,
     unlinkProjectTasks,
-    arrangeOnCalendar, getDeleteProductImpact, doDeleteProduct,
+    arrangeOnCalendar, syncTaskSchedule, getDeleteProductImpact, doDeleteProduct,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

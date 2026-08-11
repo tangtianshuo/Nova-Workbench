@@ -30,7 +30,7 @@ export function ProductSummaryDrawer({
   const handleOpenDetail = () => {
     if (!product) return;
     useUIStore.setState({
-      activeTab: 'product',
+      activeTab: 'product-management',
       selectedProductId: product.id,
     });
     onOpenChange(false);

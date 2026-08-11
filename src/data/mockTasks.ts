@@ -12,6 +12,7 @@ export interface Task {
   assigneeAvatar: string;
   deadline: string;
   aiSuggestions: string[];
+  createdAt?: number;       // display-only: MMDD prefix for short display id (Phase 5 UAT GAP-05)
 }
 
 export interface TaskCategory {

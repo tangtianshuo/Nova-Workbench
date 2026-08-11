@@ -38,9 +38,19 @@ interface TaskKanbanProps {
   categories: TaskCategory[];
   selectedTaskId: string;
   onSelectTask: (id: string) => void;
+  onRequestCreateTask?: (categoryId: string) => void;
 }
 
-export function TaskKanban({ className = '', categories, selectedTaskId, onSelectTask }: TaskKanbanProps) {
+// ponytail: GAP-05 display-only short id. MMDD from createdAt (fallback today), suffix = uuid first 4 hex.
+// Internal task.id (uuid) is unchanged — only the kanban badge is shortened to free title space.
+function formatTaskDisplayId(task: Pick<Task, 'id' | 'createdAt'>): string {
+  const d = new Date(task.createdAt ?? Date.now());
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}${dd}-${task.id.slice(0, 4)}`;
+}
+
+export function TaskKanban({ className = '', categories, selectedTaskId, onSelectTask, onRequestCreateTask }: TaskKanbanProps) {
   const { addCategory, moveTask } = useTaskStore();
   const { arrangeOnCalendar } = useApp();
   const { toast } = useToast();
@@ -61,6 +71,25 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
   const [overCatId, setOverCatId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  // ponytail: GAP-02 collapse expanded card on outside click.
+  // Clicks inside a [data-task-card] toggle (handled by card's own onClick);
+  // clicks elsewhere (column bg, page chrome) clear selection.
+  // GAP-06: exclude Radix portals (Select/Popover/Tooltip render to body via Portal,
+  // so picking an option was misdetected as outside-click → card collapsed mid-edit).
+  useEffect(() => {
+    if (!selectedTaskId) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest('[data-task-card]')) return;
+      if (target.closest('[data-radix-popper-content-wrapper]')) return;
+      if (target.closest('[role="option"]')) return;
+      onSelectTask('');
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [selectedTaskId, onSelectTask]);
 
   const handleAddCategory = () => {
     if (newCategoryName.trim()) {
@@ -221,6 +250,7 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
                 onRequestDelete={handleRequestDelete}
                 onRequestArrange={handleArrangeOnCalendar}
                 onOpenProductDrawer={handleOpenProductDrawer}
+                onRequestCreateTask={onRequestCreateTask}
                 activeDragId={activeDragId}
                 activeDragTask={activeDragTask}
                 overCatId={overCatId}
@@ -229,7 +259,6 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
             <DragOverlay>
               {activeDragTask ? (
                 <div className="opacity-90 rotate-2 shadow-shadow-xl rounded-[var(--radius-md)] bg-bg-primary border border-border-subtle p-3 max-w-[280px]">
-                  <span className="text-[10px] font-mono text-text-tertiary">{activeDragTask.id}</span>
                   <h4 className="text-sm font-medium text-text-primary truncate">{activeDragTask.title}</h4>
                 </div>
               ) : null}
@@ -348,6 +377,7 @@ interface KanbanColumnProps {
   onRequestDelete: (task: Task) => void;
   onRequestArrange: (task: Task) => void;
   onOpenProductDrawer: (productId: string) => void;
+  onRequestCreateTask?: (categoryId: string) => void;
   activeDragId: string | null;
   activeDragTask: Task | null;
   overCatId: string | null;
@@ -355,7 +385,7 @@ interface KanbanColumnProps {
 
 function KanbanColumn({
   cat, isDateView, selectedTaskId, onSelectTask,
-  onRequestDialogEdit, onRequestDelete, onRequestArrange, onOpenProductDrawer,
+  onRequestDialogEdit, onRequestDelete, onRequestArrange, onOpenProductDrawer, onRequestCreateTask,
   activeDragId, activeDragTask, overCatId,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: cat.id });
@@ -391,7 +421,14 @@ function KanbanColumn({
             </motion.span>
           </AnimatePresence>
         </div>
-        <Button variant="ghost" size="xs"><Plus size={14} weight="bold" /></Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          aria-label="新建任务"
+          onClick={() => onRequestCreateTask?.(cat.id)}
+        >
+          <Plus size={14} weight="bold" />
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 space-y-2 pb-2">
@@ -436,7 +473,7 @@ function KanbanCard({
   task, cat, isExpanded, onToggleExpand,
   onRequestDialogEdit, onRequestDelete, onRequestArrange, onOpenProductDrawer,
 }: KanbanCardProps) {
-  const { updateTask, completeTask, reopenTask, moveTask } = useTaskStore();
+  const { updateTask, completeTask, reopenTask, moveTask, setTaskProject } = useTaskStore();
   const categories = useTaskStore((s) => s.categories);
   const products = useProductStore((s) => s.products);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
@@ -452,8 +489,12 @@ function KanbanCard({
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [priority, setPriority] = useState(task.priority);
+  const [status, setStatus] = useState(task.status);
   const [deadlineDate, setDeadlineDate] = useState<string | undefined>(
     task.deadline ? task.deadline.split(' ')[0] : undefined,
+  );
+  const [deadlineHour, setDeadlineHour] = useState(
+    task.deadline ? Number(task.deadline.split(' ')[1]?.split(':')[0]) || 18 : 18,
   );
   const [categoryId, setCategoryId] = useState(cat.id);
 
@@ -463,7 +504,9 @@ function KanbanCard({
       setTitle(task.title);
       setDescription(task.description);
       setPriority(task.priority);
+      setStatus(task.status);
       setDeadlineDate(task.deadline ? task.deadline.split(' ')[0] : undefined);
+      setDeadlineHour(task.deadline ? Number(task.deadline.split(' ')[1]?.split(':')[0]) || 18 : 18);
       setCategoryId(cat.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -471,16 +514,24 @@ function KanbanCard({
 
   // Debounced autosave per field (D-02)
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // ponytail: GAP-01 saved-flash. Flip true when debounce fires; auto-reset after 1.2s.
+  // Border + ring transition from accent→success→accent via `transition-all duration-300`.
+  const [justSaved, setJustSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scheduleSave = useCallback((key: string, updates: Partial<Task>) => {
     if (timers.current[key]) clearTimeout(timers.current[key]);
     timers.current[key] = setTimeout(() => {
       updateTask(task.id, updates);
+      setJustSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
     }, 400);
   }, [task.id, updateTask]);
 
   // Flush on unmount
   useEffect(() => () => {
     Object.values(timers.current).forEach(clearTimeout);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
   }, []);
 
   const product = task.projectId ? products.find((p) => p.id === task.projectId) : undefined;
@@ -501,6 +552,7 @@ function KanbanCard({
       {...attributes}
       {...listeners}
       layout
+      data-task-card
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: isDragging ? 0.4 : 1, y: 0, scale: isDragging ? 1.02 : 1 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
@@ -511,15 +563,19 @@ function KanbanCard({
         onToggleExpand();
       }}
       className={cn(
-        'bg-bg-primary rounded-[var(--radius-md)] p-3 transition-all cursor-grab active:cursor-grabbing border relative',
+        'bg-bg-primary rounded-[var(--radius-md)] p-3 transition-all duration-300 cursor-grab active:cursor-grabbing border relative',
         isExpanded
-          ? 'border-accent shadow-md ring-1 ring-accent/15'
+          ? justSaved
+            ? 'border-success shadow-md ring-2 ring-success/40'
+            : 'border-accent shadow-md ring-1 ring-accent/15'
           : 'border-border-subtle shadow-xs hover:border-border hover:shadow-sm',
       )}
     >
       {/* Header row */}
       <div className="flex items-center gap-2 pr-8">
-        <span className="text-[10px] font-mono text-text-tertiary shrink-0">{task.id}</span>
+        {!isDragging && (
+          <span className="text-[10px] font-mono text-text-tertiary shrink-0">{formatTaskDisplayId(task)}</span>
+        )}
         {isExpanded ? (
           <Input
             value={title}
@@ -537,10 +593,7 @@ function KanbanCard({
         )}
       </div>
 
-      {/* Status indicator (collapsed + done) */}
-      {task.status === '已完成' && !isExpanded && (
-        <CheckCircle size={14} weight="fill" className="absolute top-3 right-10 text-success" />
-      )}
+      {/* Status indicator (collapsed + done) — moved to right-bottom badge */}
 
       {/* DotsMenu — always present, top-right */}
       <div className="absolute top-3 right-3" data-no-expand>
@@ -588,10 +641,16 @@ function KanbanCard({
           </Badge>
           <div className="flex items-center gap-2">
             {product && (
-              <Badge variant="accent" className="text-[10px] gap-1">
-                <FolderSimple size={10} weight="fill" />
-                {product.name}
-              </Badge>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenProductDrawer(task.projectId!); }}
+                className="inline-flex"
+              >
+                <Badge variant="accent" className="text-[10px] gap-1 cursor-pointer hover:bg-accent-subtle/80">
+                  <FolderSimple size={10} weight="fill" />
+                  {product.name}
+                </Badge>
+              </button>
             )}
             {task.scheduledEventId && (
               <button
@@ -607,7 +666,13 @@ function KanbanCard({
                 日程
               </button>
             )}
-            <span className="text-[11px] text-text-tertiary">{task.time || task.status}</span>
+            <Badge
+              variant={task.status === '已完成' ? 'success' : task.status === '进行中' ? 'warning' : 'neutral'}
+              className="text-[10px] gap-0.5"
+            >
+              {task.status === '已完成' && <CheckCircle size={10} weight="fill" />}
+              {task.status}
+            </Badge>
           </div>
         </div>
       )}
@@ -637,59 +702,80 @@ function KanbanCard({
                 <SelectItem value="low">低</SelectItem>
               </SelectContent>
             </Select>
-            <DatePickerInput
-              value={deadlineDate}
-              onChange={(d) => { setDeadlineDate(d); scheduleSave('deadline', { deadline: d ? `${d} 18:00` : '' }); }}
-            />
-          </div>
-
-          <Select
-            value={categoryId}
-            onValueChange={(v) => {
-              setCategoryId(v);
-              // Move to new category = moveTask (D-07)
-              if (v !== cat.id) moveTask(task.id, cat.id, v);
-            }}
-          >
-            <SelectTrigger className="h-8"><SelectValue placeholder="分类" /></SelectTrigger>
-            <SelectContent>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {product && (
-            <div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onOpenProductDrawer(task.projectId!); }}
-                className="inline-flex"
+            <Select
+              value={status}
+              onValueChange={(v) => {
+                setStatus(v);
+                scheduleSave('status', { status: v });
+              }}
+            >
+              <SelectTrigger className="h-8"><SelectValue placeholder="状态" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="未开始">未开始</SelectItem>
+                <SelectItem value="进行中">进行中</SelectItem>
+                <SelectItem value="已完成">已完成</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="col-span-2">
+              <Select
+                value={task.projectId ?? '__none__'}
+                onValueChange={(v) => {
+                  const pid = v === '__none__' ? undefined : v;
+                  setTaskProject(task.id, pid);
+                }}
               >
-                <Badge variant="accent" className="text-[10px] gap-1 cursor-pointer hover:bg-accent-subtle/80">
-                  <FolderSimple size={10} weight="fill" />
-                  {product.name}
-                </Badge>
-              </button>
+                <SelectTrigger className="h-8"><SelectValue placeholder="产品" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">无关联产品</SelectItem>
+                  {products.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-
-          {task.aiSuggestions && task.aiSuggestions.length > 0 && (
-            <div className="bg-accent-subtle/50 rounded-[var(--radius-sm)] p-2.5 border border-accent/10">
-              <h4 className="text-[11px] font-semibold text-text-primary flex items-center gap-1.5 mb-2">
-                <Sparkle size={12} weight="duotone" className="text-accent" />
-                AI 建议
-              </h4>
-              <ul className="space-y-1.5">
-                {task.aiSuggestions.map((s, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[11px] text-text-secondary">
-                    <span className="w-1 h-1 rounded-full mt-1.5 shrink-0 bg-accent" />
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="col-span-2 flex gap-2">
+              <DatePickerInput
+                className="flex-1"
+                value={deadlineDate}
+                onChange={(d) => {
+                  setDeadlineDate(d);
+                  scheduleSave('deadline', { deadline: d ? `${d} ${String(deadlineHour).padStart(2, '0')}:00` : '' });
+                }}
+              />
+              <Select
+                value={String(deadlineHour)}
+                onValueChange={(v) => {
+                  const h = Number(v);
+                  setDeadlineHour(h);
+                  if (deadlineDate) scheduleSave('deadline', { deadline: `${deadlineDate} ${String(h).padStart(2, '0')}:00` });
+                }}
+              >
+                <SelectTrigger className="h-9 w-[92px] px-2"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {Array.from({ length: 24 }, (_, i) => i).map((h) => (
+                    <SelectItem key={h} value={String(h)}>{String(h).padStart(2, '0')}:00</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            <div className="col-span-2">
+              <Select
+                value={categoryId}
+                onValueChange={(v) => {
+                  setCategoryId(v);
+                  // Move to new category = moveTask (D-07)
+                  if (v !== cat.id) moveTask(task.id, cat.id, v);
+                }}
+              >
+                <SelectTrigger className="h-8"><SelectValue placeholder="分类" /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <Button
             variant={task.status === '已完成' ? 'secondary' : 'primary'}

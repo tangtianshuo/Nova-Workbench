@@ -35,9 +35,9 @@
 - [x] **CROSS-01**: 用户可以在任务卡片上点击"安排到日历",自动创建关联的 ScheduleEvent(type='task',日期取自任务截止日期)
 - [x] **CROSS-02**: "安排到日历"生成的日程 taskId 反向引用任务,标题同步任务标题(可编辑)
 - [x] **CROSS-03**: 用户删除产品时看到提示"X 个任务、Y 个日程将失去关联",确认后保留记录但清空 projectId 字段(弱关联,不级联)
-- [ ] **CROSS-04**: 日程视图上,关联任务的日程显示任务徽章;点击徽章跳转/高亮任务
-- [ ] **CROSS-05**: 任务卡片上显示关联日程的徽章(如有 scheduledEventId);点击徽章跳转到日程视图
-- [ ] **CROSS-06**: 用户点击关联徽章可跳转到对应模块并定位(产品→ProductManagementView,任务→TaskManagementView,日程→ScheduleView)
+- [x] **CROSS-04**: 日程视图上,关联任务的日程显示任务徽章;点击徽章跳转/高亮任务
+- [x] **CROSS-05**: 任务卡片上显示关联日程的徽章(如有 scheduledEventId);点击徽章跳转到日程视图
+- [x] **CROSS-06**: 用户点击关联徽章可跳转到对应模块并定位(产品→ProductManagementView,任务→TaskManagementView,日程→ScheduleView)
 - [x] **CROSS-07**: 完成任务后,若有关联日程,日程同步标记完成(视觉降饱和,不删除)
 
 ### ~~Atomic Editor 调研~~ (前置调研,即时执行)
@@ -131,9 +131,9 @@
 | CROSS-01 | Phase 7 | Complete |
 | CROSS-02 | Phase 7 | Complete |
 | CROSS-03 | Phase 7 | Complete |
-| CROSS-04 | Phase 7 | Pending |
-| CROSS-05 | Phase 7 | Pending |
-| CROSS-06 | Phase 7 | Pending |
+| CROSS-04 | Phase 7 | Complete |
+| CROSS-05 | Phase 7 | Complete |
+| CROSS-06 | Phase 7 | Complete |
 | CROSS-07 | Phase 7 | Complete |
 | EDITOR-01 | 前置调研 | In progress |
 | EDITOR-02 | 前置调研 | In progress |
@@ -154,4 +154,4 @@
 
 ---
 *Requirements defined: 2026-08-10*
-*Last updated: 2026-08-10 after roadmap creation (traceability validated)*
+*Last updated: 2026-08-11 — Phase 12 Plan 12-03 corrected CROSS-04/05/06 traceability (stale Pending → Complete per v0.2.0-MILESTONE-AUDIT.md lines 51-63)*

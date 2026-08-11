@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 Phase: 12
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-08-11
+Last activity: 2026-08-11 - Completed quick task 260811-v3i: 添加任务后若设置 deadline 自动关联到日程
 
 Progress: [██████████] 100% (Phase 5-11 code plans complete; unified browser/store UAT and Ollama production tool-call UAT passed)
 
@@ -122,6 +122,7 @@ None blocking. Current follow-up risks and verification gaps:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260810-jwv | 项目重命名为 Nova-PM-Workspace | 2026-08-10 | 29af7a5 | [260810-jwv-nova-pm-workspace](./quick/260810-jwv-nova-pm-workspace/) |
+| 260811-v3i | 添加任务后若设置 deadline 自动关联到日程 | 2026-08-11 | f9e091a | [260811-v3i-task-deadline-auto-schedule](./quick/260811-v3i-task-deadline-auto-schedule/) |
 
 ### Roadmap Evolution
 

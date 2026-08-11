@@ -24,13 +24,14 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
 
 ## Phases
 
-- [ ] **Phase 5: Task CRUD 补全** — taskStore actions (update/delete/reopen/move) + TaskDialog (create/edit) + TaskKanban 卡片菜单 + DnD 拖拽 + 弱关联字段 (projectId?/scheduledEventId?) + persist v2 migration
+- [x] **Phase 5: Task CRUD 补全** — taskStore actions (update/delete/reopen/move) + TaskDialog (create/edit) + TaskKanban 卡片菜单 + DnD 拖拽 + 弱关联字段 (projectId?/scheduledEventId?) + persist v2 migration（completed 2026-08-10）
 - [x] **Phase 6: Schedule CRUD + 真实日历** — scheduleStore actions (update/delete) + ScheduleEvent.date 从 number 迁移到 string (YYYY-MM-DD) + 月历真实渲染 + 月份切换 + ScheduleDialog (create/edit) + 弱关联字段 (projectId?/taskId?) + type:'task' (completed 2026-08-10)
-- [ ] **Phase 7: 跨模块联动 + 产品-研发联动** — "安排到日历" (task→event 双向引用) + 关联徽章 (AssociationBadge) + 点击跳转 + 产品删除时关联清理 + 任务完成→日程同步标记 + 产品-研发联动 (L5 里程碑↔交付物状态 / L6 阶段↔phase 进度 / L7 删除产品级联清理 rndStore)
-- [ ] **Phase 8: MDXEditor 集成** — 新增 MarkdownEditor 组件封装 MDXEditor + React.lazy() 延迟加载 + ProductKnowledgeTab 替换 Textarea + KnowledgeBaseView 实现编辑按钮 + Tailwind v4 样式共存验证
-- [ ] **Phase 9: AI 助手基础** — Hand-rolled tool registry + tool loop (JS webview 内,~200 LOC) + ⌘K command palette (Raycast-style) + slide-out chat panel (400-480px) + 10-15 基础 tools + multi-provider LLM (DeepSeek/Claude/GPT/Gemini/Ollama via rig-core) + core context injection (~500-1000 tokens) + 通用 LLM proxy endpoint
-- [ ] **Phase 10: AI 任务+日程闭环** — 扩展 tool set (updateTask/deleteTask/moveTask/rescheduleTask) + 自然语言任务 CRUD + AI "安排到日历" + multi-turn conversations + 截止日期智能建议 + 批量操作
-- [ ] **Phase 11: AI 文件+知识库** — 扩展 tool set (listWorkspaceFiles/readKnowledgeArticle/writeKnowledgeArticle) + workspace 文件摘要 + 知识库文章生成/润色 + 产品文档辅助 + R&D 交付物增强 (升级 generateDeliverableAI 到 Tool Use) + 知识组织
+- [x] **Phase 7: 跨模块联动 + 产品-研发联动** — "安排到日历"、双向关联徽章/跳转、产品删除清理、任务完成同步，以及 L5/L6/L7 产品-研发联动已实现并通过统一浏览器 UAT；35 步人工回归仍建议在发布签核前补做（2026-08-11）
+- [x] **Phase 8: MDXEditor 集成** — MarkdownEditor lazy 封装、产品/全局知识库编辑流程和 Tailwind v4 共存已验证（2026-08-11）；编辑器 chunk 约 297 KB gzip，高于原计划 250 KB 目标但不阻断当前交付
+- [x] **Phase 9: AI 助手基础** — Tool registry、tool loop、⌘K、ChatPanel、基础 tools、多 provider 设置与 web proxy 边界已通过本地/mock UAT；Ollama `gemma4:e2b` 已通过生产 Rust tool-call UAT（2026-08-11）
+- [x] **Phase 10: AI 任务+日程闭环** — 高级任务/日程 tools、日期上下文、多轮会话、关联幂等与产品拆解能力已通过 focused/mock UAT，Ollama 真实 `createTask` tool-call round trip 已验证（2026-08-11）
+- [x] **Phase 11: AI 文件+知识库** — 文件/知识库读取、候选生成/取消/确认、产品 PRD 草稿上下文和 R&D 交付物读取已通过 focused/mock UAT；provider transport/tool-call path 已由 Ollama UAT 验证（2026-08-11）
+- [ ] **Phase 12: v0.2.0 Gap Closure** — 修 INT-01(KnowledgeBaseView 接 rndStore)+ backfill 5 个 phase 缺 VERIFICATION.md + Express 3 个 MEDIUM 安全加固 + REQUIREMENTS traceability 表修正（created 2026-08-11）
 
 ## Phase Details
 
@@ -88,10 +89,10 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   7. 产品治理视图和研发中心视图都展示当前阶段的交付物就绪率(L6 product.stage → deliverable.phase 进度)
 **Plans**: 5 plans
 - [x] 07-01-PLAN.md — store 契约层 (scheduleStore 5 actions + rndStore 2 actions + ProductMilestone.deliverableCodes + AppContext wrappers: arrangeOnCalendar + doDeleteProduct)
-- [ ] 07-02-PLAN.md — 任务->日历 UI + 关联徽章 + 跳转 (TaskKanban DotsMenu + ScheduleView chip 徽章)
-- [ ] 07-03-PLAN.md — 删除产品级联清理 Dialog + CROSS-07/CROSS-05 UAT
-- [ ] 07-04-PLAN.md — 产品-研发联动 L5/L6 (里程碑交付物徽章 + 阶段就绪率)
-- [ ] 07-05-PLAN.md — Phase 7 全量 UAT checkpoint (35 步端到端)
+- [x] 07-02-PLAN.md — 任务->日历 UI + 关联徽章 + 跳转 (TaskKanban DotsMenu + ScheduleView chip 徽章)
+- [x] 07-03-PLAN.md — 删除产品级联清理 Dialog + CROSS-07/CROSS-05 UAT
+- [x] 07-04-PLAN.md — 产品-研发联动 L5/L6 (里程碑交付物徽章 + 阶段就绪率)
+- [x] 07-05-PLAN.md — Phase 7 全量 UAT checkpoint (统一浏览器 UAT；35 步人工回归待发布签核前补做)
 **UI hint**: yes
 
 ### Phase 8: MDXEditor 集成
@@ -105,9 +106,9 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   4. MDXEditor 使用 React.lazy() 延迟加载,不影响首屏性能;按需引入 plugins(toolbar/tables/code blocks),bundle 增量控制在 ~250KB gzip
   5. 纯渲染场景(6 处 react-markdown)保持不变;Tailwind v4 样式共存验证通过(无 CSS 冲突)
 **Plans**: 3 plans
-- [ ] 08-01-PLAN.md — MarkdownEditor 组件封装 (lazy + plugin subset + barrel + bundle 验证)
-- [ ] 08-02-PLAN.md — ProductKnowledgeTab 编辑面板 + 新建模态框 Textarea → MarkdownEditor
-- [ ] 08-03-PLAN.md — KnowledgeBaseView 编辑模式接入 + Phase 8 全量 UAT
+- [x] 08-01-PLAN.md — MarkdownEditor 组件封装 (lazy + plugin subset + barrel + bundle 验证)
+- [x] 08-02-PLAN.md — ProductKnowledgeTab 编辑面板 + 新建模态框 Textarea → MarkdownEditor
+- [x] 08-03-PLAN.md — KnowledgeBaseView 编辑模式接入 + Phase 8 全量 UAT
 **UI hint**: yes
 
 ### Phase 9: AI 助手基础
@@ -126,12 +127,12 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   8. Express 简化:删除 5 个旧 AI 端点,保留 Vite middleware (dev HMR) + 单一 `/api/chat` LLM proxy (web 模式 fallback)
   9. 错误处理分层:参数错误 AI 自动修正(最多 1 次重试),其他错误向用户解释
 **Plans**: 6 plans
-- [ ] 9-01-PLAN.md — Rust llm.rs provider-agnostic + chat Tauri command + per-provider keychain
-- [ ] 9-02-PLAN.md — Express 简化 (5→1 endpoint) + chatWithTools frontend client
-- [ ] 9-03-PLAN.md — Tool registry (Zod + ~200 LOC hand-rolled) + 10 个基础 tools
-- [ ] 9-04-PLAN.md — Tool loop + ⌘K CmdKPalette (Raycast-style 双模式)
-- [ ] 9-05-PLAN.md — Slide-out ChatPanel (480px,多轮对话,复用 Drawer)
-- [ ] 9-06-PLAN.md — Settings provider selector + Phase 9 端到端 UAT
+- [x] 9-01-PLAN.md — Rust llm.rs provider-agnostic + chat Tauri command + per-provider keychain
+- [x] 9-02-PLAN.md — Express 简化 (5→1 endpoint) + chatWithTools frontend client
+- [x] 9-03-PLAN.md — Tool registry (Zod + ~200 LOC hand-rolled) + 10 个基础 tools
+- [x] 9-04-PLAN.md — Tool loop + ⌘K CmdKPalette (Raycast-style 双模式)
+- [x] 9-05-PLAN.md — Slide-out ChatPanel (480px,多轮对话,复用 Drawer)
+- [x] 9-06-PLAN.md — Settings provider selector + Phase 9 端到端 UAT（browser/mock + Ollama 生产 tool-call 通过）
 **UI hint**: yes
 
 ### Phase 10: AI 任务+日程闭环
@@ -148,10 +149,10 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   7. 批量操作:"把所有高优先级任务标记为进行中" → AI 调用 listTasks(filter:{priority:'high'}) → 循环调用 updateTask
   8. 产品规划 AI 辅助:"帮我拆解这个产品的功能矩阵" → AI 调用 getProductDetails → 生成功能建议
 **Plans**: 4 plans
-- [ ] 10-01-PLAN.md — 扩展 8 个任务/批量 tools (updateTask/deleteTask/moveTask/rescheduleTask/setTaskPriority + bulkComplete/bulkDelete/bulkPriority)
-- [ ] 10-02-PLAN.md — 扩展 7 个日程/关联 tools (createEvent/updateEvent/deleteEvent/listEvents + associateTaskWithEvent + getTaskDependencies + getProductFeatureBreakdown)
-- [ ] 10-03-PLAN.md — Prompt engineering: dateContext helper + multi-turn ChatSession + Phase 10 system prompt 扩展
-- [ ] 10-04-PLAN.md — Phase 10 全量 UAT checkpoint
+- [x] 10-01-PLAN.md — 扩展 8 个任务/批量 tools (updateTask/deleteTask/moveTask/rescheduleTask/setTaskPriority + bulkComplete/bulkDelete/bulkPriority)
+- [x] 10-02-PLAN.md — 扩展 7 个日程/关联 tools (createEvent/updateEvent/deleteEvent/listEvents + associateTaskWithEvent + getTaskDependencies + getProductFeatureBreakdown)
+- [x] 10-03-PLAN.md — Prompt engineering: dateContext helper + multi-turn ChatSession + Phase 10 system prompt 扩展
+- [x] 10-04-PLAN.md — Phase 10 全量 UAT checkpoint（focused/mock + Ollama `createTask` round trip 通过）
 **UI hint**: yes
 
 ### Phase 11: AI 文件+知识库
@@ -167,8 +168,28 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   6. R&D 交付物增强:现有 generateDeliverableAI (setTimeout mock) 升级为 Tool Use 架构,调用 getRndDeliverables tool 获取上下文,生成更精细的交付物
   7. 知识组织:"把这些文章按主题分类" → AI 调用 listKnowledgeArticles → 分析内容 → 调用 updateKnowledgeArticle 打标签/归类
   8. 知识库搜索 (预留):searchKnowledgeBase tool 接口定义完成,v0.3+ 接 LanceDB 向量检索
-**Plans**: TBD
+**Plans**: 4 plans
+- [x] 11-01-PLAN.md — Workspace 文件读取与知识库 tools
+- [x] 11-02-PLAN.md — 知识候选生成、取消/确认与产品文档辅助
+- [x] 11-03-PLAN.md — R&D 交付物 Tool Use 增强与知识组织
+- [x] 11-04-PLAN.md — Phase 11 全量 UAT checkpoint（focused/browser + Ollama provider transport 通过）
 **UI hint**: yes
+
+### Phase 12: v0.2.0 Gap Closure
+**Goal**: 关闭 v0.2.0 MILESTONE-AUDIT 暴露的 ship-blocker:1 个 HIGH integration gap(KnowledgeBaseView 断链)+ 5 个 phase 缺 VERIFICATION.md(流程 blocker)+ 3 个 Express MEDIUM 安全加固 + REQUIREMENTS traceability 表修正(CROSS-04/05/06 标 Pending 实际已 done)
+**Depends on**: Phase 11(v0.2.0 全部交付完毕,基于 audit 结果)
+**Requirements**: 无新 REQ-ID(gap closure phase,不引入新功能;原 25 个 v1 REQ 全部已在 Phase 5-11 satisfied)
+**Success Criteria** (what must be TRUE):
+  1. `src/views/KnowledgeBaseView.tsx` 订阅 `useRndStore((s) => s.knowledgeBase)`,聚合所有 productId 下的 knowledge items 渲染;用户在该视图编辑刷新后保留;AI 写入 rndStore 的内容该视图可见(Flow D/E 通过)
+  2. Phase 7/8/9/10/11 各有一份 `NN-VERIFICATION.md`,内容来源为 v0.2.0-MILESTONE-AUDIT.md 的 integration checker 已验证证据,frontmatter `status: passed`
+  3. `server.ts` 3 个 MEDIUM 全部修复:`express.json({limit:'1mb'})`、Origin allowlist(localhost + tauri://)、`console.error` 输出脱敏(不输出完整 provider error.message)
+  4. `REQUIREMENTS.md` Traceability 表中 CROSS-04/05/06 从 `Pending` 改为 `Complete`,从 `[ ]` 改为 `[x]`
+  5. 重跑 `/gsd:audit-milestone v0.2.0`,status 从 `gaps_found` 变为 `passed`
+**Plans**: 3 plans
+- [ ] 12-01-PLAN.md — KnowledgeBaseView 接 rndStore.knowledgeBase(INT-01 修复)
+- [ ] 12-02-PLAN.md — Backfill 5 个 VERIFICATION.md(Phase 7/8/9/10/11,纯文档)
+- [ ] 12-03-PLAN.md — Express 3 MEDIUM 加固 + REQUIREMENTS traceibility 修正
+**UI hint**: yes (Plan 12-01 改 UI)
 
 ## Progress
 
@@ -179,15 +200,16 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 |-------|----------------|--------|-----------|
 | 5. Task CRUD 补全 | 5/5 | ✅ Complete | 2026-08-10 |
 | 6. Schedule CRUD + 真实日历 | 4/4 | Complete   | 2026-08-10 |
-| 7. 跨模块联动 + 产品-研发联动 | 0/TBD | Not started | - |
-| 8. MDXEditor 集成 | 0/TBD | Not started | - |
-| 9. AI 助手基础 | 0/TBD | Context gathered | - |
-| 10. AI 任务+日程闭环 | 0/TBD | Not started | - |
-| 11. AI 文件+知识库 | 0/TBD | Not started | - |
+| 7. 跨模块联动 + 产品-研发联动 | 5/5 | ✅ Complete | 2026-08-11；核心浏览器/F5 UAT 通过，35 步人工回归作为发布签核建议 |
+| 8. MDXEditor 集成 | 3/3 | ✅ Complete | 2026-08-11；编辑流程通过，chunk 约 297 KB gzip 的非阻断偏差已记录 |
+| 9. AI 助手基础 | 6/6 | ✅ Complete | 2026-08-11；mock UAT + Ollama 生产 tool-call UAT 通过；云 provider 无凭据未测 |
+| 10. AI 任务+日程闭环 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + Ollama `createTask` UAT 通过；云 provider 无凭据未测 |
+| 11. AI 文件+知识库 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + provider transport UAT 通过；云 provider 无凭据未测 |
+| 12. v0.2.0 Gap Closure | 0/3 | 🔄 Pending | 2026-08-11 创建；关闭 audit 暴露的 ship-blocker |
 
 ---
 *Roadmap created: 2026-08-10*
-*Last updated: 2026-08-10 after Phase 9 (原 Phase 10) context discussion*
-*Granularity: 7 phases (5-8 CRUD+联动+编辑器, 9-11 AI 驱动)*
-*Coverage: 24/24 v1 CRUD requirements mapped + AI phase requirements TBD*
+*Last updated: 2026-08-11 — Phase 12 (Gap Closure) added after v0.2.0 milestone audit*
+*Granularity: 8 phases (5-8 CRUD+联动+编辑器, 9-11 AI 驱动, 12 gap closure)*
+*Coverage: 24/24 v1 CRUD requirements mapped + AI phase requirements TBD + Phase 12 关闭 audit gaps*
 *Previous milestone: v0.1.0 (Phases 1-4, see header)*

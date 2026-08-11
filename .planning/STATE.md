@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1.0
-milestone_name: Recap
+milestone: v0.2.0
+milestone_name: 日常管理 CRUD + 弱关联 + AI 驱动
 status: executing
-stopped_at: Completed 07-01-PLAN.md (cross-module store contracts); ready for 07-02 (task→calendar UI)
-last_updated: "2026-08-10T12:10:51.244Z"
-last_activity: 2026-08-10
+stopped_at: v0.2.0 audit complete (gaps_found); Phase 12 Gap Closure created, awaiting plan-phase
+last_updated: "2026-08-11T11:30:00.000Z"
+last_activity: 2026-08-11
 progress:
-  total_phases: 7
-  completed_phases: 2
-  total_plans: 27
-  completed_plans: 10
-  percent: 37
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 31
+  completed_plans: 31
+  percent: 87
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 07 — cross-module
+**Current focus:** Phase 7-11 complete; release-signoff follow-up only
 
 ## Current Position
 
-Phase: 07 (cross-module) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute
-Last activity: 2026-08-10
+Phase: 11 (ai-file-knowledge) — checkpoint complete
+Plan: 4 of 4
+Status: Complete for local/mock and local Ollama behavior; cloud-provider matrix pending credentials
+Last activity: 2026-08-11
 
-Progress: [████░░░░░░] 37% (Phase 5 完成 5/5, Phase 6 完成 4/4, Phase 7 完成 1/5)
+Progress: [██████████] 100% (Phase 5-11 code plans complete; unified browser/store UAT and Ollama production tool-call UAT passed)
 
 ## v0.2.0 Execution Status
 
@@ -38,12 +38,13 @@ Progress: [████░░░░░░] 37% (Phase 5 完成 5/5, Phase 6 完�
 |-------|--------|-------|-------|
 | 5 Task CRUD | ✅ Complete (2026-08-10) | 5/5 | 9/9 verification passed; deferred to batch UAT |
 | 6 Schedule CRUD | ✅ Complete (2026-08-10) | 4/4 | Plans 01-03 landed + UAT deferred to batch |
-| 7 跨模块联动 | 🟢 Executing (1/5) | 1/5 | Plan 01 store contracts landed; Wave 2 (02/03/04) ready |
-| 8 MDXEditor | 🟡 Plans ready | 0/3 | 3 plans, 3 sequential waves |
-| 9 AI 基础 | 🟡 Plans ready | 0/6 | 6 plans, 6 waves (rig-core 多 provider 风险) |
-| 10 AI 任务+日程 | 🟡 Plans ready | 0/4 | 4 plans, 3 waves (**强依赖 Phase 9**) |
+| 7 跨模块联动 | ✅ Complete (2026-08-11) | 5/5 | 核心浏览器/F5 UAT 通过；35 步人工回归作为发布签核建议 |
+| 8 MDXEditor | ✅ Complete (2026-08-11) | 3/3 | 编辑流程通过；chunk 约 297 KB gzip 的非阻断偏差已记录 |
+| 9 AI 基础 | ✅ Complete (2026-08-11) | 6/6 | browser/mock + Ollama 生产 tool-call UAT 通过；云 provider 无凭据未测 |
+| 10 AI 任务+日程 | ✅ Complete (2026-08-11) | 4/4 | focused/mock + Ollama `createTask` UAT 通过；云 provider 无凭据未测 |
+| 11 AI 文件+知识库 | ✅ Complete (2026-08-11) | 4/4 | focused/browser + provider transport UAT 通过；云 provider 无凭据未测 |
 
-**Execution order:** 6 → 7 → 8 → 9 → 10 (serial, due to dependencies)
+**Execution order:** 5 → 6 → 7 → 8 → 9 → 10 → 11 (serial implementation order; Phase 7-11 UAT consolidated)
 
 ## Accumulated Context
 
@@ -97,23 +98,21 @@ Recent decisions affecting v0.2.0:
 
 ### Pending Todos
 
-- [ ] 执行 Phase 6 (4 plans, 4 waves)
-- [ ] 执行 Phase 7 (5 plans, 4 waves)
-- [ ] 执行 Phase 8 (3 plans, 3 waves)
-- [ ] 执行 Phase 9 (6 plans, 6 waves)
-- [ ] 执行 Phase 10 (4 plans, 3 waves)
+- [ ] 发布签核前执行 Phase 5/6 全回归与 Phase 7 35 步人工回归（自动化 F5 刷新验证已通过）
+- [ ] 如需云端模型对比，再配置 provider 凭据执行 DeepSeek/OpenAI/Anthropic/Gemini 专项 UAT；本地 Ollama 已验证
 - [ ] v0.1.0 + v0.2.0 batch UAT (跨 phase 横向, 用户偏好)
 - [ ] SEC-02/SEC-04/SEC-07 — UAT 完成后处理
 
 ### Blockers/Concerns
 
-None blocking. Key risks per phase (executor MUST read PLAN files for full context):
+None blocking. Current follow-up risks and verification gaps:
 
-- **Phase 6:** ScheduleView 在 Plan 01 lint ripple 后处于临时修补态,Plan 03 完整重写
-- **Phase 7:** deleteProduct 入口位置 + ProductSummaryDrawer props 签名需 executor grep 确认
-- **Phase 8:** Tailwind v4 共存(最高风险)+ bundle 控制约 250KB gzip
-- **Phase 9:** rig-core 多 provider 集成 + 流式 tool call 完整性需运行时验证
-- **Phase 10:** 强依赖 Phase 9 — plans 中已加 `<phase9_dependency>` 警示
+- **Phase 7:** 核心统一浏览器 UAT 已通过；发布签核前仍建议完成 35 步人工回归和 F5 刷新验证
+- **Phase 8:** Tailwind v4 共存已通过；MarkdownEditor chunk 约 297 KB gzip，高于 250 KB 规划目标
+- **Phase 9:** browser/mock + Ollama 生产 tool-call 已通过；其他 provider 因无凭据未测
+- **Phase 10:** focused/mock + Ollama `createTask` 真实 round trip 已通过；其他 provider 因无凭据未测
+- **Phase 11:** focused/browser + Ollama transport/tool-call 已通过；不同模型生成 prose 的质量对比未测
+- **Startup:** `HydrationGate` 已修复为六个 selector 无条件执行，避免 React Hook 顺序异常；F5 UAT 无 console/page errors
 
 ### Quick Tasks Completed
 
@@ -146,6 +145,6 @@ None blocking. Key risks per phase (executor MUST read PLAN files for full conte
 
 ## Session Continuity
 
-Last session: 2026-08-10T12:10:50.764Z
-Stopped at: Completed 07-01-PLAN.md (cross-module store contracts); ready for 07-02 (task→calendar UI)
-Resume action: `/gsd:execute-phase 06` (建议先 /clear 刷新上下文)
+Last session: 2026-08-11T10:40:00.000Z
+Stopped at: Phase 7-11 implementation, browser/store UAT, and Ollama production tool-call UAT complete
+Resume action: Optional cloud-provider comparison and release-signoff regression

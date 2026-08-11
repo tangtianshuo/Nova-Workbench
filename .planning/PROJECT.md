@@ -123,4 +123,10 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-10 after v0.2.0 milestone start (日常管理 CRUD + 弱关联)*
+
+## Phase Log (recent)
+
+- **Phase 12 (2026-08-11)**: v0.2.0 Gap Closure — closed all 8 audit gaps (INT-01 KnowledgeBaseView→rndStore wiring, 5 phase VERIFICATION.md backfill, 3 Express MEDIUM hardening, CROSS-04/05/06 traceability). v0.2.0 milestone ready for sign-off.
+
+---
+*Last updated: 2026-08-11 after Phase 12 (v0.2.0 Gap Closure) — all v0.2.0 ship-blockers closed, ready for milestone sign-off*

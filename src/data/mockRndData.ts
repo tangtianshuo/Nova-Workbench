@@ -73,7 +73,16 @@ export interface ProductKnowledgeItem {
   id: string;
   productId: string;
   title: string;
-  category: '架构设计' | '领域字典' | '技术协议' | 'FAQ与排障' | '最佳实践' | '经验沉淀';
+  category:
+    | '架构设计'
+    | '领域字典'
+    | '技术协议'
+    | 'FAQ与排障'
+    | '最佳实践'
+    | '经验沉淀'
+    | '业务规则'
+    | '架构约束'
+    | '踩坑指南';
   tags: string[];
   author: string;
   updatedAt: string;

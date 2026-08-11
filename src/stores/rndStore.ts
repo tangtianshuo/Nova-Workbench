@@ -328,14 +328,6 @@ export const useRndStore = create<RndState>()(
     const list = get().knowledgeBase[productId] || [];
     const target = list.find((k) => k.id === itemId);
     if (!target) return '';
-    try {
-      const resp = await fetch('/api/rnd/polish-knowledge-article', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: target.title, content: target.content, action }),
-      });
-      const data = await resp.json();
-      if (data.content) { get().updateKnowledgeItem(productId, itemId, { content: data.content }); return data.content; }
-    } catch (e) { /* fallback */ }
     const polished = `${target.content}\n\n### 📌 AI 自动补充与沉淀 (${action})`;
     get().updateKnowledgeItem(productId, itemId, { content: polished });
     return polished;
@@ -473,22 +465,22 @@ export const useRndStore = create<RndState>()(
     set((state) => ({
       deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d) => d.code === code ? { ...d, status: 'generating' as const } : d) },
     }));
-    try {
-      const resp = await fetch('/api/rnd/generate-deliverable', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: prod, code, deliverableTitle: target.title, customPrompt }),
-      });
-      const data = await resp.json();
-      if (data.content) {
-        set((state) => ({
-          deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d) => d.code === code ? { ...d, status: 'ready' as const, content: data.content, generatedAt: '刚刚', wordCount: `${data.content.length} 字` } : d) },
-        }));
-        return;
-      }
-    } catch (err) { /* fallback */ }
     await new Promise((r) => setTimeout(r, 800));
+    const generatedContent = [
+      `# ${target.title}`,
+      '',
+      `产品：${prod?.name || productId}`,
+      customPrompt ? `\n补充要求：${customPrompt}` : '',
+      '',
+      '## 交付目标',
+      target.summary,
+      '',
+      '## 验收要点',
+      '- 明确范围、输入输出和责任边界',
+      '- 记录关键风险与验证方式',
+    ].join('\n');
     set((state) => ({
-      deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d) => d.code === code ? { ...d, status: 'ready' as const, generatedAt: '刚刚', wordCount: `${Math.floor(2800 + Math.random() * 1500)} 字` } : d) },
+      deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d) => d.code === code ? { ...d, status: 'ready' as const, content: generatedContent, generatedAt: '刚刚', wordCount: `${generatedContent.length} 字` } : d) },
     }));
   },
 

@@ -7,10 +7,12 @@ import { Button } from '@/src/components/ui/Button';
 import { TaskDialog } from '@/src/components/TaskDialog';
 import { useApp } from '../store/AppContext';
 import type { Task } from '../data/mockTasks';
+import { useUIStore } from '@/src/stores/uiStore';
 
 export function TaskManagementView() {
   const { categories } = useApp();
-  const [selectedTaskId, setSelectedTaskId] = useState<string>('WXB-2025-001');
+  const selectedTaskId = useUIStore((state) => state.selectedTaskId);
+  const setSelectedTaskId = useUIStore((state) => state.setSelectedTaskId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
 
@@ -44,4 +46,3 @@ export function TaskManagementView() {
     </>
   );
 }
-

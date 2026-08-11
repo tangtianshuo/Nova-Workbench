@@ -31,8 +31,16 @@ import ReactMarkdown from 'react-markdown';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
-import { Input, Textarea } from '@/src/components/ui/Input';
+import { Input } from '@/src/components/ui/Input';
+import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { Separator } from '@/src/components/ui/Separator';
+import { executeTool } from '@/src/ai';
+import {
+  confirmKnowledgeWrite,
+  rejectKnowledgeWrite,
+  ConfirmationRequiredError,
+  type KnowledgeWriteCandidate,
+} from '@/src/ai/confirmations';
 
 interface Props {
   product: Product;
@@ -46,7 +54,6 @@ export function ProductKnowledgeTab({ product }: Props) {
     addKnowledgeItem,
     updateKnowledgeItem,
     deleteKnowledgeItem,
-    polishKnowledgeArticleAI
   } = useApp();
 
   const items = getKnowledgeForProduct(product.id);
@@ -61,6 +68,7 @@ export function ProductKnowledgeTab({ product }: Props) {
   const [editTags, setEditTags] = useState('');
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [isPolishing, setIsPolishing] = useState(false);
+  const [pendingPolishCandidate, setPendingPolishCandidate] = useState<KnowledgeWriteCandidate | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -87,7 +95,48 @@ export function ProductKnowledgeTab({ product }: Props) {
     setIsEditing(true);
   };
 
+  const handleConfirmPolish = async () => {
+    if (!pendingPolishCandidate) return;
+    try {
+      const candidate = confirmKnowledgeWrite(pendingPolishCandidate.confirmationToken);
+      await executeTool('writeKnowledgeArticle', {
+        productId: candidate.productId,
+        itemId: candidate.itemId,
+        title: candidate.title,
+        category: candidate.category,
+        tags: candidate.tags,
+        content: candidate.content,
+        summary: candidate.summary,
+        author: candidate.author,
+        readTime: candidate.readTime,
+        confirmationToken: candidate.confirmationToken,
+      });
+      setPendingPolishCandidate(null);
+      setIsEditing(false);
+      showToast('知识库候选稿已确认写入');
+    } catch {
+      showToast('候选稿写入失败，请重新生成');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (pendingPolishCandidate) {
+      rejectKnowledgeWrite(pendingPolishCandidate.confirmationToken);
+      setPendingPolishCandidate(null);
+    }
+    if (selectedItem) {
+      setEditTitle(selectedItem.title);
+      setEditContent(selectedItem.content);
+      setEditTags(selectedItem.tags.join(', '));
+    }
+    setIsEditing(false);
+  };
+
   const handleSaveEdit = () => {
+    if (pendingPolishCandidate) {
+      void handleConfirmPolish();
+      return;
+    }
     if (!selectedItem) return;
     updateKnowledgeItem(product.id, selectedItem.id, {
       title: editTitle,
@@ -121,11 +170,35 @@ export function ProductKnowledgeTab({ product }: Props) {
     if (!selectedItem) return;
     setIsPolishing(true);
     try {
-      const polished = await polishKnowledgeArticleAI(product.id, selectedItem.id, action);
-      if (isEditing) {
-        setEditContent(polished);
+      const readResult = await executeTool('readKnowledgeArticle', {
+        productId: product.id,
+        itemId: selectedItem.id,
+      }) as { article?: ProductKnowledgeItem };
+      if (!readResult.article) throw new Error('知识条目不存在');
+      const article = readResult.article;
+      const polished = `${article.content}\n\n### 📌 AI 自动补充与沉淀 (${action})`;
+      try {
+        await executeTool('writeKnowledgeArticle', {
+          productId: product.id,
+          itemId: article.id,
+          title: article.title,
+          category: article.category,
+          tags: article.tags,
+          content: polished,
+          summary: article.summary,
+          author: article.author,
+          readTime: article.readTime,
+        });
+      } catch (error) {
+        if (!(error instanceof ConfirmationRequiredError)) throw error;
+        setPendingPolishCandidate(error.candidate);
+        setEditTitle(article.title);
+        setEditCategory(article.category);
+        setEditContent(error.candidate.content);
+        setEditTags(article.tags.join(', '));
+        setIsEditing(true);
+        showToast(`已生成【${action}】候选稿，请确认写入`);
       }
-      showToast(`🪄 AI 知识库润色【${action}】完成`);
     } catch (e) {
       showToast('❌ 润色失败');
     } finally {
@@ -300,18 +373,24 @@ export function ProductKnowledgeTab({ product }: Props) {
                   </div>
 
                   {!isEditing ? (
-                    <Button variant="secondary" size="sm" onClick={() => handleStartEdit(selectedItem)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label="编辑知识条目"
+                      onClick={() => handleStartEdit(selectedItem)}
+                    >
                       <PhEdit3 size={14} weight="duotone" />
                     </Button>
                   ) : (
-                    <Button variant="primary" size="sm" onClick={handleSaveEdit} className="bg-success hover:bg-success/90">
-                      保存更新
+                     <Button variant="primary" size="sm" onClick={handleSaveEdit} className="bg-success hover:bg-success/90">
+                       {pendingPolishCandidate ? '确认写入' : '保存更新'}
                     </Button>
                   )}
 
                   <Button
                     variant="secondary"
                     size="sm"
+                    aria-label="删除知识条目"
                     onClick={() => deleteKnowledgeItem(product.id, selectedItem.id)}
                     className="text-danger border-danger/20 bg-danger-subtle hover:bg-danger-subtle/80"
                   >
@@ -338,20 +417,20 @@ export function ProductKnowledgeTab({ product }: Props) {
                     />
                   </div>
 
-                  <Textarea
+                  <MarkdownEditor
                     value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
+                    onChange={setEditContent}
                     placeholder="知识正文..."
-                    className="text-xs font-mono min-h-[320px] leading-relaxed"
+                    className="min-h-[320px]"
                   />
 
                   <div className="flex justify-end gap-2">
-                    <Button variant="secondary" size="md" onClick={() => setIsEditing(false)}>
-                      取消
-                    </Button>
+                     <Button variant="secondary" size="md" onClick={handleCancelEdit}>
+                       取消
+                     </Button>
                     <Button variant="primary" size="md" onClick={handleSaveEdit}>
-                      保存词条
-                    </Button>
+                       {pendingPolishCandidate ? '确认写入候选稿' : '保存词条'}
+                     </Button>
                   </div>
                 </div>
               ) : (
@@ -434,11 +513,11 @@ export function ProductKnowledgeTab({ product }: Props) {
 
                 <div>
                   <label className="block text-xs font-bold text-text-secondary mb-1">知识正文 (支持 Markdown)</label>
-                  <Textarea
+                  <MarkdownEditor
                     value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
+                    onChange={setEditContent}
                     placeholder="# 业务背景与规则规范..."
-                    className="text-xs font-mono min-h-[200px]"
+                    className="min-h-[200px]"
                   />
                 </div>
               </div>

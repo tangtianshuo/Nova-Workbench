@@ -20,6 +20,7 @@ import {
   ArrowSquareOut,
   Pulse,
   Robot,
+  Trash,
 } from '@phosphor-icons/react';
 import { useApp } from '../store/AppContext';
 import { Card, CardHover } from '@/src/components/ui/Card';
@@ -36,6 +37,7 @@ import {
   DialogHeader,
   DialogFooter,
 } from '@/src/components/ui/Dialog';
+import { useToast } from '@/src/components/ui/Toast';
 import { cn } from '@/src/lib/utils';
 
 import { ProductOverviewTab } from '../components/product/ProductOverviewTab';
@@ -73,7 +75,16 @@ const DETAIL_TABS: { id: ProductManageTabKey; label: string; icon: typeof Target
 ];
 
 export function ProductManagementView({ onNavigateToRnd }: Props) {
-  const { products, selectedProductId, setSelectedProductId, addProductMilestone, getDeliverablesForProduct } = useApp();
+  const {
+    products,
+    selectedProductId,
+    setSelectedProductId,
+    addProductMilestone,
+    getDeliverablesForProduct,
+    getDeleteProductImpact,
+    doDeleteProduct,
+  } = useApp();
+  const { toast } = useToast();
 
   const [activeDetailTab, setActiveDetailTab] = useState<ProductManageTabKey>('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,6 +95,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
   const [showAddDocModal, setShowAddDocModal] = useState(false);
   const [showAddSkillModal, setShowAddSkillModal] = useState(false);
   const [showAddMilestoneModal, setShowAddMilestoneModal] = useState(false);
+  const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<string | undefined>();
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [newMilestoneDate, setNewMilestoneDate] = useState('2025-07-30');
 
@@ -102,6 +114,12 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
   const inDevCount = products.filter(p => p.stage === '研发中' || p.stage === '公测灰度').length;
   const inOpsCount = products.filter(p => p.stage === '商业化运营' || p.stage === '已发布').length;
   const healthyCount = products.filter(p => p.health === 'healthy').length;
+  const deleteImpact = confirmDeleteProductId
+    ? getDeleteProductImpact(confirmDeleteProductId)
+    : null;
+  const confirmDeleteProduct = confirmDeleteProductId
+    ? products.find(p => p.id === confirmDeleteProductId)
+    : null;
 
   const handleCreateMilestone = (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +167,58 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
               <Button variant="primary" type="submit">确认添加</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!confirmDeleteProductId}
+        onOpenChange={(open) => !open && setConfirmDeleteProductId(undefined)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader
+            title="确认删除产品？"
+            description={
+              deleteImpact
+                ? `此操作将解除 ${deleteImpact.taskCount} 个任务、${deleteImpact.eventCount} 个日程的关联${
+                    deleteImpact.hasRndData
+                      ? '。研发中心中的交付物、里程碑、原型、需求、知识、代码、测试、竞品和文档将被清理'
+                      : ''
+                  }。是否继续？`
+                : ''
+            }
+          >
+            {confirmDeleteProduct && (
+              <p className="mt-3 text-xs text-text-tertiary">
+                将删除产品「{confirmDeleteProduct.name}」本身，已关联的任务和日程会保留，仅清空产品关联。
+              </p>
+            )}
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => setConfirmDeleteProductId(undefined)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              type="button"
+              onClick={() => {
+                if (!confirmDeleteProductId) return;
+                doDeleteProduct(confirmDeleteProductId);
+                setConfirmDeleteProductId(undefined);
+                toast({
+                  type: 'success',
+                  title: '产品已删除',
+                  description: '关联数据已清理',
+                });
+              }}
+            >
+              <Trash size={14} weight="bold" />
+              确认删除
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -313,6 +383,15 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
                         产品总览与管控
                         <CaretRight size={14} weight="bold" />
                       </button>
+                      <Button
+                        variant="danger"
+                        size="xs"
+                        aria-label={`删除产品 ${prod.name}`}
+                        onClick={() => setConfirmDeleteProductId(prod.id)}
+                      >
+                        <Trash size={12} weight="bold" />
+                        删除
+                      </Button>
                     </div>
                   </CardHover>
                 </motion.div>
@@ -369,6 +448,14 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
                 <Button variant="primary" size="sm" onClick={() => setShowAddMilestoneModal(true)}>
                   <Plus size={14} weight="bold" />
                   添加里程碑
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setConfirmDeleteProductId(currentProduct.id)}
+                >
+                  <Trash size={14} weight="bold" />
+                  删除产品
                 </Button>
               </div>
             </div>

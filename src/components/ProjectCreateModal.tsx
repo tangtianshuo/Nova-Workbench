@@ -8,6 +8,7 @@ import { Textarea } from '@/src/components/ui/Input';
 import { useToast } from '@/src/components/ui/Toast';
 import { streamGenerateProject, type GenerateProjectResult } from '@/src/lib/api';
 import { cn } from '@/src/lib/utils';
+import { executeTool } from '@/src/ai/registry';
 
 interface ProjectCreateModalProps {
   onClose: () => void;
@@ -24,10 +25,14 @@ export function ProjectCreateModal({ onClose }: ProjectCreateModalProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetch('/api/workspace-files')
-      .then(res => res.json())
-      .then(data => setFiles(data))
-      .catch(err => console.error(err));
+    let active = true;
+    void executeTool('listWorkspaceFiles', {}).then((result) => {
+      if (!active || !result || typeof result !== 'object' || !('files' in result)) return;
+      setFiles((result as { files: any[] }).files);
+    }).catch(err => console.error(err));
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Pitfall 5: abort in-flight stream when modal closes/unmounts

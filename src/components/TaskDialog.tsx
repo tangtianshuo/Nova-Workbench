@@ -212,14 +212,22 @@ export function TaskDialog({ open, onOpenChange, mode, task, defaultCategoryId }
                       {selectedProduct ? selectedProduct.name : '搜索产品...'}
                     </span>
                     {selectedProduct ? (
-                      <button
-                        type="button"
+                      <span
+                        role="button"
+                        tabIndex={0}
                         aria-label="清除产品关联"
                         onClick={(e) => { e.stopPropagation(); setProjectId(undefined); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setProjectId(undefined);
+                          }
+                        }}
                         className="text-text-tertiary hover:text-text-primary"
                       >
                         <X size={14} />
-                      </button>
+                      </span>
                     ) : (
                       <MagnifyingGlass size={14} className="text-text-tertiary" />
                     )}

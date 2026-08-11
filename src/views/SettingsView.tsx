@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Bell, Shield, Palette, Layout, Globe, FloppyDisk, Sun, Moon, Desktop } from '@phosphor-icons/react';
+import { User, Bell, Shield, Palette, Layout, Globe, Robot, FloppyDisk, Sun, Moon, Desktop } from '@phosphor-icons/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { id: 'account', icon: User, label: '账号信息', group: '个人设置' },
   { id: 'notifications', icon: Bell, label: '消息通知', group: '个人设置' },
   { id: 'privacy', icon: Shield, label: '隐私与安全', group: '个人设置' },
+  { id: 'ai', icon: Robot, label: 'AI 设置', group: '个人设置' },
   { id: 'appearance', icon: Palette, label: '外观主题', group: '系统偏好' },
   { id: 'layout', icon: Layout, label: '界面布局', group: '系统偏好' },
   { id: 'locale', icon: Globe, label: '语言与时区', group: '系统偏好' },
@@ -123,11 +124,28 @@ export function SettingsView() {
             </>
           )}
 
-          {/* Privacy section — API key management (D-07) */}
-          {activeSection === 'privacy' && <SettingsApiKeySection />}
+          {/* Provider/API key management stays inside the existing settings ownership boundary. */}
+          {activeSection === 'ai' && <SettingsApiKeySection />}
+
+          {activeSection === 'privacy' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">隐私与安全</h2>
+                <p className="text-sm text-text-secondary mt-1">应用不会把 API key 写入 React 持久状态、Zustand 或日志。</p>
+              </div>
+              <Separator />
+              <div className="rounded-[var(--radius-lg)] border border-border-subtle p-5 space-y-3">
+                <p className="text-sm font-medium text-text-primary">API key 管理已集中到 AI 设置</p>
+                <p className="text-xs leading-5 text-text-tertiary">每个 provider 的 key 状态和保存入口都在 AI 设置中，桌面端使用系统钥匙串。</p>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setActiveSection('ai')}>
+                  前往 AI 设置
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Other nav items fall through to placeholder */}
-          {activeSection !== 'account' && activeSection !== 'appearance' && activeSection !== 'privacy' && (
+          {activeSection !== 'account' && activeSection !== 'appearance' && activeSection !== 'privacy' && activeSection !== 'ai' && (
             <div className="text-center text-text-tertiary py-20">即将上线</div>
           )}
         </div>

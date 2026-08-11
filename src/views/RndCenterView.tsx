@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Product } from '../data/mockProducts';
 import {
   Sparkle,
   Stack,
@@ -46,6 +47,24 @@ interface Props {
   onNavigateTab?: (tabId: string) => void;
 }
 
+type DeliverablePhase = 'requirement' | 'design' | 'dev' | 'test' | 'release';
+
+const STAGE_TO_PHASE: Record<Product['stage'], DeliverablePhase[]> = {
+  '规划中': ['requirement'],
+  '研发中': ['design', 'dev'],
+  '公测灰度': ['test'],
+  '商业化运营': ['release'],
+  '已发布': ['requirement', 'design', 'dev', 'test', 'release'],
+};
+
+const PHASE_LABEL: Record<DeliverablePhase, string> = {
+  requirement: '需求',
+  design: '设计',
+  dev: '开发',
+  test: '测试',
+  release: '发版',
+};
+
 const TABS: { id: RndTabKey; label: string; icon: typeof Sparkle }[] = [
   { id: 'deliverables', label: '全套成果物工坊 (18)', icon: Sparkle },
   { id: 'requirements', label: 'AI 需求设计 (PRD)', icon: Robot },
@@ -57,12 +76,21 @@ const TABS: { id: RndTabKey; label: string; icon: typeof Sparkle }[] = [
 ];
 
 export function RndCenterView({ onNavigateTab }: Props) {
-  const { products, selectedProductId, setSelectedProductId, getDeliverablesForProduct } = useApp();
+  const { products, selectedProductId, setSelectedProductId, getDeliverablesForProduct, getDeliverableStatusForPhase } = useApp();
   const [activeRndTab, setActiveRndTab] = useState<RndTabKey>('deliverables');
 
   const currentProduct = products.find(p => p.id === selectedProductId) || products[0];
   const deliverables = currentProduct ? getDeliverablesForProduct(currentProduct.id) : [];
   const readyDeliverablesCount = deliverables.filter(d => d.status === 'ready').length;
+  const phaseStatuses = currentProduct
+    ? STAGE_TO_PHASE[currentProduct.stage].map((phase) => ({
+        phase,
+        label: PHASE_LABEL[phase],
+        ...getDeliverableStatusForPhase(currentProduct.id, phase),
+      }))
+    : [];
+  const stageReadyCount = phaseStatuses.reduce((sum, status) => sum + status.ready, 0);
+  const stageTotalCount = phaseStatuses.reduce((sum, status) => sum + status.total, 0);
 
   if (!currentProduct) {
     return (
@@ -130,6 +158,29 @@ export function RndCenterView({ onNavigateTab }: Props) {
               <Stack size={13} weight="duotone" />
               产品管控看板
             </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 p-3.5 bg-bg-secondary/50 rounded-[var(--radius-md)] border border-border-subtle">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-text-primary">当前阶段交付物进度</span>
+              <Badge variant={stageReadyCount === stageTotalCount && stageTotalCount > 0 ? 'success' : 'accent'}>
+                {stageReadyCount}/{stageTotalCount} 就绪
+              </Badge>
+            </div>
+            <span className="text-[11px] text-text-tertiary">{currentProduct.stage}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {phaseStatuses.map((status) => (
+              <div key={status.phase} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-sm)] bg-bg-primary/70 text-xs">
+                <span className="text-text-tertiary">{status.label}</span>
+                <span className={`font-mono font-bold ${status.ready === status.total && status.total > 0 ? 'text-success' : 'text-text-primary'}`}>
+                  {status.ready}/{status.total}
+                </span>
+                {status.generating > 0 && <span className="text-warning">·{status.generating}生成中</span>}
+              </div>
+            ))}
           </div>
         </div>
 

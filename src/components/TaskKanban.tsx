@@ -6,12 +6,15 @@ import {
 } from '@dnd-kit/core';
 import {
   CaretDown, Funnel, ArrowsDownUp, CheckCircle, Clock, Sparkle, Plus, DotsThree,
-  PencilSimple, Copy, ArrowCounterClockwise, Trash, FolderSimple,
+  PencilSimple, Copy, ArrowCounterClockwise, Trash, FolderSimple, Calendar,
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 import { TaskCategory, Task } from '../data/mockTasks';
 import { useTaskStore } from '@/src/stores/taskStore';
 import { useProductStore } from '@/src/stores/productStore';
+import { useScheduleStore } from '@/src/stores/scheduleStore';
+import { useUIStore } from '@/src/stores/uiStore';
+import { useApp } from '@/src/store/AppContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -39,6 +42,8 @@ interface TaskKanbanProps {
 
 export function TaskKanban({ className = '', categories, selectedTaskId, onSelectTask }: TaskKanbanProps) {
   const { addCategory, moveTask } = useTaskStore();
+  const { arrangeOnCalendar } = useApp();
+  const { toast } = useToast();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [viewMode, setViewMode] = useState('category');
@@ -47,6 +52,7 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
   const [editDialogTask, setEditDialogTask] = useState<Task | undefined>();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<Task | undefined>();
+  const [confirmRearrangeTask, setConfirmRearrangeTask] = useState<Task | undefined>();
   const [drawerProductId, setDrawerProductId] = useState<string | undefined>();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -121,6 +127,52 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
     setDrawerOpen(true);
   };
 
+  // Phase 7 CROSS-01/CROSS-02 (D-01/D-02/D-03): "安排到日历" flow.
+  const handleArrangeOnCalendar = (task: Task) => {
+    const result = arrangeOnCalendar(task.id);
+    if (result.success) {
+      toast({
+        type: 'success',
+        title: '已添加到日历',
+        description: `「${task.title}」已同步到日程`,
+      });
+    } else if (result.reason === 'already-arranged') {
+      setConfirmRearrangeTask(task);
+    } else if (result.reason === 'no-deadline') {
+      toast({
+        type: 'error',
+        title: '无法安排',
+        description: '任务缺少截止日期,请先编辑设置截止日期',
+      });
+    } else if (result.reason === 'task-not-found') {
+      toast({ type: 'error', title: '任务不存在' });
+    }
+  };
+
+  const handleConfirmRearrange = () => {
+    if (!confirmRearrangeTask) return;
+    const taskId = confirmRearrangeTask.id;
+    const oldEventId = confirmRearrangeTask.scheduledEventId;
+    // Rearrange = clear scheduledEventId → delete old event → arrangeOnCalendar creates new
+    useTaskStore.getState().updateTask(taskId, { scheduledEventId: undefined });
+    if (oldEventId) useScheduleStore.getState().deleteEvent(oldEventId);
+    const result = arrangeOnCalendar(taskId);
+    if (result.success) {
+      toast({
+        type: 'success',
+        title: '已重新安排',
+        description: '旧日程已替换为新日程',
+      });
+    } else if (result.reason === 'no-deadline') {
+      toast({
+        type: 'error',
+        title: '无法重新安排',
+        description: '任务缺少截止日期',
+      });
+    }
+    setConfirmRearrangeTask(undefined);
+  };
+
   return (
     <>
       <Card className={cn('flex flex-col', className)}>
@@ -167,6 +219,7 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
                 onSelectTask={onSelectTask}
                 onRequestDialogEdit={handleRequestDialogEdit}
                 onRequestDelete={handleRequestDelete}
+                onRequestArrange={handleArrangeOnCalendar}
                 onOpenProductDrawer={handleOpenProductDrawer}
                 activeDragId={activeDragId}
                 activeDragTask={activeDragTask}
@@ -239,6 +292,22 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
         </DialogContent>
       </Dialog>
 
+      {/* Rearrange confirm (Phase 7 D-03) */}
+      <Dialog open={!!confirmRearrangeTask} onOpenChange={(o) => !o && setConfirmRearrangeTask(undefined)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader title="已安排,是否重新安排?" />
+          <DialogBody>
+            <p className="text-sm text-text-secondary">
+              将删除旧日程并基于任务的最新截止日期创建新日程。
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConfirmRearrangeTask(undefined)}>取消</Button>
+            <Button variant="danger" onClick={handleConfirmRearrange}>重新安排</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Product summary drawer (badge click) */}
       <ProductSummaryDrawer
         productId={drawerProductId}
@@ -277,6 +346,7 @@ interface KanbanColumnProps {
   onSelectTask: (id: string) => void;
   onRequestDialogEdit: (task: Task) => void;
   onRequestDelete: (task: Task) => void;
+  onRequestArrange: (task: Task) => void;
   onOpenProductDrawer: (productId: string) => void;
   activeDragId: string | null;
   activeDragTask: Task | null;
@@ -285,7 +355,7 @@ interface KanbanColumnProps {
 
 function KanbanColumn({
   cat, isDateView, selectedTaskId, onSelectTask,
-  onRequestDialogEdit, onRequestDelete, onOpenProductDrawer,
+  onRequestDialogEdit, onRequestDelete, onRequestArrange, onOpenProductDrawer,
   activeDragId, activeDragTask, overCatId,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: cat.id });
@@ -340,6 +410,7 @@ function KanbanColumn({
               onToggleExpand={() => onSelectTask(selectedTaskId === task.id ? '' : task.id)}
               onRequestDialogEdit={() => onRequestDialogEdit(task)}
               onRequestDelete={() => onRequestDelete(task)}
+              onRequestArrange={() => onRequestArrange(task)}
               onOpenProductDrawer={onOpenProductDrawer}
             />
           ))
@@ -357,16 +428,18 @@ interface KanbanCardProps {
   onToggleExpand: () => void;
   onRequestDialogEdit: () => void;
   onRequestDelete: () => void;
+  onRequestArrange: () => void;
   onOpenProductDrawer: (productId: string) => void;
 }
 
 function KanbanCard({
   task, cat, isExpanded, onToggleExpand,
-  onRequestDialogEdit, onRequestDelete, onOpenProductDrawer,
+  onRequestDialogEdit, onRequestDelete, onRequestArrange, onOpenProductDrawer,
 }: KanbanCardProps) {
   const { updateTask, completeTask, reopenTask, moveTask } = useTaskStore();
   const categories = useTaskStore((s) => s.categories);
   const products = useProductStore((s) => s.products);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
   const { toast } = useToast();
 
   // DnD (D-05, D-07)
@@ -481,6 +554,9 @@ function KanbanCard({
             <DropdownMenuItem onSelect={onRequestDialogEdit}>
               <PencilSimple size={14} weight="duotone" /> 在对话框中编辑
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onRequestArrange}>
+              <Calendar size={14} weight="duotone" /> 安排到日历
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={handleCopyId}>
               <Copy size={14} weight="duotone" /> 复制 ID
             </DropdownMenuItem>
@@ -516,6 +592,20 @@ function KanbanCard({
                 <FolderSimple size={10} weight="fill" />
                 {product.name}
               </Badge>
+            )}
+            {task.scheduledEventId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab('schedule');
+                }}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-medium hover:bg-success/20 transition-colors"
+                title="跳转到日程"
+              >
+                <Calendar size={10} weight="duotone" />
+                日程
+              </button>
             )}
             <span className="text-[11px] text-text-tertiary">{task.time || task.status}</span>
           </div>

@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from '@/src/components/ui/Dialog';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
+import { executeTool } from '@/src/ai/registry';
 
 interface WorkspaceSummaryModalProps {
   workspace: Workspace;
@@ -27,26 +28,26 @@ export function WorkspaceSummaryModal({ workspace, onClose }: WorkspaceSummaryMo
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/summarize-workspace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceName: workspace.name,
-          folderPath: workspace.folderPath,
-          files: workspace.files,
-          projectName: associatedProject?.name || workspace.projectName || '未指定',
-          projectProgress: progress,
-          taskCount
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('总结生成失败，请检查服务');
+      const result = await executeTool('listWorkspaceFiles', { workspaceId: workspace.id });
+      if (!result || typeof result !== 'object' || !('files' in result)) {
+        throw new Error('工作区文件索引不可用');
       }
-
-      const data = await response.json();
-      setSummary(data.summary);
-      updateWorkspace(workspace.id, { summary: data.summary });
+      const files = (result as { files: Array<{ name: string; type: string; contentSnippet?: string }> }).files;
+      const fileLines = files.map((file) => {
+        const snippet = file.contentSnippet ? `：${file.contentSnippet}` : '';
+        return `- **${file.name}** (${file.type})${snippet}`;
+      });
+      const nextSummary = [
+        `## ${workspace.name}`,
+        '',
+        `关联项目：${associatedProject?.name || workspace.projectName || '未指定'}`,
+        `项目进度：${progress}% · 关联任务：${taskCount} 个`,
+        '',
+        '### 已索引文件',
+        ...(fileLines.length > 0 ? fileLines : ['- 暂无可用文件摘要']),
+      ].join('\n');
+      setSummary(nextSummary);
+      updateWorkspace(workspace.id, { summary: nextSummary });
     } catch (err: any) {
       console.error(err);
       setError(err.message || '生成失败，请重试');

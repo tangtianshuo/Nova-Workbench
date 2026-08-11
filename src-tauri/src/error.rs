@@ -14,12 +14,8 @@ pub enum AppError {
     NetworkError(String),
     #[error("invalid api key")]
     AuthError,
-    #[error("rate limited")]
-    RateLimited,
     #[error("parse error: {0}")]
     ParseError(String),
-    #[error("response truncated")]
-    Truncated,
     #[error("cancelled")]
     Cancelled,
     #[error("internal error: {0}")]
@@ -49,12 +45,10 @@ mod tests {
                 "\"network error: upstream timeout\"",
             ),
             (AppError::AuthError, "\"invalid api key\""),
-            (AppError::RateLimited, "\"rate limited\""),
             (
                 AppError::ParseError("bad json".into()),
                 "\"parse error: bad json\"",
             ),
-            (AppError::Truncated, "\"response truncated\""),
             (AppError::Cancelled, "\"cancelled\""),
             (
                 AppError::InternalError("oops".into()),
@@ -74,9 +68,7 @@ mod tests {
         let samples = [
             AppError::NetworkError("x".into()),
             AppError::AuthError,
-            AppError::RateLimited,
             AppError::ParseError("x".into()),
-            AppError::Truncated,
             AppError::Cancelled,
             AppError::InternalError("x".into()),
         ];

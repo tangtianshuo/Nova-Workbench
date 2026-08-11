@@ -1,4 +1,14 @@
-import { CaretLeft, CaretRight, Clock, MapPin, VideoCamera, Plus } from '@phosphor-icons/react';
+import {
+  CaretLeft,
+  CaretRight,
+  CheckCircle,
+  CheckSquare,
+  Clock,
+  FolderSimple,
+  MapPin,
+  VideoCamera,
+  Plus,
+} from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -6,12 +16,15 @@ import { Badge } from '@/src/components/ui/Badge';
 import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { ScheduleDialog } from '@/src/components/ScheduleDialog';
 import { useScheduleStore, type ScheduleEvent } from '@/src/stores/scheduleStore';
+import { useTaskStore } from '@/src/stores/taskStore';
+import { useUIStore } from '@/src/stores/uiStore';
+import { ProductSummaryDrawer } from '@/src/components/ProductSummaryDrawer';
 import { cn } from '@/src/lib/utils';
 
 const EVENT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   meeting:  { bg: 'bg-accent/10',     text: 'text-accent',     dot: 'bg-accent' },
   deadline: { bg: 'bg-danger/10',     text: 'text-danger',     dot: 'bg-danger' },
-  task:     { bg: 'bg-purple-500/10', text: 'text-purple-600', dot: 'bg-purple-500' },
+  task:     { bg: 'bg-warning/10',    text: 'text-warning',    dot: 'bg-warning' },
   reminder: { bg: 'bg-warning/10',    text: 'text-warning',    dot: 'bg-warning' },
   review:   { bg: 'bg-purple-500/10', text: 'text-purple-600', dot: 'bg-purple-500' },
   sync:     { bg: 'bg-success/10',    text: 'text-success',    dot: 'bg-success' },
@@ -27,6 +40,9 @@ const parseMonthDay = (iso: string) => {
 
 export function ScheduleView() {
   const events = useScheduleStore((s) => s.events);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
+  const setSelectedTaskId = useUIStore((s) => s.setSelectedTaskId);
+  const taskCategories = useTaskStore((s) => s.categories);
   const [viewMode, setViewMode] = useState('month');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date();
@@ -35,6 +51,7 @@ export function ScheduleView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [createDefaultDate, setCreateDefaultDate] = useState<string | undefined>();
+  const [drawerProductId, setDrawerProductId] = useState<string | undefined>();
 
   const { year, month } = currentMonth;
   const today = todayISO();
@@ -94,6 +111,47 @@ export function ScheduleView() {
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
     .slice(0, 8);
 
+  const findTaskTitle = (taskId?: string) => {
+    if (!taskId) return '';
+    return taskCategories
+      .flatMap((category) => category.tasks)
+      .find((task) => task.id === taskId)?.title ?? '';
+  };
+
+  const renderAssociationButtons = (event: ScheduleEvent) => (
+    <span className="inline-flex items-center gap-1 shrink-0">
+      {event.taskId && (
+        <button
+          type="button"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            setSelectedTaskId(event.taskId ?? null);
+            setActiveTab('tasks');
+          }}
+          className="hover:scale-110 transition-transform"
+          title={`任务: ${findTaskTitle(event.taskId)}`}
+          aria-label={`打开任务 ${findTaskTitle(event.taskId)}`}
+        >
+          <CheckSquare size={10} weight="fill" />
+        </button>
+      )}
+      {event.projectId && (
+        <button
+          type="button"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            setDrawerProductId(event.projectId);
+          }}
+          className="hover:scale-110 transition-transform"
+          title="查看产品"
+          aria-label="查看关联产品"
+        >
+          <FolderSimple size={10} weight="fill" />
+        </button>
+      )}
+    </span>
+  );
+
   const goPrev = () =>
     setCurrentMonth(({ year, month }) =>
       month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 },
@@ -119,7 +177,8 @@ export function ScheduleView() {
   };
 
   return (
-    <div className="flex gap-5 h-full min-h-[700px]">
+    <>
+      <div className="flex gap-5 h-full min-h-[700px]">
       {/* Calendar */}
       <Card className="flex-1 flex flex-col p-5">
         <div className="flex items-center justify-between mb-6">
@@ -184,6 +243,7 @@ export function ScheduleView() {
                 <div className="space-y-0.5">
                   {cell.dayEvents.map((e) => {
                     const c = EVENT_COLORS[e.type] || EVENT_COLORS.meeting;
+                    const isDone = e.status === '已完成';
                     return (
                       <div
                         key={e.id}
@@ -192,12 +252,15 @@ export function ScheduleView() {
                           openEdit(e);
                         }}
                         className={cn(
-                          'px-1 py-px text-[10px] rounded font-medium truncate',
+                          'px-1 py-px text-[10px] rounded font-medium truncate flex items-center gap-0.5 group/chip',
                           c.bg,
                           c.text,
+                          isDone && 'opacity-50 line-through',
                         )}
                       >
-                        {e.time.split(' ')[0]} {e.title}
+                        {isDone && <CheckCircle size={8} weight="fill" className="shrink-0" />}
+                        <span className="truncate">{e.time.split(' ')[0]} {e.title}</span>
+                        {renderAssociationButtons(e)}
                       </div>
                     );
                   })}
@@ -239,7 +302,10 @@ export function ScheduleView() {
                   >
                     <div className="flex justify-between items-start mb-1.5">
                       <h4 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
-                        {event.title}
+                        <span className={cn(event.status === '已完成' && 'line-through text-text-tertiary')}>
+                          {event.status === '已完成' && <CheckCircle size={12} weight="fill" className="inline mr-1 text-success" />}
+                          {event.title}
+                        </span>
                       </h4>
                       <Badge
                         variant={isToday ? 'accent' : 'neutral'}
@@ -251,6 +317,9 @@ export function ScheduleView() {
                     <div className="flex items-center gap-1.5 text-xs text-text-tertiary mb-2">
                       <Clock size={12} weight="duotone" />
                       {event.time}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-text-tertiary">
+                      {renderAssociationButtons(event)}
                     </div>
                     {event.location && (
                       <div className="flex items-center gap-1.5 text-xs text-text-secondary bg-bg-primary px-2 py-1 rounded-[var(--radius-sm)] border border-border-subtle w-fit">
@@ -278,6 +347,7 @@ export function ScheduleView() {
           新建日程
         </Button>
       </Card>
+      </div>
 
       <ScheduleDialog
         open={dialogOpen}
@@ -286,6 +356,11 @@ export function ScheduleView() {
         event={editingEvent}
         defaultDate={createDefaultDate}
       />
-    </div>
+      <ProductSummaryDrawer
+        productId={drawerProductId}
+        open={!!drawerProductId}
+        onOpenChange={(open) => !open && setDrawerProductId(undefined)}
+      />
+    </>
   );
 }

@@ -20,6 +20,9 @@ export { Switch } from './Switch';
 export { Checkbox } from './Checkbox';
 export { DatePickerInput } from './DatePickerInput';
 
+// Editors
+export { MarkdownEditor } from './MarkdownEditor';
+
 // Navigation
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
 export { SegmentedControl } from './SegmentedControl';
@@ -34,6 +37,6 @@ export { Tooltip, TooltipProvider } from './Tooltip';
 // Feedback
 export { ToastProvider, useToast } from './Toast';
 export { Badge, DotBadge } from './Badge';
-export { Avatar, AvatarGroup } from './Avatar';
+export { Avatar } from './Avatar';
 export { ProgressBar } from './ProgressBar';
 export { Skeleton } from './Skeleton';

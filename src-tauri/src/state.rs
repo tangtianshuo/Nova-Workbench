@@ -7,17 +7,22 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use crate::llm::Provider;
+
 pub struct AppState {
     /// request_id → cancellation token. Inserted by `generate_project` at request
     /// start, removed at request end (success OR error). `cancel_generate_project`
     /// looks up by request_id and fires `cancel()`.
     pub cancellations: Mutex<HashMap<String, tokio_util::sync::CancellationToken>>,
+    /// Provider selected by Settings. API keys are intentionally not cached here.
+    pub active_provider: Mutex<Provider>,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
             cancellations: Mutex::new(HashMap::new()),
+            active_provider: Mutex::new(Provider::DeepSeek),
         }
     }
 }
@@ -59,5 +64,11 @@ mod tests {
             state.cancellations.lock().unwrap().is_empty(),
             "map must be empty after remove"
         );
+    }
+
+    #[test]
+    fn appstate_defaults_to_deepseek() {
+        let state = AppState::new();
+        assert_eq!(*state.active_provider.lock().unwrap(), Provider::DeepSeek);
     }
 }

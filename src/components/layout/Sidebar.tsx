@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { type ElementType } from 'react';
+import { ChatPanel } from '@/src/components/ChatPanel';
+import { useUIStore } from '@/src/stores/uiStore';
 import {
   Robot,
   CheckSquare,
@@ -11,6 +13,7 @@ import {
   Gear,
   Cpu,
   Cube,
+  Sparkle,
 } from '@phosphor-icons/react';
 
 interface MenuItem {
@@ -28,66 +31,87 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, onTabChange, menuItems }: SidebarProps) {
+  const setChatPanelOpen = useUIStore((state) => state.setChatPanelOpen);
+
   return (
-    <aside
-      className={cn(
-        'w-[var(--sidebar-w)] flex flex-col h-full shrink-0',
-        'glass-subtle border-r border-border-subtle',
-      )}
-    >
-      {/* Logo */}
-      <div className="px-5 py-4 flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-[var(--radius-sm)] bg-accent flex items-center justify-center">
-          <Cube size={16} weight="fill" className="text-white" />
-        </div>
-        <span className="text-md font-semibold tracking-tight text-text-primary">
-          Nova
-        </span>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">
-        {menuItems.map((item) => (
-          <SidebarItem
-            key={item.id}
-            item={item}
-            isActive={activeTab === item.id}
-            onClick={() => onTabChange(item.id)}
-          />
-        ))}
-
-        {/* Section divider */}
-        <div className="pt-4 pb-1 px-3">
-          <span className="text-[11px] font-medium text-text-tertiary uppercase tracking-wide">
-            产研工坊
+    <>
+      <aside
+        className={cn(
+          'w-[var(--sidebar-w)] flex flex-col h-full shrink-0',
+          'glass-subtle border-r border-border-subtle',
+        )}
+      >
+        {/* Logo */}
+        <div className="px-5 py-4 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-[var(--radius-sm)] bg-accent flex items-center justify-center">
+            <Cube size={16} weight="fill" className="text-white" />
+          </div>
+          <span className="text-md font-semibold tracking-tight text-text-primary">
+            Nova
           </span>
         </div>
 
-        <SidebarItem
-          item={{
-            id: 'rnd-center',
-            icon: Cpu,
-            label: '产品研发中心',
-          }}
-          isActive={activeTab === 'rnd-center'}
-          onClick={() => onTabChange('rnd-center')}
-          accent
-        />
-      </nav>
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => setChatPanelOpen(true)}
+            aria-label="打开 AI 助手"
+            className={cn(
+              'w-full flex items-center gap-2.5 px-2.5 py-2 mb-3 rounded-[var(--radius-md)]',
+              'bg-accent/10 text-accent hover:bg-accent/20 transition-colors',
+              'text-sm font-medium cursor-pointer',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
+            )}
+          >
+            <Sparkle size={17} weight="duotone" />
+            <span>AI 助手</span>
+            <span className="ml-auto text-[10px] text-text-tertiary font-mono">⌘K</span>
+          </button>
 
-      {/* User card */}
-      <div className="px-3 py-3 border-t border-border-subtle">
-        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-md)] hover:bg-bg-secondary transition-colors cursor-pointer">
-          <div className="w-7 h-7 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-semibold">
-            BR
+          {menuItems.map((item) => (
+            <SidebarItem
+              key={item.id}
+              item={item}
+              isActive={activeTab === item.id}
+              onClick={() => onTabChange(item.id)}
+            />
+          ))}
+
+          {/* Section divider */}
+          <div className="pt-4 pb-1 px-3">
+            <span className="text-[11px] font-medium text-text-tertiary uppercase tracking-wide">
+              产研工坊
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-primary text-truncate">Brandon</p>
-            <p className="text-[11px] text-text-tertiary text-truncate">产品总监</p>
+
+          <SidebarItem
+            item={{
+              id: 'rnd-center',
+              icon: Cpu,
+              label: '产品研发中心',
+            }}
+            isActive={activeTab === 'rnd-center'}
+            onClick={() => onTabChange('rnd-center')}
+            accent
+          />
+        </nav>
+
+        {/* User card */}
+        <div className="px-3 py-3 border-t border-border-subtle">
+          <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-md)] hover:bg-bg-secondary transition-colors cursor-pointer">
+            <div className="w-7 h-7 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-semibold">
+              BR
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-text-primary text-truncate">Brandon</p>
+              <p className="text-[11px] text-text-tertiary text-truncate">产品总监</p>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+      <ChatPanel />
+    </>
   );
 }
 

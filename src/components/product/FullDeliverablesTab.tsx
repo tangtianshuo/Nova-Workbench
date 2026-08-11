@@ -58,6 +58,9 @@ export function FullDeliverablesTab({ product }: Props) {
   const [batchCurrentTitle, setBatchCurrentTitle] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const previewDeliverable = selectedDeliverable
+    ? deliverables.find((item) => item.id === selectedDeliverable.id) ?? selectedDeliverable
+    : null;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -338,7 +341,7 @@ export function FullDeliverablesTab({ product }: Props) {
       </div>
 
       {/* Deliverable Full-Screen Preview & Edit Modal */}
-      {selectedDeliverable && (
+      {previewDeliverable && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -357,29 +360,29 @@ export function FullDeliverablesTab({ product }: Props) {
             <div className="p-6 bg-gradient-to-r from-accent/20 via-accent-hover/10 to-bg-tertiary text-text-primary flex items-center justify-between border-b border-border-subtle">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-[var(--radius-md)] bg-bg-secondary text-text-primary font-mono font-bold text-xs border border-border-subtle">
-                  {selectedDeliverable.code}
+                  {previewDeliverable.code}
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-text-primary">{selectedDeliverable.title}</h3>
+                  <h3 className="font-bold text-base text-text-primary">{previewDeliverable.title}</h3>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    所属阶段: {selectedDeliverable.phaseName} · 格式: {selectedDeliverable.format.toUpperCase()} · 字数: {selectedDeliverable.wordCount}
+                    所属阶段: {previewDeliverable.phaseName} · 格式: {previewDeliverable.format.toUpperCase()} · 字数: {previewDeliverable.wordCount}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => handleCopy(selectedDeliverable.id, selectedDeliverable.content)}
+                  onClick={() => handleCopy(previewDeliverable.id, previewDeliverable.content)}
                   variant="ghost"
                   size="sm"
                   className="text-text-secondary hover:text-text-primary hover:bg-bg-secondary border border-border-subtle"
                 >
-                  {copiedId === selectedDeliverable.id ? <Check size={13} weight="duotone" className="text-success" /> : <Copy size={13} weight="duotone" />}
-                  <span>{copiedId === selectedDeliverable.id ? '已复制' : '复制全文'}</span>
+                  {copiedId === previewDeliverable.id ? <Check size={13} weight="duotone" className="text-success" /> : <Copy size={13} weight="duotone" />}
+                  <span>{copiedId === previewDeliverable.id ? '已复制' : '复制全文'}</span>
                 </Button>
 
                 <Button
-                  onClick={() => handleDownload(selectedDeliverable)}
+                  onClick={() => handleDownload(previewDeliverable)}
                   variant="ghost"
                   size="sm"
                   className="text-text-secondary hover:text-text-primary hover:bg-bg-secondary border border-border-subtle"
@@ -403,7 +406,7 @@ export function FullDeliverablesTab({ product }: Props) {
             <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-bg-secondary space-y-6">
               <Card className="p-6">
                 <div className="prose prose-sm max-w-none text-text-primary font-sans leading-relaxed">
-                  <ReactMarkdown>{selectedDeliverable.content}</ReactMarkdown>
+                  <ReactMarkdown>{previewDeliverable.content}</ReactMarkdown>
                 </div>
               </Card>
             </div>
@@ -416,7 +419,7 @@ export function FullDeliverablesTab({ product }: Props) {
 
               <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => handleSyncToDocs(selectedDeliverable)}
+                  onClick={() => handleSyncToDocs(previewDeliverable)}
                   size="sm"
                   className="text-xs font-bold"
                 >

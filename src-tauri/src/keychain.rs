@@ -1,5 +1,4 @@
-//! OS keychain wrapper for the DeepSeek API key (RESEARCH.md §Code Examples §keyring
-//! usage, D-06/D-07/D-08).
+//! OS keychain wrapper for provider-specific API keys.
 //!
 //! Ponytail: bare `keyring` crate called from inside Tauri commands. We do NOT use
 //! `tauri-plugin-keyring` — the command itself is the permission boundary, and D-08
@@ -8,29 +7,52 @@
 //! the user updates it).
 
 use crate::error::AppError;
+use crate::llm::Provider;
 
-// D-06: service "nova.pm-workspace", account "default". Cross-platform:
-// Windows Credential Manager / macOS Keychain / Linux Secret Service.
+// D-06: service "nova.pm-workspace". Provider keys use the provider name as
+// account. ACCOUNT remains for reading the pre-Phase-9 legacy entry.
 pub const SERVICE: &str = "nova.pm-workspace";
 pub const ACCOUNT: &str = "default";
 
-pub fn get_api_key() -> Result<String, AppError> {
-    keyring::Entry::new(SERVICE, ACCOUNT)
-        .and_then(|e| e.get_password())
-        .map_err(|e| match e {
+fn get_key_for_account(account: &str) -> Result<String, AppError> {
+    keyring::Entry::new(SERVICE, account)
+        .and_then(|entry| entry.get_password())
+        .map_err(|error| match error {
             keyring::Error::NoEntry => AppError::AuthError,
             other => AppError::InternalError(format!("keyring get: {}", other)),
         })
 }
 
+/// Read a provider key using account = provider name. DeepSeek falls back to
+/// the legacy `default` account so existing generate_project users keep working.
+pub fn get_provider_key(provider: &Provider) -> Result<String, AppError> {
+    match get_key_for_account(provider.key()) {
+        Ok(key) => Ok(key),
+        Err(AppError::AuthError) if *provider == Provider::DeepSeek => get_key_for_account(ACCOUNT),
+        Err(error) => Err(error),
+    }
+}
+
+pub fn set_provider_key(provider: &Provider, key: &str) -> Result<(), AppError> {
+    keyring::Entry::new(SERVICE, provider.key())
+        .and_then(|entry| entry.set_password(key))
+        .map_err(|error| AppError::InternalError(format!("keyring set: {}", error)))
+}
+
+pub fn has_provider_key(provider: &Provider) -> bool {
+    get_provider_key(provider).is_ok()
+}
+
+pub fn get_api_key() -> Result<String, AppError> {
+    get_provider_key(&Provider::DeepSeek)
+}
+
 pub fn set_api_key(key: &str) -> Result<(), AppError> {
-    keyring::Entry::new(SERVICE, ACCOUNT)
-        .and_then(|e| e.set_password(key))
-        .map_err(|e| AppError::InternalError(format!("keyring set: {}", e)))
+    set_provider_key(&Provider::DeepSeek, key)
 }
 
 pub fn has_api_key() -> bool {
-    matches!(get_api_key(), Ok(_))
+    get_api_key().is_ok()
 }
 
 #[cfg(test)]
@@ -49,7 +71,9 @@ mod tests {
         if let Err(e) = get_api_key() {
             // NoEntry (or any read failure that returns NoEntry on this platform)
             // must map to AuthError, not InternalError. Other errors stay InternalError.
-            match keyring::Entry::new(SERVICE, ACCOUNT).and_then(|e| e.get_password()) {
+            match keyring::Entry::new(SERVICE, Provider::DeepSeek.key())
+                .and_then(|e| e.get_password())
+            {
                 Err(keyring::Error::NoEntry) => {
                     assert!(
                         matches!(e, AppError::AuthError),
@@ -61,7 +85,8 @@ mod tests {
                     assert!(
                         matches!(e, AppError::InternalError(_)),
                         "non-NoEntry errors must map to InternalError, got {:?} (src={})",
-                        e, other
+                        e,
+                        other
                     );
                 }
                 Ok(_) => { /* entry exists; cannot test the missing path here */ }
@@ -88,5 +113,14 @@ mod tests {
     fn service_and_account_constants() {
         assert_eq!(SERVICE, "nova.pm-workspace");
         assert_eq!(ACCOUNT, "default");
+    }
+
+    #[test]
+    fn provider_account_names_are_stable() {
+        assert_eq!(Provider::DeepSeek.key(), "deepseek");
+        assert_eq!(Provider::OpenAI.key(), "openai");
+        assert_eq!(Provider::Anthropic.key(), "anthropic");
+        assert_eq!(Provider::Gemini.key(), "gemini");
+        assert_eq!(Provider::Ollama.key(), "ollama");
     }
 }

@@ -1,14 +1,14 @@
 //! Tauri IPC commands + the `StreamChunk` wire shape (RESEARCH.md §Pattern 1).
 //!
-//! Wave 2 (plan 03-02) adds the four `#[tauri::command]` fns:
-//! `generate_project`, `cancel_generate_project`, `has_api_key`, `set_api_key`.
+//! Existing project generation commands and the Phase 9 provider-agnostic chat
+//! command live at this IPC boundary. Rust forwards tool calls; JS executes them.
 
 use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::error::AppError;
 use crate::keychain;
-use crate::llm;
+use crate::llm::{self, ChatMessage, ChatResult, Provider};
 use crate::state::AppState;
 
 /// Streaming chunk sent from the Rust `generate_project` command to the JS
@@ -32,6 +32,11 @@ pub enum StreamChunk {
     Done,
     #[serde(rename = "error")]
     Error { message: String },
+    #[serde(rename = "tool_call")]
+    ToolCall {
+        name: String,
+        arguments: serde_json::Value,
+    },
 }
 
 /// Final return value of `generate_project`. The full accumulated content is
@@ -129,6 +134,126 @@ pub async fn set_api_key(key: String) -> Result<(), AppError> {
     keychain::set_api_key(&key)
 }
 
+/// Arguments for the provider-agnostic Phase 9 chat command.
+#[derive(serde::Deserialize)]
+pub struct ChatArgs {
+    pub messages: Vec<ChatMessage>,
+    pub tools: Vec<serde_json::Value>,
+    pub system_prompt: String,
+    pub provider: Provider,
+    pub request_id: String,
+}
+
+/// Stream a chat completion and pass tool-call requests through to the JS tool loop.
+#[tauri::command]
+pub async fn chat(
+    args: ChatArgs,
+    on_token: Channel<StreamChunk>,
+    state: State<'_, AppState>,
+) -> Result<ChatResult, AppError> {
+    let api_key = if args.provider.requires_api_key() {
+        keychain::get_provider_key(&args.provider)?
+    } else {
+        String::new()
+    };
+    let cancel_token = tokio_util::sync::CancellationToken::new();
+    state
+        .cancellations
+        .lock()
+        .unwrap()
+        .insert(args.request_id.clone(), cancel_token.clone());
+
+    let result = tokio::select! {
+        response = llm::chat_with_tools(
+            args.provider,
+            &api_key,
+            args.messages,
+            args.tools,
+            args.system_prompt,
+            &on_token,
+            &cancel_token,
+        ) => {
+            state.cancellations.lock().unwrap().remove(&args.request_id);
+            match response {
+                Ok(result) => {
+                    let _ = on_token.send(StreamChunk::Done);
+                    Ok(result)
+                }
+                Err(error) => {
+                    let _ = on_token.send(StreamChunk::Error {
+                        message: error.to_string(),
+                    });
+                    Err(error)
+                }
+            }
+        }
+        _ = cancel_token.cancelled() => {
+            state.cancellations.lock().unwrap().remove(&args.request_id);
+            let _ = on_token.send(StreamChunk::Error {
+                message: AppError::Cancelled.to_string(),
+            });
+            Err(AppError::Cancelled)
+        }
+    };
+
+    result
+}
+
+/// Cancel an in-flight `chat` call by request id. Cancellation is idempotent.
+#[tauri::command]
+pub async fn cancel_chat(request_id: String, state: State<'_, AppState>) -> Result<(), AppError> {
+    if let Some(token) = state.cancellations.lock().unwrap().remove(&request_id) {
+        token.cancel();
+    }
+    Ok(())
+}
+
+/// Return provider keys in their stable wire order.
+#[tauri::command]
+pub async fn list_providers() -> Result<Vec<String>, AppError> {
+    Ok(Provider::ALL
+        .into_iter()
+        .map(|provider| provider.to_string())
+        .collect())
+}
+
+#[tauri::command]
+pub async fn set_active_provider(
+    provider: Provider,
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    *state.active_provider.lock().unwrap() = provider;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_active_provider(state: State<'_, AppState>) -> Result<Provider, AppError> {
+    Ok(*state.active_provider.lock().unwrap())
+}
+
+// The context names these commands set_provider/get_provider, while the task
+// behavior uses the more explicit active-provider names. Keep both wire names
+// available until the settings adapter chooses its final spelling.
+#[tauri::command]
+pub async fn set_provider(provider: Provider, state: State<'_, AppState>) -> Result<(), AppError> {
+    set_active_provider(provider, state).await
+}
+
+#[tauri::command]
+pub async fn get_provider(state: State<'_, AppState>) -> Result<Provider, AppError> {
+    get_active_provider(state).await
+}
+
+#[tauri::command]
+pub async fn has_provider_key(provider: Provider) -> Result<bool, AppError> {
+    Ok(keychain::has_provider_key(&provider))
+}
+
+#[tauri::command]
+pub async fn set_provider_key(provider: Provider, key: String) -> Result<(), AppError> {
+    keychain::set_provider_key(&provider, &key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,6 +282,22 @@ mod tests {
             message: "rate limited".to_string(),
         };
         let json = serde_json::to_string(&chunk).unwrap();
-        assert_eq!(json, r#"{"kind":"error","data":{"message":"rate limited"}}"#);
+        assert_eq!(
+            json,
+            r#"{"kind":"error","data":{"message":"rate limited"}}"#
+        );
+    }
+
+    #[test]
+    fn streamchunk_tool_call_serializes_tagged() {
+        let chunk = StreamChunk::ToolCall {
+            name: "createTask".to_string(),
+            arguments: serde_json::json!({"title": "Ship it"}),
+        };
+        let json = serde_json::to_string(&chunk).unwrap();
+        assert_eq!(
+            json,
+            r#"{"kind":"tool_call","data":{"name":"createTask","arguments":{"title":"Ship it"}}}"#
+        );
     }
 }

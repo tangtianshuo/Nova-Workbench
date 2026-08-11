@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar, MENU_ITEMS } from './components/layout/Sidebar';
@@ -13,6 +13,9 @@ import { ToastProvider } from './components/ui/Toast';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { AppProvider, useApp } from './store/AppContext';
 import { HydrationGate } from './components/HydrationGate';
+import { CmdKPalette } from './components/CmdKPalette';
+import { useCmdK } from './hooks/useCmdK';
+import { useUIStore } from './stores/uiStore';
 
 // Lazy-loaded views for code splitting
 const AgentWorkspaceView = lazy(() => import('./views/AgentWorkspaceView').then(m => ({ default: m.AgentWorkspaceView })));
@@ -40,7 +43,8 @@ function ViewLoading() {
 }
 
 function MainLayout() {
-  const [activeTab, setActiveTab] = useState('agent');
+  const activeTab = useUIStore((state) => state.activeTab);
+  const setActiveTab = useUIStore((state) => state.setActiveTab);
   const { setSelectedProductId } = useApp();
 
   const getHeaderInfo = () => {
@@ -125,10 +129,13 @@ function MainLayout() {
 }
 
 export default function App() {
+  useCmdK();
+
   return (
     <TooltipProvider>
       <ToastProvider>
         <AppProvider>
+          <CmdKPalette />
           <HydrationGate>
             <MainLayout />
           </HydrationGate>

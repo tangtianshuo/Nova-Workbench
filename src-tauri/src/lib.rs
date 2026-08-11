@@ -65,6 +65,15 @@ pub fn run() {
             commands::cancel_generate_project,
             commands::has_api_key,
             commands::set_api_key,
+            commands::chat,
+            commands::cancel_chat,
+            commands::list_providers,
+            commands::set_active_provider,
+            commands::get_active_provider,
+            commands::set_provider,
+            commands::get_provider,
+            commands::has_provider_key,
+            commands::set_provider_key,
         ])
         .setup(|app| {
             // Set minimum window size

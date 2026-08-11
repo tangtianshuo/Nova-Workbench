@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Product, ProductMilestone, ProductRisk } from '../../data/mockProducts';
+import type { FullLifecycleDeliverable } from '../../data/mockRndData';
 import { useApp } from '../../store/AppContext';
 import {
   Flag,
@@ -23,13 +24,76 @@ interface Props {
   onAddMilestone: () => void;
 }
 
+interface MilestoneDeliverableReference {
+  reference: string;
+  deliverable?: FullLifecycleDeliverable;
+}
+
 export function ProductMilestonesTab({ product, onAddMilestone }: Props) {
-  const { updateMilestoneStatus, getProjectTaskCount } = useApp();
+  const { updateMilestoneStatus, getProjectTaskCount, getDeliverablesForProduct } = useApp();
   const [activeStageFilter, setActiveStageFilter] = useState<string>('all');
 
   const taskCount = getProjectTaskCount(product.id);
+  const deliverables = getDeliverablesForProduct(product.id);
   const completedCount = product.milestones.filter(m => m.status === 'completed').length;
   const totalMilestones = product.milestones.length;
+
+  const getMilestoneDeliverables = (milestone: ProductMilestone): MilestoneDeliverableReference[] => {
+    const codes = milestone.deliverableCodes?.filter(Boolean);
+    if (codes && codes.length > 0) {
+      return codes.map((code) => ({
+        reference: code,
+        deliverable: deliverables.find((item) => item.code === code),
+      }));
+    }
+
+    return (milestone.deliverables || []).filter(Boolean).map((legacyTitle) => ({
+      reference: legacyTitle,
+      deliverable: deliverables.find(
+        (item) => item.title.includes(legacyTitle) || legacyTitle.includes(item.title),
+      ),
+    }));
+  };
+
+  const renderDeliverableStatus = (milestone: ProductMilestone) => {
+    const references = getMilestoneDeliverables(milestone);
+    if (references.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 pt-2 mt-2 border-t border-border-subtle">
+        <span className="text-[10px] text-text-tertiary mr-1 flex items-center gap-1">
+          <FileText size={11} weight="duotone" /> 交付物状态:
+        </span>
+        {references.map(({ reference, deliverable }) => {
+          const status = deliverable?.status;
+          const statusLabel = status === 'ready' ? '就绪' : status === 'generating' ? '生成中' : '草稿';
+          const statusIcon = status === 'ready'
+            ? <CheckCircle size={10} weight="fill" />
+            : status === 'generating'
+            ? <Clock size={10} />
+            : <Circle size={10} />;
+
+          return deliverable ? (
+            <Badge
+              key={`${reference}-${deliverable.code}`}
+              variant={status === 'ready' ? 'success' : status === 'generating' ? 'warning' : 'neutral'}
+              className="text-[10px]"
+              title={`${deliverable.code} · ${deliverable.title}`}
+            >
+              {statusIcon}
+              <span>{deliverable.title.length > 16 ? `${deliverable.title.slice(0, 16)}...` : deliverable.title}</span>
+              <span>{statusLabel}</span>
+            </Badge>
+          ) : (
+            <Badge key={`${reference}-unlinked`} variant="neutral" className="text-[10px] text-text-tertiary" title={reference}>
+              <Circle size={10} />
+              <span>未关联 · {reference.length > 16 ? `${reference.slice(0, 16)}...` : reference}</span>
+            </Badge>
+          );
+        })}
+      </div>
+    );
+  };
 
   const handleToggleStatus = (m: ProductMilestone, idx: number) => {
     const mId = m.id || `m-${idx}`;
@@ -175,6 +239,8 @@ export function ProductMilestonesTab({ product, onAddMilestone }: Props) {
                           ))}
                         </div>
                       )}
+
+                      {renderDeliverableStatus(m)}
                     </div>
                   </div>
                 );

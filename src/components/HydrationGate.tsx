@@ -26,12 +26,22 @@ function HydrationLoading() {
 }
 
 export function HydrationGate({ children }: { children: ReactNode }) {
-  const allHydrated =
-    useProductStore((s) => s._hasHydrated) &&
-    useTaskStore((s) => s._hasHydrated) &&
-    useRndStore((s) => s._hasHydrated) &&
-    useScheduleStore((s) => s._hasHydrated) &&
-    useWorkspaceStore((s) => s._hasHydrated) &&
-    useUIStore((s) => s._hasHydrated);
+  // Keep every store hook unconditional. A short-circuiting `&&` chain would
+  // skip later hooks while the first store is still hydrating and change the
+  // hook order on the next render.
+  const productHydrated = useProductStore((s) => s._hasHydrated);
+  const taskHydrated = useTaskStore((s) => s._hasHydrated);
+  const rndHydrated = useRndStore((s) => s._hasHydrated);
+  const scheduleHydrated = useScheduleStore((s) => s._hasHydrated);
+  const workspaceHydrated = useWorkspaceStore((s) => s._hasHydrated);
+  const uiHydrated = useUIStore((s) => s._hasHydrated);
+  const allHydrated = [
+    productHydrated,
+    taskHydrated,
+    rndHydrated,
+    scheduleHydrated,
+    workspaceHydrated,
+    uiHydrated,
+  ].every(Boolean);
   return allHydrated ? <>{children}</> : <HydrationLoading />;
 }

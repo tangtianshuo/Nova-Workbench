@@ -62,30 +62,3 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
   }
 );
 Avatar.displayName = 'Avatar';
-
-/* Avatar group */
-interface AvatarGroupProps extends HTMLAttributes<HTMLDivElement> {
-  max?: number;
-}
-
-export function AvatarGroup({
-  className,
-  children,
-  max = 4,
-  ...props
-}: AvatarGroupProps) {
-  const childArray = Array.isArray(children) ? children : [children];
-  const visible = childArray.slice(0, max);
-  const remaining = childArray.length - max;
-
-  return (
-    <div className={cn('flex items-center -space-x-2', className)} {...props}>
-      {visible}
-      {remaining > 0 && (
-        <div className="w-7 h-7 rounded-full bg-bg-secondary border border-border-subtle flex items-center justify-center text-xs text-text-tertiary font-medium">
-          +{remaining}
-        </div>
-      )}
-    </div>
-  );
-}

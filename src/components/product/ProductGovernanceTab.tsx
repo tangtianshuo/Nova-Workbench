@@ -25,15 +25,40 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
 
+type DeliverablePhase = 'requirement' | 'design' | 'dev' | 'test' | 'release';
+
+const STAGE_TO_PHASE: Record<Product['stage'], DeliverablePhase[]> = {
+  '规划中': ['requirement'],
+  '研发中': ['design', 'dev'],
+  '公测灰度': ['test'],
+  '商业化运营': ['release'],
+  '已发布': ['requirement', 'design', 'dev', 'test', 'release'],
+};
+
+const PHASE_LABEL: Record<DeliverablePhase, string> = {
+  requirement: '需求',
+  design: '设计',
+  dev: '开发',
+  test: '测试',
+  release: '发版',
+};
+
 interface Props {
   product: Product;
   onNavigateToRnd?: (productId: string) => void;
 }
 
 export function ProductGovernanceTab({ product, onNavigateToRnd }: Props) {
-  const { getDeliverablesForProduct, updateProduct } = useApp();
+  const { getDeliverablesForProduct, getDeliverableStatusForPhase, updateProduct } = useApp();
   const deliverables = getDeliverablesForProduct(product.id);
   const readyCount = deliverables.filter(d => d.status === 'ready').length;
+  const phaseStatuses = STAGE_TO_PHASE[product.stage].map((phase) => ({
+    phase,
+    label: PHASE_LABEL[phase],
+    ...getDeliverableStatusForPhase(product.id, phase),
+  }));
+  const stageReadyCount = phaseStatuses.reduce((sum, status) => sum + status.ready, 0);
+  const stageTotalCount = phaseStatuses.reduce((sum, status) => sum + status.total, 0);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -145,6 +170,37 @@ export function ProductGovernanceTab({ product, onNavigateToRnd }: Props) {
           <div className="bg-bg-secondary p-4 rounded-[var(--radius-lg)] border border-border-subtle space-y-1">
             <div className="text-[11px] text-text-secondary">准入安全分</div>
             <div className="text-base font-black text-text-primary font-mono">96 / 100</div>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-border-subtle space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="text-[11px] text-text-secondary">当前阶段交付物就绪率</div>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-lg font-black text-accent font-mono">{stageReadyCount}/{stageTotalCount}</span>
+                <span className="text-[11px] text-text-tertiary">{product.stage}</span>
+              </div>
+            </div>
+            <div className="w-full sm:w-48">
+              <ProgressBar
+                value={stageTotalCount === 0 ? 0 : (stageReadyCount / stageTotalCount) * 100}
+                variant={stageReadyCount === stageTotalCount && stageTotalCount > 0 ? 'success' : 'accent'}
+                size="sm"
+                showLabel
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {phaseStatuses.map((status) => (
+              <span key={status.phase} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-sm)] bg-bg-secondary text-[11px]">
+                <span className="text-text-tertiary">{status.label}</span>
+                <span className={`font-mono font-bold ${status.ready === status.total && status.total > 0 ? 'text-success' : 'text-text-primary'}`}>
+                  {status.ready}/{status.total}
+                </span>
+                {status.generating > 0 && <span className="text-warning">·{status.generating}生成中</span>}
+              </span>
+            ))}
           </div>
         </div>
       </Card>

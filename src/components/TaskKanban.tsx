@@ -477,6 +477,7 @@ function KanbanCard({
   const categories = useTaskStore((s) => s.categories);
   const products = useProductStore((s) => s.products);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
+  const { syncTaskSchedule } = useApp();
   const { toast } = useToast();
 
   // DnD (D-05, D-07)
@@ -528,9 +529,20 @@ function KanbanCard({
     }, 400);
   }, [task.id, updateTask]);
 
+  // Quick 260811-v3i: debounced schedule sync after deadline autosave.
+  // 500ms > scheduleSave's 400ms, so updateTask has landed in the store before sync.
+  const syncTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const scheduleScheduleSync = useCallback((prevDeadline: string) => {
+    if (syncTimers.current.deadline) clearTimeout(syncTimers.current.deadline);
+    syncTimers.current.deadline = setTimeout(() => {
+      syncTaskSchedule(task.id, prevDeadline);
+    }, 500);
+  }, [task.id, syncTaskSchedule]);
+
   // Flush on unmount
   useEffect(() => () => {
     Object.values(timers.current).forEach(clearTimeout);
+    Object.values(syncTimers.current).forEach(clearTimeout);
     if (savedTimer.current) clearTimeout(savedTimer.current);
   }, []);
 
@@ -740,6 +752,7 @@ function KanbanCard({
                 onChange={(d) => {
                   setDeadlineDate(d);
                   scheduleSave('deadline', { deadline: d ? `${d} ${String(deadlineHour).padStart(2, '0')}:00` : '' });
+                  scheduleScheduleSync(task.deadline);
                 }}
               />
               <Select
@@ -748,6 +761,7 @@ function KanbanCard({
                   const h = Number(v);
                   setDeadlineHour(h);
                   if (deadlineDate) scheduleSave('deadline', { deadline: `${deadlineDate} ${String(h).padStart(2, '0')}:00` });
+                  if (deadlineDate) scheduleScheduleSync(task.deadline);
                 }}
               >
                 <SelectTrigger className="h-9 w-[92px] px-2"><SelectValue /></SelectTrigger>

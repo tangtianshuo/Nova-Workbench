@@ -1,9 +1,13 @@
 ---
 phase: 06-schedule-crud
-verified: 2026-08-10T12:15:00Z
-status: human_needed
-score: 7/7 code-level truths verified (UAT deferred to batch run per user preference)
-re_verification: null
+verified: 2026-08-11T15:10:00Z
+status: passed
+score: 7/7 code-level truths verified + 7/8 UAT passed (1 skipped: v1→v2 migration, no real v1 users, migrate() unit-tested)
+re_verification:
+  - date: 2026-08-11T15:10:00Z
+    trigger: "Human UAT batch run completed (06-HUMAN-UAT.md status → passed)"
+    delta: "7 passed, 1 skipped (Test 1 v1 migration: lifecycle too short for real users, migrate() covered by static verification), 0 issues"
+    fix_during_uat: "GAP-01: grid chip + agenda card added explicit type label + product name (src/views/ScheduleView.tsx, removed 33-line renderAssociationButtons + FolderSimple import)"
 human_verification:
   - test: "persist v2 migration with legacy v1 data"
     expected: "Old v1 number date persisted in SQLite (nova-schedule) auto-migrates to '2025-05-DD' string on next load; three mock events (需求评审会/设计走查/团队周报对齐) remain visible on May 15 2025 grid cell after navigating there."
@@ -34,9 +38,9 @@ human_verification:
 # Phase 6: Schedule CRUD 真实日历 Verification Report
 
 **Phase Goal:** 用户拥有真实可用的月历视图,可以创建/编辑/删除日程事件,自由切换月份,日程事件支持可选的产品/任务弱关联
-**Verified:** 2026-08-10T12:15:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-08-11T15:10:00Z (initial code-level: 2026-08-10T12:15:00Z)
+**Status:** ✓ passed (UAT completed 2026-08-11)
+**Re-verification:** Yes — human UAT batch run on 2026-08-11 confirmed 7/8 tests, 1 skipped (Test 1 v1 migration: no real v1 users), 0 issues. GAP-01 (chip/agenda type+product display) found during UAT Test 4 and fixed in-session.
 
 ## Goal Achievement
 

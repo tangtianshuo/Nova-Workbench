@@ -4,7 +4,6 @@ import {
   CheckCircle,
   CheckSquare,
   Clock,
-  FolderSimple,
   MapPin,
   VideoCamera,
   Plus,
@@ -17,6 +16,7 @@ import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { ScheduleDialog } from '@/src/components/ScheduleDialog';
 import { useScheduleStore, type ScheduleEvent } from '@/src/stores/scheduleStore';
 import { useTaskStore } from '@/src/stores/taskStore';
+import { useProductStore } from '@/src/stores/productStore';
 import { useUIStore } from '@/src/stores/uiStore';
 import { ProductSummaryDrawer } from '@/src/components/ProductSummaryDrawer';
 import { cn } from '@/src/lib/utils';
@@ -28,6 +28,30 @@ const EVENT_COLORS: Record<string, { bg: string; text: string; dot: string }> = 
   reminder: { bg: 'bg-warning/10',    text: 'text-warning',    dot: 'bg-warning' },
   review:   { bg: 'bg-purple-500/10', text: 'text-purple-600', dot: 'bg-purple-500' },
   sync:     { bg: 'bg-success/10',    text: 'text-success',    dot: 'bg-success' },
+};
+
+// ponytail: 1-char Chinese type tag — color is already encoded by EVENT_COLORS,
+// this adds an explicit text label for grid chip scanning (cells are too narrow
+// to rely on color alone for accessibility/color-blind users).
+const TYPE_TAG: Record<string, string> = {
+  meeting: '会',
+  deadline: '截',
+  task: '任',
+  reminder: '提',
+  review: '审',
+  sync: '同',
+  social: '交',
+};
+
+// Full type label for surfaces with more room (agenda card).
+const TYPE_LABEL: Record<string, string> = {
+  meeting: '会议',
+  deadline: '截止',
+  task: '任务',
+  reminder: '提醒',
+  review: '评审',
+  sync: '同步',
+  social: '社交',
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -43,6 +67,7 @@ export function ScheduleView() {
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const setSelectedTaskId = useUIStore((s) => s.setSelectedTaskId);
   const taskCategories = useTaskStore((s) => s.categories);
+  const products = useProductStore((s) => s.products);
   const [viewMode, setViewMode] = useState('month');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date();
@@ -118,39 +143,10 @@ export function ScheduleView() {
       .find((task) => task.id === taskId)?.title ?? '';
   };
 
-  const renderAssociationButtons = (event: ScheduleEvent) => (
-    <span className="inline-flex items-center gap-1 shrink-0">
-      {event.taskId && (
-        <button
-          type="button"
-          onClick={(ev) => {
-            ev.stopPropagation();
-            setSelectedTaskId(event.taskId ?? null);
-            setActiveTab('tasks');
-          }}
-          className="hover:scale-110 transition-transform"
-          title={`任务: ${findTaskTitle(event.taskId)}`}
-          aria-label={`打开任务 ${findTaskTitle(event.taskId)}`}
-        >
-          <CheckSquare size={10} weight="fill" />
-        </button>
-      )}
-      {event.projectId && (
-        <button
-          type="button"
-          onClick={(ev) => {
-            ev.stopPropagation();
-            setDrawerProductId(event.projectId);
-          }}
-          className="hover:scale-110 transition-transform"
-          title="查看产品"
-          aria-label="查看关联产品"
-        >
-          <FolderSimple size={10} weight="fill" />
-        </button>
-      )}
-    </span>
-  );
+  const findProductName = (productId?: string) => {
+    if (!productId) return '';
+    return products.find((p) => p.id === productId)?.name ?? '';
+  };
 
   const goPrev = () =>
     setCurrentMonth(({ year, month }) =>
@@ -244,6 +240,7 @@ export function ScheduleView() {
                   {cell.dayEvents.map((e) => {
                     const c = EVENT_COLORS[e.type] || EVENT_COLORS.meeting;
                     const isDone = e.status === '已完成';
+                    const productName = findProductName(e.projectId);
                     return (
                       <div
                         key={e.id}
@@ -252,15 +249,48 @@ export function ScheduleView() {
                           openEdit(e);
                         }}
                         className={cn(
-                          'px-1 py-px text-[10px] rounded font-medium truncate flex items-center gap-0.5 group/chip',
+                          'px-1 py-px text-[10px] rounded font-medium flex items-center gap-0.5 group/chip min-w-0',
                           c.bg,
                           c.text,
                           isDone && 'opacity-50 line-through',
                         )}
                       >
                         {isDone && <CheckCircle size={8} weight="fill" className="shrink-0" />}
-                        <span className="truncate">{e.time.split(' ')[0]} {e.title}</span>
-                        {renderAssociationButtons(e)}
+                        <span className="shrink-0 font-bold opacity-80" aria-label={`类型: ${e.type}`}>
+                          {TYPE_TAG[e.type] ?? '·'}
+                        </span>
+                        <span className="truncate flex-1 min-w-0">
+                          {e.time.split(' ')[0]} {e.title}
+                        </span>
+                        {productName && (
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setDrawerProductId(e.projectId);
+                            }}
+                            className="shrink-0 max-w-[48px] truncate opacity-80 hover:opacity-100 font-medium"
+                            title={`产品: ${productName}`}
+                            aria-label={`查看关联产品 ${productName}`}
+                          >
+                            ·{productName}
+                          </button>
+                        )}
+                        {e.taskId && (
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setSelectedTaskId(e.taskId ?? null);
+                              setActiveTab('tasks');
+                            }}
+                            className="shrink-0 hover:scale-110 transition-transform"
+                            title={`任务: ${findTaskTitle(e.taskId)}`}
+                            aria-label={`打开任务 ${findTaskTitle(e.taskId)}`}
+                          >
+                            <CheckSquare size={10} weight="fill" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -285,6 +315,7 @@ export function ScheduleView() {
               const c = EVENT_COLORS[event.type] || EVENT_COLORS.meeting;
               const { m, d } = parseMonthDay(event.date);
               const isToday = event.date === today;
+              const productName = findProductName(event.projectId);
               return (
                 <div
                   key={event.id}
@@ -318,8 +349,46 @@ export function ScheduleView() {
                       <Clock size={12} weight="duotone" />
                       {event.time}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-text-tertiary">
-                      {renderAssociationButtons(event)}
+                    <div className="flex items-center gap-2 text-xs flex-wrap mb-2">
+                      <span
+                        className={cn(
+                          'inline-flex items-center px-1.5 py-0.5 rounded-[var(--radius-sm)] font-medium',
+                          c.bg,
+                          c.text,
+                        )}
+                      >
+                        {TYPE_LABEL[event.type] ?? event.type}
+                      </span>
+                      {productName && (
+                        <button
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setDrawerProductId(event.projectId);
+                          }}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[var(--radius-sm)] bg-bg-primary border border-border-subtle text-text-secondary hover:text-accent hover:border-accent/40 transition-colors"
+                          title={`产品: ${productName}`}
+                          aria-label={`查看关联产品 ${productName}`}
+                        >
+                          {productName}
+                        </button>
+                      )}
+                      {event.taskId && (
+                        <button
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setSelectedTaskId(event.taskId ?? null);
+                            setActiveTab('tasks');
+                          }}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[var(--radius-sm)] bg-bg-primary border border-border-subtle text-text-secondary hover:text-accent hover:border-accent/40 transition-colors"
+                          title={`任务: ${findTaskTitle(event.taskId)}`}
+                          aria-label={`打开任务 ${findTaskTitle(event.taskId)}`}
+                        >
+                          <CheckSquare size={10} weight="fill" />
+                          {findTaskTitle(event.taskId) || '任务'}
+                        </button>
+                      )}
                     </div>
                     {event.location && (
                       <div className="flex items-center gap-1.5 text-xs text-text-secondary bg-bg-primary px-2 py-1 rounded-[var(--radius-sm)] border border-border-subtle w-fit">

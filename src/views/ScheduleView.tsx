@@ -174,7 +174,7 @@ export function ScheduleView() {
 
   return (
     <>
-      <div className="flex gap-5 h-full min-h-[700px]">
+      <div className="flex gap-5 h-[calc(100vh-220px)] min-h-[400px]">
       {/* Calendar */}
       <Card className="flex-1 flex flex-col p-5">
         <div className="flex items-center justify-between mb-6">
@@ -302,7 +302,7 @@ export function ScheduleView() {
       </Card>
 
       {/* Agenda */}
-      <Card className="w-72 p-5 flex flex-col shrink-0">
+      <Card className="w-72 p-5 flex flex-col shrink-0 min-h-0">
         <h3 className="text-base font-bold text-text-primary mb-4 flex items-center justify-between">
           本月日程
           <Badge variant="neutral">{agendaEvents.length} 个事件</Badge>

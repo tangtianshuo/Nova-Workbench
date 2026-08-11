@@ -187,7 +187,7 @@ v0.2.0  milestone: **日常管理 CRUD + 弱关联 + AI 驱动**。七个 phase 
   5. 重跑 `/gsd:audit-milestone v0.2.0`,status 从 `gaps_found` 变为 `passed`
 **Plans**: 3 plans
 - [ ] 12-01-PLAN.md — KnowledgeBaseView 接 rndStore.knowledgeBase(INT-01 修复)
-- [ ] 12-02-PLAN.md — Backfill 5 个 VERIFICATION.md(Phase 7/8/9/10/11,纯文档)
+- [x] 12-02-PLAN.md — Backfill 5 个 VERIFICATION.md(Phase 7/8/9/10/11,纯文档)
 - [ ] 12-03-PLAN.md — Express 3 MEDIUM 加固 + REQUIREMENTS traceibility 修正
 **UI hint**: yes (Plan 12-01 改 UI)
 
@@ -205,7 +205,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 9. AI 助手基础 | 6/6 | ✅ Complete | 2026-08-11；mock UAT + Ollama 生产 tool-call UAT 通过；云 provider 无凭据未测 |
 | 10. AI 任务+日程闭环 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + Ollama `createTask` UAT 通过；云 provider 无凭据未测 |
 | 11. AI 文件+知识库 | 4/4 | ✅ Complete | 2026-08-11；focused/mock + provider transport UAT 通过；云 provider 无凭据未测 |
-| 12. v0.2.0 Gap Closure | 0/3 | 🔄 Pending | 2026-08-11 创建；关闭 audit 暴露的 ship-blocker |
+| 12. v0.2.0 Gap Closure | 1/3 | In Progress|  |
 
 ---
 *Roadmap created: 2026-08-10*

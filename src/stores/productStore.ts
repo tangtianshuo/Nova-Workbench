@@ -151,10 +151,30 @@ export const useProductStore = create<ProductState>()(
     }),
     {
       name: 'nova-product',
-      version: 1,
+      version: 2,
       storage: sqliteStorage,
       partialize: (s) => ({ products: s.products }),
-      migrate: (persisted, _version) => persisted as Partial<ProductState>,
+      migrate: (persisted, _version) => {
+        const state = persisted as Partial<ProductState>;
+        if (!state.products) return state;
+        // v1→v2: backfill milestone.deliverableCodes from latest mock data.
+        // Additive — only fills codes when milestone lacks them, never overwrites.
+        const mockById = new Map(INITIAL_PRODUCTS_DATA.map((p) => [p.id, p]));
+        state.products = state.products.map((p) => {
+          const mock = mockById.get(p.id);
+          if (!mock) return p;
+          const mockMsById = new Map((mock.milestones || []).map((m) => [m.id, m]));
+          return {
+            ...p,
+            milestones: (p.milestones || []).map((m) => {
+              if (m.deliverableCodes && m.deliverableCodes.length > 0) return m;
+              const mockMs = m.id ? mockMsById.get(m.id) : undefined;
+              return mockMs?.deliverableCodes ? { ...m, deliverableCodes: mockMs.deliverableCodes } : m;
+            }),
+          };
+        });
+        return state;
+      },
       onRehydrateStorage: () => (state) => {
         state?._setHydrated();
       },

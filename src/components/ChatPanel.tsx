@@ -99,10 +99,6 @@ export function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, streamingResponse, streamingTrace]);
 
-  useEffect(() => {
-    if (isOpen) textareaRef.current?.focus();
-  }, [isOpen]);
-
   const updateTrace = (updater: (items: ToolTraceItem[]) => ToolTraceItem[]) => {
     setStreamingTrace((current) => {
       const next = updater(current);
@@ -294,7 +290,14 @@ export function ChatPanel() {
 
   return (
     <Drawer open={isOpen} onOpenChange={setOpen}>
-      <DrawerContent width={480} className="max-w-[100vw]">
+      <DrawerContent
+        width={480}
+        className="max-w-[100vw]"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          textareaRef.current?.focus();
+        }}
+      >
         <DrawerHeader
           title="AI 助手"
           description={`当前 provider：${PROVIDER_LABELS[provider]}`}

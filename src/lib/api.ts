@@ -121,7 +121,14 @@ export async function chatWithTools(args: {
         },
         onToken: channel,
       });
-      const resultToolCalls = result.toolCalls ?? result.tool_calls ?? [];
+      // ponytail: Rust ToolCallInfo serializes as {name, arguments}, but JS
+      // ChatToolCall expects {name, args}. Normalize here so callers see one shape.
+      const rawToolCalls = result.toolCalls ?? result.tool_calls ?? [];
+      const resultToolCalls = rawToolCalls.map((call) => ({
+        name: call.name,
+        args: (call as { args?: unknown; arguments?: unknown }).args
+          ?? (call as { arguments?: unknown }).arguments,
+      }));
       return {
         content: result.content ?? '',
         toolCalls: resultToolCalls.length ? resultToolCalls : streamedToolCalls,

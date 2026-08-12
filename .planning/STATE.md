@@ -106,6 +106,7 @@ Recent decisions affecting v0.2.0:
 - [ ] v0.1.0 + v0.2.0 batch UAT (跨 phase 横向, 用户偏好)
 - [ ] SEC-02/SEC-04/SEC-07 — UAT 完成后处理
 - [ ] 优化日历单元格日程密度防止溢出 ([todo](./todos/pending/2026-08-11-calendar-density-overflow.md))
+- [ ] Setting 中填入 API Key 时增加连通性验证 ([todo](./todos/pending/2026-08-12-setting-api-key-connectivity.md))
 
 ### Blockers/Concerns
 

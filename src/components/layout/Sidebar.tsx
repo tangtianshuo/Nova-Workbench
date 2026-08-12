@@ -3,6 +3,7 @@ import { cn } from '@/src/lib/utils';
 import { type ElementType } from 'react';
 import { ChatPanel } from '@/src/components/ChatPanel';
 import { useUIStore } from '@/src/stores/uiStore';
+import { kbdHint } from '@/src/lib/api';
 import {
   Robot,
   CheckSquare,
@@ -66,7 +67,7 @@ export function Sidebar({ activeTab, onTabChange, menuItems }: SidebarProps) {
           >
             <Sparkle size={17} weight="duotone" />
             <span>AI 助手</span>
-            <span className="ml-auto text-[10px] text-text-tertiary font-mono">⌘K</span>
+            <span className="ml-auto text-[10px] text-text-tertiary font-mono">{kbdHint('K')}</span>
           </button>
 
           {menuItems.map((item) => (

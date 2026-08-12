@@ -14,6 +14,7 @@ interface UIState {
   isSearchOpen: boolean;
   isNewTaskOpen: boolean;
   isChatPanelOpen: boolean;
+  isCmdKOpen: boolean;
 
   // Actions
   setActiveTab: (tab: string) => void;
@@ -24,6 +25,7 @@ interface UIState {
   setSearchOpen: (open: boolean) => void;
   setNewTaskOpen: (open: boolean) => void;
   setChatPanelOpen: (open: boolean) => void;
+  setCmdKOpen: (open: boolean) => void;
 
   // Persistence
   _hasHydrated: boolean;
@@ -42,6 +44,7 @@ export const useUIStore = create<UIState>()(
   isSearchOpen: false,
   isNewTaskOpen: false,
   isChatPanelOpen: false,
+  isCmdKOpen: false,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSelectedProductId: (id) => set({ selectedProductId: id }),
@@ -51,6 +54,7 @@ export const useUIStore = create<UIState>()(
   setSearchOpen: (open) => set({ isSearchOpen: open }),
   setNewTaskOpen: (open) => set({ isNewTaskOpen: open }),
   setChatPanelOpen: (open) => set({ isChatPanelOpen: open }),
+  setCmdKOpen: (open) => set({ isCmdKOpen: open }),
 
   // Persistence
   _hasHydrated: false,

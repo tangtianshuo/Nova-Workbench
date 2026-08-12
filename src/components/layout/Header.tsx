@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/Button';
-import { MagnifyingGlass, Bell, X, Sun, Moon } from '@phosphor-icons/react';
+import { MagnifyingGlass, Bell, Sun, Moon } from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogBody } from '@/src/components/ui/Dialog';
 import { Input } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/useTheme';
+import { useUIStore } from '@/src/stores/uiStore';
+import { kbdHint } from '@/src/lib/api';
+import { cn } from '@/src/lib/utils';
 
 interface HeaderProps {
   title: string;
@@ -12,15 +13,16 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle }: HeaderProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
   const { resolved, toggle } = useTheme();
+  const isSearchOpen = useUIStore((s) => s.isSearchOpen);
+  const setSearchOpen = useUIStore((s) => s.setSearchOpen);
 
   return (
     <>
       <header
         className={cn(
           'h-[var(--header-h)] flex items-center justify-between px-6 shrink-0',
-          'border-b border-border-subtle'
+          'border-b border-border-subtle',
         )}
       >
         {/* Left: Title */}
@@ -35,7 +37,7 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {/* Search */}
+          {/* Search — opens Search Dialog (same as Ctrl/Cmd+F) */}
           <Button
             variant="secondary"
             size="sm"
@@ -46,7 +48,7 @@ export function Header({ title, subtitle }: HeaderProps) {
             <MagnifyingGlass size={14} weight="duotone" />
             <span>搜索</span>
             <kbd className="ml-1 text-[10px] text-text-tertiary bg-bg-secondary px-1 py-0.5 rounded">
-              ⌘K
+              {kbdHint('F')}
             </kbd>
           </Button>
 
@@ -72,14 +74,11 @@ export function Header({ title, subtitle }: HeaderProps) {
             <Bell size={16} weight="duotone" />
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-danger rounded-full" />
           </Button>
-
         </div>
       </header>
 
       {/* === Search Dialog === */}
-
-      {/* === Search Dialog === */}
-      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+      <Dialog open={isSearchOpen} onOpenChange={setSearchOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader title="搜索" />
           <DialogBody>

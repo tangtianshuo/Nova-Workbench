@@ -10,6 +10,19 @@ export function isTauri(): boolean {
   return '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 }
 
+export function isMac(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
+}
+
+// ponytail: shortcut hint for keyboard shortcuts. All Nova shortcuts use
+// Ctrl+Shift+<key> on Windows/Linux, ⌘+Shift+<key> on macOS — avoids conflicts
+// with browser/OS defaults (Ctrl+K, Ctrl+F, Ctrl+P all clash with native).
+export function kbdHint(key: string): string {
+  const upper = key.toUpperCase();
+  return isMac() ? `⌘Shift+${upper}` : `Ctrl+Shift+${upper}`;
+}
+
 /* === Phase 3 IPC adapter ===
  * Single chokepoint for Tauri IPC AI calls. Each function branches on isTauri():
  * - Tauri prod: invoke() + Channel<T> streaming
@@ -115,6 +128,9 @@ export async function chatWithTools(args: {
       };
     } catch (error) {
       const message = typeof error === 'string' ? error : (error as Error).message ?? String(error);
+      // TEMP DIAGNOSTIC (Phase 9 chat UAT — REMOVE once root cause is known):
+      // surface the raw Rust/DeepSeek error so we can see exactly what came back.
+      console.error('[chat-err] raw IPC error:', message);
       throw new Error(humanizeAIError(message));
     }
   }

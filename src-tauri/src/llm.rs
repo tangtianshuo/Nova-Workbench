@@ -377,8 +377,18 @@ async fn stream_model<M: CompletionModel>(
         let Some(name) = accumulator.name else {
             continue;
         };
-        let Ok(arguments) = serde_json::from_str(&accumulator.arguments) else {
-            continue;
+        // ponytail: empty/blank argument delta means the tool takes no args
+        // (e.g. listProducts with z.object({})). from_str("") would fail and
+        // silently drop the call — LLM then loops until MAX_ITERATIONS because
+        // it thinks the call never executed. Treat empty as `{}`.
+        let trimmed = accumulator.arguments.trim();
+        let arguments = if trimmed.is_empty() {
+            serde_json::Value::Object(serde_json::Map::new())
+        } else {
+            match serde_json::from_str(trimmed) {
+                Ok(value) => value,
+                Err(_) => continue,
+            }
         };
         let info = ToolCallInfo { name, arguments };
         let _ = on_token.send(StreamChunk::ToolCall {

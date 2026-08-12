@@ -11,18 +11,11 @@ import {
 } from '@phosphor-icons/react';
 import { runToolLoop } from '@/src/ai/toolLoop';
 import { executeTool, listToolNames, toolRegistry } from '@/src/ai';
-import type { Provider } from '@/src/lib/api';
 import { useUIStore } from '@/src/stores/uiStore';
 import { Button } from '@/src/components/ui/Button';
 import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { useToast } from '@/src/components/ui/Toast';
 import { cn } from '@/src/lib/utils';
-
-type CmdKUIState = {
-  isCmdKOpen?: boolean;
-  setCmdKOpen?: (open: boolean) => void;
-  activeAIProvider?: Provider;
-};
 
 type TraceItem = {
   id: number;
@@ -30,25 +23,15 @@ type TraceItem = {
   status: 'running' | 'ok' | 'error';
 };
 
-function closePalette(open: boolean) {
-  const state = useUIStore.getState() as CmdKUIState;
-  if (state.setCmdKOpen) {
-    state.setCmdKOpen(open);
-  } else {
-    useUIStore.setState({ isCmdKOpen: open } as never);
-  }
-}
-
 function toolDescription(name: string): string {
   const entry = toolRegistry.get(name) as { tool?: { description?: string } } | undefined;
   return entry?.tool?.description ?? 'Run this workspace action';
 }
 
 export function CmdKPalette() {
-  const isOpen = useUIStore((state) => (state as CmdKUIState).isCmdKOpen ?? false);
-  const provider = useUIStore((state) =>
-    (state as CmdKUIState).activeAIProvider ?? 'deepseek',
-  );
+  const isOpen = useUIStore((state) => state.isCmdKOpen);
+  const setCmdKOpen = useUIStore((state) => state.setCmdKOpen);
+  const provider = useUIStore((state) => state.activeAIProvider);
   const { toast } = useToast();
   const [mode, setMode] = useState<'command' | 'chat'>('command');
   const [query, setQuery] = useState('');
@@ -127,7 +110,7 @@ export function CmdKPalette() {
     try {
       await executeTool(name, JSON.parse(rawArgs));
       toast({ type: 'success', title: `${name} executed` });
-      closePalette(false);
+      setCmdKOpen(false);
     } catch (error) {
       toast({
         type: 'error',
@@ -158,7 +141,7 @@ export function CmdKPalette() {
   };
 
   return (
-    <DialogPrimitive.Root open={isOpen} onOpenChange={closePalette}>
+    <DialogPrimitive.Root open={isOpen} onOpenChange={setCmdKOpen}>
       <AnimatePresence>
         {isOpen && (
           <DialogPrimitive.Portal forceMount>
@@ -197,7 +180,7 @@ export function CmdKPalette() {
                     size="sm"
                     aria-label="关闭命令面板"
                     className="h-7 w-7 p-0"
-                    onClick={() => closePalette(false)}
+                    onClick={() => setCmdKOpen(false)}
                   >
                     <X size={16} />
                   </Button>

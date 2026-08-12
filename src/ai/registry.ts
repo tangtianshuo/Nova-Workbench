@@ -71,8 +71,15 @@ export async function executeTool(name: string, args: unknown): Promise<unknown>
   const registered = toolRegistry.get(name);
   if (!registered) throw new Error(`Unknown tool: ${name}`);
 
-  const parsed = registered.tool.schema.safeParse(args);
+  // ponytail: providers can deliver `arguments: null` for parameterless tools
+  // (DeepSeek streaming full ToolCall path, Ollama). z.object({}).safeParse(null)
+  // fails — coerce to {} so listProducts/getCurrentContext/etc. don't loop.
+  const normalized = args === null || args === undefined ? {} : args;
+  // TEMP DIAGNOSTIC (Phase 9 real-UAT — remove once tool_call failures are resolved):
+  console.log('[tool-exec]', name, 'raw args=', args, 'normalized=', normalized);
+  const parsed = registered.tool.schema.safeParse(normalized);
   if (!parsed.success) {
+    console.warn('[tool-exec] zod fail', name, parsed.error.issues);
     throw new ToolArgError(name, parsed.error.issues);
   }
   return registered.tool.execute(parsed.data);

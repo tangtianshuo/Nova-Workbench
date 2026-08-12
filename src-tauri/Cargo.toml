@@ -19,7 +19,11 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # --- Phase 3 additions ---
-keyring = "3"
+# ponytail: keyring v3 defaults to an in-memory MOCK backend if no platform
+# feature is enabled — Entry::new() returns independent entries each call, so
+# set_password succeeds but get_password on a fresh Entry returns NoEntry.
+# Enable all three native backends so OS keychain actually persists.
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 rig-core = "0.41"
 # ponytail: futures is a transitive dep of rig-core but Cargo does not expose transitive
 # deps to the dependent crate. Added explicitly so llm.rs and the spike example can call

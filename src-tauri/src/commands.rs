@@ -135,7 +135,10 @@ pub async fn set_api_key(key: String) -> Result<(), AppError> {
 }
 
 /// Arguments for the provider-agnostic Phase 9 chat command.
+/// ponytail: rename_all camelCase — Tauri IPC convention is JS-side camelCase,
+/// matches frontend chatWithTools invoke payload (systemPrompt, requestId).
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatArgs {
     pub messages: Vec<ChatMessage>,
     pub tools: Vec<serde_json::Value>,

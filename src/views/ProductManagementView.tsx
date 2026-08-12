@@ -179,9 +179,9 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
             title="确认删除产品？"
             description={
               deleteImpact
-                ? `此操作将解除 ${deleteImpact.taskCount} 个任务、${deleteImpact.eventCount} 个日程的关联${
+                ? `将清空 ${deleteImpact.taskCount} 个任务、${deleteImpact.eventCount} 个日程的产品关联（这些任务/日程本身保留，不会被删除）${
                     deleteImpact.hasRndData
-                      ? '。研发中心中的交付物、里程碑、原型、需求、知识、代码、测试、竞品和文档将被清理'
+                      ? '；研发中心中的交付物、里程碑、原型、需求、知识、代码、测试、竞品和文档将被清理'
                       : ''
                   }。是否继续？`
                 : ''
@@ -189,7 +189,7 @@ export function ProductManagementView({ onNavigateToRnd }: Props) {
           >
             {confirmDeleteProduct && (
               <p className="mt-3 text-xs text-text-tertiary">
-                将删除产品「{confirmDeleteProduct.name}」本身，已关联的任务和日程会保留，仅清空产品关联。
+                产品「{confirmDeleteProduct.name}」本身将被删除；关联的任务和日程保留，仅清空产品关联字段。
               </p>
             )}
           </DialogHeader>

@@ -671,7 +671,7 @@ function KanbanCard({
                   e.stopPropagation();
                   setActiveTab('schedule');
                 }}
-                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-medium hover:bg-success/20 transition-colors"
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-medium hover:bg-success/20 transition-colors cursor-pointer"
                 title="跳转到日程"
               >
                 <Calendar size={10} weight="duotone" />

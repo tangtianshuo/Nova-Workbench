@@ -335,11 +335,11 @@ WenXiBuddy 3.0 致力于解决研发团队在日常需求拆解、任务分发�
       }
     ],
     milestones: [
-      { id: 'm1', title: 'Q3 需求冻结与架构评审', date: '2025-05-01', stage: '需求阶段', status: 'completed', owner: 'Brandon', deliverables: ['PRD v3.0', '架构拓扑说明书'], description: '完成全量业务需求评审，确认技术选型与里程碑节点。' },
-      { id: 'm2', title: 'UI/UX 高保真交互系统', date: '2025-05-15', stage: '设计阶段', status: 'completed', owner: 'Chloe', deliverables: ['Design System 2.0', 'Figma 原型'], description: '交付全新暗色与亮色适配主题、响应式栅格系统与核心动效规范。' },
-      { id: 'm3', title: '核心多 Agent 协同引擎研发', date: '2025-06-01', stage: '开发阶段', status: 'in-progress', owner: 'Alex', deliverables: ['Agent Engine v3.2', 'OpenAPI v3.2'], description: '完成自然语言意图分发、工作区文件索引与任务双向同步。' },
-      { id: 'm4', title: '全链路集成测试与压力验收', date: '2025-06-15', stage: '验收阶段', status: 'pending', owner: 'David', deliverables: ['QA 验收报告', '安全审计清单'], description: '万级并发压力测试与全量用例回归测试。' },
-      { id: 'm5', title: '正式商业化版本全球发布', date: '2025-06-30', stage: '发版阶段', status: 'pending', owner: 'Brandon', deliverables: ['Release Note', '产品白皮书'], description: '面向全量企业客户开放升级，上线商业化计费套件。' }
+      { id: 'm1', title: 'Q3 需求冻结与架构评审', date: '2025-05-01', stage: '需求阶段', status: 'completed', owner: 'Brandon', deliverables: ['PRD v3.0', '架构拓扑说明书'], deliverableCodes: ['DEL-REQ-01', 'DEL-DEV-01'], description: '完成全量业务需求评审，确认技术选型与里程碑节点。' },
+      { id: 'm2', title: 'UI/UX 高保真交互系统', date: '2025-05-15', stage: '设计阶段', status: 'completed', owner: 'Chloe', deliverables: ['Design System 2.0', 'Figma 原型'], deliverableCodes: ['DEL-DES-02', 'DEL-DES-01'], description: '交付全新暗色与亮色适配主题、响应式栅格系统与核心动效规范。' },
+      { id: 'm3', title: '核心多 Agent 协同引擎研发', date: '2025-06-01', stage: '开发阶段', status: 'in-progress', owner: 'Alex', deliverables: ['Agent Engine v3.2', 'OpenAPI v3.2'], deliverableCodes: ['DEL-DEV-02'], description: '完成自然语言意图分发、工作区文件索引与任务双向同步。' },
+      { id: 'm4', title: '全链路集成测试与压力验收', date: '2025-06-15', stage: '验收阶段', status: 'pending', owner: 'David', deliverables: ['QA 验收报告', '安全审计清单'], deliverableCodes: ['DEL-TST-03'], description: '万级并发压力测试与全量用例回归测试。' },
+      { id: 'm5', title: '正式商业化版本全球发布', date: '2025-06-30', stage: '发版阶段', status: 'pending', owner: 'Brandon', deliverables: ['Release Note', '产品白皮书'], deliverableCodes: ['DEL-REL-01', 'DEL-REL-04'], description: '面向全量企业客户开放升级，上线商业化计费套件。' }
     ],
     risksAndBlockers: [
       { id: 'r1', level: 'medium', title: '大模型并发调用时的 Token 速率限流', impact: '可能导致高频并发下 Agent 响应延迟上升', mitigation: '已引入客户端本地流式限流队列与双模型自动故障转移 (Failover) 机制', status: 'resolved' },
@@ -453,9 +453,9 @@ WenXiBuddy 3.0 致力于解决研发团队在日常需求拆解、任务分发�
       }
     ],
     milestones: [
-      { id: 'm-p2-1', title: 'iOS/Android 双端架构搭建', date: '2025-04-10', stage: '研发阶段', status: 'completed', owner: 'Leo', deliverables: ['双端基础框架包'] },
-      { id: 'm-p2-2', title: '万人封闭测试 (TestFlight)', date: '2025-05-20', stage: '公测阶段', status: 'in-progress', owner: 'Sarah', deliverables: ['灰度用户反馈问卷'] },
-      { id: 'm-p2-3', title: 'App Store / 应用市场上架', date: '2025-07-15', stage: '发布阶段', status: 'pending', owner: 'Sarah', deliverables: ['上架合规审核材料'] }
+      { id: 'm-p2-1', title: 'iOS/Android 双端架构搭建', date: '2025-04-10', stage: '研发阶段', status: 'completed', owner: 'Leo', deliverables: ['双端基础框架包'], deliverableCodes: ['DEL-DEV-01'] },
+      { id: 'm-p2-2', title: '万人封闭测试 (TestFlight)', date: '2025-05-20', stage: '公测阶段', status: 'in-progress', owner: 'Sarah', deliverables: ['灰度用户反馈问卷'], deliverableCodes: ['DEL-TST-01'] },
+      { id: 'm-p2-3', title: 'App Store / 应用市场上架', date: '2025-07-15', stage: '发布阶段', status: 'pending', owner: 'Sarah', deliverables: ['上架合规审核材料'], deliverableCodes: ['DEL-REL-01'] }
     ],
     risksAndBlockers: [
       { id: 'r-p2-1', level: 'medium', title: '不同品牌 Android 机型后台常驻保活限制', impact: '可能影响部分定时提醒到达率', mitigation: '接入主流手机厂商系统级推送 (APNs / FCM / 华为推送)', status: 'open' }
@@ -559,9 +559,9 @@ WenXiBuddy 3.0 致力于解决研发团队在日常需求拆解、任务分发�
       }
     ],
     milestones: [
-      { id: 'm-p3-1', title: '核心数据引擎与连接器接入', date: '2025-05-01', stage: '底层搭建', status: 'completed', owner: 'Victor', deliverables: ['ClickHouse 桥接中间件'] },
-      { id: 'm-p3-2', title: 'Chat2SQL 语义模型准确率调优', date: '2025-06-30', stage: '算法优化', status: 'in-progress', owner: 'David', deliverables: ['准确率评测集达 92%'] },
-      { id: 'm-p3-3', title: '全功能内测发版', date: '2025-09-30', stage: '内测发布', status: 'pending', owner: 'David', deliverables: ['内测安装镜像包'] }
+      { id: 'm-p3-1', title: '核心数据引擎与连接器接入', date: '2025-05-01', stage: '底层搭建', status: 'completed', owner: 'Victor', deliverables: ['ClickHouse 桥接中间件'], deliverableCodes: ['DEL-DEV-03'] },
+      { id: 'm-p3-2', title: 'Chat2SQL 语义模型准确率调优', date: '2025-06-30', stage: '算法优化', status: 'in-progress', owner: 'David', deliverables: ['准确率评测集达 92%'], deliverableCodes: ['DEL-TST-01'] },
+      { id: 'm-p3-3', title: '全功能内测发版', date: '2025-09-30', stage: '内测发布', status: 'pending', owner: 'David', deliverables: ['内测安装镜像包'], deliverableCodes: ['DEL-REL-01'] }
     ],
     risksAndBlockers: [
       { id: 'r-p3-1', level: 'high', title: '复杂多表 JOIN 场景下 SQL 生成准确度有待提升', impact: '业务大表查询可能产生笛卡尔积或性能瓶颈', mitigation: '正在引入 Few-shot 行业语义库与慢查询沙箱预执行校验机制', status: 'open' }
@@ -665,9 +665,9 @@ WenXiBuddy 3.0 致力于解决研发团队在日常需求拆解、任务分发�
       }
     ],
     milestones: [
-      { id: 'm-p4-1', title: '视觉概念提案与设计定稿', date: '2025-02-15', stage: '设计阶段', status: 'completed', owner: 'Chloe', deliverables: ['Figma 设计稿'] },
-      { id: 'm-p4-2', title: '前端重构与性能调优', date: '2025-03-20', stage: '开发阶段', status: 'completed', owner: 'Leo', deliverables: ['Lighthouse 满分优化'] },
-      { id: 'm-p4-3', title: '全球正式上线发布', date: '2025-04-01', stage: '发布阶段', status: 'completed', owner: 'Chloe', deliverables: ['全网解析生效'] }
+      { id: 'm-p4-1', title: '视觉概念提案与设计定稿', date: '2025-02-15', stage: '设计阶段', status: 'completed', owner: 'Chloe', deliverables: ['Figma 设计稿'], deliverableCodes: ['DEL-DES-01'] },
+      { id: 'm-p4-2', title: '前端重构与性能调优', date: '2025-03-20', stage: '开发阶段', status: 'completed', owner: 'Leo', deliverables: ['Lighthouse 满分优化'], deliverableCodes: ['DEL-DEV-02'] },
+      { id: 'm-p4-3', title: '全球正式上线发布', date: '2025-04-01', stage: '发布阶段', status: 'completed', owner: 'Chloe', deliverables: ['全网解析生效'], deliverableCodes: ['DEL-REL-01'] }
     ],
     risksAndBlockers: [],
     metrics: {

@@ -585,6 +585,20 @@ export const useRndStore = create<RndState>()(
         return state;
       },
       onRehydrateStorage: () => (state) => {
+        // post-hydrate safety net: if knowledgeBase lost its mock buckets (e.g.,
+        // localStorage had a partial {} from an early session and migrate didn't fire
+        // because version was already current), merge INITIAL_KNOWLEDGE_BASE back in.
+        if (state) {
+          const merged = { ...(state.knowledgeBase || {}) };
+          let changed = false;
+          for (const [pid, items] of Object.entries(INITIAL_KNOWLEDGE_BASE)) {
+            if (!merged[pid] || merged[pid].length === 0) {
+              merged[pid] = items;
+              changed = true;
+            }
+          }
+          if (changed) state.knowledgeBase = merged;
+        }
         state?._setHydrated();
       },
     },

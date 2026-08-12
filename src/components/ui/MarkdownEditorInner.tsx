@@ -134,7 +134,7 @@ export const MarkdownEditorInner = forwardRef<MarkdownEditorHandle, MarkdownEdit
           readOnly={readOnly}
           placeholder={placeholder}
           contentEditableClassName={cn(
-            'min-h-[240px] bg-bg-primary text-text-primary font-sans leading-relaxed',
+            'prose prose-sm max-w-none min-h-[240px] bg-bg-primary text-text-primary font-sans leading-relaxed',
             'focus:outline-none',
           )}
           plugins={plugins}

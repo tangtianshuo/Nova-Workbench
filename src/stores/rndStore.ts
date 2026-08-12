@@ -558,7 +558,7 @@ export const useRndStore = create<RndState>()(
     }),
     {
       name: 'nova-rnd',
-      version: 1,
+      version: 2,
       storage: sqliteStorage,
       partialize: (s) => ({
         requirements: s.requirements,
@@ -569,7 +569,21 @@ export const useRndStore = create<RndState>()(
         competitorData: s.competitorData,
         deliverables: s.deliverables,
       }),
-      migrate: (persisted, _version) => persisted as Partial<RndState>,
+      migrate: (persisted, _version) => {
+        const state = persisted as Partial<RndState>;
+        // v1→v2: backfill knowledgeBase when persisted bucket is empty/missing for a mock productId.
+        // Some early sessions persisted {} and shadowed INITIAL_KNOWLEDGE_BASE; additive only.
+        if (state.knowledgeBase) {
+          const merged = { ...state.knowledgeBase };
+          for (const [pid, items] of Object.entries(INITIAL_KNOWLEDGE_BASE)) {
+            if (!merged[pid] || merged[pid].length === 0) {
+              merged[pid] = items;
+            }
+          }
+          state.knowledgeBase = merged;
+        }
+        return state;
+      },
       onRehydrateStorage: () => (state) => {
         state?._setHydrated();
       },

@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 07-cross-module
 source: 07-01-SUMMARY.md, 07-02-SUMMARY.md, 07-03-SUMMARY.md, 07-04-SUMMARY.md, 07-05-SUMMARY.md
 started: 2026-08-12T00:00:00Z
-updated: 2026-08-12T00:30:00Z
+updated: 2026-08-12T00:45:00Z
 ---
 
 ## Current Test
@@ -103,29 +103,57 @@ skipped: 0
   reason: "User reported: 徽章鼠标hover 的时候 需要改变鼠标形态为点击"
   severity: cosmetic
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "日程徽章（TaskKanban 任务卡片上的日程导航徽章）的 className 缺少 cursor-pointer（hover 样式只有视觉变化，没有 cursor 改变）"
+  artifacts:
+    - path: "src/components/TaskKanban.tsx"
+      issue: "日程徽章 button 元素缺少 cursor-pointer 类（或 motion.button 缺少 whileHover cursor）"
+  missing:
+    - "在 TaskKanban.tsx 中日程徽章元素 className 添加 'cursor-pointer'"
+  debug_session: ""
 
 - truth: "删除产品对话框/Toast 文案应该使用一致的措辞，避免让用户产生歧义"
   status: failed
-  reason: "User reported: 对话框说'将解除 X 个任务、Y 个日程的关联'，Toast 说'已关联的任务和日程会保留，仅清空产品关联'。两处文案在表达同一件事但措辞不一致，用户会产生疑惑：解除关联 vs 保留仅清空关联，听起来像相反的操作。建议统一为同一表述（如：将清空 X 个任务、Y 个日程的产品关联字段，这些任务/日程本身不会被删除）。"
+  reason: "User reported: 对话框说'将解除 X 个任务、Y 个日程的关联'，Toast 说'已关联的任务和日程会保留，仅清空产品关联'。两处文案在表达同一件事但措辞不一致，用户会产生疑惑：解除关联 vs 保留仅清空关联，听起来像相反的操作。"
   severity: minor
   test: 7
-  artifacts: []
-  missing: []
+  root_cause: "AppContext.getDeleteProductImpact 与 doDeleteProduct 之后 toast 使用了两套文案，前者描述动作（解除关联）后者描述结果（保留、仅清空关联），用户认知负担不同"
+  artifacts:
+    - path: "src/views/ProductManagementView.tsx"
+      issue: "删除确认对话框预览文案（getDeleteProductImpact 返回值）与删除成功 toast 文案使用了不一致的措辞"
+  missing:
+    - "统一两处文案为同一表述，如：'将清空 X 个任务、Y 个日程的产品关联（这些任务/日程本身保留），并清理 R&D 模块中该产品的所有数据'"
+  debug_session: ""
 
 - truth: "里程碑交付物状态徽章应该能正确匹配 deliverableCodes 并显示真实的交付物状态（已就绪/草稿），而不是全部 fallback 到'未关联'"
   status: failed
-  reason: "User reported: 目前显示的都是未关联。可能原因：mock 产品的里程碑只配置了 legacy deliverables 字段（free-text 字符串），deliverableCodes 没有配置；或 title-based 近似匹配逻辑失败；或交付物状态本身没有 ready/draft 数据。需要调查 ProductMilestonesTab.tsx 的匹配逻辑 + mockProducts.ts 中里程碑的 deliverableCodes 配置 + rndStore.getDeliverablesForProduct 返回的交付物状态分布。"
+  reason: "User reported: 目前显示的都是未关联。"
   severity: major
   test: 9
-  artifacts: []
-  missing: []
+  root_cause: "mock 数据不匹配：mockProducts.ts 中所有里程碑只配置了 legacy deliverables 自由文本（如 'PRD v3.0'、'Design System 2.0'、'Figma 原型'），没有配置 deliverableCodes 字段。fallback 路径用 title-include 匹配 rndStore 交付物 title（如 '标准产品需求规格说明书 (PRD v1.0)'、'统一设计系统规范 (Design System Tokens)'），但两者互不为子串（虽然都含 'PRD'/'Design System'，但 'PRD v3.0' 不是 '标准产品需求规格说明书 (PRD v1.0)' 的子串）。所以全部走 fallback 也全部匹配失败 → 显示'未关联'。"
+  artifacts:
+    - path: "src/data/mockProducts.ts"
+      issue: "milestones 数组中只配置了 deliverables 自由文本，未配置 deliverableCodes 字段（type 定义在 mockProducts.ts:9 已支持 optional）"
+    - path: "src/components/product/ProductMilestonesTab.tsx"
+      issue: "fallback title-include 匹配逻辑（第 50-55 行）过于严格，'PRD v3.0' 与 '标准产品需求规格说明书 (PRD v1.0)' 都含 PRD 但互不为子串"
+    - path: "src/data/mockRndData.ts"
+      issue: "交付物 title 命名风格与 mock milestones 的 deliverables 命名风格不一致（一个偏口语化简写，一个偏正式文档名）"
+  missing:
+    - "方案 A（推荐，最小改动）：在 mockProducts.ts 中为每个里程碑的 deliverableCodes 字段配置正确的 code（如 'DEL-REQ-01'、'DEL-DES-02'），与 mockRndData.ts 中的交付物 code 对齐"
+    - "方案 B（改进匹配）：在 ProductMilestonesTab.tsx fallback 中扩展匹配逻辑（如分词后关键词匹配，提取 'PRD'/'Design System' 等关键词进行 includes）"
+    - "建议同时执行：方案 A 提供正确数据流，方案 B 增强健壮性"
+  debug_session: ""
 
 - truth: "产品管理应该有'治理'标签页，用于展示产品阶段进度（ready/total 比率、进度条、阶段分解、generating 计数）"
   status: failed
-  reason: "User reported: 未找到治理标签页，后续无法进行测试。可能原因：ProductGovernanceTab 组件未挂载到 ProductManagementView 的 tab 列表；或 tab 标签名不是'治理'而是其他名字（如'阶段/Stage'等）；或被条件渲染隐藏。需要核查 ProductManagementView.tsx 的 tab 配置和 ProductGovernanceTab.tsx 的渲染入口。"
+  reason: "User reported: 未找到治理标签页，后续无法进行测试"
   severity: major
   test: 10
-  artifacts: []
-  missing: []
+  root_cause: "命名差异（非 bug）：治理 tab 在 UI 上的 label 是 '阶段管控与准入'（DETAIL_TABS 第 70 行 { id: 'governance', label: '阶段管控与准入', icon: ShieldCheck }），不是用户期望的'治理'。组件已正确挂载（ProductManagementView.tsx:529 activeDetailTab === 'governance' 渲染 ProductGovernanceTab）。功能本身可用，只是用户找不到标签。"
+  artifacts:
+    - path: "src/views/ProductManagementView.tsx"
+      issue: "DETAIL_TABS 中 'governance' 的 label 是 '阶段管控与准入'，与用户期望的'治理'不一致"
+  missing:
+    - "方案 A（推荐）：保留现有 label '阶段管控与准入'，无需修改代码，仅在本 UAT 中标注 test 10 已通过（在'阶段管控与准入' tab 中验证）"
+    - "方案 B：将 label 改为'治理'（更简洁，与组件名 ProductGovernanceTab 一致）"
+    - "建议方案 B：从命名一致性角度，组件名/代码用 governance，UI label 用'治理'更直观"
+  debug_session: ""

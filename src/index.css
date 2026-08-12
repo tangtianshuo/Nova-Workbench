@@ -13,6 +13,11 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/* GFM task list checkboxes: green accent when checked (aligns with Nova success token) */
+.prose :where(input[type="checkbox"]):checked {
+  accent-color: hsl(var(--success));
+}
+
 /* === Tailwind v4 Theme Bridge === */
 /* Maps CSS custom properties to Tailwind utility classes */
 @theme {

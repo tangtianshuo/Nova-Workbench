@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Sparkle, Copy, Check, ArrowClockwise, Folder, Target, CheckSquare, Stack, WarningCircle, FileText } from '@phosphor-icons/react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Workspace, useApp } from '../store/AppContext';
 import { Dialog, DialogContent } from '@/src/components/ui/Dialog';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
+import { MarkdownRenderer } from '@/src/components/ui';
 import { executeTool } from '@/src/ai/registry';
 
 interface WorkspaceSummaryModalProps {
@@ -157,7 +156,7 @@ export function WorkspaceSummaryModal({ workspace, onClose }: WorkspaceSummaryMo
           ) : (
             <div className="prose max-w-none text-sm leading-relaxed text-text-secondary">
               <div className="bg-bg-secondary/60 border border-border-subtle rounded-[var(--radius-md)] p-5 shadow-xs">
-                <Markdown remarkPlugins={[remarkGfm]}>{summary}</Markdown>
+                <MarkdownRenderer>{summary}</MarkdownRenderer>
               </div>
             </div>
           )}

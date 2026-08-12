@@ -17,14 +17,13 @@ import {
   Stack,
   Sparkle,
 } from '@phosphor-icons/react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { Input } from '@/src/components/ui/Input';
 import { Separator } from '@/src/components/ui/Separator';
+import { MarkdownRenderer } from '@/src/components/ui';
 
 interface Props {
   product: Product;
@@ -224,7 +223,7 @@ export function ProductDocsTab({ product, onAddDocument }: Props) {
                 </div>
 
                 <div className="markdown-body prose prose-sm max-w-none text-text-secondary space-y-3">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeDoc.content}</ReactMarkdown>
+                  <MarkdownRenderer>{activeDoc.content}</MarkdownRenderer>
                 </div>
               </div>
             </div>
@@ -281,7 +280,7 @@ export function ProductDocsTab({ product, onAddDocument }: Props) {
                 </div>
 
                 <div className="markdown-body text-text-primary">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeDoc.content}</ReactMarkdown>
+                  <MarkdownRenderer>{activeDoc.content}</MarkdownRenderer>
                 </div>
               </div>
 

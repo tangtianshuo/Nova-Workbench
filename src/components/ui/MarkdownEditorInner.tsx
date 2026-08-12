@@ -53,6 +53,57 @@ const novaEditorTokenStyles = `
     --accentText: hsl(var(--accent));
     --accentTextContrast: hsl(var(--text-inverted));
   }
+  /* ponytail: same prose-token remap as MarkdownRenderer. Selector MUST cover
+   * .prose itself, not just .mdxeditor — typography sets the prose CSS vars on
+   * the contentEditable element (it carries the prose class), overriding
+   * anything inherited from .mdxeditor. Without the .prose target, headings
+   * stay slate-900 even in dark mode. */
+  .nova-markdown-editor .mdxeditor,
+  .nova-markdown-editor .mdxeditor .prose {
+    --tw-prose-body: hsl(var(--text-secondary));
+    --tw-prose-headings: hsl(var(--text-primary));
+    --tw-prose-lead: hsl(var(--text-tertiary));
+    --tw-prose-links: hsl(var(--accent));
+    --tw-prose-bold: hsl(var(--text-primary));
+    --tw-prose-counters: hsl(var(--text-tertiary));
+    --tw-prose-bullets: hsl(var(--text-tertiary));
+    --tw-prose-hr: hsl(var(--border-secondary));
+    --tw-prose-quotes: hsl(var(--text-secondary));
+    --tw-prose-quote-borders: hsl(var(--border-secondary));
+    --tw-prose-captions: hsl(var(--text-tertiary));
+    --tw-prose-kbd: hsl(var(--text-primary));
+    --tw-prose-code: hsl(var(--text-primary));
+    --tw-prose-pre-code: hsl(var(--text-secondary));
+    --tw-prose-pre-bg: hsl(var(--bg-secondary));
+    --tw-prose-th-borders: hsl(var(--border-primary));
+    --tw-prose-td-borders: hsl(var(--border-secondary));
+  }
+  /* ponytail: CodeMirror 6 ships its own light theme (white bg + dark text)
+   * baked into a generated class (ͼ1) via EditorView.theme. It ignores Nova
+   * tokens, so it stays white-on-dark in dark mode. Override within the editor
+   * scope so it follows .dark via hsl(var(--*)). No syntax highlighting is
+   * attached by default, so only base chrome needs overriding. */
+  .nova-markdown-editor .cm-editor {
+    background: hsl(var(--bg-secondary));
+    color: hsl(var(--text-primary));
+    border: 1px solid hsl(var(--border-secondary));
+    border-radius: var(--radius-md);
+  }
+  .nova-markdown-editor .cm-gutters {
+    background: hsl(var(--bg-secondary));
+    border-right: 1px solid hsl(var(--border-secondary));
+    color: hsl(var(--text-tertiary));
+  }
+  .nova-markdown-editor .cm-activeLine,
+  .nova-markdown-editor .cm-activeLineGutter {
+    background-color: hsl(var(--bg-tertiary) / 0.5);
+  }
+  .nova-markdown-editor .cm-cursor {
+    border-left-color: hsl(var(--accent));
+  }
+  .nova-markdown-editor .cm-selectionBackground {
+    background-color: hsl(var(--accent) / 0.25);
+  }
 `;
 
 export const MarkdownEditorInner = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
@@ -88,12 +139,16 @@ export const MarkdownEditorInner = forwardRef<MarkdownEditorHandle, MarkdownEdit
                 ),
               }),
             ]),
+        // ponytail: markdownShortcutPlugin MUST be registered AFTER headings/lists/
+        // quote/link/codeblock — its init reads activePlugins$ to decide which
+        // transformers to wire up, and plugins init in array order. Putting it
+        // before codeBlockPlugin leaves "codeblock" absent from activePlugins$
+        // at init time, so the ``` shortcut transformer is silently skipped.
         headingsPlugin(),
         listsPlugin(),
         tablePlugin(),
         linkPlugin(),
         quotePlugin(),
-        markdownShortcutPlugin(),
         codeBlockPlugin(),
         codeMirrorPlugin({
           codeBlockLanguages: {
@@ -103,9 +158,14 @@ export const MarkdownEditorInner = forwardRef<MarkdownEditorHandle, MarkdownEdit
             bash: 'Bash',
             text: 'Plain Text',
           },
-          // Keep code blocks editable without eagerly loading every language grammar.
-          autoLoadLanguageSupport: false,
+          // ponytail: lazy-load CodeMirror grammar per language via @codemirror/language-data.
+          // Vite code-splits each @codemirror/lang-* into its own chunk; Tauri bundles them
+          // all into dist/ so this stays offline-capable. Adding bundle-time grammar for
+          // every language upfront would bloat the editor chunk for a feature most docs
+          // never touch.
+          autoLoadLanguageSupport: true,
         }),
+        markdownShortcutPlugin(),
       ],
       [readOnly],
     );

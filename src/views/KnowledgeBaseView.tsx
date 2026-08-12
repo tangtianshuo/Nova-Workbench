@@ -4,6 +4,7 @@ import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
+import { MarkdownRenderer } from '@/src/components/ui/MarkdownRenderer';
 import { Separator } from '@/src/components/ui/Separator';
 import { cn } from '@/src/lib/utils';
 import { useRndStore } from '@/src/stores/rndStore';
@@ -222,9 +223,9 @@ export function KnowledgeBaseView() {
                   minHeight="480px"
                 />
               ) : (
-                <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                <MarkdownRenderer className="prose prose-sm max-w-none text-text-primary font-sans leading-relaxed">
                   {currentItem.content}
-                </div>
+                </MarkdownRenderer>
               )}
             </div>
           ) : (

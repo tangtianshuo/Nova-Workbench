@@ -29,10 +29,9 @@ import {
   Legend,
   Tooltip
 } from 'recharts';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
+import { MarkdownRenderer } from '@/src/components/ui';
 import { Badge } from '@/src/components/ui/Badge';
 
 interface Props {
@@ -333,7 +332,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
             </div>
 
             <div className="prose prose-slate prose-sm max-w-none text-text-primary leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{compData.differentiationStrategy}</ReactMarkdown>
+              <MarkdownRenderer>{compData.differentiationStrategy}</MarkdownRenderer>
             </div>
           </Card>
         </motion.div>

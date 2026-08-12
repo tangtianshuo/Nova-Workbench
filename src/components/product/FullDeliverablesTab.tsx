@@ -28,11 +28,10 @@ import {
   Cpu,
   CaretRight,
 } from '@phosphor-icons/react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { motion } from 'motion/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
+import { MarkdownRenderer } from '@/src/components/ui';
 import { Badge } from '@/src/components/ui/Badge';
 import { Input } from '@/src/components/ui/Input';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
@@ -407,7 +406,7 @@ export function FullDeliverablesTab({ product }: Props) {
             <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-bg-secondary space-y-6">
               <Card className="p-6">
                 <div className="prose prose-sm max-w-none text-text-primary font-sans leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewDeliverable.content}</ReactMarkdown>
+                  <MarkdownRenderer>{previewDeliverable.content}</MarkdownRenderer>
                 </div>
               </Card>
             </div>

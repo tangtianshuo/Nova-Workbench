@@ -22,6 +22,7 @@ export { DatePickerInput } from './DatePickerInput';
 
 // Editors
 export { MarkdownEditor } from './MarkdownEditor';
+export { MarkdownRenderer } from './MarkdownRenderer';
 
 // Navigation
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';

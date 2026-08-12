@@ -27,12 +27,11 @@ import {
   X as PhX,
   FileText as PhFileText,
 } from '@phosphor-icons/react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { Input } from '@/src/components/ui/Input';
+import { MarkdownRenderer } from '@/src/components/ui';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { Separator } from '@/src/components/ui/Separator';
 import { executeTool } from '@/src/ai';
@@ -436,7 +435,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                 </div>
               ) : (
                 <div className="prose prose-slate prose-sm max-w-none text-text-primary font-sans leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedItem.content}</ReactMarkdown>
+                  <MarkdownRenderer>{selectedItem.content}</MarkdownRenderer>
                 </div>
               )}
             </>

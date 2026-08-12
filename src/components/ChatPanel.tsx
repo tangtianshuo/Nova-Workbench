@@ -89,6 +89,7 @@ export function ChatPanel() {
   const [pendingConfirmation, setPendingConfirmation] = useState<KnowledgeWriteCandidate | null>(null);
   const [pendingDestructiveAction, setPendingDestructiveAction] = useState<DestructiveActionCandidate | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionRef = useRef(new ChatSession({ tokenBudget: 8_000 }));
   const nextIdRef = useRef(0);
   const streamingResponseRef = useRef('');
@@ -97,6 +98,10 @@ export function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, streamingResponse, streamingTrace]);
+
+  useEffect(() => {
+    if (isOpen) textareaRef.current?.focus();
+  }, [isOpen]);
 
   const updateTrace = (updater: (items: ToolTraceItem[]) => ToolTraceItem[]) => {
     setStreamingTrace((current) => {
@@ -368,6 +373,7 @@ export function ChatPanel() {
         <DrawerFooter className="block">
           <form onSubmit={(event) => void handleSubmit(event)} className="flex items-end gap-2">
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleInputKeyDown}

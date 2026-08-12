@@ -11,6 +11,7 @@
 
 /* Tailwind CSS v4 */
 @import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 
 /* === Tailwind v4 Theme Bridge === */
 /* Maps CSS custom properties to Tailwind utility classes */

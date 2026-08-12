@@ -18,6 +18,7 @@ import {
   Sparkle,
 } from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -223,7 +224,7 @@ export function ProductDocsTab({ product, onAddDocument }: Props) {
                 </div>
 
                 <div className="markdown-body prose prose-sm max-w-none text-text-secondary space-y-3">
-                  <ReactMarkdown>{activeDoc.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeDoc.content}</ReactMarkdown>
                 </div>
               </div>
             </div>
@@ -280,7 +281,7 @@ export function ProductDocsTab({ product, onAddDocument }: Props) {
                 </div>
 
                 <div className="markdown-body text-text-primary">
-                  <ReactMarkdown>{activeDoc.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeDoc.content}</ReactMarkdown>
                 </div>
               </div>
 

@@ -30,6 +30,7 @@ import {
   Tag as PhTag,
 } from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
@@ -291,7 +292,7 @@ export function AIRequirementsTab({ product }: Props) {
             </div>
 
             <div className="prose prose-slate prose-sm max-w-none text-text-secondary leading-relaxed font-sans">
-              <ReactMarkdown>{reqData.prdMarkdown}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{reqData.prdMarkdown}</ReactMarkdown>
             </div>
           </Card>
 

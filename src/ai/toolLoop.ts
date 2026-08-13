@@ -119,10 +119,19 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
           content: `[tool_result ${call.name}] ${stringifyResult({ ok: true, data: toolResult })}`,
         });
       } catch (error) {
+        const isConfirmation = error instanceof ConfirmationRequiredError;
         const errorMessage = error instanceof Error ? error.message : String(error);
-        args.callbacks?.onToolEnd?.(call.name, null, errorMessage);
+        // ponytail: ConfirmationRequiredError 是预期的"等待确认"流程,不是错误。
+        // 把 errorMessage 透传给 onToolEnd 会让 ChatPanel 的 trace 翻红(⚠️ 失败),
+        // 误导用户。confirmation 时跳过 error 参数,trace 显示 ok;LLM 历史仍记录
+        // { ok: false } payload(工具确实没完成),只有 UI 面的回调被过滤。
+        args.callbacks?.onToolEnd?.(
+          call.name,
+          null,
+          isConfirmation ? undefined : errorMessage,
+        );
         session.addMessage('tool', stringifyResult({ ok: false, error: errorMessage }), toolCallId, call.name);
-        if (error instanceof ConfirmationRequiredError) {
+        if (isConfirmation) {
           args.callbacks?.onConfirmationRequired?.(error.candidate);
           return {
             content,

@@ -3,7 +3,8 @@ status: complete
 phase: 11-ai-file-knowledge
 source: [11-01-SUMMARY.md, 11-02-SUMMARY.md, 11-03-SUMMARY.md, 11-04-SUMMARY.md]
 started: 2026-08-13T00:00:00Z
-updated: 2026-08-13T12:00:00Z
+updated: 2026-08-13T19:30:00Z
+gaps_status: resolved
 ---
 
 ## Current Test
@@ -32,9 +33,8 @@ result: pass
 
 ### 5. AI 写知识库文章 → 确认流程
 expected: 让 AI 创建或润色一篇知识库文章。AI 不直接写入，而是先展示待确认的候选内容（标题/正文等字段）并停下等待；用户显式确认后才真正写入 rndStore，文章出现在知识库中。未确认时不产生任何数据变更；确认 token 一次性使用。
-result: issue
-reported: "writeKnowledgeArticle 失败"
-severity: blocker
+result: pass
+note: 修复后(quick/260813-sdp, commit 789354f)ToolTrace 显示 writeKnowledgeArticle ✓ 已完成(绿色),随后弹出"待确认的知识库写入"卡片,确认写入后文章正确写入 rndStore。原 blocker 是 toolLoop.ts catch 块把 ConfirmationRequiredError 误标为 trace error,误导用户感知。
 
 ### 6. AI 生成研发交付物
 expected: 让 AI 为当前产品生成一份研发交付物（如 API 规格文档）。生成完成后，在研发中心的完整交付物 Tab（FullDeliverablesTab）中能看到该交付物的最新状态和内容（预览来自 store，而非静态文本）。
@@ -47,8 +47,8 @@ result: pass
 ## Summary
 
 total: 7
-passed: 6
-issues: 1
+passed: 7
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
@@ -56,11 +56,18 @@ blocked: 0
 ## Gaps
 
 - truth: "AI 写知识库文章走候选 → 显式确认 → 写入 rndStore 流程，未确认时无数据变更"
-  status: failed
+  status: resolved
   reason: "User reported: writeKnowledgeArticle 失败"
   severity: blocker
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "src/ai/toolLoop.ts catch 块在收到 ConfirmationRequiredError(预期流程)时无差别地把 errorMessage 透传给 onToolEnd,ChatPanel 的 onToolEnd 回调把任何 truthy error 当作 'error' trace 状态,导致 UI 显示红色 ⚠️ 失败标记。系统其实按设计运行 — 抛错 → 弹确认卡片 → 用户确认后写入。"
+  artifacts:
+    - path: "src/ai/toolLoop.ts"
+      issue: "catch 块 line 123 无差别透传 errorMessage 给 onToolEnd,未区分 ConfirmationRequiredError 与真错误"
+  missing:
+    - "在 catch 块顶部抽取 isConfirmation 标志"
+    - "onToolEnd 调用使用 isConfirmation ? undefined : errorMessage"
+    - "复用 isConfirmation 替代冗余的 instanceof 检查"
   debug_session: ""
+  fix_commit: "789354f (quick/260813-sdp)"
+  resolved_at: "2026-08-13"

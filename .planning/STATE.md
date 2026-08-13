@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 Phase: 12
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-08-12 - Completed quick task 260812-ovp: ChatPanel 展开时自动聚焦对话框
+Last activity: 2026-08-13 - Completed quick task 260813-sdp: toolLoop 修复 ConfirmationRequiredError 误标 trace error (Phase 11 Test 5 blocker)
 
 Progress: [██████████] 100% (Phase 5-11 code plans complete; unified browser/store UAT and Ollama production tool-call UAT passed)
 
@@ -127,6 +127,7 @@ None blocking. Current follow-up risks and verification gaps:
 | 260811-v3i | 添加任务后若设置 deadline 自动关联到日程 | 2026-08-11 | f9e091a | [260811-v3i-task-deadline-auto-schedule](./quick/260811-v3i-task-deadline-auto-schedule/) |
 | 260811-vg6 | ScheduleView 本月日程高度对齐日历+独立滚动 | 2026-08-11 | 00fc07e | [260811-vg6-schedule-height-match-calendar](./quick/260811-vg6-schedule-height-match-calendar/) |
 | 260812-ovp | ChatPanel 展开时自动聚焦对话框 | 2026-08-12 | de64cda | [260812-ovp-sidebar-auto-focus](./quick/260812-ovp-sidebar-auto-focus/) |
+| 260813-sdp | toolLoop 修复 ConfirmationRequiredError 误标 trace error(Phase 11 Test 5) | 2026-08-13 | 789354f | [260813-sdp-phase-11-test-5-toolloop-ts-catch-confir](./quick/260813-sdp-phase-11-test-5-toolloop-ts-catch-confir/) |
 
 ### Roadmap Evolution
 

@@ -146,9 +146,14 @@ pub async fn stream_generate(
 /// The `tools_json` values are converted to rig's `ToolDefinition`; they are
 /// never executed by this function. The returned `ToolCallInfo` values and the
 /// matching stream chunks are the hand-off to the JS tool loop.
+///
+/// `ollama_model` lets the frontend override the Ollama model name (user-pulled
+/// models like `my-ornith`). Priority: arg > NOVA_OLLAMA_MODEL env > OLLAMA_MODEL
+/// env > rig's LLAMA3_2 default. Other providers ignore this parameter.
 pub async fn chat_with_tools(
     provider: Provider,
     api_key: &str,
+    ollama_model: Option<String>,
     messages: Vec<ChatMessage>,
     tools_json: Vec<serde_json::Value>,
     system_prompt: String,
@@ -158,6 +163,7 @@ pub async fn chat_with_tools(
     let tools = parse_tool_definitions(tools_json)?;
     let (prompt, history) = split_messages(messages)?;
 
+    let _ = &ollama_model; // other branches don't read it; avoid unused warning
     match provider {
         Provider::DeepSeek => {
             let client = deepseek::Client::new(api_key.to_string())
@@ -220,12 +226,17 @@ pub async fn chat_with_tools(
             // Nothing preserves its documented default http://localhost:11434.
             let client =
                 ollama::Client::new(Nothing).map_err(|e| provider_init_error("ollama", e))?;
-            // Keep llama3.2 as the default, while allowing local installations
-            // to select an already-pulled model without persisting model names.
-            let model_name = std::env::var("NOVA_OLLAMA_MODEL")
-                .or_else(|_| std::env::var("OLLAMA_MODEL"))
-                .ok()
+            // ponytail: model priority arg > NOVA_OLLAMA_MODEL > OLLAMA_MODEL > LLAMA3_2.
+            // Arg comes from uiStore.ollamaModel via the chat IPC; env vars kept
+            // for headless/CI deployments where the JS layer isn't tuned yet.
+            let model_name = ollama_model
                 .filter(|value| !value.trim().is_empty())
+                .or_else(|| {
+                    std::env::var("NOVA_OLLAMA_MODEL")
+                        .or_else(|_| std::env::var("OLLAMA_MODEL"))
+                        .ok()
+                        .filter(|value| !value.trim().is_empty())
+                })
                 .unwrap_or_else(|| ollama::LLAMA3_2.to_string());
             stream_model(
                 client.completion_model(model_name),
@@ -404,6 +415,151 @@ async fn stream_model<M: CompletionModel>(
     })
 }
 
+/// Lightweight reachability + credential probe for the Settings panel.
+///
+/// Each provider path returns Ok(()) on success, or an `AppError` whose Display
+/// string is suitable for surfacing to the user (Chinese-prefixed reasons for
+/// Ollama; the cloud-provider branch uses HTTP-status mapping). 5s timeout.
+///
+/// Ollama: GET /api/tags, parse model list, check the configured model name is
+/// present (prefix-before-colon match so `my-ornith` matches `my-ornith:latest`).
+///
+/// Cloud providers: POST a 1-token chat completion, classify by HTTP status.
+/// Anthropic uses `x-api-key` + `anthropic-version` headers (not Bearer).
+/// Gemini puts the key in the URL query string.
+pub async fn ping_provider(
+    provider: Provider,
+    api_key: &str,
+    ollama_model: Option<String>,
+) -> Result<(), AppError> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| AppError::InternalError(format!("http client: {}", e)))?;
+
+    if matches!(provider, Provider::Ollama) {
+        let resp = client
+            .get("http://localhost:11434/api/tags")
+            .send()
+            .await
+            .map_err(|e| AppError::NetworkError(format!("无法连接 Ollama (localhost:11434): {}", e)))?;
+        if !resp.status().is_success() {
+            return Err(AppError::NetworkError(format!("Ollama 返回 {}", resp.status())));
+        }
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| AppError::ParseError(format!("Ollama /api/tags 响应解析失败: {}", e)))?;
+        let models = body
+            .get("models")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| AppError::ParseError("Ollama 响应缺少 models 字段".into()))?;
+        let available: Vec<String> = models
+            .iter()
+            .filter_map(|m| m.get("name").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+        let configured = ollama_model
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| ollama::LLAMA3_2.to_string());
+        let exists = available.iter().any(|name| {
+            name == &configured || name.starts_with(&format!("{}:", configured))
+        });
+        if !exists {
+            return Err(AppError::InternalError(format!(
+                "模型 {} 不存在,可用模型: {}",
+                configured,
+                if available.is_empty() {
+                    "(空)".into()
+                } else {
+                    available.join(", ")
+                }
+            )));
+        }
+        return Ok(());
+    }
+
+    // Cloud providers: 1-token chat completion. Auth header differs per provider.
+    let (url, body) = match provider {
+        Provider::DeepSeek => (
+            "https://api.deepseek.com/chat/completions".to_string(),
+            serde_json::json!({
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+                "stream": false,
+            }),
+        ),
+        Provider::OpenAI => (
+            "https://api.openai.com/v1/chat/completions".to_string(),
+            serde_json::json!({
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            }),
+        ),
+        Provider::Anthropic => (
+            "https://api.anthropic.com/v1/messages".to_string(),
+            serde_json::json!({
+                "model": "claude-3-5-sonnet-latest",
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "ping"}],
+            }),
+        ),
+        Provider::Gemini => (
+            format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}",
+                api_key
+            ),
+            serde_json::json!({
+                "contents": [{"parts": [{"text": "ping"}]}],
+                "generationConfig": {"maxOutputTokens": 1},
+            }),
+        ),
+        Provider::Ollama => unreachable!("handled above"),
+    };
+
+    let mut req = client.post(&url);
+    // ponytail: per-provider auth shape. Gemini key is in the URL query (above),
+    // Anthropic uses x-api-key + anthropic-version, DeepSeek/OpenAI use Bearer.
+    if !matches!(provider, Provider::Gemini) {
+        if matches!(provider, Provider::Anthropic) {
+            req = req
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01");
+        } else {
+            req = req.header("Authorization", format!("Bearer {}", api_key));
+        }
+    }
+    let resp = req
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| AppError::NetworkError(format!("{}: {}", provider, e)))?;
+    let status = resp.status();
+    if status.as_u16() == 401 || status.as_u16() == 403 {
+        return Err(AppError::AuthError);
+    }
+    if !status.is_success() {
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AppError::NetworkError(format!(
+            "{} 返回 {}: {}",
+            provider,
+            status,
+            truncate(&text, 200)
+        )));
+    }
+    Ok(())
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let mut out: String = s.chars().take(max).collect();
+    out.push('…');
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -478,6 +634,7 @@ mod tests {
         let result = chat_with_tools(
             Provider::Ollama,
             "",
+            None,
             vec![ChatMessage {
                 role: "user".into(),
                 content: "Create a high-priority task titled Local Ollama UAT due 2026-08-20."

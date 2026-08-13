@@ -145,6 +145,10 @@ pub struct ChatArgs {
     pub system_prompt: String,
     pub provider: Provider,
     pub request_id: String,
+    /// Optional Ollama model override (from uiStore.ollamaModel). Other providers
+    /// ignore this field. None falls back to NOVA_OLLAMA_MODEL env / OLLAMA_MODEL
+    /// env / rig's LLAMA3_2 default in llm::chat_with_tools.
+    pub ollama_model: Option<String>,
 }
 
 /// Stream a chat completion and pass tool-call requests through to the JS tool loop.
@@ -170,6 +174,7 @@ pub async fn chat(
         response = llm::chat_with_tools(
             args.provider,
             &api_key,
+            args.ollama_model,
             args.messages,
             args.tools,
             args.system_prompt,
@@ -255,6 +260,21 @@ pub async fn has_provider_key(provider: Provider) -> Result<bool, AppError> {
 #[tauri::command]
 pub async fn set_provider_key(provider: Provider, key: String) -> Result<(), AppError> {
     keychain::set_provider_key(&provider, &key)
+}
+
+/// Reachability + credential probe for Settings. Returns Ok(()) if the provider
+/// is callable with the supplied key (or, for Ollama, if localhost:11434 is up
+/// and the configured model exists). On Err, the AppError Display string is the
+/// user-facing reason (invalid api key / network / model not found / etc.).
+/// ponytail: stateless command — no AppState borrow. 5s timeout enforced in llm.
+#[tauri::command]
+pub async fn ping_provider(
+    provider: Provider,
+    key: Option<String>,
+    ollama_model: Option<String>,
+) -> Result<(), AppError> {
+    let api_key = key.unwrap_or_default();
+    llm::ping_provider(provider, &api_key, ollama_model).await
 }
 
 #[cfg(test)]

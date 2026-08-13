@@ -74,6 +74,7 @@ pub fn run() {
             commands::get_provider,
             commands::has_provider_key,
             commands::set_provider_key,
+            commands::ping_provider,
         ])
         .setup(|app| {
             // Set minimum window size

@@ -128,6 +128,7 @@ None blocking. Current follow-up risks and verification gaps:
 | 260811-vg6 | ScheduleView 本月日程高度对齐日历+独立滚动 | 2026-08-11 | 00fc07e | [260811-vg6-schedule-height-match-calendar](./quick/260811-vg6-schedule-height-match-calendar/) |
 | 260812-ovp | ChatPanel 展开时自动聚焦对话框 | 2026-08-12 | de64cda | [260812-ovp-sidebar-auto-focus](./quick/260812-ovp-sidebar-auto-focus/) |
 | 260813-sdp | toolLoop 修复 ConfirmationRequiredError 误标 trace error(Phase 11 Test 5) | 2026-08-13 | 789354f | [260813-sdp-phase-11-test-5-toolloop-ts-catch-confir](./quick/260813-sdp-phase-11-test-5-toolloop-ts-catch-confir/) |
+| 260813-u7m | Ollama 模型名可配置 + Settings 保存 key / 切 Ollama 时连通性验证 | 2026-08-13 | TBD | [260813-u7m-ollama-my-ornith-llama3-2-settings-provi](./quick/260813-u7m-ollama-my-ornith-llama3-2-settings-provi/) |
 
 ### Roadmap Evolution
 

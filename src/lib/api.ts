@@ -87,6 +87,8 @@ export async function chatWithTools(args: {
   tools: Record<string, unknown>[];
   systemPrompt: string;
   provider: Provider;
+  // ponytail: only read by Provider::Ollama in Rust; other providers ignore it.
+  ollamaModel?: string;
   onToken?: (text: string) => void;
   onToolCall?: (name: string, argsValue: unknown) => void;
   signal?: AbortSignal;
@@ -118,6 +120,7 @@ export async function chatWithTools(args: {
           systemPrompt: args.systemPrompt,
           provider: args.provider,
           requestId,
+          ollamaModel: args.ollamaModel,
         },
         onToken: channel,
       });
@@ -309,4 +312,25 @@ export async function setProviderKey(provider: Provider, key: string): Promise<v
   if (!isTauri()) return;
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('set_provider_key', { provider, key });
+}
+
+/**
+ * Reachability + credential probe for Settings. Throws on failure with a
+ * reason string from Rust AppError Display. Web mode throws a friendly
+ * "desktop only" message without invoking.
+ */
+export async function pingProvider(
+  provider: Provider,
+  key: string,
+  ollamaModel?: string,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error('连通性验证仅在桌面端可用');
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke<void>('ping_provider', {
+    provider,
+    key: key || null,
+    ollamaModel: ollamaModel ?? null,
+  });
 }

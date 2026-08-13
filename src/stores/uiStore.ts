@@ -9,6 +9,9 @@ interface UIState {
   selectedTaskId: string | null;
   theme: 'light' | 'dark' | 'system';
   activeAIProvider: Provider;
+  // Ollama model name override (Phase 11 quick/260813-u7m). Persisted so reloads
+  // don't lose it. Cloud providers ignore this field.
+  ollamaModel: string;
 
   // Modal flags
   isSearchOpen: boolean;
@@ -22,6 +25,7 @@ interface UIState {
   setSelectedTaskId: (id: string | null) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   setActiveAIProvider: (provider: Provider) => void;
+  setOllamaModel: (model: string) => void;
   setSearchOpen: (open: boolean) => void;
   setNewTaskOpen: (open: boolean) => void;
   setChatPanelOpen: (open: boolean) => void;
@@ -40,6 +44,7 @@ export const useUIStore = create<UIState>()(
   selectedTaskId: null,
   theme: 'light',
   activeAIProvider: 'deepseek',
+  ollamaModel: 'llama3.2',
 
   isSearchOpen: false,
   isNewTaskOpen: false,
@@ -51,6 +56,7 @@ export const useUIStore = create<UIState>()(
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setTheme: (theme) => set({ theme }),
   setActiveAIProvider: (provider) => set({ activeAIProvider: provider }),
+  setOllamaModel: (model) => set({ ollamaModel: model }),
   setSearchOpen: (open) => set({ isSearchOpen: open }),
   setNewTaskOpen: (open) => set({ isNewTaskOpen: open }),
   setChatPanelOpen: (open) => set({ isChatPanelOpen: open }),
@@ -71,6 +77,7 @@ export const useUIStore = create<UIState>()(
         activeTab: s.activeTab,
         selectedProductId: s.selectedProductId,
         activeAIProvider: s.activeAIProvider,
+        ollamaModel: s.ollamaModel,
       }),
       migrate: (persisted, _version) => persisted as Partial<UIState>,
       onRehydrateStorage: () => (state) => {

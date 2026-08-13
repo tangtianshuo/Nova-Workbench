@@ -3,6 +3,7 @@ import { buildCoreContext } from './context';
 import { ChatSession } from './chatSession';
 import { buildSystemPrompt } from './prompts';
 import { executeTool, ToolArgError, toolsToSchemas } from './registry';
+import { useUIStore } from '@/src/stores/uiStore';
 import './tools/knowledgeWrite';
 import {
   ConfirmationRequiredError,
@@ -83,6 +84,9 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
       tools: toolsToSchemas(),
       systemPrompt,
       provider: args.provider,
+      // ponytail: pull from store via getState() (this is a plain async fn, not a
+      // component). Only Ollama branch reads it; undefined for others.
+      ollamaModel: args.provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
       onToken: args.callbacks?.onToken,
       signal: args.signal,
     });

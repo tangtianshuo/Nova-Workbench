@@ -396,6 +396,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     eventsForProduct.forEach((e) =>
       useScheduleStore.getState().updateEvent(e.id, { projectId: undefined }),
     );
+    // 2.5 Detach all workspaces from this product (dangling projectId fix)
+    useWorkspaceStore.getState().unlinkProjectWorkspaces(productId);
     // 3. Cascade-clean rndStore for this product (L7)
     useRndStore.getState().cleanupProduct(productId);
     // 4. Remove the product itself

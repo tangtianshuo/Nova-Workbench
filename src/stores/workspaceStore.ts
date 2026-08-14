@@ -113,6 +113,7 @@ interface WorkspaceState {
   addWorkspace: (workspace: Workspace) => void;
   updateWorkspace: (id: string, updates: Partial<Workspace>) => void;
   deleteWorkspace: (id: string) => void;
+  unlinkProjectWorkspaces: (projectId: string) => void;
   setWorkspaces: (workspaces: Workspace[]) => void;
 
   addLocalIndexedFile: (file: LocalIndexedFile) => void;
@@ -145,6 +146,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
   deleteWorkspace: (id) =>
     set((state) => ({
       workspaces: state.workspaces.filter((w) => w.id !== id),
+    })),
+
+  unlinkProjectWorkspaces: (projectId) =>
+    set((state) => ({
+      workspaces: state.workspaces.map((w) =>
+        w.projectId === projectId
+          ? { ...w, projectId: undefined, projectName: undefined }
+          : w
+      ),
     })),
 
   setWorkspaces: (workspaces) => set({ workspaces }),

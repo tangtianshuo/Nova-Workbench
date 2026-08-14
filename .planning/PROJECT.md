@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付了完整 PM 视图框架 + 设计系统 + Rust 原生基础(SQLite 持久化、IPC、keychain);v0.2.0 在此之上交付了任务/日程全生命周期 CRUD、跨模块弱关联联动、Markdown WYSIWYG 编辑、以及 AI 助手全链路(⌘K + ChatPanel + 任务/日程/文件/知识库 tools + HITL 确认流)。下一步目标是按 `docs/ARCHITECTURE.md` 蓝图继续向 Rust 原生 Agent 后端演进(GraphFlow + LanceDB)。
+Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付了完整 PM 视图框架 + 设计系统 + Rust 原生基础(SQLite 持久化、IPC、keychain);v0.2.0 在此之上交付了任务/日程全生命周期 CRUD、跨模块弱关联联动、Markdown WYSIWYG 编辑、以及 AI 助手全链路(⌘K + ChatPanel + 任务/日程/文件/知识库 tools + HITL 确认流)。v0.3.0 聚焦**功能闭环**:以「事件日志 + 增强 tool loop + SQLite FTS5」为新架构真相源(取代 GraphFlow/LanceDB 旧蓝图),让 agent 从侧边工具升级为有记忆、可恢复、可追责的一等执行者。
 
 ## Core Value
 
@@ -19,7 +19,23 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - AI 助手:Rust llm.rs(多 provider)+ Tool registry(Zod)+ ⌘K + ChatPanel + 任务/日程/文件/知识库 tools + 取消/确认 HITL;Ollama 生产 tool-call UAT 通过
 - Gap Closure:INT-01 修复、5 个 VERIFICATION backfill、Express 3 MEDIUM 加固
 
-**Next Milestone Goals:** 待定 — 运行 `/gsd:new-milestone` 规划(v0.3 候选:GraphFlow + Rig PoC、LanceDB 第二大脑、PM Pipeline;见 Out of Scope)
+**Next Milestone Goals:** v0.3.0 已启动 — 见下方 Current Milestone
+
+## Current Milestone: v0.3.0 功能闭环 — Agent 为血肉,产品为骨架
+
+**Goal:** 打通三条主循环(PM 工作流 / Agent 操作 / 第二大脑),把 agent 从侧边工具升级为贯穿产品的一等执行者,并正式以「事件日志 + tool loop + FTS5」架构取代 GraphFlow/Rig/LanceDB 旧蓝图。
+
+**Target features:**
+- P0 可恢复执行底座:SQLite Agent Event Log(事件追加/回放)、确认候选持久化、ChatSession 从事件重建、tool call/result 配对不变量
+- P1 可管理长期记忆:记忆候选确认流(去重/冲突/supersede)、知识文档版本+来源、SQLite FTS5 混合检索、按 workspace/product 范围过滤
+- PM 生产线闭环:agent 驱动生成交付物(PRD 等)→ HITL 确认 → 落入研发中心对应交付物卡槽
+- Agent 交互升级:全局一等入口(携带当前视图上下文唤起)、主动建议/晨报(日程摘要/过期任务/待确认记忆候选)、右键菜单快捷 AI 动作
+- 架构重写:更新 docs/ARCHITECTURE.md + ADR,以 docs/AGENT_MEMORY_REFERENCE.md 为新真相源
+
+**Milestone decisions:**
+- Agent 深度走「增强现有 tool loop」,不引入工作流引擎(GraphFlow 正式出局)
+- inline 视图内 agent 操作移交 v0.4+;ChatPanel + ⌘K 现有体验保留
+- P2(embedding/LanceDB/SQLite-vec 评估)留 v0.4
 
 ## Requirements
 
@@ -45,9 +61,13 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 ### Active
 
-<!-- v0.3 候选 — 待 /gsd:new-milestone 确认 -->
+<!-- v0.3.0 — 待 REQUIREMENTS.md 细化为 REQ-IDs -->
 
-- [ ] GraphFlow + Rig PoC(v0.1.0 Phase 4 deferred,见 Key Decisions)
+- [ ] P0 可恢复执行底座(Agent Event Log、持久化确认、会话重建)
+- [ ] P1 可管理长期记忆(记忆候选流、知识文档版本/来源、FTS5 检索)
+- [ ] agent 驱动生成交付物生产线(PRD 等 → HITL → 研发中心卡槽)
+- [ ] Agent 全局一等入口 + 主动建议/晨报 + 右键菜单快捷 AI 动作
+- [ ] 架构文档重写(ARCHITECTURE.md + ADR)
 - [ ] Phase 7 的 35 步人工回归(发布签核建议,来自 v0.2.0 audit tech debt)
 
 **v0.2.0 遗留 tech debt:**
@@ -59,9 +79,10 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 <!-- 显式边界 — 防止重新加回 -->
 
-- **第二大脑(LanceDB 向量检索)** — v0.2.0 聚焦 CRUD + 弱关联,向量检索留到 v0.3+(依赖 v0.1.0 Phase 4 PoC 结果)
-- **完整 PM Pipeline(需求→PRD→原型→代码→测试 全自动)** — 同上,依赖 PoC 验证
-- **GraphFlow + Rig PoC** — 原 v0.1.0 Phase 4,decided deferred 到 v0.3+(pre-1.0 crate,单作者,无生产 Tauri 嵌入参考;先跑通 CRUD 再评估)
+- **第二大脑向量检索(embedding/LanceDB/SQLite-vec)** — v0.3.0 按 AGENT_MEMORY_REFERENCE.md 只做 P0+P1(FTS5 关键词+结构过滤);P2 语义增强留 v0.4,且 LanceDB 只作派生索引候选评估,永不做事实源
+- **完整 PM Pipeline(需求→PRD→原型→代码→测试 全自动编排)** — v0.3.0 只做 agent 驱动的单交付物生成→确认→落槽;多步全自动编排依赖工作流引擎,明确不采用无持久检查点的动态脚本工作流
+- **GraphFlow 工作流引擎** — **正式否决**(v0.3.0 架构重写):pre-1.0 crate 风险 + AGENT_MEMORY_REFERENCE.md 第 9 节明确不采用其插件树;tool loop + 事件日志取代
+- **inline 视图内 agent 嵌入** — 移交 v0.4+(用户决策);v0.3.0 交互升级限于全局入口/晨报/右键菜单
 - **多人协作 / 云同步** — 设计原则"本地优先",SQLite 单机足够
 - **URL 路由** — 当前 activeTab state 够用
 - **AppContext 全量移除** — 跟随各 view 迁移逐步消除
@@ -77,10 +98,11 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - 桌面:Tauri v2 frameless,chat Tauri command + Channel 流式输出
 - 数据:6 个 Zustand store 全量持久化(v0.1.0 起 SQLite / localStorage 双轨),弱关联字段可选、不级联删除
 
-**目标架构**(docs/ARCHITECTURE.md,2026-08-07 已确认):
-- 工作流引擎:**GraphFlow** (Rust 原生,HITL via `interrupt!`)
-- LLM 集成:**Rig** (多 Provider:Claude/GPT/Gemini/Ollama)
-- 向量检索:**LanceDB** (嵌入式)
+**目标架构**(v0.3.0 起以 docs/AGENT_MEMORY_REFERENCE.md 为真相源,ARCHITECTURE.md 待重写):
+- Agent 运行时:**增强 tool loop** + SQLite Agent Event Log(可恢复、可审计、可回放),不引入工作流引擎
+- LLM 集成:自研 Rust llm.rs(provider-agnostic,已在 v0.2.0 验证;Rig 已出局)
+- 检索:**SQLite 原文 + FTS5**(关键词+标签+产品/时间结构过滤),embedding/向量索引为 P2 派生加速层
+- 记忆分层:业务事实 / Episodic / Semantic Knowledge / User-Project Memory / Working Context 投影
 - 持久化:**SQLite** (本地优先)
 - 架构原则:零 Sidecar / 本地优先 / 混合架构(本地存储 + 云端 LLM)/ HITL 关键节点
 
@@ -112,6 +134,8 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 | 保留 task.project:string 做 legacy 兼容 | AppContext.tsx 多处依赖,不删,推到下下里程碑 | ⚠️ 仍在兼容层,随 view 迁移消除 |
 | Rust llm.rs provider-agnostic + hand-rolled Tool registry(~200 LOC) | 零 Sidecar 原则;不引入重型 agent 框架 | ✓ Validated in v0.2.0 — Ollama 生产 tool-call UAT 通过 |
 | Express 端点 5→1 收缩 | AI 走 Tauri IPC,Express 只留 dev fallback | ✓ Validated in Phase 9-02 |
+| [v0.3.0] 事件日志 + tool loop + FTS5 取代 GraphFlow/Rig/LanceDB 蓝图 | docs/AGENT_MEMORY_REFERENCE.md 调研结论:可恢复/可审计/可回放的运行时优先于工作流引擎;结构过滤收益先于向量检索 | — Pending |
+| [v0.3.0] 记忆分层:业务事实/事件/语义知识/偏好/上下文投影 | 单一向量库不是记忆;向量索引只是检索加速层,不是真相源 | — Pending |
 
 ## Evolution
 
@@ -137,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 12 (2026-08-11)**: v0.2.0 Gap Closure — closed all 8 audit gaps (INT-01 KnowledgeBaseView→rndStore wiring, 5 phase VERIFICATION.md backfill, 3 Express MEDIUM hardening, CROSS-04/05/06 traceability). v0.2.0 milestone ready for sign-off.
 
 ---
-*Last updated: 2026-08-14 after v0.2.0 milestone*
+*Last updated: 2026-08-14 — milestone v0.3.0 started*

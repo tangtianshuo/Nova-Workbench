@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2.0
-milestone_name: 日常管理 CRUD + 弱关联 + AI 驱动
-status: milestone_complete
+milestone: v0.3.0
+milestone_name: 功能闭环 — Agent 为血肉,产品为骨架
+status: defining_requirements
 stopped_at: null
-last_updated: "2026-08-14T02:14:53.492Z"
-last_activity: 2026-08-14 milestone v0.2.0 archived
+last_updated: "2026-08-14T00:00:00.000Z"
+last_activity: 2026-08-14 milestone v0.3.0 started
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 34
-  completed_plans: 34
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,12 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-14)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Planning next milestone (v0.3) — run /gsd:new-milestone
+**Current focus:** v0.3.0 功能闭环 — 事件日志 + tool loop + FTS5 新架构,agent 一等执行者
 
 ## Current Position
 
-v0.2.0 shipped & archived 2026-08-14 (8 phases, 34 plans, audit passed).
-See .planning/MILESTONES.md and .planning/milestones/v0.2.0-ROADMAP.md.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-14 — Milestone v0.3.0 started
 
 ## Accumulated Context
 

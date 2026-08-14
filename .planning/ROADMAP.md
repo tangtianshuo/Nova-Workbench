@@ -128,3 +128,31 @@
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
+
+**Goal:** [Captured for future planning] 把 PM 领域工作流(竞品分析、PRD 生成、需求评审等)打包为可复用 skill:manifest(名称/描述/触发条件) + prompt 模板 + 允许调用的工具集 + 产出物卡槽。系统 prompt 只放 skill 描述,agent 按需经 FTS5 检索加载全文(同构 Claude Code skill 加载机制)。产出走 Phase 16 交付物管线(生成→HITL 确认→编辑→版本化落卡槽)。附带"从对话沉淀为 skill"入口 — 用户用得好的工作流沉淀为 skill,即第二大脑的活知识。
+**核心判断:** 不需要新架构 — 是 Phase 15(知识文档 + FTS5)与 Phase 16(交付物管线)的自然组装,增量仅为 skill manifest 类型 + 加载器。v0.2.0 的 `runProductSkill` mock 概念由此转正。
+**依赖:** Phase 15, 16
+**建议排期:** v0.4.0 候选(成本低、PM 价值直接)
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.3: MCP 集成（第三方能力扩展） (BACKLOG)
+
+**Goal:** [Captured for future planning] 接入 MCP 让 agent 操作外部 PM 工具链(Figma、飞书、Jira 等),无需 Nova 逐个自建集成。
+**技术路线:** Rust 侧用官方 `rmcp` crate 做 MCP client,工具 schema 桥接进 `ai/tools/` 注册表成为动态工具;前端与 toolLoop 不大改。
+**三个前置条件:**
+1. 审计底座(Phase 13/14)— 每次外部调用落入 `agent_events`,可追责可恢复;无事件日志不接 MCP
+2. 审批分级(Phase 14 确认队列之上)— MCP 工具为外部代码,默认"外部写入一律 HITL 确认",内置工具才可按风险白名单
+3. 零 sidecar 边界澄清 — MCP stdio server 需 spawn 子进程;约束本意是"Nova 自身后端不依赖 Node",用户主动配置的外部工具进程不在此列。此区分需写入 ADR
+**依赖:** Phase 13, 14
+**建议排期:** v0.5.0 或需求驱动(真实用户提出"连飞书/Figma"再做)
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)

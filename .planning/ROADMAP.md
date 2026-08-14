@@ -156,3 +156,16 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.4: 垂类扩展隔离 — 交付物目录与 pipeline 模板数据化 (BACKLOG)
+
+**Goal:** [Captured for future planning] Nova 的架构分两层:Agent 骨架(GraphFlow pipeline + Rig + LanceDB 第二大脑 + HITL,Tauri 壳、设计系统、workspace/schedule/knowledge store)是垂类无关的;PM 领域层(productStore/rndStore、`FULL_LIFECYCLE_DELIVERABLES_CATALOG` 18 种 PM 交付物硬编码在 `mockRndData.ts`、需求→PRD→原型→代码→测试 pipeline、各 view 信息架构)是垂直绑定的。本项把领域层从代码/类型抽成**数据驱动**:交付物目录与 pipeline 模板改为配置/模板文件,view 按目录渲染。
+**核心判断:** 不泛化产品 — v1 垂类聚焦(PM)是护城河,"懂 PM"比"通用工具"好卖。只做"留门不盖房"的隔离:换垂类(律师/咨询/HR/营销/科研)时只需换一份配置 + view 文案,Agent 骨架不动。潜在垂类共同特征:文档密集 + 流程可模板化 + AI 干粗活 + 关键节点人审。
+**与 skill 系统(999.2)的关系:** pipeline 模板数据化后,skill manifest 可直接引用同一套模板格式,二者应协同设计避免两套模板 DSL。
+**预估成本:** 隔离动作本身约一两天(评估 `rndStore` 与 deliverables 目录的实际耦合程度后细化)。
+**建议排期:** v0.4.0 前后的技术投资,或与 999.2 同期
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)

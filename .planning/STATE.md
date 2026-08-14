@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1.0
-milestone_name: Recap
-status: verifying
-stopped_at: Completed 12-gap-closure/12-01-PLAN.md
-last_updated: "2026-08-11T06:09:14.349Z"
-last_activity: 2026-08-11
+milestone: v0.2.0
+milestone_name: 日常管理 CRUD + 弱关联 + AI 驱动
+status: milestone_complete
+stopped_at: null
+last_updated: "2026-08-14T02:14:53.492Z"
+last_activity: 2026-08-14 milestone v0.2.0 archived
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 31
-  completed_plans: 31
+  total_phases: 8
+  completed_phases: 8
+  total_plans: 34
+  completed_plans: 34
   percent: 100
 ---
 
@@ -18,33 +18,15 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-10)
+See: .planning/PROJECT.md (updated 2026-08-14)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 12 — gap-closure
+**Current focus:** Planning next milestone (v0.3) — run /gsd:new-milestone
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-08-13 - Completed quick task 260813-sdp: toolLoop 修复 ConfirmationRequiredError 误标 trace error (Phase 11 Test 5 blocker)
-
-Progress: [██████████] 100% (Phase 5-11 code plans complete; unified browser/store UAT and Ollama production tool-call UAT passed)
-
-## v0.2.0 Execution Status
-
-| Phase | Status | Plans | Notes |
-|-------|--------|-------|-------|
-| 5 Task CRUD | ✅ Complete (2026-08-10) | 5/5 | 9/9 verification passed; deferred to batch UAT |
-| 6 Schedule CRUD | ✅ Complete (2026-08-10) | 4/4 | Plans 01-03 landed + UAT deferred to batch |
-| 7 跨模块联动 | ✅ Complete (2026-08-11) | 5/5 | 核心浏览器/F5 UAT 通过；35 步人工回归作为发布签核建议 |
-| 8 MDXEditor | ✅ Complete (2026-08-11) | 3/3 | 编辑流程通过；chunk 约 297 KB gzip 的非阻断偏差已记录 |
-| 9 AI 基础 | ✅ Complete (2026-08-11) | 6/6 | browser/mock + Ollama 生产 tool-call UAT 通过；云 provider 无凭据未测 |
-| 10 AI 任务+日程 | ✅ Complete (2026-08-11) | 4/4 | focused/mock + Ollama `createTask` UAT 通过；云 provider 无凭据未测 |
-| 11 AI 文件+知识库 | ✅ Complete (2026-08-11) | 4/4 | focused/browser + provider transport UAT 通过；云 provider 无凭据未测 |
-
-**Execution order:** 5 → 6 → 7 → 8 → 9 → 10 → 11 (serial implementation order; Phase 7-11 UAT consolidated)
+v0.2.0 shipped & archived 2026-08-14 (8 phases, 34 plans, audit passed).
+See .planning/MILESTONES.md and .planning/milestones/v0.2.0-ROADMAP.md.
 
 ## Accumulated Context
 
@@ -155,6 +137,5 @@ None blocking. Current follow-up risks and verification gaps:
 
 ## Session Continuity
 
-Last session: 2026-08-11T06:03:02.528Z
-Stopped at: Completed 12-gap-closure/12-01-PLAN.md
-Resume action: Optional cloud-provider comparison and release-signoff regression
+Last session: 2026-08-14 — v0.2.0 milestone archived
+Resume action: /gsd:new-milestone (v0.3 候选见 PROJECT.md Next Milestone Goals)

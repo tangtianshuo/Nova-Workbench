@@ -104,7 +104,8 @@
 ## Research Flags
 
 - Phase 15 needs `/gsd:research-phase` — FTS5 runtime probe (`CREATE VIRTUAL TABLE fts5_probe`) at hour one on the packaged build + CJK tokenizer decision (char-split vs trigram+LIKE)
-- Phases 13, 14, 16, 17: standard patterns, no research needed
+- Phase 13 research input — 参考 DeepSeek Harness (`D:\Projects\Nova\deepseek-harness\deepseek-harness-master`) 的事件日志设计: 其 append-only SessionEvent log + `deriveMessages()` 投影与 Phase 13 的 `agent_events`/ChatSession 投影高度同构。读 `docs/architecture.md` + `docs/subsystems/session.md` + `docs/agent-lifecycle.md`,对照其事件词表(turn/step/tool 的 durable vs live 划分)、"model-visible means logged" 不变量、崩溃恢复切分点校验我们的 schema 设计。**只抄设计,不引入框架** — dsh 是 Node.js/Cordis 运行时,违反零 sidecar/全 Rust 约束,且处于 dev preview。(决策见 2026-08-14 架构讨论)
+- Phases 14, 16, 17: standard patterns, no research needed
 
 ## Notes
 

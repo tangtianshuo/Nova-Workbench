@@ -89,13 +89,40 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (待 roadmap 填充) | — | — |
+| EVT-01 | Phase 13 | Pending |
+| EVT-02 | Phase 13 | Pending |
+| EVT-03 | Phase 13 | Pending |
+| EVT-04 | Phase 14 | Pending |
+| EVT-05 | Phase 14 | Pending |
+| EVT-06 | Phase 13 | Pending |
+| EVT-07 | Phase 13 | Pending |
+| EVT-08 | Phase 13 | Pending |
+| MEM-01 | Phase 15 | Pending |
+| MEM-02 | Phase 15 | Pending |
+| MEM-03 | Phase 15 | Pending |
+| MEM-04 | Phase 15 | Pending |
+| MEM-05 | Phase 15 | Pending |
+| MEM-06 | Phase 15 | Pending |
+| MEM-07 | Phase 15 | Pending |
+| MEM-08 | Phase 15 | Pending |
+| CMP-01 | Phase 14 | Pending |
+| CMP-02 | Phase 14 | Pending |
+| DELIV-01 | Phase 16 | Pending |
+| DELIV-02 | Phase 16 | Pending |
+| DELIV-03 | Phase 16 | Pending |
+| DELIV-04 | Phase 16 | Pending |
+| UX-01 | Phase 17 | Pending |
+| UX-02 | Phase 17 | Pending |
+| UX-03 | Phase 17 | Pending |
+| UX-04 | Phase 17 | Pending |
+| ARCH-01 | Phase 17 | Pending |
+| ARCH-02 | Phase 17 | Pending |
 
 **Coverage:**
-- v1 requirements: 26 total
-- Mapped to phases: 0
-- Unmapped: 26 ⚠️ (roadmap creation pending)
+- v1 requirements: 28 total
+- Mapped to phases: 28
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-14*
-*Last updated: 2026-08-14 after initial definition*
+*Last updated: 2026-08-14 — traceability filled by roadmap creation (count corrected 26 → 28)*

@@ -1,239 +1,131 @@
-# Stack Research — v0.2.0 CRUD Completion + Cross-module Wiring
+# Technology Stack — v0.3.0 New Capabilities
 
-**Domain:** Task/Schedule CRUD completion, real calendar, Kanban drag-and-drop, cross-module weak associations.
-**Researched:** 2026-08-10
-**Confidence:** HIGH — all recommendations are for well-established, stable packages or zero-dep patterns already proven in the codebase.
+**Project:** Nova-PM-Workspace (v0.3.0 Agent 功能闭环)
+**Researched:** 2026-08-14
+**Mode:** Project research (STACK for new features only — existing validated stack NOT re-researched)
 
-**Scope boundary:** Only what's NEW for CRUD completion. React 19 / Vite 6 / Tailwind v4 / Zustand 5 / Radix / Tauri v2 / motion 12 / Phosphor icons are already validated — DO NOT re-research.
+## Headline Finding
 
----
+**Almost nothing new is needed.** The single most important verification of this research: **FTS5 is already compiled into the existing SQLite** in this exact dependency tree — verified from the vendored crate sources on this machine, not from docs. The milestone's heaviest-sounding items (event log, FTS5 retrieval, morning report) require **zero new Rust dependencies** and **one new npm package** (Radix ContextMenu, ~12 KB).
 
-## Packages to Add
+## Recommended Stack (additions only)
 
-### 1. `date-fns` ^4.4.0
+### New npm dependencies
 
-| Field | Detail |
-|-------|--------|
-| **Why needed** | ScheduleView calendar is hardcoded to May 2025 (`const daysInMonth = 31; const firstDayOfMonth = 4`). Month navigation, real date math, and relative formatting ("今天"/"明天"/"3天后") require a date library. |
-| **Why date-fns** | Tree-shakeable (only imported functions ship), 90M weekly downloads, modern Date-only API (no moment-style mutable global state), v4 has first-class TZ support. |
-| **Why not native Date alone** | DatePickerInput already demonstrates native Date works for a simple picker. But ScheduleView needs: (1) month grid generation with correct first-day-of-week, (2) relative date labels in agenda sidebar, (3) "is today" / "is this week" classification, (4) cross-month event filtering. Native Date makes all of these error-prone (timezone leaks, DST edge cases, locale-specific formatting). |
-| **Why not dayjs** | dayjs is moment-compatible (mutable API). date-fns is functional/immutable — better fit for Zustand's immutable `set()` pattern. |
-| **Bundle impact** | ~3KB gzipped for the 5-6 functions we'll use (`format`, `startOfMonth`, `endOfMonth`, `eachDayOfInterval`, `isToday`, `isSameMonth`, `differenceInDays`). Tree-shaking drops the rest. |
-| **Key functions used** | `startOfMonth`, `endOfMonth`, `eachDayOfInterval`, `getDay`, `format`, `isToday`, `isSameMonth`, `differenceInDays`, `addMonths`, `subMonths` |
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `@radix-ui/react-context-menu` | 2.3.7 (latest) | Right-click context menu for quick AI actions | Same primitive family and near-identical API as the already-installed `@radix-ui/react-dropdown-menu` ^2.1.24 — the existing `DropdownMenu.tsx` wrapper can be cloned into a `ContextMenu.tsx` in `src/components/ui/` with ~30 lines of edits (trigger swap, drop dropdown-specific props). Inherits tokens + `cn()` pattern, portal, keyboard nav, submenus for free. |
 
-**Install:**
-```bash
-npm install date-fns
+That is the complete list of new dependencies for this milestone.
+
+### New Rust dependencies
+
+**None.** Verified against `src-tauri/Cargo.toml` and the actual vendored sources:
+
+- `tauri-plugin-sql` 2.4.0 (installed) → enables sqlx `sqlite` feature
+- sqlx 0.8.6 `sqlite` feature → `sqlx-sqlite/bundled` (verified in vendored `sqlx-0.8.6/Cargo.toml`, `sqlite = [..., "sqlx-sqlite/bundled"]`)
+- `libsqlite3-sys` 0.30.1 bundled `build.rs` compiles `sqlite3.c` **3.46.0** with `-DSQLITE_ENABLE_FTS5` (also FTS3, FTS3_PARENTHESIS, JSON1, RTREE, STAT4, column metadata, soundex)
+
+Confidence: **HIGH** — read directly from `~/.cargo/registry/src/.../libsqlite3-sys-0.30.1/build.rs` (lines 127–129) and `sqlite3/sqlite3.h` (`SQLITE_VERSION "3.46.0"`). This is the binary already being shipped; `CREATE VIRTUAL TABLE ... USING fts5(...)` works against `sqlite:nova.db` today with no config change.
+
+### Existing pieces being extended (no version change)
+
+| Technology | Version | New Role in v0.3.0 |
+|------------|---------|---------------------|
+| `tauri-plugin-sql` (Rust + JS) | 2.4.0 | Event log + memory tables via new migration files; FTS5 virtual tables; retrieval `SELECT`s with `MATCH` + `bm25()` |
+| `src-tauri/migrations/` forward-only migrations | existing pattern | Add `0002_agent_events.sql`, `0003_memory.sql`, `0004_fts5.sql` — `sql_migrations()` in `lib.rs` gains three `include_str!` entries |
+| `kv_store` / `meta` tables | existing | Morning-report "shown today" date flag lives in `kv_store` — already exists, no new table |
+| Zod tool registry + `toolLoop.ts` | existing (~200 LOC) | Emit events per step via `Database.execute`; an append call in the loop, not a registry rewrite |
+| Rust `llm.rs` + Tauri Channel streaming | existing | Unchanged; morning report and deliverable generation go through the same `chat` command |
+
+## Integration Decisions
+
+### 1. FTS5 availability — verified, not assumed
+
+Evidence chain (all read from local disk):
+
+```
+tauri-plugin-sql 2.4.0
+  └─ sqlx 0.8.6, feature "sqlite"          (tauri-plugin-sql Cargo.toml)
+       └─ sqlx-sqlite 0.8.6 "bundled"      (sqlx Cargo.toml: sqlite = [..., "sqlx-sqlite/bundled"])
+            └─ libsqlite3-sys 0.30.1 build_bundled
+                 -DSQLITE_ENABLE_FTS5       (build.rs:129)
+                 SQLite 3.46.0              (sqlite3.h:149)
 ```
 
-### 2. `@dnd-kit/core` ^6.3.1 + `@dnd-kit/sortable` ^5.3.0
+Consequence: hybrid retrieval is pure SQL against the existing DB. No js-search, no minisearch, no flexsearch, no sqlite-vec, no Rust FTS crate.
 
-| Field | Detail |
-|-------|--------|
-| **Why needed** | TaskKanban needs drag-and-drop between columns (cross-category task moves). This is the defining interaction of a Kanban board — without it, users must use a context menu to move tasks, which is a degraded UX. |
-| **Why @dnd-kit (legacy 6.x)** | (1) Stable, proven API with extensive documentation. (2) Works with React 19 in practice (no removed API usage in 6.x line). (3) Hundreds of community examples for Kanban patterns. (4) Accessible by default (keyboard DnD, screen reader announcements). (5) `@dnd-kit/sortable` provides exactly the column-reorder + cross-container pattern a Kanban needs. |
-| **Why not new @dnd-kit/react 0.5.0** | Published June 2026 (< 3 months old). Pre-1.0, API still shifting, sparse documentation, no community examples yet. For a CRUD milestone focused on delivery, the proven legacy API is the right risk/reward tradeoff. Migration to v0.5+ can happen later if needed. |
-| **Why not react-beautiful-dnd** | Deprecated (Atlassian abandoned it). No React 19 support. |
-| **Why not react-dnd** | Heavier, imperative API, HTML5 drag backend has known mobile/touch issues. @dnd-kit is the modern successor. |
-| **React 19 compat note** | `@dnd-kit/core@6.3.1` peer deps list `^16.8.0 || ^17.0.0 || ^18.0.0` — React 19 is NOT listed. However, the library works with React 19 because it doesn't use any removed APIs (no `findDOMNode`, no legacy refs). Multiple production projects use this combination. Use `--legacy-peer-deps` if npm complains, or add an `overrides` entry. |
-| **Bundle impact** | ~12KB gzipped for core + sortable combined. |
+### 2. Schema migrations — extend the existing pattern, don't add a tool
 
-**Install:**
-```bash
-npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
-```
+The project already has the right mechanism: `sql_migrations()` in `src-tauri/src/lib.rs` + forward-only additive SQL files + JS-side `meta.schema_version` sanity check. New tables (agent_events, confirmation_candidates, memory_candidates, knowledge_documents/chunks, FTS5 virtual tables) are just `0002+` migration files. Explicitly do NOT add: Diesel/SeaORM/Prisma, an event-sourcing enforcement library (a `CHECK` + unique index IS the invariant), or a migration framework with down-migrations (project already decided forward-only).
 
----
+Two SQLite-level additions worth one line each in the migration:
 
-## Packages Already Sufficient (DO NOT add replacements)
+- `PRAGMA journal_mode = WAL;` — the single `nova.db` now takes concurrent writes from the Zustand persist adapter AND event-log appends; WAL removes most `SQLITE_BUSY` risk. (WAL is persistent per-database, so setting it once sticks.)
+- `CREATE UNIQUE INDEX ... ON agent_events(session_id, seq);` — tool call/result pairing and seq invariants live in the DB, not in TS discipline. Append via atomic single statement: `INSERT INTO agent_events (..., seq) SELECT ..., COALESCE(MAX(seq),0)+1 FROM agent_events WHERE session_id = ?` so a crash between read and write can't duplicate seq.
 
-### State Management
+Note on the plugin's JS API: `execute()` is one statement per call — fine at event-log volume (one row per tool call/turn). No batching layer needed.
 
-| Capability | Current Solution | Why it's enough |
-|------------|-----------------|-----------------|
-| Task CRUD actions | Zustand `taskStore` + `persist` + `sqliteStorage` | Add `updateTask`/`deleteTask`/`reopenTask`/`moveTask` as new actions — same immutable `set()` pattern as `productStore.updateProduct`/`deleteProduct`. No middleware changes. |
-| Schedule CRUD actions | Zustand `scheduleStore` + `persist` + `sqliteStorage` | Add `updateEvent`/`deleteEvent` — same pattern. |
-| Cross-module weak associations | Add optional fields to existing types (`Task.projectId?`, `ScheduleEvent.projectId?`, `ScheduleEvent.taskId?`) | Just type changes + store actions that set/clear these fields. No new state library. |
-| Optimistic updates | Zustand stores ARE optimistic by default (synchronous in-memory `set()`, async `persist` to SQLite) | No special pattern needed. Store mutation is instant; SQLite write happens in background via `sqliteStorage`. |
-| Store migration for new fields | `persist` middleware's `migrate` callback + bump `version` | Existing pattern in both stores. Add `projectId?` etc. as optional fields, bump version, migrate function is identity (new fields default to `undefined`). |
+### 3. CJK tokenizer — the one real FTS5 gotcha for this codebase
 
-### Form Handling
+Nova's content is Chinese. FTS5's default `unicode61` tokenizer treats a contiguous CJK run as a **single token** ("需求分析" is one token; querying "需求" misses it), and the bundled build has **no ICU tokenizer** (`SQLITE_ENABLE_ICU` is not in the build.rs flag list — verified). Options:
 
-| Capability | Current Solution | Why it's enough |
-|------------|-----------------|-----------------|
-| Task edit form | `useState` + controlled `<Input>` / `<Select>` / `<DatePickerInput>` inside `<Dialog>` | Same pattern as `CreateProductModal`. 4-6 fields max (title, priority, deadline, description, project, assignee). |
-| Event edit form | Same `useState` + `<Dialog>` composition | 4-5 fields (title, date, time, type, location). |
-| Validation | Early-return guard pattern: `if (!title.trim()) return` | Already used in `CreateProductModal`. Simple "required field" checks. No schema validation library needed. |
+| Approach | How | Tradeoff |
+|----------|-----|----------|
+| **CJK char-split at index+query time (recommended)** | ~10-line TS helper: insert spaces between CJK chars before writing to the FTS5 table and before building the `MATCH` query; keep `unicode61` | Zero deps, handles 2-char queries ("需求", "任务"), phrase-ish matching works; slightly dilutes bm25 relevance — acceptable because v0.3.0 retrieval is structured-filter-first (AGENT_MEMORY_REFERENCE §5) |
+| `tokenize='trigram'` (SQLite ≥3.34; we have 3.46) | Just a tokenizer option in `CREATE VIRTUAL TABLE` | Zero code, substring match; but queries under 3 characters return nothing — disqualifying for common 2-char Chinese terms |
+| External tokenizer crate / jieba-wasm / lindera | — | Rejected: heavy new deps for marginal gain over char-split at this scale |
 
-### UI Components
+Pair the FTS5 table with an **external-content** definition over `knowledge_chunks` plus the standard 4 sync triggers (INSERT/UPDATE/DELETE on the content table), so index drift — a stated acceptance criterion in AGENT_MEMORY_REFERENCE §10 — is impossible by construction. Ranking: built-in `bm25()` with column weights (title > content), then filtered/re-ranked in JS by workspace/product/type/recency.
 
-| Capability | Current Solution | Why it's enough |
-|------------|-----------------|-----------------|
-| Edit/Delete dialogs | `<Dialog>` + `<DialogContent>` + `<DialogHeader>` + `<DialogBody>` + `<DialogFooter>` | Full composition already available. See `CreateProductModal` for the pattern. |
-| Delete confirmation | Compose a `<ConfirmDialog>` using existing `<Dialog>` | 30-line wrapper: `<Dialog open={...}><DialogContent><DialogHeader title="确认删除" /><DialogBody>确定要删除...</DialogBody><DialogFooter><Button variant="secondary" onClick={onCancel}>取消</Button><Button variant="danger" onClick={onConfirm}>删除</Button></DialogFooter></DialogContent></Dialog>`. No library needed. |
-| Card context menu (edit/delete) | `<DropdownMenu>` (Radix) — already in `src/components/ui/DropdownMenu.tsx` | Full implementation with items, groups, separators, sub-menus. Attach to task cards via right-click or `...` button. |
-| Date picker in forms | `<DatePickerInput>` — already in `src/components/ui/DatePickerInput.tsx` | Built for Tauri frameless window compatibility (native `<input type="date">` doesn't render in WebView2 layered windows). Uses Popover + month grid. Accepts `YYYY-MM-DD` string value. |
-| Association badges | `<Badge>` variants (accent, success, warning, neutral) | Show `projectId` / `taskId` associations as small badges on cards. |
-| Navigation between modules | `uiStore.setActiveTab('task')` + `uiStore.setSelectedProductId(id)` | Already have cross-tab navigation. Wire "jump to task" from schedule view via these actions. |
+### 4. Right-click context menu — one Radix package, wrapper cloning
 
-### ID Generation
+`@radix-ui/react-context-menu` 2.3.7 (verified live on npm registry, 2026-08-14). API mirrors DropdownMenu (ContextMenu/Trigger/Content/Item/Sub...). Build `src/components/ui/ContextMenu.tsx` as a token-styled wrapper mirroring the existing `DropdownMenu.tsx`, register in the `ui/index.ts` barrel. Do NOT add react-contexify or a hand-rolled `onContextMenu` + fixed-position div (loses portal/keyboard/submenu behavior Radix gives for free).
 
-| Capability | Current Solution | Why it's enough |
-|------------|-----------------|-----------------|
-| Unique IDs for new entities | `crypto.randomUUID()` (native browser API) | Returns UUID v4 string. Available in all modern browsers + WebView2. No package needed. Already used implicitly (current code uses `Date.now()` based IDs — upgrade to `crypto.randomUUID()` for better collision resistance). |
+### 5. Morning report — no scheduler at all
 
----
+"晨报" is a once-per-day, app-launch-triggered artifact. The lazy correct design:
 
-## Integration Points
+1. On app startup (plus a 60s `setInterval` in one hook for sessions crossing midnight — 10 lines), compare `kv_store['morning_report_last_shown']` to today's date.
+2. If stale: assemble report from existing stores (scheduleStore today, taskStore overdue, pending memory candidates) — synchronous local reads, optionally one `chat` call for prose summarization.
+3. Render in-app. Done.
 
-### taskStore — New Actions
+Do NOT add: `tokio-cron-scheduler`, `cron` crate, node-cron, or a Rust background timer emitting Tauri events — a timer that fires while the app is closed is meaningless, and the webview is alive whenever the report could be shown. If OS-level notifications are ever wanted (not this milestone), `tauri-plugin-notification` is the future answer — noted, not installed.
 
-Model after `productStore.updateProduct` / `deleteProduct`:
+### 6. Event-log write path — stays in TypeScript
 
-```ts
-// New actions to add to TaskState interface:
-updateTask: (taskId: string, updates: Partial<Task>) => void;
-deleteTask: (taskId: string) => void;
-reopenTask: (taskId: string) => void;  // convenience: sets status back to '未开始'
-moveTask: (taskId: string, fromCategoryId: string, toCategoryId: string) => void;
-```
+AGENT_MEMORY_REFERENCE §7 targets `toolLoop.ts`/`confirmations.ts`/`registry.ts` for event emission. Route all appends through the tauri-plugin-sql JS API (`Database.load('sqlite:nova.db')`), one `execute()` per event. No Rust command layer needed: the plugin already owns the connection pool, and moving appends to Rust would duplicate pool ownership. Web-mode (Express) fallback: plugin unavailable in browser — degrade to in-memory events (current behavior), consistent with the existing localStorage fallback boundary.
 
-**Pattern:** `set((state) => ({ categories: state.categories.map(...) }))` — same immutable update pattern.
+## What NOT to Add (explicit rejections)
 
-**Schema migration:** Bump `version: 2` in persist config. Add `projectId?: string` and `scheduledEventId?: string` to `Task` type. `migrate` function is identity (optional fields default to `undefined`).
+| Rejected | Why |
+|----------|-----|
+| LanceDB / sqlite-vec / any vector DB | Project decision: FTS5 first, embeddings are P2 (v0.4); vector index is a derived layer, never source of truth |
+| GraphFlow / any workflow engine | Formally rejected in PROJECT.md Key Decisions |
+| js-search / minisearch / flexsearch / Fuse.js | Duplicates FTS5 already running in-process via the SQL plugin; double indexing, double drift risk |
+| Event-sourcing library | The "event log" here is one append-only table + replay queries — a library would be 100% ceremony |
+| tokio-cron-scheduler / node-cron | Launch-time date check covers the requirement (see §5) |
+| react-contexify or custom context menu | Radix ContextMenu is the design system's primitive family |
+| New migration/ORM tooling | Forward-only `add_migrations` pattern validated in v0.1.0 |
+| ICU tokenizer / segmentation crates | CJK char-split helper (~10 lines) covers v0.3.0 query patterns |
 
-### scheduleStore — New Actions + Date Model Overhaul
-
-```ts
-// New actions:
-updateEvent: (eventId: string, updates: Partial<ScheduleEvent>) => void;
-deleteEvent: (eventId: string) => void;
-```
-
-**Critical change:** The current `ScheduleEvent.date: number` (day-of-month, hardcoded to May 2025) must become a real date. Two options:
-
-| Option | Change | Risk |
-|--------|--------|------|
-| **A (recommended):** Change `date: number` → `date: string` (YYYY-MM-DD) | Breaking change to event type. Migration function parses old format: assumes year=2025, month=05. | Clean. All new code uses string dates. DatePickerInput already uses YYYY-MM-DD. |
-| **B:** Add `year`/`month` fields alongside `date` | More fields, awkward API. | Preserves old data shape but complicates queries. |
-
-**Option A recommended.** The `migrate` function handles the transition:
-```ts
-migrate: (persisted, version) => {
-  if (version < 2) {
-    return {
-      ...persisted,
-      events: persisted.events.map(e => ({
-        ...e,
-        date: `2025-05-${String(e.date).padStart(2, '0')}`,
-      })),
-    };
-  }
-  return persisted;
-}
-```
-
-Also add weak association fields: `projectId?: string`, `taskId?: string`, `type?: 'event' | 'task'` (to distinguish task-linked schedule entries).
-
-### ScheduleView — Real Calendar
-
-Replace hardcoded `daysInMonth = 31; firstDayOfMonth = 4` with date-fns:
-
-```ts
-import { startOfMonth, endOfMonth, eachDayOfInterval, getDay, format, isToday, isSameMonth, addMonths, subMonths } from 'date-fns';
-
-const [currentMonth, setCurrentMonth] = useState(new Date()); // real month tracking
-const monthStart = startOfMonth(currentMonth);
-const monthEnd = endOfMonth(currentMonth);
-const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-const firstDayOfWeek = getDay(monthStart); // 0=Sunday
-```
-
-Month navigation: `setCurrentMonth(addMonths(currentMonth, 1))` / `setCurrentMonth(subMonths(currentMonth, 1))`.
-
-### TaskKanban — DnD Wiring
-
-```ts
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
-
-// Wrap each task card in a sortable, columns as drop zones.
-// On dragEnd: call taskStore.moveTask(taskId, fromCategory, toCategory).
-```
-
-### Cross-module Weak Associations
-
-| Source | Target | Field | UX |
-|--------|--------|-------|-----|
-| Task → Product | `Task.projectId?: string` | Badge on task card showing product name |
-| Task → ScheduleEvent | `Task.scheduledEventId?: string` | "安排到日历" button in task detail; creates linked event |
-| ScheduleEvent → Product | `ScheduleEvent.projectId?: string` | Badge on event showing product name |
-| ScheduleEvent → Task | `ScheduleEvent.taskId?: string` | Click event → jump to task in TaskManagementView |
-
-**No cascading deletes.** Per PROJECT.md: "弱关联优先,外键全部可选,删除不级联". When a product is deleted, tasks/events with `projectId` pointing to it get the field cleared (or just show "已删除产品" — UX decision).
-
----
-
-## What NOT to Add
-
-| Package | Why not | Alternative |
-|---------|---------|-------------|
-| **React Hook Form + Zod** | Overkill for 4-6 field CRUD forms. The codebase already uses `useState` + early-return validation in `CreateProductModal`. Adding a form library introduces new patterns, new deps, and a learning curve for a problem that's already solved. | `useState` + controlled inputs + early-return guards. |
-| **Immer** (Zustand middleware) | Current spread-operator patterns (`{ ...p, ...updates }`) are clear, explicit, and work fine for shallow-to-medium nesting. Adding Immer for CRUD is premature optimization. | Immutable spreads in `set()` callbacks. |
-| **react-beautiful-dnd** | Deprecated by Atlassian. No React 19 support. | `@dnd-kit/core` (legacy 6.x). |
-| **@dnd-kit/react 0.5.0** (new framework-agnostic rewrite) | Published June 2026. Pre-1.0, sparse docs, no community examples. Too risky for a CRUD delivery milestone. | `@dnd-kit/core` 6.x (proven, stable). |
-| **Any calendar library** (react-big-calendar, FullCalendar, react-calendar) | Too heavy (50-200KB), breaks the Apple design aesthetic, forces opinionated HTML structures that fight Tailwind v4 tokens. DatePickerInput already shows native Date + Popover works perfectly. | Custom calendar grid (replicate DatePickerInput pattern) + date-fns for math. |
-| **react-router** | Active tab switching via `uiStore.activeTab` is explicitly the chosen pattern. URL routing is out of scope. | `uiStore.setActiveTab()`. |
-| **TanStack Query (React Query)** | No server-side fetching in this milestone. All data is local (Zustand + SQLite). React Query solves cache invalidation, refetching, optimistic server mutations — none of which apply to a local-first CRUD app. | Direct Zustand store calls. |
-| **Nanoid / uuid** | `crypto.randomUUID()` is native, zero-dep, available in all target environments (browsers + WebView2). | `crypto.randomUUID()`. |
-| **Any test runner** (vitest, jest) | Out of scope for this milestone. `npm run lint` (tsc --noEmit) is the only quality gate. Testing can be added later. | Manual verification + `tsc --noEmit`. |
-| **Rich text editor** (tiptap, slate) | Task descriptions are short text. No markdown editing needed at this scale. | `<Textarea>` (plain text). |
-
----
-
-## Summary: Exact Install Command
+## Installation
 
 ```bash
-npm install date-fns @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+npm install @radix-ui/react-context-menu@2.3.7
+# That's it. No cargo changes. No config changes.
 ```
-
-**Total new deps: 4 packages.** Everything else is built from existing Radix + Zustand + Tailwind + native browser APIs.
-
-**Total bundle impact:** ~15KB gzipped (3KB date-fns tree-shaken + 12KB dnd-kit).
-
-**No new devDependencies needed.** TypeScript types for date-fns are bundled. @dnd-kit types are bundled.
-
----
-
-## Store Migration Checklist
-
-| Store | Current Version | New Version | Changes |
-|-------|----------------|-------------|---------|
-| `taskStore` | 1 | 2 | Add `Task.projectId?: string`, `Task.scheduledEventId?: string`. Add `updateTask`/`deleteTask`/`reopenTask`/`moveTask` actions. |
-| `scheduleStore` | 1 | 2 | Change `ScheduleEvent.date: number` → `string` (YYYY-MM-DD). Add `ScheduleEvent.projectId?: string`, `ScheduleEvent.taskId?: string`. Add `updateEvent`/`deleteEvent` actions. |
-| `productStore` | 1 | 1 | No changes needed (full CRUD already exists). |
-| `uiStore` | — | — | No schema changes. May add `selectedTaskId` / `selectedEventId` for cross-module navigation. |
-
----
 
 ## Sources
 
 | Source | What it verified | Confidence |
 |--------|------------------|------------|
-| [npmjs.com/package/date-fns](https://www.npmjs.com/package/date-fns) | date-fns 4.4.0 current, 90M weekly downloads | HIGH |
-| [date-fns.org](https://date-fns.org/) | Tree-shakeable, functional API, v4 TZ support | HIGH |
-| [npmjs.com/package/@dnd-kit/core](https://www.npmjs.com/package/@dnd-kit/core) | @dnd-kit/core 6.3.1 current (legacy line) | HIGH |
-| [dndkit.com](https://dndkit.com/) | Legacy vs new (v0.5.0) ecosystem structure | HIGH |
-| [dndkit.com/legacy/introduction/installation](https://dndkit.com/legacy/introduction/installation) | Legacy packages still documented and supported | HIGH |
-| [github.com/clauderic/dnd-kit](https://github.com/clauderic/dnd-kit) | Active maintenance, React 19 community usage confirmed | MEDIUM |
-| [reddit.com/r/reactjs — React 19 + @dnd-kit + Zustand](https://www.reddit.com/r/reactjs/comments/1rn7aj1/built_a_visual_readme_editor_with_react_19_dndkit/) | March 2026: confirmed @dnd-kit works with React 19 + Zustand | MEDIUM |
-| Existing codebase: `src/stores/productStore.ts` | `updateProduct`/`deleteProduct` pattern for task/schedule to follow | HIGH |
-| Existing codebase: `src/components/ui/DatePickerInput.tsx` | Native Date calendar math pattern proven in codebase | HIGH |
-| Existing codebase: `src/components/ui/Dialog.tsx` | Full dialog composition for edit/confirm dialogs | HIGH |
-| Existing codebase: `src/components/ui/DropdownMenu.tsx` | Full dropdown menu for card context menus | HIGH |
+| Vendored `libsqlite3-sys-0.30.1/build.rs` (lines 90–140), `sqlite3.h` (3.46.0), vendored `sqlx-0.8.6/Cargo.toml`, `sqlx-sqlite-0.8.6/Cargo.toml`, `tauri-plugin-sql-2.4.0/Cargo.toml` — local cargo registry | FTS5 enabled in the exact shipped binary | HIGH |
+| `src-tauri/Cargo.toml`, `src-tauri/src/lib.rs`, `src-tauri/migrations/0001_init.sql`, `package.json` — local repo | Existing integration points, migration pattern, Radix version family | HIGH |
+| npm registry `@radix-ui/react-context-menu@latest` → 2.3.7 (live query 2026-08-14) | Current version | HIGH |
+| SQLite FTS5 docs (unicode61/trigram tokenizers, external content tables, bm25) | Tokenizer behavior; consistent with verified 3.46.0 build | MEDIUM-HIGH — unicode61 CJK behavior is well-established; recommend a 5-minute `SELECT ... MATCH` smoke test at P1 kickoff |
 
 ---
 
-*Stack research for: v0.2.0 Task/Schedule CRUD completion + cross-module weak associations*
-*Researched: 2026-08-10*
+*Stack research for: v0.3.0 — event log base, FTS5 memory retrieval, deliverable pipeline, agent UX*
+*Replaces v0.2.0 stack research (date-fns/@dnd-kit — all shipped and validated)*

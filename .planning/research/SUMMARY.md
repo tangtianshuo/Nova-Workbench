@@ -1,146 +1,71 @@
-# SUMMARY — v0.2.0 Task/Schedule CRUD + Cross-Module Wiring
+# Research Summary — v0.3.0 功能闭环 (Agent Feature Loop)
 
-**Milestone scope:** Complete CRUD for `taskStore` and `scheduleStore`, replace hardcoded calendar with real month navigation, wire weak cross-module associations (Product ↔ Task ↔ ScheduleEvent).
+**Project:** Nova-PM-Workspace | **Synthesized:** 2026-08-14 | **Inputs:** STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md
 
-**Research date:** 2026-08-10 | **Overall confidence:** HIGH
+## Executive Summary
 
----
+v0.3.0 is an integration milestone, not a technology milestone. All four research streams converge on the same headline: **almost nothing new needs to be installed**. The single new dependency is `@radix-ui/react-context-menu` (~12 KB, same primitive family as the existing DropdownMenu). Zero new Rust crates, zero config changes, zero new tooling. FTS5 is verified compiled into the exact SQLite binary this project ships (read from vendored `libsqlite3-sys-0.30.1/build.rs`: SQLite 3.46.0 with `-DSQLITE_ENABLE_FTS5`), so long-term memory retrieval is pure SQL against the existing `nova.db`.
 
-## 1. Stack Additions
+The correct architecture keeps everything on the JS side: event log, confirmations, memory, and knowledge tables are new SQLite tables written from TypeScript via `tauri-plugin-sql`, with DDL in the existing forward-only Rust migration files. Rust `llm.rs` stays untouched. The keystone refactor is making `toolLoop.ts` write every step to the event log and **deriving the LLM messages array from the ChatSession projection** — the current code maintains two divergent histories (a latent bug), and the refactor collapses them into one write path.
 
-### Install (4 packages, ~15KB gzipped total)
+The dominant risks are all invariants, not unknowns: double-execution of tool calls after restore (never auto-execute orphaned tool_calls + hash-guarded idempotent consume), replay divergence (single write path + permanent replay parity test), Chinese FTS tokenization (unicode61 treats a CJK run as one token — ~10-line CJK char-split helper applied identically at index and query time), and memory candidate spam (dedupe + cap + expiry before the queue reaches the user). One conflict between research files — FTS5 availability (STACK: verified HIGH; PITFALLS: contradictory sources, MEDIUM) — resolves cheaply: **run a 5-minute runtime probe (`CREATE VIRTUAL TABLE fts5_probe USING fts5(...)`) at P1 hour one, on the packaged build**, before finalizing the retrieval schema.
 
-| Package | Why | Version |
-|---------|-----|---------|
-| `date-fns` | Tree-shakeable date math for real calendar | ^4.4.0 |
-| `@dnd-kit/core` | Kanban drag-and-drop between columns | ^6.3.1 (legacy line) |
-| `@dnd-kit/sortable` | Cross-container sortable for Kanban | ^5.3.0 |
-| `@dnd-kit/utilities` | Peer dep of above | bundled |
+## Key Findings
 
-React 19 compat: `@dnd-kit/core@6.3.1` works with React 19 in practice. Use `--legacy-peer-deps` if npm complains.
+### From STACK.md
+- **One new npm package total:** `@radix-ui/react-context-menu` 2.3.7 — clone existing `DropdownMenu.tsx` wrapper (~30 lines of edits), register in `ui/index.ts` barrel.
+- **FTS5 verified present** in shipped binary (tauri-plugin-sql 2.4.0 → sqlx 0.8.6 bundled → libsqlite3-sys 0.30.1 build.rs:129, SQLite 3.46.0). No js-search/minisearch/sqlite-vec/LanceDB.
+- **CJK tokenizer is the one real FTS5 gotcha:** no ICU in bundled build. Recommended: ~10-line TS helper space-separating CJK chars before index write and MATCH build, keep `unicode61`. Trigram rejected (3-char minimum kills 2-char Chinese queries like 需求/任务).
+- **Schema via existing migration pattern:** `0002_agent_events.sql`, `0003_memory.sql`, `0004_fts5.sql`. Add `PRAGMA journal_mode = WAL` and `UNIQUE(session_id, seq)` with SQL-side seq allocation.
+- **Morning report needs no scheduler:** launch-time date check against `kv_store` + 60s midnight-crossing interval. Rejected: cron crates, background timers, tray threads.
+- **Explicit rejections:** vector DBs, GraphFlow, JS search libs, event-sourcing libraries, ORMs, new migration tooling.
 
-### Do NOT add
+### From FEATURES.md
+- **Table stakes:** session survives restart, tool_call↔tool_result pairing integrity, pending confirmations survive restart, memory management list with delete, rejected memories never retrieved, product/workspace-scoped retrieval, morning report, editable AI drafts, AI-provenance marking, clean mid-run cancel.
+- **Differentiators:** pre-save memory candidate confirmation (nobody mainstream does this), auditable event log, deliverable → HITL → versioned slot, contextual ⌘K entry, 3-5 curated right-click actions, sourced retrieval citations.
+- **Anti-features:** silent auto-write memory, full auto-orchestrated pipeline, vector retrieval in v0.3.0, business facts copied into memories, blocking/LLM-only morning report, 15-item context menus, editable event log UI, inline agent per view.
+- **Build order:** Event Log is the keystone — 4 of 6 feature groups depend on it. UX items cheapest and last.
 
-No form library, no Immer, no calendar library, no react-router, no TanStack Query, no test runner.
+### From ARCHITECTURE.md
+- **JS-side event log over tauri-plugin-sql; DDL in Rust migrations; `llm.rs` unchanged** (a Rust-side loop would IPC-marshall every tool call back to JS anyway).
+- **ChatSession becomes a projection:** keep class + API; `addMessage` also appends event (serialized per-session promise chain); `ChatSession.fromEvents()` repairs dangling tool_calls with synthetic interrupted results. ChatPanel diff ~40 lines.
+- **Refactor fixes a live latent bug:** toolLoop's two divergent histories (no-tool-call assistant messages, tool-error retry hints never entering the session).
+- **Idempotent confirmations:** in-memory Maps → `confirmation_candidates` table (params_hash = SHA-256 of canonical JSON, 24h expiry, atomic conditional-UPDATE consume). Canonicalization also fixes existing key-order consume-matching bug.
+- **Context assembly priority** (AGENT_MEMORY_REFERENCE §6): business facts → pending confirmations → confirmed memories → FTS5 top-k with source metadata → recent turns; one `context_injected` event per turn.
+- **Artifacts table** for tool results > 4 KB (upgrades current blind 2000-char slice).
 
----
+### From PITFALLS.md (top 5)
+1. **Double-execution after restore** (P0) — never auto-execute orphaned tool_calls; crash-mid-loop test in every P0 plan.
+2. **Replay divergence** (P0) — single write path, toolCallId as UUID, permanent replay-parity test; 0bbc3f2 trace-color test is the canary.
+3. **kv_store vs tables truth split** (decide P0, execute P1) — knowledge tables as derived retrieval index keyed on rndStore via content_hash; full inversion deferred to v0.4.
+4. **FTS5 Chinese tokenization** (P1) — CJK char-split helper shared by index and query paths; pure-Chinese/mixed/2-char regression tests from day one; tokenizer not changeable in place later.
+5. **Stale FTS index** (P1, re-verify in DELIV) — single write API for documents in one transaction; MDXEditor saves route through it; DELIV adds a fourth write path.
 
-## 2. Feature Scope
+Plus: memory candidate spam controls (dedupe before queue, cap ~20, 1-week expiry, rejected kept and fed back), right-click must skip editable regions (MDXEditor is contenteditable) and snapshot selection, seq in SQL not JS, fix the Chinese token estimate (`length/4` is already wrong today; load-bearing in P0 replay).
 
-### Table stakes (must have)
+## Implications for Roadmap
 
-- Task edit, delete with confirmation, reopen (un-complete), reassign category
-- Schedule event edit, delete with confirmation, creation dialog with DatePickerInput
-- **Real month navigation** — replace hardcoded `daysInMonth=31, firstDayOfMonth=4, isToday=day===15`
-- **ScheduleEvent.date model fix** — migrate from `date: number` to `date: string` (YYYY-MM-DD)
-- Keyboard basics: Escape closes dialogs, Delete triggers delete flow
+All four files independently arrive at the same dependency chain: **event log → confirmations/restore → memory/FTS5 → deliverable line → UX**. Recommended 5 phases (upper edge of the 3-5 constraint; merge 1+2 for 4).
 
-### Differentiators
+1. **P0 Core: Event Log + ToolLoop Refactor** — migrations 0002, `eventLog.ts`, event emission per step, messages-derived-from-session, invariant checker. Confirmations stay in-memory (isolate riskiest refactor). Avoid Pitfalls 1/2/10; fix CJK token estimate here. Research not needed — DDL and seq SQL already written.
+2. **P0 Finish: Persisted Confirmations + Session Restore** — confirmation table + API-compatible swap, `fromEvents`, ChatPanel restore, crash-recovery UAT (THE acceptance test). Research not needed.
+3. **P1: Memory + Knowledge Docs + FTS5 Retrieval** — migrations 0003, candidates with dedupe/cap/expiry, FTS5 + CJK char-split, retrieval.ts, context injection. **First action: FTS5 runtime probe** (resolves the STACK/PITFALLS conflict). **Needs `/gsd:research-phase`** — tokenizer decision point (char-split vs trigram+LIKE) settles with probe + UAT.
+4. **Deliverable Production Line** — `generateDeliverable` tool → HITL → MDXEditor edit → versioned rndStore slot. One deliverable type (PRD) end-to-end first. Re-verify stale-index pitfall (fourth write path). Research not needed.
+5. **Agent UX + Architecture Docs** — ⌘K with view context, morning report (structured cards, launch-triggered, one dated row), right-click actions (3-5, editable-region guard), ARCHITECTURE.md + ADR rewrite, v0.2.0 regression. Cheapest, last. Research light/skip.
 
-- **“安排到日历”** — one-click task→event conversion with bidirectional weak refs
-- **Relation badges** — visual pills on task cards and calendar events showing linked product/event
-- **Smart delete** — orphan awareness when deleting a product
+## Research Flags
 
-### Anti-features (deferred to v0.3+)
+Needs research: **Phase 3 only** (FTS5 probe result + tokenizer decision). Standard patterns: Phases 1, 2, 4, 5.
 
-Cascade delete, DnD kanban reordering, calendar week view, recurring tasks/events, subtasks/nesting, templates, bulk operations, full-text search, URL routing/deep links, real user management
+## Confidence Assessment
 
----
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | HIGH | FTS5 verified from vendored build.rs on this machine; Radix live-checked on npm |
+| Features | HIGH | Official Claude Code docs + authoritative internal reference |
+| Architecture | HIGH | All six source files read in full; ChatPanel coupling verified before design |
+| Pitfalls | HIGH | Codebase-grounded; one MEDIUM flag (FTS5) closed by mandated probe |
 
-## 3. Architecture Integration
+**Overall: HIGH** — unusually well-resolved because verification ran against the actual codebase and vendored binaries, not external docs.
 
-### Build order (3 phases, sequential)
-
-```
-Phase 5: Task CRUD (1-2d)  →  Phase 6: Schedule CRUD + Real Calendar (2-3d)  →  Phase 7: Cross-Module Wiring (1-2d)
-```
-
-**Phase 5 — Task CRUD** (self-contained, establishes patterns)
-- Add `updateTask`, `deleteTask`, `reopenTask`, `moveTask` to taskStore
-- Bump persist `version: 2`, add `projectId?` / `scheduledEventId?` via migrate
-- Build TaskDialog (create + edit mode), wire Kanban column "+" and card context menu
-- Fix ID generation: replace `Date.now()` with `crypto.randomUUID()` (P3)
-- Add hydration guard to TaskKanban (P12)
-- Clean up `getProjectTaskCount` to match by ID only (P10)
-
-**Phase 6 — Schedule CRUD + Real Calendar** (highest-risk UI work)
-- Add `updateEvent`, `deleteEvent` to scheduleStore
-- **Critical: migrate `ScheduleEvent.date` from `number` to `string`** (P1/P20 — blocker)
-- Bump persist `version: 2`, add `month?` / `year?` / `projectId?` / `taskId?`
-- Rewrite ScheduleView calendar grid: real Date math, month navigation
-- Build ScheduleDialog (create + edit mode)
-- Extract calendar grid computation to utility/hook (P20)
-
-**Phase 7 — Cross-Module Wiring** (integration only, no new CRUD)
-- “安排到日历” button: creates event + sets bidirectional refs atomically (P11)
-- Relation badges on task cards and calendar events with click-to-navigate
-- Extend `deleteProductWrapped` to clear cross-module FKs (P7)
-- Single `linkTaskToSchedule` / `unlinkTaskFromSchedule` helper (P8)
-- Handle orphan references gracefully
-
-### Key architectural decisions
-
-- **Cross-module refs = optional FKs on data types**, not a separate association table
-- **No cascade delete.** Delete product → clear FKs, keep tasks/events
-- **Cross-store orchestration in components or AppContext wrappers**, not in stores
-- **`task.project` (legacy name) retained** alongside new `task.projectId`. `projectId` authoritative for linking
-- **Dialog form state stays in local `useState`**, never in Zustand stores
-
----
-
-## 4. Watch Out For
-
-### CRITICAL
-
-| ID | Pitfall | Phase | Prevention |
-|----|---------|-------|------------|
-| P1 | `ScheduleEvent.date: number` is day-of-month, not a real date. Month navigation impossible. | 6 | Migrate to `date: string` (YYYY-MM-DD) + real Date math |
-
-### HIGH
-
-| ID | Pitfall | Phase | Prevention |
-|----|---------|-------|------------|
-| P2 | Task deletion scans nested `categories[].tasks[]` — O(n*m) or silent no-op | 5 | Add `findTaskCategory(taskId)` helper |
-| P3 | `Date.now()` ID collision on rapid operations | 5 | Replace with `crypto.randomUUID()` |
-| P5 | Migration function is passthrough no-op — new fields missing from persisted data | 5,6 | Bump `version: 2`, write real `migrate` functions |
-| P7 | Delete product leaves orphaned `projectId` references | 7 | `deleteProductWrapped` clears FKs across stores |
-| P8 | Bidirectional link inconsistency — one-way refs confuse users | 7 | Single `linkTaskToSchedule` helper sets BOTH sides |
-| P11 | “安排到日历” must be atomic across two stores | 7 | Single exported function, both `set()` calls synchronous |
-| P12 | Hydration race — flash of mock data before SQLite loads | 5 | Render `<ViewLoading />` until `_hasHydrated` is true |
-| P17 | `task.project` (name) vs `task.projectId` (ID) dual-field confusion | 5 | `projectId` authoritative, `project` display cache. Shared helper |
-| P20 | ScheduleView calendar entirely hardcoded | 6 | Extract `useCalendarDays(year, month)` hook or utility |
-
-### MEDIUM
-
-| ID | Pitfall | Phase | Prevention |
-|----|---------|-------|------------|
-| P10 | `getProjectTaskCount` matches on name OR category name | 5 | Match by `projectId` only |
-| P13 | Edit dialog shows stale data if re-opened without reset | 5 | Reset form in `useEffect` keyed on `open` |
-| P16 | AppContext casts to `any` — type errors swallowed | 5 | New CRUD actions via direct store hooks, not AppContext |
-| P19 | “安排到日历” semantics underspecified | 7 | Document: reference not copy, no auto-sync in v0.2.0 |
-
----
-
-## 5. Key Decisions for Requirements
-
-These need explicit scoping before implementation:
-
-1. **ScheduleEvent.date migration strategy** — STACK recommends full `date: string` replacement; ARCHITECTURE recommends additive `month?`/`year?` alongside existing `date: number`. **Decision needed:** which approach?
-2. **Task edit UX** — inline in expanded card vs separate TaskDialog modal. Features recommends inline; Architecture specifies separate Dialog. **Decision needed.**
-3. **DnD for Kanban** — STACK includes `@dnd-kit`; Features lists DnD as deferred anti-feature. **Decision needed:** is DnD in v0.2.0? (Recommendation: defer DnD, use category selector in edit dialog.)
-4. **`task.project` legacy field** — PROJECT.md says defer removal. **Confirmation needed:** keep dual-field, add `getTaskProductDisplay()` helper.
-5. **AppContext extension vs direct store access** — PITFALLS says do NOT add new AppContext actions (P16). Architecture says extend `deleteProductWrapped`. **Decision needed:** new CRUD via direct store hooks, cross-store orchestration in AppContext?
-6. **Delete confirmation UX** — no undo stack in v0.2.0, just confirmation dialogs?
-
----
-
-## Sources
-
-- **STACK:** date-fns 4.4.0, @dnd-kit/core 6.3.1 — npmjs.com, dndkit.com, Reddit
-- **FEATURES:** Linear, Notion, Asana, Todoist docs and UI patterns (2025-2026)
-- **ARCHITECTURE:** Existing codebase patterns in taskStore, scheduleStore, productStore, AppContext, rndStore
-- **PITFALLS:** 21 identified risks across store/persistence, cross-module, UI/UX, migration
-
----
-
-*Synthesized: 2026-08-10 | For: v0.2.0 requirements and roadmap*
+**Gaps to address:** (1) FTS5 runtime confirmation on packaged build — probe at Phase 3 hour one; (2) tokenizer recall quality on real Chinese PM vocabulary — UAT decision point; (3) no concurrent-session (⌘K + ChatPanel) test exists yet; (4) product-deletion retention policy for events/memories/index — decide during Phase 3 schema design.

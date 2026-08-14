@@ -1,346 +1,336 @@
-# PITFALLS — Task/Schedule CRUD + Cross-Module Wiring
+# Pitfalls Research
 
-**Milestone:** v0.2.0 日常管理 CRUD + 弱关联
-**Researched:** 2026-08-10
-**Context:** Adding CRUD completions and cross-module wiring to 6 existing Zustand stores with SQLite persistence, legacy AppContext.tsx layer, and dual-field association model.
+**Domain:** Adding agent event logging, persistent HITL confirmations, memory candidates, FTS5 retrieval, and proactive AI UX to an existing local-first Tauri desktop app
+**Researched:** 2026-08-14
+**Confidence:** HIGH overall (codebase-grounded); one MEDIUM flag on FTS5 compile availability (see Pitfall 6)
 
----
+Scope note: pitfalls are grounded in the actual v0.2.0 code (`src/ai/chatSession.ts`, `toolLoop.ts`, `confirmations.ts`, `src/stores/storage/*`). Phase names map to the v0.3.0 milestone structure: P0 (event log base), P1 (memory + FTS5), DELIV (deliverable line), UX (entry/morning report/context menu).
 
-## Store / Persistence Pitfalls
+## Critical Pitfalls
 
-### P1: ScheduleEvent.date is Day-of-Month Integer, Not a Real Date
-**Risk:** CRITICAL — CRUD makes this unsalvageable
-**Current state:** `ScheduleEvent.date: number` is a hardcoded day-of-month (e.g. `15`). ScheduleView hardcodes `daysInMonth = 31`, `firstDayOfMonth = 4`, `isToday = day === 15`. Month/year labels are static strings.
-**What goes wrong:** The moment a user creates an event for "June 3rd" while viewing May, the integer `3` is meaningless without month context. Edit/delete operations cannot target events across months. Month navigation is impossible.
-**Prevention:**
-1. Replace `date: number` with `date: string` (ISO date `2025-05-15`) in the `ScheduleEvent` interface
-2. Write a `migrate` function for `version: 2` that converts old `{ date: 15 }` → `{ date: '2025-05-15' }` (assume current mock month)
-3. ScheduleView must compute `daysInMonth(year, month)` and `firstDayOfMonth(year, month)` from `Date` math, never hardcode
-4. **Accept that INITIAL_EVENTS mock data must also be updated to ISO dates**
-**Phase to Address:** Phase 6 (Schedule CRUD) — this is a blocker, not an enhancement
+### Pitfall 1: Double-execution of tool calls after restore
 
-### P2: Task Deletion Requires Scanning Nested Category Structure
-**Risk:** HIGH — O(n*m) scan or silent no-op
-**Current state:** Tasks live inside `categories[].tasks[]`. There is no flat task index. `completeTask` works by scanning all categories.
-**What goes wrong:** `deleteTask(taskId)` must scan all categories to find the parent. If a task ID somehow exists in multiple categories (ID collision — see P3), only the first match gets deleted. Performance degrades with many categories/tasks.
-**Prevention:**
-1. Add a helper `findTaskCategory(taskId): TaskCategory | undefined` that returns the parent category
-2. `deleteTask` uses this helper then filters: `cat.tasks.filter(t => t.id !== taskId)`
-3. Alternatively, maintain a `Map<taskId, categoryId>` index (but this creates a second source of truth — prefer the scan for now given data volume is low)
-4. **Critical: addTask already has dedup (`some(t => t.id === newTask.id)`). Delete must be equally defensive.**
-**Phase to Address:** Phase 5 (Task CRUD)
-
-### P3: Date.now() ID Generation Risks Collision
-**Risk:** MEDIUM — not theoretical, `Date.now()` is millisecond-resolution
-**Current state:** Every ID generator in the codebase uses `Date.now()` (category IDs, product IDs, task IDs, event IDs, document IDs). No `crypto.randomUUID()` or `nanoid`.
-**What goes wrong:** Rapid operations (double-click create, batch "schedule to calendar") produce identical timestamps → duplicate IDs → `addTask` dedup silently drops the second item → user thinks their action failed.
-**Prevention:**
-1. Replace `Date.now()` with `crypto.randomUUID()` for all new ID generation (available in Tauri WebView2/WKWebView/WebKitGTK)
-2. For backward compatibility with existing IDs (e.g. `WXB-2025-001`), only change the generator for NEW entities; existing IDs stay as-is
-3. Add a `generateId(prefix?: string)` utility in `src/lib/utils.ts` that all stores call
-4. **Fallback:** If worried about WebView compatibility, use `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-**Phase to Address:** Phase 5 (Task CRUD) — fix the task ID generator first, then propagate to Phase 6
-
-### P4: SQLite Persistence is Full-Blob JSON, Not Row-Level
-**Risk:** MEDIUM — data loss window on crash
-**Current state:** `sqliteStorage` stores each Zustand store as a single JSON blob in `kv_store` (one row per store: `nova-task`, `nova-schedule`, etc.). Every `set()` → `setItem()` → `INSERT OR REPLACE` serializes the entire store.
-**What goes wrong:** If the app crashes mid-serialization after a complex multi-field update (e.g. updateTask + linkToSchedule), the blob may be partially written. On restart, the last successful blob is loaded. No transaction across stores.
-**Prevention:**
-1. Accept this as a known limitation for v0.2.0 (the risk is low for single-user desktop app)
-2. Do NOT attempt optimistic update + rollback — it adds complexity for negligible user impact
-3. **DO** ensure each CRUD action completes its `set()` atomically — never split a logical operation across multiple `set()` calls (see P11)
-4. Future: if data volume grows, migrate from kv_store to per-entity tables
-**Phase to Address:** All phases — this is a design constraint to respect, not fix
-
-### P5: Migration Function is a Passthrough No-Op
-**Risk:** HIGH — new fields silently missing from persisted data
-**Current state:** All 6 stores have `migrate: (persisted, _version) => persisted as Partial<ScheduleState>`. Version is `1` everywhere.
-**What goes wrong:** When Phase 5 adds `task.projectId?` and Phase 6 changes `scheduleEvent.date: string`, persisted data from v0.1.0 won't have these fields. The passthrough `migrate` returns old data as-is. Code that reads `task.projectId` gets `undefined`, which is "fine" because it's optional, but ScheduleView will crash if it tries to call `.split('-')` on a `number`.
-**Prevention:**
-1. **Bump `version: 2` in stores that change shape** and write real `migrate` functions:
-   ```ts
-   migrate: (persisted, version) => {
-     if (version < 2) {
-       // Convert ScheduleEvent.date from number to ISO string
-       return {
-         ...persisted,
-         events: (persisted.events || []).map(e => ({
-           ...e,
-           date: typeof e.date === 'number' ? `2025-05-${String(e.date).padStart(2, '0')}` : e.date,
-         })),
-       };
-     }
-     return persisted;
-   }
-   ```
-2. **Task store version bump** — add `projectId` default:
-   ```ts
-   migrate: (persisted, version) => {
-     if (version < 2) {
-       return {
-         ...persisted,
-         categories: (persisted.categories || []).map(cat => ({
-           ...cat,
-           tasks: cat.tasks.map(t => ({ ...t, projectId: undefined, scheduledEventId: undefined })),
-         })),
-       };
-     }
-     return persisted;
-   }
-   ```
-3. **Test migration** by manually editing the SQLite `kv_store` to remove new fields, then verifying reload
-**Phase to Address:** Phase 5 (task migration) and Phase 6 (schedule migration) — each phase bumps its own store version
-
-### P6: Partialize Must Exclude Ephemeral UI State
-**Risk:** LOW — already handled correctly in uiStore, but risk in new stores
-**Current state:** `uiStore.partialize` correctly excludes `isSearchOpen`, `isNewTaskOpen`. Task/schedule stores partialize only domain data.
-**What goes wrong:** If a new CRUD dialog component puts its form state into a store (instead of local `useState`), that state gets persisted. On reload, a half-filled edit form reappears.
-**Prevention:**
-1. **Enforce rule:** All dialog/modal form state stays in `useState` local to the component. NEVER put form drafts into Zustand stores.
-2. If a store must track "currently editing" state (e.g. `editingTaskId`), put it in `uiStore` and exclude it from `partialize`
-3. Add a code review checklist item: "Does this store's `partialize` only include persisted domain data?"
-**Phase to Address:** Phase 5 — establish the pattern early
-
----
-
-## Cross-Module Pitfalls
-
-### P7: Delete Product Leaves Orphaned References in Task/Schedule
-**Risk:** HIGH — user-visible broken state
-**Current state:** `productStore.deleteProduct(id)` removes the product. `AppContext.deleteProductWrapped` also clears `selectedProductId`. But tasks with `project: 'ProductName'` or `projectId: 'abc'` are untouched.
-**What goes wrong:** After deleting "WenXiBuddy 2.0":
-- Tasks still show `project: 'WenXiBuddy 2.0'` (the legacy string field)
-- Task badges with `projectId: 'abc'` point to a non-existent product
-- Clicking the badge → navigation to nowhere / crash
-- `getProjectTaskCount('abc')` returns 0 (correct but confusing — the tasks still exist)
-**Prevention:**
-1. **Decision already made:** weak association — delete product = warning toast + keep records + clear `projectId` fields
-2. **Implementation:** `deleteProductWrapped` must also:
-   - Clear `task.projectId` for all tasks where `task.projectId === deletedId`
-   - Clear `event.projectId` for all events where `event.projectId === deletedId`
-   - Clear `event.taskId` for events whose task's `projectId` was cleared
-3. **Do NOT clear `task.project` (legacy string)** — this is intentional per design decision. But document this asymmetry clearly in the code.
-4. **Toast message:** "产品已删除。相关任务和日程已保留但取消关联。" — explicit about what happened
-5. **Edge case:** If a task has `project: 'WenXiBuddy 2.0'` AND `projectId: 'abc'`, after deletion: `project` stays `'WenXiBuddy 2.0'`, `projectId` becomes `undefined`. The display must handle this — show `task.project` (legacy name) but no clickable badge.
-**Phase to Address:** Phase 7 (Cross-module wiring) — requires all three stores to have CRUD first
-
-### P8: Bidirectional Link Inconsistency (task.scheduledEventId ↔ event.taskId)
-**Risk:** HIGH — one-way links confuse users
-**Current state:** Design calls for `task.scheduledEventId?` ↔ `event.taskId?` bidirectional reference.
-**What goes wrong:** If "schedule to calendar" only sets `task.scheduledEventId` but forgets `event.taskId` (or vice versa), the link is one-way. The task shows "has schedule" badge but clicking it goes nowhere. The event shows "linked task" but the task doesn't know about it.
-**Prevention:**
-1. Create a single `linkTaskToSchedule(taskId, eventId)` helper function that sets BOTH sides atomically in one `set()` call (or as close as possible given separate stores)
-2. Similarly, `unlinkTaskFromSchedule(taskId)` clears BOTH sides
-3. **Never set one side without the other** — enforce via code review / shared utility
-4. **Race condition mitigation:** Call `useTaskStore.getState()` and `useScheduleStore.getState()` from a single action function, not from a React component that might re-render between calls
-**Phase to Address:** Phase 7 (Cross-module wiring)
-
-### P9: Cross-Store Reads During Write Can See Stale State
-**Risk:** MEDIUM — subtle inconsistency
-**Current state:** Stores are independent Zustand instances. `useTaskStore.getState()` returns current state, but if called during a `useScheduleStore` `set()` callback, it may or may not reflect the latest task state depending on call order.
-**What goes wrong:** Example: `deleteProduct` triggers a cascade that reads tasks to find linked events. If the task store's state is being written simultaneously (e.g. user also completing a task), the cascade may read stale data.
-**Prevention:**
-1. **Never nest store writes** — if action A needs to update store X and store Y, call them sequentially in the same synchronous function, not inside each other's `set()` callbacks
-2. Use `getState()` for cross-store reads (not hooks — hooks are for components)
-3. For the delete-product cascade: compute the full list of affected task/event IDs first (read), then apply all writes. Do not interleave reads and writes.
-4. **This is sufficient for v0.2.0** — true transactions are overkill for a single-user desktop app
-**Phase to Address:** Phase 7 — but be aware from Phase 5 onward
-
-### P10: getProjectTaskCount Matches on Name OR Category Name
-**Risk:** MEDIUM — false positive counts
-**Current state:**
-```ts
-getProjectTaskCount: (projectIdOrName) => {
-  // matches task.project === projectIdOrName OR cat.name === projectIdOrName
-}
-```
-**What goes wrong:** If a product is named "需求评审" (same as a category name), ALL tasks in that category are counted as belonging to the product. Adding `projectId` matching creates a third match dimension.
-**Prevention:**
-1. **Deprecate `getProjectTaskCount`'s `cat.name` fallback** — it was a hack for the mock data era
-2. New version: `getProjectTaskCount(productId: string)` matches ONLY `task.projectId === productId`
-3. Keep old behavior behind a `legacyName?: string` parameter if backward compat is needed
-4. **Or** rename to `getProjectTaskCountById` and create a separate `getCategoryTaskCount`
-**Phase to Address:** Phase 5 (Task CRUD) — clean up when adding `projectId`
-
-### P11: "Schedule to Calendar" Must Be Atomic Across Two Stores
-**Risk:** HIGH — partial state is confusing
-**Current state:** Creating a ScheduleEvent from a Task requires: (a) creating the event in scheduleStore, (b) setting `task.scheduledEventId` in taskStore. These are separate stores.
-**What goes wrong:** If (a) succeeds but (b) fails (or vice versa), the user sees half the link. The task doesn't show "scheduled" badge, or the event appears without a task reference.
-**Prevention:**
-1. Implement as a single exported function `scheduleTask(taskId: string, eventData: Omit<ScheduleEvent, 'id' | 'taskId'>)` that:
-   - Generates event ID
-   - Calls `useScheduleStore.getState().addEvent({ ...eventData, taskId })`
-   - Calls `useTaskStore.getState().updateTask(taskId, { scheduledEventId: eventId })`
-   - Both calls are synchronous — Zustand `set()` is synchronous
-2. **Wrap in try/catch** — if the second call fails (shouldn't, but defensive), rollback the first
-3. **Do NOT use async/await between the two calls** — keeps the operation atomic
-**Phase to Address:** Phase 7 (Cross-module wiring)
-
----
-
-## UI / UX Pitfalls
-
-### P12: Hydration Race Condition — Components Render Before SQLite Data Loads
-**Risk:** HIGH — flash of initial mock data then replacement
-**Current state:** `_hasHydrated` / `_setHydrated` pattern exists but is rarely consumed by views. Components render with `INITIAL_EVENTS` / `INITIAL_CATEGORIES` until SQLite data replaces them.
-**What goes wrong:** After adding CRUD, a user creates a task → sees success toast → reloads → briefly sees INITIAL_CATEGORIES (without the new task) → then SQLite hydrates and the task appears. This "flash" is jarring and undermines trust in persistence.
-**Prevention:**
-1. **Add hydration guard to views** — render a `<Skeleton />` or `<ViewLoading />` until `_hasHydrated` is true:
-   ```tsx
-   const hasHydrated = useTaskStore((s) => s._hasHydrated);
-   if (!hasHydrated) return <ViewLoading />;
-   ```
-2. **Alternatively**, suppress `INITIAL_EVENTS` / `INITIAL_CATEGORIES` when persisted data exists — the `persist` middleware handles this, but only if the storage read completes before first render (which async SQLite cannot guarantee)
-3. **Accept the flash for v0.2.0** if it's < 100ms — but measure and set a budget
-**Phase to Address:** Phase 5 (Task CRUD) — establish the pattern for all views
-
-### P13: Edit Dialog Shows Stale Data If Re-Opened Without Reset
-**Risk:** MEDIUM — confusing form state
-**Current state:** No edit dialog exists yet. When Phase 5/6 adds `<TaskEditDialog>` and `<ScheduleEventDialog>`, they'll need to handle open/close cycles.
-**What goes wrong:** User opens edit dialog for Task A → changes title to "Foo" → cancels → opens dialog for Task B → sees "Foo" in the title field because form state wasn't reset.
-**Prevention:**
-1. **Always reset form state in `onOpenChange`** — use `useEffect` keyed on dialog `open` state:
-   ```tsx
-   useEffect(() => {
-     if (open && task) {
-       setTitle(task.title);
-       // ... reset all fields
-     }
-   }, [open, task]);
-   ```
-2. **Use `key={task.id}`** on the dialog component to force remount when editing a different entity
-3. **Never use uncontrolled form inputs** with Zustand-derived default values
-**Phase to Address:** Phase 5 (Task CRUD dialog) — establish pattern, reuse in Phase 6
-
-### P14: Optimistic Delete Visual Reverts
-**Risk:** LOW-MEDIUM — SQLite is fast but async
-**Current state:** `sqliteStorage.setItem` is async. After `deleteTask()`, the Zustand state updates instantly (UI reflects deletion), but the SQLite write happens in the background.
-**What goes wrong:** In theory, if the SQLite write fails (disk full, DB locked), the next reload shows the "deleted" task reappearing. User thinks delete didn't work.
-**Prevention:**
-1. **Do not over-engineer:** For v0.2.0, SQLite writes are near-instant on local disk. Accept this risk.
-2. **Add error logging** in `sqliteStorage.setItem` — if it fails, log to `console.error` so debugging is possible
-3. **Do NOT show "undo" toasts** unless you implement proper undo state management (too complex for v0.2.0)
-4. **Future:** If write failures become observable, add a write-queue with retry
-**Phase to Address:** All phases — awareness only
-
-### P15: Kanban Date View Grouping Breaks Without Deadline Time Component
-**Risk:** LOW — edge case
-**Current state:** `TaskKanban` date view splits `task.deadline` by space: `task.deadline.split(' ')[0]`. Mock deadlines are `'2025-05-24 18:00'` format.
-**What goes wrong:** If CRUD allows creating tasks with date-only deadlines (`'2025-05-24'` without time), the `split(' ')[0]` still works. But if deadline is empty or in a different format (`'May 24, 2025'`), grouping breaks.
-**Prevention:**
-1. Standardize deadline format as ISO date string (`'2025-05-24'`) — drop the time component from deadlines (use `time` field for time-of-day)
-2. Add defensive parsing: `const dateStr = task.deadline ? task.deadline.slice(0, 10) : '无截止日期'`
-3. Validate deadline format in the task creation/edit dialog
-**Phase to Address:** Phase 5 (Task CRUD) — establish the format in the dialog
-
-### P16: AppContext `setCategories` / `setEvents` are Cast to `any`
-**Risk:** MEDIUM — TypeScript won't catch incorrect usage
-**Current state:**
-```ts
-setCategories: setCategories as any,
-setEvents: setEvents as any,
-```
-These are `Dispatch<SetStateAction<...>>` from Zustand's `set` but exposed as React-style dispatchers via `as any`.
-**What goes wrong:** When new CRUD actions are added to AppContext (updateTask, deleteTask, etc.), developers might follow the `as any` pattern instead of properly typing them. Type errors silently swallowed.
-**Prevention:**
-1. **Do NOT add new actions to AppContext** — new CRUD actions should be accessed via direct store hooks (`useTaskStore()`, `useScheduleStore()`)
-2. If AppContext MUST be extended (for backward compat), add proper types, not `as any`
-3. **Plan to remove `as any` casts** as views migrate to direct store access
-**Phase to Address:** Phase 5 — establish the "no new AppContext actions" convention
-
----
-
-## Migration Pitfalls
-
-### P17: task.project (Name) vs task.projectId (ID) Dual-Field Confusion
-**Risk:** HIGH — the single most confusing aspect for developers
-**Current state:** `Task.project: string` stores the product NAME (e.g. `'WenXiBuddy 2.0'`). New `Task.projectId?: string` will store the product ID (e.g. `'p-1234'`).
 **What goes wrong:**
-- Components display `task.project` but need `task.projectId` for navigation → two lookups
-- Filtering by product: which field to match? Code that checks `task.project === productName` won't find tasks matched by `projectId`
-- Editing a task: if user changes product association, which field(s) to update?
-- Deleting a product: `task.project` (name string) is NOT cleared but `task.projectId` IS cleared → inconsistent
-**Prevention:**
-1. **Establish clear precedence rule:** `projectId` is authoritative for linking. `project` (name) is a denormalized display cache for legacy tasks without `projectId`.
-2. **Display logic:**
-   ```tsx
-   // Preferred: resolve name from projectId
-   const product = useProductStore(s => s.products.find(p => p.id === task.projectId));
-   const displayName = product?.name || task.project || '未关联';
-   ```
-3. **Write a helper `getTaskProductDisplay(task): string`** in a shared utility — do not inline this logic in every component
-4. **Create task:** if user selects a product, set BOTH `project: product.name` AND `projectId: product.id`. If no product selected: `project: ''` and `projectId: undefined`.
-5. **Document this in CLAUDE.md** — it WILL confuse new developers
-**Phase to Address:** Phase 5 (Task CRUD) — document and implement the convention early
+Crash/quit happens between `executeTool()` and writing the result. On restart, replay sees a `tool_call` event with no `tool_result`, "helpfully" re-executes it → duplicate task created, duplicate schedule event, knowledge article written twice. The reference doc calls this out explicitly (验收标准: "同一工具请求重复恢复时不会造成重复业务写入") and the current code has zero protection: `executeTool` in `registry.ts` is fire-and-forget with no idempotency.
 
-### P18: No Rollback / Undo for Delete Operations
-**Risk:** MEDIUM — user frustration
-**Current state:** `deleteProduct` shows a warning toast before deleting (per design decision). But delete is immediate and permanent.
-**What goes wrong:** User accidentally deletes a product with 20 linked tasks → all associations cleared → no way to recover without manually re-linking each task.
-**Prevention:**
-1. **For v0.2.0:** Accept this as a known limitation. The warning toast is sufficient.
-2. **UX improvement:** Toast after delete should say "产品已删除 (Ctrl+Z 撤销)" — but only implement if undo stack is feasible
-3. **Simpler alternative:** "Soft delete" — mark product as `deleted: true` instead of removing it. Show in a "回收站" view. This is a v0.3+ feature.
-4. **Do NOT implement undo stack in v0.2.0** — scope creep
-**Phase to Address:** Phase 7 (Cross-module) — at minimum, make the delete-product cascade message very clear
+**Why it happens:**
+Executing is the natural way to "finish" an interrupted loop, and it demos well. Naive resume logic treats unpaired tool_calls as "pending work."
 
-### P19: "Schedule to Calendar" Semantics Are Underspecified
-**Risk:** MEDIUM — design ambiguity leads to inconsistent implementation
-**Current state:** Design says "task → create ScheduleEvent with taskId back-reference." But key questions remain:
-- Is the event a **copy** of the task or a **reference**? (Answer: reference)
-- If the task's deadline changes, does the event auto-update? (Answer: probably not for v0.2.0, but users expect it)
-- If the event is deleted, does the task's `scheduledEventId` get cleared? (Answer: yes)
-- Can one task have multiple schedule events? (Answer: no, `scheduledEventId` is singular)
-**Prevention:**
-1. **Document the semantics explicitly** in PROJECT.md or a design doc:
-   - "Schedule to calendar" creates a new event with `type: 'task'`, pre-filled from task title/deadline
-   - Event and task are linked bidirectionally
-   - Deleting the event clears `task.scheduledEventId`
-   - Deleting the task clears `event.taskId` and optionally removes the event
-   - Editing task deadline does NOT auto-update event (v0.2.0 — manual re-link)
-2. **Add a "unschedule" action** on the task (clears link without deleting either)
-3. **Show clear visual indicators** — badge on task showing "已安排到 5月15日", badge on event showing "关联任务: WXB-2025-001"
-**Phase to Address:** Phase 7 (Cross-module wiring)
+**How to avoid:**
+- Resume must NEVER auto-execute an orphaned `tool_call`. Mark it `interrupted` and surface it in the UI as "此操作未完成，需要重新发起" — force the model to re-request, which re-enters the confirmation pipeline.
+- For extra safety, give destructive/domain-write tools an idempotency key = `correlation_id` + args hash (the pattern `consumeKnowledgeWriteConfirmation` already uses for draft matching). A `tool_result` table with UNIQUE constraint on correlation_id makes double-write structurally impossible.
+- Enforce the pairing invariant with a startup check: `SELECT tool_calls missing results` → log + mark interrupted, don't execute.
 
-### P20: ScheduleView Calendar Computation Must Handle Real Dates
-**Risk:** HIGH — current implementation is entirely hardcoded
-**Current state:** `daysInMonth = 31`, `firstDayOfMonth = 4`, year/month are string literals. This works for the May 2025 mock but fails for any other month.
-**What goes wrong:** Month navigation (prev/next buttons) cannot work without computing actual calendar data. Event placement on wrong days. Weekend detection impossible.
-**Prevention:**
-1. Maintain `currentMonth: Date` (or `{ year: number, month: number }`) in component state
-2. Use `new Date(year, month + 1, 0).getDate()` for days in month
-3. Use `new Date(year, month, 1).getDay()` for first day of week
-4. Event filtering: parse ISO date string and match year/month, then place on correct day cell
-5. **Consider extracting calendar math into a utility** (`src/lib/calendar.ts`) — this logic is reused if week view is added
-**Phase to Address:** Phase 6 (Schedule CRUD) — this is a prerequisite for real calendar
+**Warning signs:**
+Duplicated tasks/events appear after a crash-recovery test; test "kill app mid-tool-loop, restart" in CI/UAT for every phase touching the loop.
 
-### P21: Batch "Schedule Multiple Tasks" Has No UI Pattern
-**Risk:** LOW — but worth noting for Phase 7 design
-**Current state:** No batch operation pattern exists in the codebase.
-**What goes wrong:** If a user wants to schedule 5 tasks to the same day, they must "schedule to calendar" 5 times individually. Tedious.
-**Prevention:**
-1. **For v0.2.0:** Single-task "schedule to calendar" is sufficient. Document as future enhancement.
-2. **If implemented:** Add multi-select to TaskKanban (checkbox on each card) → batch action bar → "安排到日历" creates N events
-3. **Ensure `scheduleTask` helper (from P11) is called in a loop** — do not try to batch store writes
-**Phase to Address:** Phase 7 (nice-to-have, not blocking)
+**Phase to address:**
+P0 — this is THE invariant of the event log design; retrofitting idempotency after tools have side effects is a rewrite.
 
 ---
 
-## Phase-to-Pitfall Mapping
+### Pitfall 2: Replay divergence — ChatSession projection drifts from what the live loop showed
 
-| Phase | Pitfalls Addressed | Notes |
-|-------|--------------------|-------|
-| **Phase 5: Task CRUD** | P2, P3, P5 (task migration), P6, P10, P12, P13, P15, P16, P17 | Foundation phase — establishes patterns for all others |
-| **Phase 6: Schedule CRUD** | P1, P5 (schedule migration), P20 | Calendar computation is the hardest part |
-| **Phase 7: Cross-module** | P7, P8, P9, P11, P18, P19, P21 | Wire-up phase — depends on Phase 5+6 being solid |
-| **All phases** | P4, P14 | Design constraints to respect, not fix |
+**What goes wrong:**
+ChatSession rebuilt from events renders differently from the pre-crash live session: tool traces missing, turns grouped wrong, the model receiving a different context than it saw live. Divergence sources in the current code: (a) `toolLoop.ts` maintains TWO histories — `session` and a local `messages` array that maps `tool → user` and injects `[tool_result ...]` strings — replay that only replays `session` won't reproduce what the LLM saw; (b) `groupIntoTurns` splits on `role === 'assistant' && !toolCallId` — if event types don't preserve the toolCallId linkage, turn boundaries change; (c) per-iteration toolCallId is synthesized as `${iteration}-${name}-${count}` — a positional counter that replay cannot reliably reproduce.
 
-## Quality Checklist
+**Why it happens:**
+The refactor keeps ChatSession as the source and "also" writes events, so two write paths exist and drift. The reference doc is explicit: ChatSession must become a *projection* of the log, not a co-author.
 
-- [x] Pitfalls specific to adding CRUD to existing persistent stores — P1 through P6
-- [x] Integration pitfalls covered (cross-module wiring risks) — P7 through P11
-- [x] UI/UX pitfalls covered — P12 through P16
-- [x] Migration pitfalls covered — P17 through P21
-- [x] Prevention is actionable (specific code patterns, not "be careful")
-- [x] Each pitfall mapped to the phase that should address it
-- [x] Risk levels assigned (CRITICAL / HIGH / MEDIUM / LOW)
+**How to avoid:**
+- Single write path: tool loop appends events; ChatSession reads from events (or is rebuilt from them). Delete the parallel `messages` array in `toolLoop.ts` — derive LLM messages from the same projection.
+- Make `toolCallId` a UUID captured in the `tool_call` event payload (never a positional counter).
+- Add a replay parity test: run a scripted session, snapshot `getMessagesForLLM()`, rebuild from events, assert identical output. Keep this test alive forever.
+
+**Warning signs:**
+After-restart conversation looks subtly different (missing tool chips, reordered turns); parity test deleted "because it was flaky."
+
+**Phase to address:**
+P0. Also: while refactoring, the existing tests under `src/ai/__tests__` plus the toolLoop trace-coloring behavior (the `isConfirmation ? undefined : errorMessage` filter, fixed in commit 0bbc3f2) must keep passing — that's the known regression hotspot.
+
+---
+
+### Pitfall 3: Two sources of truth — Zustand kv_store JSON blobs vs new normalized tables
+
+**What goes wrong:**
+v0.3.0 needs real tables (`agent_events`, `memory_candidates`, `knowledge_documents`, `knowledge_chunks`, FTS index) but all existing data lives in one JSON blob per store inside `kv_store`. If knowledge documents get a real table while `rndStore` still persists the same documents as JSON, every write has two targets; one code path forgets one (MDXEditor autosave, seed script, AI write tool, future migration) → table and store disagree, retrieval returns ghosts or misses fresh edits.
+
+**Why it happens:**
+Doing the table "just for retrieval" feels incremental, but it silently creates a sync problem the weak-association model never had.
+
+**How to avoid:**
+- One direction of truth per entity. Recommended: `knowledge_documents`/`knowledge_chunks` are the truth; `rndStore` knowledge items hydrate FROM the table at startup and all writes go through the table (store becomes a cache/projection, same pattern as ChatSession-from-events).
+- Alternatively keep store-as-truth and rebuild the FTS index from store content on change (content_hash comparison). Acceptable for P1 but caps later versioning/supersede work; prefer the first.
+- Write a divergence check into dev mode: after any write, assert store-vs-table content_hash match.
+
+**Warning signs:**
+Search returns deleted documents; MDXEditor edits not findable until restart; two different "update document" code paths appear.
+
+**Phase to address:**
+P1 (knowledge versioning), decided at P0 schema-design time so the event log's business-change linkage doesn't bake in the wrong keys.
+
+---
+
+### Pitfall 4: FTS5 default tokenizer silently returns nothing for Chinese
+
+**What goes wrong:**
+`CREATE VIRTUAL TABLE ... USING fts5(content)` with default `unicode61` tokenizer treats an entire space-free Chinese sentence as ONE token. Searching "需求" against a doc containing "需求文档" returns zero rows, silently. PM content is Chinese — this makes retrieval look "broken" in UAT or, worse, look like it works because English titles match.
+
+**Why it happens:**
+unicode61 splits on whitespace/punctuation; CJK has neither. No error is raised — empty results look like "no matches," which testers misread as a data problem.
+
+**How to avoid (opinionated, based on current FTS5 capabilities):**
+- **Do NOT use bare unicode61 for Chinese content.**
+- Two viable options:
+  1. **Pre-segmented unicode61 (recommended):** store a derived `search_text` column where every CJK char is space-separated (ASCII words kept whole), index that; apply the same transform to the query and issue a phrase query (`"需 求"`). Matches arbitrary-length Chinese substrings including 2-char words (需求/日程/原型 — the most common PM query length).
+  2. **`tokenize='trigram'`:** one-line fix, supports substring search, BUT trigram MATCH requires queries ≥ 3 characters — 2-char Chinese words (most of them) fall through. If you take trigram, you must route short queries to a `LIKE` fallback anyway.
+- If trigram: note it is case-sensitive by default (`case_sensitive 0` for English titles).
+- Add a fixed regression test with pure-Chinese, mixed 中英, and 2-char queries from day one.
+
+**Warning signs:**
+FTS "works" in dev on English fixture text; Chinese queries return 0 hits with no error.
+
+**Phase to address:**
+P1 — the day the FTS table is created. Tokenizer choice is not changeable in place later without full drop + reindex, and an external-content table makes that migration trickier still.
+
+---
+
+### Pitfall 5: Stale FTS index after document updates/deletes
+
+**What goes wrong:**
+Index updated in the AI write tool path but not in the MDXEditor save path, the versioning/supersede path, or the delete path → search returns old versions or deleted docs. The reference doc's acceptance criterion is explicit: "文档更新后…检索不会返回失效索引." Classic with external-content FTS5 tables: they don't auto-sync unless triggers fire, and triggers only fire on the *content* table — which doesn't exist if content lives in kv_store JSON (see Pitfall 3).
+
+**Why it happens:**
+Multiple write paths into the same documents (human editor, agent tool, version supersede, product deletion cascade from v0.2.0 cross-module work).
+
+**How to avoid:**
+- Single write API for knowledge documents (one function: update content → bump version → upsert chunks → refresh index rows for that doc, in one transaction). All callers (tool, editor, supersede) route through it.
+- If using `content=` external-content FTS5 keyed on `knowledge_chunks`, maintain delete-at discipline (`INSERT INTO fts(fts, rowid, ...) VALUES('delete', ...)`); a plain (self-contained) FTS5 table with `delete-all` + reinsert-per-doc is simpler and fine at P1 scale.
+- Product/workspace deletion (v0.2.0 cascade cleanup already exists for stores) must include a documented retention policy for events/memories/index (acceptance criterion #6 in the reference doc). Decide once, test it.
+
+**Warning signs:**
+Search hits an old doc version after a supersede; deleted product's knowledge still searchable; index row count ≠ chunk row count (add a cheap dev-mode assertion).
+
+**Phase to address:**
+P1 (with Pitfalls 3/4); the deliverable-line phase (DELIV) adds a *fourth* write path (generated PRD → slot) and is the most likely breaker — re-verify then.
+
+---
+
+### Pitfall 6: FTS5 may not be compiled into the SQLite that tauri-plugin-sql bundles — verify before designing around it
+
+**What goes wrong:**
+`tauri-plugin-sql` goes through sqlx → `libsqlite3-sys`. Evidence is contradictory: rusqlite's bundled `build.rs` is generally understood to define `SQLITE_ENABLE_FTS5`, but there is an open Tauri plugins-workspace issue (#3159) about custom SQLite build flags, and sqlx's feature wiring is not guaranteed to match rusqlite's defaults. If FTS5 isn't compiled in, `CREATE VIRTUAL TABLE ... USING fts5(...)` throws at runtime — potentially discovered late, after the retrieval design assumes it.
+
+**Why it happens:**
+Compile flags live three dependencies deep in the Rust graph; nobody reads the build.rs of transitive deps.
+
+**How to avoid:**
+- **First hour of P1:** runtime probe in `initializeDatabase` — `CREATE VIRTUAL TABLE fts5_probe USING fts5(x, tokenize='trigram')` (probes FTS5 presence AND trigram, which needs SQLite ≥ 3.34). Fail loudly with a clear message.
+- If absent: patch libsqlite3-sys build flags, add a small Rust-side Tauri command wrapping rusqlite `bundled` (which does enable FTS5), or degrade to pre-segmented `LIKE` over chunks as a stopgap. Decide with the probe result in hand, not by assumption. (Confidence: MEDIUM — must be empirically verified on this exact dependency tree.)
+
+**Warning signs:**
+None, if you don't probe — exactly why the probe is mandatory.
+
+**Phase to address:**
+P1 kickoff (before schema is finalized).
+
+---
+
+### Pitfall 7: Memory candidate spam — pending queue becomes a notification landfill
+
+**What goes wrong:**
+The model proposes a "memory candidate" nearly every turn (it's incentivized to be helpful). Within a week the user has 300 pending candidates, ignores the badge forever, and the memory system becomes noise. Related failure: near-duplicate candidates ("用户偏好简洁" × 12) because dedupe wasn't in v1.
+
+**Why it happens:**
+Reference doc rule 2 ("模型推断只能创建候选") is necessary but not sufficient — nothing in that rule rate-limits candidate creation.
+
+**How to avoid:**
+- Gate creation: explicit user cue ("记住这个") always creates; inferred preferences need a minimum confidence AND a similarity check against existing pending/confirmed memories (content hash + scope; the knowledge tool already has tags to key on).
+- Dedupe/conflict/supersede BEFORE the user sees the queue: collapse duplicates into one candidate, surface conflicts as a single choice, never two buttons for the same fact.
+- Cap visible pending (e.g., 20 oldest first) and use the `expires_at` field already in the reference schema — auto-expire unconfirmed low-confidence candidates at ~1 week.
+- Rejected candidates must be kept (status) and fed back — otherwise the model re-proposes the same rejected memory next session. Acceptance criterion #3 depends on this.
+
+**Warning signs:**
+Pending count > 50 in dogfooding; users dismissing the badge without opening it; the same candidate reappearing after rejection.
+
+**Phase to address:**
+P1 — dedupe/conflict logic is a stated milestone feature; build it in the same plan as the confirmation UI, not after.
+
+---
+
+### Pitfall 8: Morning report has no trigger — desktop apps have no cron
+
+**What goes wrong:**
+Team designs "每天 9:00 生成晨报" and then realizes: Tauri apps have no background service; when the window is closed the process is gone; there is no OS-level scheduler without extra plugins/permissions (startup registration, tray-resident process — complexity creep). The feature silently degrades to "never fires."
+
+**Why it happens:**
+Server-side mental model (cron/systemd) carried into a desktop app.
+
+**How to avoid:**
+- **Lazy on-launch model (recommended):** on app start (after DB init, non-blocking), check `last_morning_report_date`; if today's report doesn't exist and local time is past the configured hour, generate it. "晨报" becomes "今天第一次打开时的简报" — which matches how PMs actually use a desktop workbench.
+- Generate async after UI paints; never block `initializeDatabase` (which already runs before React renders and throws loudly).
+- Persist the report as a dated row/event (it's derived state) so re-renders don't regenerate it twice.
+- Do NOT add tray-resident background threads or OS auto-launch for v0.3.0 — scope creep magnet.
+
+**Warning signs:**
+Design docs mention timers/setInterval/OS registration; UAT test plan has no story for "app wasn't running at 9am."
+
+**Phase to address:**
+UX phase (morning report); the trigger decision shapes the data model (dated report row), so lock it at plan-review time.
+
+---
+
+### Pitfall 9: Right-click menu fights the OS webview context menu
+
+**What goes wrong:**
+Global `contextmenu` + `preventDefault()` across the app kills the native menu in inputs (copy/paste/undo gone in MDXEditor, chat input) — or behaves inconsistently across WebView2 (Windows), WKWebView (macOS), WebKitGTK (Linux). On some webviews, preventing default also loses the current text selection, so "AI: 改写这段" actions get no selection to act on. Reverse failure: only intercepting on plain divs but the event target is a nested span — menu flickers or double-opens.
+
+**Why it happens:**
+Context menu interception is per-webview quirky; the fun is in event-target details and editable-region detection.
+
+**How to avoid:**
+- Intercept selectively: skip `preventDefault` when `event.target` is inside `input/textarea/[contenteditable]` (MDXEditor is contenteditable — this is the big one) or when there's a non-collapsed selection the user might want native actions for.
+- Attach at captured targets (task cards, kanban items, knowledge docs), not `window`, for v1. "右键菜单快捷 AI 动作" on domain entities is the milestone scope; a global everywhere-menu is v0.4 thinking.
+- Snapshot `window.getSelection()` into state BEFORE opening the custom menu — showing the menu can clear selection in some webviews.
+- Test on all three platforms; WebKitGTK is the usual offender.
+
+**Warning signs:**
+Can't paste into the chat input; bug reported only on Linux; selection-based AI action works in Chrome dev mode but not in the packaged app.
+
+**Phase to address:**
+UX phase; the "skip editable regions" rule must be in the plan, not discovered in UAT.
+
+---
+
+### Pitfall 10: Event log writes from the frontend — per-event IPC round trips and interleaved seq
+
+**What goes wrong:**
+Two failure modes: (a) every event = one `db.execute` IPC round trip; a 5-iteration tool loop writes dozens of rows one-by-one, and a UI hiccup mid-loop drops events silently → pairing invariant violations from mere slowness; (b) two concurrent sessions (⌘K palette + ChatPanel — both exist today) compute `seq = lastSeq + 1` in JS; both read `lastSeq` before either writes → duplicate seq within a session, replay order destroyed.
+
+**Why it happens:**
+`seq` looks like a frontend concern because everything so far has been frontend-driven via tauri-plugin-sql.
+
+**How to avoid:**
+- Assign seq in SQL, not JS: `INSERT ... seq = (SELECT COALESCE(MAX(seq),0)+1 FROM agent_events WHERE session_id = $1)` — SQLite serializes writers, atomic per statement.
+- Batch events within one tool-loop iteration into a single transaction (multi-statement `execute` or a tiny Rust command `append_events(Vec<Event>)`). One IPC call per iteration is plenty.
+- Enforce `UNIQUE(session_id, seq)` so a violation throws instead of corrupting replay.
+- Cap payload size at the append path (see Performance Traps) — enforce at write time, not by convention.
+
+**Warning signs:**
+Events occasionally missing after rapid tool loops; UNIQUE constraint fires only under concurrent sessions; DevTools shows a burst of individual SQL IPC calls.
+
+**Phase to address:**
+P0 — this is the append path; changing it later means replaying logs written under the old scheme.
+
+## Technical Debt Patterns
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| ChatSession stays source-of-truth, events written "in parallel" | Smaller P0 diff, no ChatPanel changes | Two write paths drift; replay parity rots (Pitfall 2) | Never for v0.3.0 — this IS the core refactor |
+| Long tool results stored inline in event payload | No extra table | Log bloat; context rebuild drags | Short-term if payload capped ~4 KB; artifact table per reference §6 before DELIV (PRDs are long) |
+| FTS index rebuilt on every app start | No stale-index logic needed | Startup O(all docs) | P1 acceptable IF content_hash skip makes rebuild cheap; revisit at ~10k chunks |
+| Memory dedupe via exact content hash only | Trivial to build | Near-dupes still spam (中文语序差异) | P1 MVP; revisit with similarity in P2 (embeddings) |
+| Morning report stored only in Zustand | Fast | Regenerated every launch; no audit trail | Never — it's one dated row |
+| Skip the FTS5 runtime probe | Saves an hour | Discovering no-FTS5 after schema design | Never — see Pitfall 6 |
+
+## Integration Gotchas
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| tauri-plugin-sql (sqlx SQLite) | Assuming FTS5/trigram compiled in | Runtime probe at init; fallback decided in advance (Pitfall 6) |
+| Zustand persist (kv_store JSON) | Adding normalized tables alongside, dual-write | One truth per entity; store hydrates FROM tables (Pitfall 3) |
+| MDXEditor | Forgetting it's a write path for knowledge docs | Route saves through the single document-write API incl. index refresh (Pitfall 5) |
+| Existing confirmations.ts API | Deleting/replacing the in-memory Maps wholesale | Keep `create/confirm/consume/reject` signatures; swap Map for SQLite-backed storage; port the `sameDraft` draft-match and consume-once semantics — they're the valuable part |
+| Rust llm.rs IPC | Writing events after the IPC response returns, widening the crash window | Write `tool_call` event BEFORE executing, `tool_result` after (Pitfall 1 ordering) |
+| v0.2.0 product-deletion cascade | New tables not covered by cleanup | Extend retention policy to events/memories/index; make it a test (reference acceptance #6) |
+| ⌘K palette + ChatPanel | Assuming one active session | Both entry points can run loops concurrently; seq/idempotency must tolerate it (Pitfall 10) |
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|-----------------|
+| Event log unbounded growth | nova.db grows tens of MB/week of daily use; startup replay slows | Cap payload (~2-4 KB; big results as artifacts per reference §6); retention/archival policy for old sessions | Months of dogfooding; test with a 50k-event fixture DB |
+| Full session replay on every startup | App start latency grows linearly with history | Replay only active/latest session on demand; Working Context snapshot (reference §2) + tail replay | ~10k events |
+| Per-event IPC writes | UI jank during fast tool loops | Batch per iteration, seq assigned in SQL (Pitfall 10) | Immediately with streaming |
+| `estimateMessageTokens = length/4` on Chinese | Wildly UNDER-estimates Chinese tokens (a Chinese char ≈ 1-2 tokens, not 0.25) → context overflow errors on Ollama | Per-script estimate: CJK chars ≈ 1 token each + ASCII/4. Fix while touching chatSession anyway | Already wrong today for Chinese; becomes load-bearing in P0 replay |
+| FTS index rebuilt on start | Multi-second startup | content_hash-skip or incremental per-doc upsert | ~1-2k chunks |
+| Index/query transform mismatch | English queries work, Chinese miss | Query-side transform must mirror index-side transform exactly, shared function + one test (Pitfall 4) | First Chinese UAT |
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Persisting confirmation candidates/tool args containing secrets | API keys/tokens captured forever in append-only event JSON | Scrub known secret shapes in the event serializer; events outlive the session |
+| Event log = full plain-SQLite audit of user data | Local attacker or synced backup leaks all content | Acceptable for local-first v1 (same posture as kv_store today); document it; never transmit payloads as telemetry |
+| Stale confirmation tokens reusable after reject | Reject-then-consume race executes a refused action | Keep consume-once + status transition + draft match as today, now transactional in SQL |
+| Morning report pulls ALL products' data into an unattended prompt | Cross-product data into a cloud LLM the user didn't initiate | Scope explicitly; prefer local Ollama default for proactive/unattended generations |
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|------------------|
+| Restored confirmation dialogs with no context | User approves a write they can't see the origin of | Restored candidates must show source session/message + preview before approve is enabled |
+| Pending-memory badge that never clears | Notification fatigue, feature death | Cap + expire + dedupe (Pitfall 7); empty state reachable |
+| Morning report fires repeatedly mid-session | Nagging | Once per day keyed on dated row; manual refresh opt-in |
+| Right-click AI action with no feedback on long LLM calls | Looks frozen; re-clicks spawn duplicate loops | Immediate pending state tied to correlation_id; disable re-entry while running |
+| Restored "interrupted tool call" shown as an error | Users think the app is broken | Dedicated interrupted-state UI with a re-request action, distinct from failure |
+| ChatPanel regression during refactor | Lost streaming, broken trace colors, lost cancel | Port callbacks 1:1; the trace-color fix (0bbc3f2) is the canary — its test must survive |
+
+## "Looks Done But Isn't" Checklist
+
+- [ ] **Event log:** Kill the app mid-tool-loop (all 3 platforms). Restart. Verify: no duplicate business writes, orphaned tool_call shown as interrupted, session restores. Missing this = P0 not done.
+- [ ] **Replay parity:** Snapshot `getMessagesForLLM()` live, rebuild from events, identical output — including a session that had a confirmation-pause.
+- [ ] **Chinese FTS:** 2-char query (需求), pure Chinese doc, mixed 中英 title all hit; deleted doc returns nothing; superseded version not returned.
+- [ ] **FTS5 probe:** `fts5_probe` executed on the real packaged build (not just dev).
+- [ ] **Rejected memory:** Reject a candidate, restart, ask the same thing — must NOT reappear, must NOT surface in retrieval.
+- [ ] **Concurrent sessions:** ⌘K palette and ChatPanel loops simultaneously — no seq collisions, no cross-session event bleed.
+- [ ] **Confirmations survive restart:** Pending candidate visible after relaunch; approve-then-consume exactly-once even on double-click.
+- [ ] **Editor write path:** Edit a doc in MDXEditor → immediately searchable with new content (no restart).
+- [ ] **Product deletion:** Delete a product with events/memories/knowledge → defined, tested retention behavior.
+- [ ] **Morning report:** App NOT running at target hour → report on first launch; running → once only.
+- [ ] **Context menu:** Right-click inside MDXEditor/chat input still shows native edit menu on Windows/macOS/Linux.
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Double-execution duplicates created | HIGH | Detect via duplicate correlation_id business writes or user report; dedupe script keyed on args hash; retrofit idempotency (painful — cheap to prevent) |
+| Replay divergence | HIGH | If events complete: fix projection, rebuild (that's the design's promise). If events lossy: session unrecoverable |
+| kv_store vs table divergence | MEDIUM | Table becomes truth; one-time reconciliation migration with content_hash compare; report diffs |
+| Wrong tokenizer chosen | MEDIUM | Drop FTS table, re-transform content, full rebuild + fix query-transform call sites |
+| No FTS5 in bundled SQLite | MEDIUM-HIGH | Rust-side rusqlite command or build-flag patch; SQL unchanged IF all FTS access is behind one search module — keep FTS access behind one module for exactly this reason |
+| Memory spam already accumulated | LOW | Bulk-expire pending below confidence threshold; retroactive dedupe |
+| Right-click broke inputs | LOW | Add editable-region guard; ship |
+| Chinese token estimate wrong | LOW | Fix estimate function; one file |
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| 1. Double-execution after restore | P0 | Crash-mid-loop test in every P0 plan |
+| 2. Replay divergence / dual write path | P0 | Replay parity test committed and kept green |
+| 3. kv_store vs tables truth split | P0 (decision) / P1 (execution) | Divergence dev-check; single write API exists |
+| 4. FTS5 Chinese tokenization | P1 | Chinese 2-char/pure/mixed query regression test |
+| 5. Stale index after update/delete | P1 + re-verify in DELIV | Edit→search-immediately UAT; index/chunk count assertion |
+| 6. FTS5 compile availability | P1 kickoff (hour one) | Probe on packaged build |
+| 7. Memory candidate spam | P1 | Pending-cap + dedupe + reject-feedback tests |
+| 8. Morning report trigger | UX | First-launch-of-day behavior test; no timers in code |
+| 9. Right-click vs webview | UX | 3-platform input-region menu test |
+| 10. Event write batching / SQL-side seq | P0 | UNIQUE(session_id,seq) + concurrent-session test |
+| Chinese token estimate (performance trap) | P0 (while touching chatSession) | CJK-weighted estimate unit test |
+
+## Sources
+
+- Codebase (direct read, HIGH): `src/ai/chatSession.ts`, `src/ai/toolLoop.ts`, `src/ai/confirmations.ts`, `src/stores/storage/{sqliteStorage,initializeDatabase}.ts`
+- `docs/AGENT_MEMORY_REFERENCE.md` — project-authoritative design reference; acceptance criteria cited throughout
+- [SQLite FTS5 official docs (trigram tokenizer, substring matching)](https://www.sqlite.org/fts5.html) — HIGH
+- [Why SQLite FTS5's default tokenizer drops your CJK substrings](https://dev.to/omochi_dev/why-sqlite-fts5s-default-tokenizer-drops-your-japanese-substrings-and-the-one-line-fix-1k2d) — HIGH (consistent with official docs)
+- [unicode61 not designed for CJK (sqlite-users mailing list)](https://sqlite-users.sqlite.narkize.com/N5MOmskp/) — HIGH
+- [Full-text CJK Search with SQLite FTS5 Trigram Tokenizer](https://zenn.dev/kanseilink/articles/kanseilink-fts5-trigram-cjk-20260507?locale=en) — MEDIUM (practitioner article)
+- [GRDB.swift #413: FTS5 tokenizers for Chinese](https://github.com/groue/GRDB.swift/issues/413) — MEDIUM
+- [Tauri plugins-workspace #3159: custom build flags / unbundled sqlite](https://github.com/tauri-apps/plugins-workspace/issues/3159) vs [rusqlite libsqlite3-sys build.rs](https://github.com/rusqlite/rusqlite/blob/master/libsqlite3-sys/build.rs) — CONTRADICTORY on FTS5-in-bundled-SQLite → runtime probe mandated (Pitfall 6, MEDIUM confidence)
+- [Tauri SQL plugin docs](https://v2.tauri.app/plugin/sql/) — HIGH
+
+---
+*Pitfalls research for: Nova-PM-Workspace v0.3.0 (agent event log / memory / FTS5 / proactive UX)*
+*Researched: 2026-08-14*

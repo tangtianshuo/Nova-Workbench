@@ -5,7 +5,7 @@ milestone_name: 功能闭环 — Agent 为血肉,产品为骨架
 status: roadmap_created
 stopped_at: null
 last_updated: "2026-08-14T00:00:00.000Z"
-last_activity: 2026-08-14 v0.3.0 roadmap created (5 phases, 28 REQ mapped)
+last_activity: 2026-08-14 Completed quick task 260814-keu: 修复删除产品时工作区 projectId 悬空引用
 progress:
   total_phases: 5
   completed_phases: 0
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 Phase: 13 (Event Log 底座 + ToolLoop 重构) — awaiting plan
 Plan: —
 Status: Roadmap created, ready for `/gsd:plan-phase 13`
-Last activity: 2026-08-14 — ROADMAP.md written (Phases 13-17)
+Last activity: 2026-08-14 — Completed quick task 260814-keu (workspace 悬空引用修复); ROADMAP.md written (Phases 13-17)
 
 ## Performance Metrics
 
@@ -63,6 +63,12 @@ v0.3.0 roadmap decisions:
 ### Blockers
 
 None.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260814-keu | 修复删除产品时工作区 projectId 悬空引用 | 2026-08-14 | 014d1c3 | [260814-keu-projectid](./quick/260814-keu-projectid/) |
 
 ## Session Continuity
 

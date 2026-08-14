@@ -111,3 +111,19 @@
 - 5 phases (upper edge of coarse) follows the research-validated dependency chain: event log → confirmations/restore → memory/FTS5 → deliverable line → UX+docs. Phase 16 and 17 can run in parallel after 15.
 - Phase 13/14 split mirrors research recommendation: isolate the riskiest refactor (toolLoop → event log) from state persistence changes.
 - v0.2.0 Phase 7 的 35 步人工回归 (release sign-off suggestion) folds into Phase 17 execution as a checkpoint, not a separate phase.
+
+## Backlog
+
+### Phase 999.1: 工作区先行的产品入驻（文档 → 产品 → AI 摄取） (BACKLOG)
+
+**Goal:** [Captured for future planning] 用户已有 PRD 等产品文档,以工作区(本地文件夹)为起点入驻:从工作区派生产品(反向创建 + 自动关联 projectId),AI 摄取文档 → 分类进知识库 → 抽取任务/日程草稿 → 批量 HITL 确认。这是 v0.3.0 三个技术投资(事件日志/FTS5/记忆)的用户可见收口叙事。
+**依赖:** Phase 13-15(事件日志 + toolLoop 底座、FTS5 + 记忆)落地后再排期
+**已知缺口:**
+1. 文档摄取 — docx/pdf → 文本解析(Rust 侧,零 sidecar),当前仅有文件列表 + 手工 contentSnippet
+2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
+3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)

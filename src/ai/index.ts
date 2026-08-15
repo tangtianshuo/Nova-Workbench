@@ -10,6 +10,7 @@ import './tools/knowledgeWrite';
 import './tools/rndAdvanced';
 import './tools/knowledgeSearch';
 import './tools/navigation';
+import './tools/proposeMemory';
 
 export * from './registry';
 export { VIEW_IDS } from './tools/navigation';

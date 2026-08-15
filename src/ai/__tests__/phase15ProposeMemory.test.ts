@@ -57,11 +57,9 @@ test('rejected content re-proposed -> deduplicated with reason previously_reject
 
 test('proposeMemory never throws ConfirmationRequiredError (dialog continues)', async () => {
   resetMemoryMemoryStore();
-  let result: ProposeToolResult | null = null;
-  assert.doesNotThrow(async () => {
-    result = await callPropose({ content: '用户在上海工作', scope: 'global' });
-  });
-  assert.equal(result?.ok, true);
+  // assert.doesNotThrow does not await async fns — await the call directly.
+  const result = await callPropose({ content: '用户在上海工作', scope: 'global' });
+  assert.equal(result.ok, true);
   assert.equal((result as Record<string, unknown>).pendingConfirmation, undefined);
 });
 

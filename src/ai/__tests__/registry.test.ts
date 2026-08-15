@@ -39,6 +39,7 @@ const expectedTools = [
   'generateDeliverable',
   'listKnowledgeArticles',
   'searchKnowledgeBase',
+  'proposeMemory',
 ];
 
 assert.deepEqual([...listToolNames()].sort(), [...expectedTools].sort());

@@ -31,7 +31,7 @@ test('writeKnowledgeArticle stages a candidate and rejects unconfirmed mutation'
   }
   assert.ok(candidate?.confirmationToken);
   assert.equal(useRndStore.getState().knowledgeBase[productId]?.length, before);
-  rejectKnowledgeWrite(candidate!.confirmationToken);
+  await rejectKnowledgeWrite(candidate!.confirmationToken);
 });
 
 test('writeKnowledgeArticle creates only after matching explicit confirmation', async () => {
@@ -43,7 +43,7 @@ test('writeKnowledgeArticle creates only after matching explicit confirmation', 
     candidate = (error as { candidate?: KnowledgeWriteCandidate }).candidate;
   }
   assert.ok(candidate);
-  confirmKnowledgeWrite(candidate.confirmationToken);
+  await confirmKnowledgeWrite(candidate.confirmationToken);
   const result = await executeTool('writeKnowledgeArticle', {
     ...payload,
     confirmationToken: candidate.confirmationToken,
@@ -68,7 +68,7 @@ test('writeKnowledgeArticle rejects a token before explicit confirmation and mis
     executeTool('writeKnowledgeArticle', { ...payload, confirmationToken: candidate.confirmationToken }),
     /not been explicitly confirmed/,
   );
-  confirmKnowledgeWrite(candidate.confirmationToken);
+  await confirmKnowledgeWrite(candidate.confirmationToken);
   await assert.rejects(
     executeTool('writeKnowledgeArticle', {
       ...payload,
@@ -78,7 +78,7 @@ test('writeKnowledgeArticle rejects a token before explicit confirmation and mis
     /do not match the confirmed candidate/,
   );
   assert.equal(useRndStore.getState().knowledgeBase[productId]?.some((item) => item.title === 'Bound candidate'), false);
-  rejectKnowledgeWrite(candidate.confirmationToken);
+  await rejectKnowledgeWrite(candidate.confirmationToken);
 });
 
 test('writeKnowledgeArticle updates in scope and rejects cross-product article IDs', async () => {
@@ -92,7 +92,7 @@ test('writeKnowledgeArticle updates in scope and rejects cross-product article I
     candidate = (error as { candidate?: KnowledgeWriteCandidate }).candidate;
   }
   assert.ok(candidate);
-  confirmKnowledgeWrite(candidate.confirmationToken);
+  await confirmKnowledgeWrite(candidate.confirmationToken);
   const result = await executeTool('writeKnowledgeArticle', {
     ...updatePayload,
     confirmationToken: candidate.confirmationToken,
@@ -129,5 +129,5 @@ test('writeKnowledgeArticle accepts the UI knowledge categories used by ProductK
     candidate = (error as { candidate?: KnowledgeWriteCandidate }).candidate;
   }
   assert.equal(candidate?.category, '业务规则');
-  rejectKnowledgeWrite(candidate!.confirmationToken);
+  await rejectKnowledgeWrite(candidate!.confirmationToken);
 });

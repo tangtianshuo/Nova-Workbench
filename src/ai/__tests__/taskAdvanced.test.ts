@@ -87,7 +87,7 @@ try {
   assert.equal(pendingDelete.pendingConfirmation, true);
   assert.equal(pendingDelete.destructive, true);
   assert.deepEqual(useTaskStore.getState().categories, beforeDelete);
-  rejectDestructiveAction(pendingDelete.confirmationToken);
+  await rejectDestructiveAction(pendingDelete.confirmationToken);
 
   const pendingBulkDelete = await executeTool('bulkDeleteTasks', { taskIds: ['task-1', 'missing-task'] }) as {
     success: false;
@@ -101,12 +101,12 @@ try {
   assert.equal(pendingBulkDelete.pendingConfirmation, true);
   assert.deepEqual(pendingBulkDelete.failed, ['missing-task']);
   assert.deepEqual(useTaskStore.getState().categories, beforeDelete);
-  rejectDestructiveAction(pendingBulkDelete.confirmationToken);
+  await rejectDestructiveAction(pendingBulkDelete.confirmationToken);
 
   // The first candidate was rejected above; prove a fresh candidate can be
   // explicitly confirmed and then consumed exactly once.
   const confirmedCandidate = await executeTool('deleteTask', { taskId: 'task-1' }) as typeof pendingDelete;
-  confirmDestructiveAction(confirmedCandidate.confirmationToken);
+  await confirmDestructiveAction(confirmedCandidate.confirmationToken);
   assert.deepEqual(await executeTool('deleteTask', {
     ...confirmedCandidate.args,
     confirmed: true,

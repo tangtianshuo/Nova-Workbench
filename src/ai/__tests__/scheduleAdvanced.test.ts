@@ -93,10 +93,10 @@ test('schedule advanced tools register and preserve task/event links', async () 
     };
     assert.equal(pendingDelete.pendingConfirmation, true);
     assert.equal(useScheduleStore.getState().events.some((item) => item.id === eventId), true);
-    rejectDestructiveAction(pendingDelete.confirmationToken);
+    await rejectDestructiveAction(pendingDelete.confirmationToken);
 
     const confirmedCandidate = await executeTool('deleteEvent', { eventId }) as typeof pendingDelete;
-    confirmDestructiveAction(confirmedCandidate.confirmationToken);
+    await confirmDestructiveAction(confirmedCandidate.confirmationToken);
     const deleted = await executeTool('deleteEvent', {
       ...confirmedCandidate.args,
       confirmed: true,

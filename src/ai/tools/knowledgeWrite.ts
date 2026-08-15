@@ -76,13 +76,13 @@ function resolveDraft(args: WriteKnowledgeArticleArgs): KnowledgeWriteDraft {
   };
 }
 
-function writeConfirmedArticle(draft: KnowledgeWriteDraft): { articleId: string; operation: 'created' | 'updated' } {
+async function writeConfirmedArticle(draft: KnowledgeWriteDraft): Promise<{ articleId: string; operation: 'created' | 'updated' }> {
   const store = useRndStore.getState();
   if (draft.operation === 'updated') {
     if (!draft.itemId || !(store.knowledgeBase[draft.productId] ?? []).some((item) => item.id === draft.itemId)) {
       throw new Error(`Knowledge article not found: ${draft.itemId ?? ''}`);
     }
-    store.updateKnowledgeItem(draft.productId, draft.itemId, {
+    await store.updateKnowledgeItem(draft.productId, draft.itemId, {
       title: draft.title,
       category: draft.category,
       tags: [...draft.tags],
@@ -98,7 +98,7 @@ function writeConfirmedArticle(draft: KnowledgeWriteDraft): { articleId: string;
     return { articleId: updated.id, operation: 'updated' };
   }
 
-  store.addKnowledgeItem(draft.productId, {
+  await store.addKnowledgeItem(draft.productId, {
     title: draft.title,
     category: draft.category,
     tags: [...draft.tags],
@@ -129,6 +129,6 @@ registerTool({
       throw new ConfirmationRequiredError(await createKnowledgeWriteCandidate(draft));
     }
     await consumeKnowledgeWriteConfirmation(args.confirmationToken, draft);
-    return writeConfirmedArticle(draft);
+    return await writeConfirmedArticle(draft);
   },
 });

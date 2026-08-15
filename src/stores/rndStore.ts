@@ -96,11 +96,15 @@ interface RndState {
   generatePrototypeAI: (productId: string, promptText: string, device?: 'desktop' | 'mobile' | 'tablet', theme?: 'indigo' | 'dark' | 'mint' | 'sunset') => Promise<void>;
 
   // ── Knowledge ─────────────────────────────────────────────────────────────
+  // knowledgeBase is a PROJECTION of src/ai/knowledgeRepo.ts (source of truth:
+  // SQLite knowledge_docs since Phase 15). Writes go through the repo single
+  // write API; the local bucket is refreshed afterwards.
   getKnowledgeForProduct: (productId: string) => ProductKnowledgeItem[];
-  addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>) => void;
-  updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>) => void;
+  addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>) => Promise<void>;
+  updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>) => Promise<void>;
   deleteKnowledgeItem: (productId: string, itemId: string) => void;
   polishKnowledgeArticleAI: (productId: string, itemId: string, action: string) => Promise<string>;
+  hydrateKnowledgeFromRepo: () => Promise<void>;
 
   // ── Code Scaffolds ────────────────────────────────────────────────────────
   getCodeScaffoldsForProduct: (productId: string) => CodeScaffoldItem[];
@@ -148,6 +152,23 @@ const getProd = (productId: string): Product | null => {
   return products.find((p) => p.id === productId) ?? null;
 };
 
+// Phase 15: KnowledgeDoc (repo) → ProductKnowledgeItem (projection). readTime
+// lives only in the projection; repo docs carry no reading-time estimate.
+function docToItem(doc: { docId: string; productId: string; title: string; category: string; tags: string[]; summary: string; content: string; author: string; updatedAt: string }): ProductKnowledgeItem {
+  return {
+    id: doc.docId,
+    productId: doc.productId,
+    title: doc.title,
+    category: doc.category as ProductKnowledgeItem['category'],
+    tags: doc.tags,
+    author: doc.author,
+    updatedAt: doc.updatedAt,
+    readTime: '—',
+    summary: doc.summary,
+    content: doc.content,
+  };
+}
+
 export const useRndStore = create<RndState>()(
   persist(
     (set, get) => ({
@@ -179,7 +200,7 @@ export const useRndStore = create<RndState>()(
       productId,
       title: `${prod.name} 需求规格说明与业务流转设计 (PRD)`,
       version: prod.version || 'v1.0.0',
-      updatedAt: '刚刚',
+      updatedAt: new Date().toISOString(),
       status: '草稿' as const,
       author: prod.owner,
       businessGoal: prod.positioning || prod.description,
@@ -211,7 +232,7 @@ export const useRndStore = create<RndState>()(
     set((state) => ({
       requirements: {
         ...state.requirements,
-        [productId]: { ...get().getRequirementForProduct(productId), ...updates, updatedAt: '刚刚' },
+        [productId]: { ...get().getRequirementForProduct(productId), ...updates, updatedAt: new Date().toISOString() },
       },
     })),
 
@@ -303,21 +324,53 @@ export const useRndStore = create<RndState>()(
     return [];
   },
 
-  addKnowledgeItem: (productId, item) =>
+  addKnowledgeItem: async (productId, item) => {
+    const { getKnowledgeRepo } = await import('@/src/ai/knowledgeRepo');
+    const doc = await getKnowledgeRepo().upsertDoc({
+      docId: `kb-${productId}-${Date.now()}`,
+      productId,
+      title: item.title,
+      category: item.category,
+      tags: item.tags,
+      summary: item.summary,
+      content: item.content,
+      author: item.author,
+      sourceType: 'user',
+    });
+    const projected = docToItem(doc);
+    if (item.readTime) projected.readTime = item.readTime;
     set((state) => ({
       knowledgeBase: {
         ...state.knowledgeBase,
-        [productId]: [{ ...item, id: `kb-${productId}-${Date.now()}`, productId, updatedAt: '刚刚' }, ...(state.knowledgeBase[productId] || [])],
+        [productId]: [projected, ...(state.knowledgeBase[productId] || [])],
       },
-    })),
+    }));
+  },
 
-  updateKnowledgeItem: (productId, itemId, updates) =>
+  updateKnowledgeItem: async (productId, itemId, updates) => {
+    const existing = (get().knowledgeBase[productId] || []).find((k) => k.id === itemId);
+    if (!existing) return;
+    const merged: ProductKnowledgeItem = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+    // Same docId → new version row in the repo (MEM-04 audit chain).
+    const { getKnowledgeRepo } = await import('@/src/ai/knowledgeRepo');
+    await getKnowledgeRepo().upsertDoc({
+      docId: itemId,
+      productId,
+      title: merged.title,
+      category: merged.category,
+      tags: merged.tags,
+      summary: merged.summary,
+      content: merged.content,
+      author: merged.author,
+      sourceType: 'user',
+    });
     set((state) => ({
       knowledgeBase: {
         ...state.knowledgeBase,
-        [productId]: (state.knowledgeBase[productId] || []).map((k) => k.id === itemId ? { ...k, ...updates, updatedAt: '刚刚' } : k),
+        [productId]: (state.knowledgeBase[productId] || []).map((k) => k.id === itemId ? merged : k),
       },
-    })),
+    }));
+  },
 
   deleteKnowledgeItem: (productId, itemId) =>
     set((state) => ({
@@ -329,8 +382,20 @@ export const useRndStore = create<RndState>()(
     const target = list.find((k) => k.id === itemId);
     if (!target) return '';
     const polished = `${target.content}\n\n### 📌 AI 自动补充与沉淀 (${action})`;
-    get().updateKnowledgeItem(productId, itemId, { content: polished });
+    await get().updateKnowledgeItem(productId, itemId, { content: polished });
     return polished;
+  },
+
+  // Phase 15: rebuild the knowledgeBase projection from the repo (SQLite on
+  // Tauri, in-memory mirror in web dev). Called once at boot after the seed gate.
+  hydrateKnowledgeFromRepo: async () => {
+    const { getKnowledgeRepo } = await import('@/src/ai/knowledgeRepo');
+    const docs = await getKnowledgeRepo().getCurrentDocs();
+    const base: Record<string, ProductKnowledgeItem[]> = {};
+    for (const doc of docs) {
+      (base[doc.productId] ??= []).push(docToItem(doc));
+    }
+    set({ knowledgeBase: base });
   },
 
   // ── Code Scaffolds ──────────────────────────────────────────────────────
@@ -414,12 +479,12 @@ export const useRndStore = create<RndState>()(
       console.warn('[rndStore] unknown productId in getCompetitorDataForProduct:', productId);
       return EMPTY_COMPETITOR;
     }
-    return { productId, productName: prod.name, updatedAt: '刚刚', radarData: INITIAL_COMPETITOR_DATA.p1.radarData, competitors: INITIAL_COMPETITOR_DATA.p1.competitors, swot: INITIAL_COMPETITOR_DATA.p1.swot, differentiationStrategy: `### 🎯 【${prod.name}】核心破局`, gapAnalysis: INITIAL_COMPETITOR_DATA.p1.gapAnalysis };
+    return { productId, productName: prod.name, updatedAt: new Date().toISOString(), radarData: INITIAL_COMPETITOR_DATA.p1.radarData, competitors: INITIAL_COMPETITOR_DATA.p1.competitors, swot: INITIAL_COMPETITOR_DATA.p1.swot, differentiationStrategy: `### 🎯 【${prod.name}】核心破局`, gapAnalysis: INITIAL_COMPETITOR_DATA.p1.gapAnalysis };
   },
 
   updateCompetitorData: (productId, updates) =>
     set((state) => ({
-      competitorData: { ...state.competitorData, [productId]: { ...get().getCompetitorDataForProduct(productId), ...updates, updatedAt: '刚刚' } },
+      competitorData: { ...state.competitorData, [productId]: { ...get().getCompetitorDataForProduct(productId), ...updates, updatedAt: new Date().toISOString() } },
     })),
 
   generateCompetitorAnalysisAI: async (productId, customPrompt) => {
@@ -480,7 +545,7 @@ export const useRndStore = create<RndState>()(
       '- 记录关键风险与验证方式',
     ].join('\n');
     set((state) => ({
-      deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d) => d.code === code ? { ...d, status: 'ready' as const, content: generatedContent, generatedAt: '刚刚', wordCount: `${generatedContent.length} 字` } : d) },
+      deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d) => d.code === code ? { ...d, status: 'ready' as const, content: generatedContent, generatedAt: new Date().toISOString(), wordCount: `${generatedContent.length} 字` } : d) },
     }));
   },
 
@@ -494,7 +559,7 @@ export const useRndStore = create<RndState>()(
       }));
       await new Promise((r) => setTimeout(r, 200));
       set((state) => ({
-        deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d, idx) => idx === i ? { ...d, status: 'ready' as const, generatedAt: '刚刚', wordCount: `${Math.floor(2500 + Math.random() * 2000)} 字` } : d) },
+        deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d, idx) => idx === i ? { ...d, status: 'ready' as const, generatedAt: new Date().toISOString(), wordCount: `${Math.floor(2500 + Math.random() * 2000)} 字` } : d) },
       }));
     }
   },
@@ -509,7 +574,7 @@ export const useRndStore = create<RndState>()(
       category: target.phase === 'requirement' ? 'PRD需求' : target.phase === 'dev' ? '架构设计' : target.phase === 'design' ? 'API规范' : '发版规划',
       version: 'v1.0.0',
       author: 'AI 成果物工厂',
-      updatedAt: '刚刚',
+      updatedAt: new Date().toISOString(),
       wordCount: target.wordCount || '3,500 字',
       summary: target.summary,
       content: target.content,
@@ -563,7 +628,6 @@ export const useRndStore = create<RndState>()(
       partialize: (s) => ({
         requirements: s.requirements,
         prototypes: s.prototypes,
-        knowledgeBase: s.knowledgeBase,
         codeScaffolds: s.codeScaffolds,
         testCases: s.testCases,
         competitorData: s.competitorData,
@@ -571,34 +635,15 @@ export const useRndStore = create<RndState>()(
       }),
       migrate: (persisted, _version) => {
         const state = persisted as Partial<RndState>;
-        // v1→v2: backfill knowledgeBase when persisted bucket is empty/missing for a mock productId.
-        // Some early sessions persisted {} and shadowed INITIAL_KNOWLEDGE_BASE; additive only.
-        if (state.knowledgeBase) {
-          const merged = { ...state.knowledgeBase };
-          for (const [pid, items] of Object.entries(INITIAL_KNOWLEDGE_BASE)) {
-            if (!merged[pid] || merged[pid].length === 0) {
-              merged[pid] = items;
-            }
-          }
-          state.knowledgeBase = merged;
-        }
+        // Phase 15: knowledgeBase is a repo projection — strip it from old
+        // persisted buckets so stale kv data can never shadow SQLite.
+        delete state.knowledgeBase;
         return state;
       },
       onRehydrateStorage: () => (state) => {
-        // post-hydrate safety net: if knowledgeBase lost its mock buckets (e.g.,
-        // localStorage had a partial {} from an early session and migrate didn't fire
-        // because version was already current), merge INITIAL_KNOWLEDGE_BASE back in.
-        if (state) {
-          const merged = { ...(state.knowledgeBase || {}) };
-          let changed = false;
-          for (const [pid, items] of Object.entries(INITIAL_KNOWLEDGE_BASE)) {
-            if (!merged[pid] || merged[pid].length === 0) {
-              merged[pid] = items;
-              changed = true;
-            }
-          }
-          if (changed) state.knowledgeBase = merged;
-        }
+        // No knowledgeBase merge-back anymore: hydrateKnowledgeFromRepo() owns
+        // that bucket after initializeDatabase (Tauri) / INITIAL_KNOWLEDGE_BASE
+        // stays as the web-dev initial value.
         state?._setHydrated();
       },
     },

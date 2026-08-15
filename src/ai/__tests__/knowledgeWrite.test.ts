@@ -51,7 +51,7 @@ test('writeKnowledgeArticle creates only after matching explicit confirmation', 
   assert.equal(result.operation, 'created');
   const article = useRndStore.getState().knowledgeBase[productId]?.find((item) => item.id === result.articleId);
   assert.equal(article?.content, payload.content);
-  assert.equal(article?.updatedAt, '刚刚');
+  assert.ok(!Number.isNaN(Date.parse(article?.updatedAt ?? '')), 'updatedAt must be an ISO timestamp since Phase 15');
   useRndStore.getState().deleteKnowledgeItem(productId, result.articleId);
 });
 

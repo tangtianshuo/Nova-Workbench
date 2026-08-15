@@ -113,7 +113,7 @@ function collapseToolCallAssistants(messages: ChatMessage[]): ChatMessage[] {
 export class ChatSession {
   private messages: ChatMessage[] = [];
   private currentCorrelationId: string | null = null;
-  private readonly emitEvents: boolean;
+  private emitEvents: boolean;
   private sessionCreatedEmitted = false;
   private lastEventPromise: Promise<unknown> = Promise.resolve();
   private compaction: CompactionSummaryRecord | null = null;
@@ -144,6 +144,15 @@ export class ChatSession {
 
   setCorrelationId(correlationId: string | null): void {
     this.currentCorrelationId = correlationId;
+  }
+
+  /** EVT-04: resumeEventEmission — a session rebuilt by fromEvents is projection-only
+   * (__emitEvents: false). Once it becomes the live session again, resume emission on
+   * the ORIGINAL stream. sessionCreatedEmitted is forced true so session_created is NOT
+   * re-emitted — it already exists in the restored stream (count stays 1 across restore). */
+  resumeEventEmission(): void {
+    this.emitEvents = true;
+    this.sessionCreatedEmitted = true;
   }
 
   /** Await pending event writes for this session (tests + turn-end audits). */

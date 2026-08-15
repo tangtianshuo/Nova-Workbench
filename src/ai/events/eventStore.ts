@@ -6,9 +6,19 @@ import { isTauri } from '@/src/lib/api';
 import { lazySqlite } from '@/src/stores/storage/lazySqlite';
 import type { AgentArtifact, AgentEvent, AgentEventInput, EventScope } from './types';
 
+/** EVT-04: session enumeration for restore (most recent first). */
+export interface SessionSummary {
+  sessionId: string;
+  eventCount: number;
+  maxSeq: number;
+  lastEventAt: string; // created_at of the newest event (ISO)
+  productId: string | null; // newest non-null product_id in the session, else null
+}
+
 export interface EventStore {
   append(input: AgentEventInput): Promise<AgentEvent>;
   listEvents(sessionId: string): Promise<AgentEvent[]>;
+  listSessions(): Promise<SessionSummary[]>;
   saveArtifact(artifact: AgentArtifact): Promise<void>;
   getArtifact(artifactId: string): Promise<AgentArtifact | null>;
 }
@@ -79,6 +89,23 @@ export class MemoryEventStore implements EventStore {
       .filter((event) => event.sessionId === sessionId)
       .sort((a, b) => a.seq - b.seq)
       .map((event) => ({ ...event, payload: { ...event.payload } }));
+  }
+
+  async listSessions(): Promise<SessionSummary[]> {
+    const bySession = new Map<string, AgentEvent[]>();
+    for (const event of this.events) {
+      const list = bySession.get(event.sessionId) ?? [];
+      list.push(event);
+      bySession.set(event.sessionId, list);
+    }
+    const summaries: SessionSummary[] = [];
+    for (const [sessionId, events] of bySession) {
+      const sorted = [...events].sort((a, b) => a.seq - b.seq);
+      const newest = sorted[sorted.length - 1];
+      const productId = [...sorted].reverse().find((event) => event.productId !== null)?.productId ?? null;
+      summaries.push({ sessionId, eventCount: sorted.length, maxSeq: newest.seq, lastEventAt: newest.createdAt, productId });
+    }
+    return summaries.sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt) || b.maxSeq - a.maxSeq);
   }
 
   async saveArtifact(artifact: AgentArtifact): Promise<void> {
@@ -173,6 +200,29 @@ export class SqliteEventStore implements EventStore {
       projectId: row.project_id,
       correlationId: row.correlation_id,
       payload: JSON.parse(row.payload_json) as Record<string, unknown>,
+    }));
+  }
+
+  async listSessions(): Promise<SessionSummary[]> {
+    const db = await lazySqlite();
+    const rows = await db.select<Array<{ session_id: string; event_count: number; max_seq: number; last_event_at: string; product_id: string | null }>>(
+      `SELECT session_id,
+              COUNT(*) AS event_count,
+              MAX(seq) AS max_seq,
+              MAX(created_at) AS last_event_at,
+              (SELECT e2.product_id FROM agent_events e2
+                WHERE e2.session_id = e.session_id AND e2.product_id IS NOT NULL
+                ORDER BY e2.seq DESC LIMIT 1) AS product_id
+       FROM agent_events e
+       GROUP BY session_id
+       ORDER BY last_event_at DESC, max_seq DESC`,
+    );
+    return rows.map((row) => ({
+      sessionId: row.session_id,
+      eventCount: row.event_count,
+      maxSeq: row.max_seq,
+      lastEventAt: row.last_event_at,
+      productId: row.product_id,
     }));
   }
 

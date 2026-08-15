@@ -24,10 +24,19 @@ import {
   rejectKnowledgeWrite,
   runToolLoop,
 } from '@/src/ai';
-import type { DestructiveActionCandidate, KnowledgeWriteCandidate } from '@/src/ai/confirmations';
+import {
+  confirmDeliverableDraft,
+  listPendingDeliverableDrafts,
+  rejectDeliverableDraft,
+  type DestructiveActionCandidate,
+  type KnowledgeWriteCandidate,
+  type DeliverableDraftCandidate,
+} from '@/src/ai/confirmations';
 import { getMemoryStore, type MemoryCandidate } from '@/src/ai/memoryStore';
 import { ChatSession } from '@/src/ai/chatSession';
 import { restoreLatestSession } from '@/src/ai/sessionRestore';
+import { PrdDraftDialog } from '@/src/components/PrdDraftDialog';
+import { useProductStore } from '@/src/stores/productStore';
 import type { Provider } from '@/src/lib/api';
 import { cn } from '@/src/lib/utils';
 
@@ -98,6 +107,10 @@ export function ChatPanel() {
   const [pendingMemory, setPendingMemory] = useState<MemoryCandidate | null>(null);
   const [autoRemembered, setAutoRemembered] = useState<MemoryCandidate | null>(null);
   const [memoryBusy, setMemoryBusy] = useState(false);
+  const [pendingPrdDraft, setPendingPrdDraft] = useState<DeliverableDraftCandidate | null>(null);
+  const [prdBusy, setPrdBusy] = useState(false);
+  const [prdDialogOpen, setPrdDialogOpen] = useState(false);
+  const products = useProductStore((s) => s.products);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionRef = useRef(new ChatSession({ tokenBudget: 8_000 }));
@@ -107,7 +120,7 @@ export function ChatPanel() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [messages, streamingResponse, streamingTrace, pendingMemory, autoRemembered]);
+  }, [messages, streamingResponse, streamingTrace, pendingMemory, autoRemembered, pendingPrdDraft]);
 
   // Phase 15 (MEM-01/02/03) — refresh memory cards: queue head for the
   // confirmation card, latest user_directed entry for the 已记住 info card.
@@ -125,6 +138,18 @@ export function ChatPanel() {
       }
     } catch (error) {
       console.error('[memory-cards] refresh failed', error);
+      toast({ type: 'error', title: '检索失败,请稍后重试;若持续失败请重启应用。' });
+    }
+  };
+
+  // Phase 16 (DELIV-02) — refresh PRD draft card: queue head of pending
+  // deliverable_draft candidates (one card at a time, same as memory cards).
+  const refreshPrdCard = async () => {
+    try {
+      const pending = await listPendingDeliverableDrafts();
+      setPendingPrdDraft(pending[0] ?? null);
+    } catch (error) {
+      console.error('[prd-card] refresh failed', error);
       toast({ type: 'error', title: '检索失败,请稍后重试;若持续失败请重启应用。' });
     }
   };
@@ -157,6 +182,8 @@ export function ChatPanel() {
         // Pending memory candidates re-appear after restore (same behavior as
         // pendingKnowledgeWrites above).
         void refreshMemoryCards();
+        // Pending PRD draft candidates re-appear after restore (Phase 16).
+        void refreshPrdCard();
         setRestoreComplete(true);
       })
       .catch((error) => {
@@ -222,6 +249,7 @@ export function ChatPanel() {
               return next;
             });
             if (name === 'proposeMemory') void refreshMemoryCards();
+            if (name === 'generateDeliverable') void refreshPrdCard();
           },
           onDestructiveConfirmationRequired: setPendingDestructiveAction,
         },
@@ -391,6 +419,68 @@ export function ChatPanel() {
     }
   };
 
+  // Phase 16 (DELIV-02) — silent reject (MEM-02 pattern): card disappears,
+  // rejection enters the system-prompt anti-repropose segment.
+  const rejectDraft = async () => {
+    if (!pendingPrdDraft || prdBusy) return;
+    setPrdBusy(true);
+    try {
+      await rejectDeliverableDraft(pendingPrdDraft.confirmationToken);
+      await refreshPrdCard();
+    } catch (error) {
+      console.error('[prd-card] reject failed', error);
+    } finally {
+      setPrdBusy(false);
+    }
+  };
+
+  // Phase 16 (DELIV-02) — 落槽 consumption chain (handleConfirmKnowledgeWrite
+  // shape): confirm → executeTool(consume → upsertDoc → slot projection → FTS
+  // 查询) → audit event → toast/message/close/refresh.
+  const commitToSlot = async (editedDraft: string) => {
+    if (!pendingPrdDraft || prdBusy) return;
+    setPrdBusy(true);
+    try {
+      await confirmDeliverableDraft(pendingPrdDraft.confirmationToken);
+      const result = await executeTool('generateDeliverable', {
+        code: pendingPrdDraft.code,
+        title: pendingPrdDraft.title,
+        draft: editedDraft,
+        confirmationToken: pendingPrdDraft.confirmationToken,
+      }) as {
+        docId: string; version: number; slotCode: string;
+        ftsImmediateHit: boolean; ftsHitCount: number;
+        aiSource: { sessionId: string; eventId: string; generatedAt: string; docId: string; version: number };
+      };
+      // DELIV-04 可审计:落槽事件 payload 记录 FTS 命中数(CONTEXT 锁定)。
+      sessionRef.current.appendAuxEvent('deliverable_committed', {
+        docId: result.docId, version: result.version, slotCode: result.slotCode, code: 'prd',
+        ftsImmediateHit: result.ftsImmediateHit, ftsHitCount: result.ftsHitCount,
+        sessionId: result.aiSource.sessionId, eventId: result.aiSource.eventId,
+      });
+      await sessionRef.current.flushEvents();
+      toast({ type: 'success', title: 'PRD 已落槽' });
+      setMessages((current) => [...current, {
+        id: nextIdRef.current++,
+        role: 'assistant',
+        content: 'PRD 已落槽至研发中心,知识库立即可检索。',
+      }]);
+      setPrdDialogOpen(false);
+      await refreshPrdCard();
+    } catch (error) {
+      // ponytail: 消费先于写入(Phase 14 不变量:绝不双写)。若消费成功但写入失败,
+      // 候选已耗尽 — refreshPrdCard 会移除卡片,Dialog 留开供用户复制编辑稿。
+      toast({
+        type: 'error',
+        title: '落槽失败,请稍后重试;草稿仍保留在对话中。',
+        description: error instanceof Error ? error.message : undefined,
+      });
+      await refreshPrdCard();
+    } finally {
+      setPrdBusy(false);
+    }
+  };
+
   const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && restoreComplete) {
       event.preventDefault();
@@ -479,6 +569,29 @@ export function ChatPanel() {
                 </Button>
               </div>
             </div>
+          )}
+          {pendingPrdDraft && (
+            <div className="rounded-[var(--radius-lg)] border border-accent/30 bg-accent-subtle px-3.5 py-3 text-sm text-text-primary">
+              <div className="font-medium">待确认的 PRD 草稿</div>
+              <div className="mt-1 text-xs text-text-secondary">产品: {products.find((p) => p.id === pendingPrdDraft.productId)?.name ?? pendingPrdDraft.productId}</div>
+              <div className="mt-1 text-xs text-text-secondary line-clamp-3 whitespace-pre-wrap">{pendingPrdDraft.draft}</div>
+              <div className="mt-1 text-xs text-text-tertiary">来源: 本次对话 · {formatMemoryTime(pendingPrdDraft.createdAt)}</div>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="primary" size="sm" onClick={() => setPrdDialogOpen(true)} disabled={prdBusy}>确认并编辑</Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => void rejectDraft()} disabled={prdBusy}>忽略</Button>
+              </div>
+            </div>
+          )}
+          {pendingPrdDraft && (
+            <PrdDraftDialog
+              open={prdDialogOpen}
+              onOpenChange={setPrdDialogOpen}
+              title={pendingPrdDraft.title || 'PRD 草稿'}
+              description={`${products.find((p) => p.id === pendingPrdDraft.productId)?.name ?? ''} · 编辑后落槽至研发中心,并同步知识库索引`}
+              initialDraft={pendingPrdDraft.draft}
+              busy={prdBusy}
+              onCommit={(draft) => void commitToSlot(draft)}
+            />
           )}
           {pendingMemory && (
             <div className="rounded-[var(--radius-lg)] border border-accent/30 bg-accent-subtle px-3.5 py-3 text-sm text-text-primary">

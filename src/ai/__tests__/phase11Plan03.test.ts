@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import '../tools/rndAdvanced';
 import '../tools/knowledgeSearch';
 import { executeTool, listToolNames, ToolArgError, toolRegistry } from '../registry';
+import { getMemoryKnowledgeRepo, resetMemoryKnowledgeRepo } from '../knowledgeRepo';
 import { useRndStore } from '../../stores/rndStore';
 
 test('Phase 11 Plan 03 registers real Zod tools and returns bounded document/PRD drafts', async () => {
@@ -60,7 +61,15 @@ test('generateDeliverable reads the store-backed content after the existing AI a
   }
 });
 
-test('knowledge list and search are bounded lexical results scoped by product when requested', async () => {
+test('knowledge list and search are bounded repo results scoped by product when requested', async () => {
+  // Phase 15: tools route through knowledgeRepo (memory impl in Node) — seed it
+  // instead of relying on the rndStore mock projection.
+  resetMemoryKnowledgeRepo();
+  const repo = getMemoryKnowledgeRepo();
+  await repo.upsertDoc({ docId: 'p11-1', productId: 'p1', title: 'AI 驱动的评审流程', category: '业务规则', tags: ['AI'], summary: 'AI 摘要', content: 'AI 生成内容', author: 'x', sourceType: 'seed' });
+  await repo.upsertDoc({ docId: 'p11-2', productId: 'p1', title: '架构全景文档', category: '架构设计', tags: ['架构'], summary: '架构摘要', content: '架构内容', author: 'x', sourceType: 'seed' });
+  await repo.upsertDoc({ docId: 'p11-3', productId: 'p2', title: 'AI 其他产品文档', category: '架构设计', tags: ['AI'], summary: '摘要', content: '内容', author: 'x', sourceType: 'seed' });
+
   const listed = await executeTool('listKnowledgeArticles', { productId: 'p1', limit: 1 }) as {
     articles: Array<Record<string, unknown>>;
     truncated: boolean;
@@ -68,7 +77,7 @@ test('knowledge list and search are bounded lexical results scoped by product wh
   };
   assert.equal(listed.articles.length, 1);
   assert.equal(listed.truncated, true);
-  assert.equal(listed.retrieval, 'bounded-store-list');
+  assert.equal(listed.retrieval, 'fts5-hybrid');
   assert.equal('content' in listed.articles[0], false);
 
   const search = await executeTool('searchKnowledgeBase', {
@@ -76,11 +85,12 @@ test('knowledge list and search are bounded lexical results scoped by product wh
     query: 'AI',
     limit: 5,
   }) as {
-    matches: Array<{ productId: string; score: number; matchedFields: string[] }>;
+    matches: Array<{ productId: string; score: number; sourceType: string; version: number }>;
     retrieval: string;
   };
-  assert.equal(search.retrieval, 'bounded-lexical');
+  assert.equal(search.retrieval, 'fts5-hybrid');
+  assert.equal(search.matches.length > 0, true);
   assert.equal(search.matches.every((match) => match.productId === 'p1'), true);
   assert.equal(search.matches.every((match) => match.score > 0), true);
-  assert.equal(search.matches.every((match) => Array.isArray(match.matchedFields)), true);
+  assert.equal(search.matches.every((match) => typeof match.version === 'number' && typeof match.sourceType === 'string'), true);
 });

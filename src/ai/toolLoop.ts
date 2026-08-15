@@ -1,3 +1,12 @@
+// src/ai/toolLoop.ts
+// Phase 13 Plan 03 — single-history event-driven toolLoop.
+// The loop maintains NO second messages array: every LLM request re-derives
+// messages from the ChatSession projection via session.getMessagesForLLM().
+// Each step (user/assistant/tool_call/tool_result/turn_ended) lands in the
+// event log via the session's dual-write addMessage; toolCallId is a UUID;
+// >4KB results are artifact-ized via prepareToolResult; turn-end audit runs
+// checkEventStream and reports violations loud. Public API (RunToolLoopArgs,
+// ToolLoopCallbacks, ToolLoopResult) byte-compatible with callers.
 import { chatWithTools, type ChatMessage, type Provider } from '@/src/lib/api';
 import { buildCoreContext } from './context';
 import { ChatSession } from './chatSession';
@@ -10,6 +19,9 @@ import {
   type DestructiveActionCandidate,
   type KnowledgeWriteCandidate,
 } from './confirmations';
+import { getEventStore, setEventScopeProvider } from './events/eventStore';
+import { checkEventStream } from './events/invariants';
+import { prepareToolResult } from './events/artifacts';
 
 export {
   confirmDestructiveAction,
@@ -18,6 +30,14 @@ export {
   rejectDestructiveAction,
   rejectKnowledgeWrite,
 } from './confirmations';
+
+// Event scope stamping: current selected product. workspace/project linkage is
+// deferred (see 13-CONTEXT deferred ideas) — columns exist, values stay null.
+setEventScopeProvider(() => ({
+  workspaceId: null,
+  productId: useUIStore.getState().selectedProductId,
+  projectId: null,
+}));
 
 const MAX_ITERATIONS = 5;
 
@@ -58,27 +78,44 @@ function isDestructiveConfirmation(value: unknown): value is DestructiveActionCa
     && typeof result.args === 'object';
 }
 
-function stringifyResult(value: unknown): string {
+/** Loud, never-silent audit: report pairing/seq issues at turn boundaries. */
+async function auditSessionEvents(sessionId: string): Promise<void> {
   try {
-    return JSON.stringify(value).slice(0, 2000);
-  } catch {
-    return String(value);
+    const events = await getEventStore().listEvents(sessionId);
+    const issues = checkEventStream(events);
+    if (issues.length > 0) {
+      console.error('[event-log] invariant violations at turn end', issues);
+    }
+  } catch (error) {
+    console.error('[event-log] turn-end audit failed', error);
   }
 }
 
 export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult> {
   const session = args.session ?? new ChatSession();
+  // One turn = one correlation id; every event emitted this run carries it.
+  const correlationId = crypto.randomUUID();
+  session.setCorrelationId(correlationId);
   session.addMessage('user', args.userMessage);
-  const messages: ChatMessage[] = session.getMessagesForLLM().map((message) => ({
-    role: message.role === 'tool' ? 'user' : message.role,
-    content: message.content,
-  }));
   const systemPrompt = args.systemPromptOverride ?? buildSystemPrompt({ coreContext: buildCoreContext() });
   const argErrorCount = new Map<string, number>();
   let content = '';
   let toolCallsExecuted = 0;
 
+  const endTurn = async (outcome: 'completed' | 'tool_limit' | 'awaiting_confirmation' | 'awaiting_destructive_confirmation', iterations: number) => {
+    session.recordTurnEnd({ outcome, iterations, toolCallsExecuted, correlationId });
+    await session.flushEvents();
+    await auditSessionEvents(session.sessionId);
+  };
+
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
+    // Single source of truth: derive the LLM messages from the session projection
+    // on EVERY iteration. No second history array survives across iterations.
+    const messages: ChatMessage[] = session.getMessagesForLLM().map((message) => ({
+      role: message.role === 'tool' ? 'user' : message.role,
+      content: message.content,
+    }));
+
     const result = await chatWithTools({
       messages,
       tools: toolsToSchemas(),
@@ -94,19 +131,25 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
 
     if (result.toolCalls.length === 0) {
       session.addMessage('assistant', content);
+      await endTurn('completed', iteration);
       return { content, iterations: iteration, toolCallsExecuted, truncated: false };
     }
 
-    messages.push({ role: 'assistant', content: content || '[requesting tools]' });
     for (const call of result.toolCalls) {
-      const toolCallId = `${iteration}-${call.name}-${toolCallsExecuted}`;
-      session.addMessage('assistant', content || '[requesting tools]', toolCallId, call.name);
+      // EVT-06: UUID replaces the old positional iteration-name-count id.
+      const toolCallId = crypto.randomUUID();
+      session.addMessage('assistant', content || '[requesting tools]', toolCallId, call.name, { args: call.args });
       args.callbacks?.onToolStart?.(call.name, call.args);
       try {
         const toolResult = await executeTool(call.name, call.args);
         if (isDestructiveConfirmation(toolResult)) {
           args.callbacks?.onToolEnd?.(call.name, toolResult);
           args.callbacks?.onDestructiveConfirmationRequired?.(toolResult);
+          // WAIT outcome lands as a normal tool_result ({ ok: false } semantics)
+          // so tool_call/tool_result pairing stays balanced across the pause.
+          const waitText = `[tool_result ${call.name}] ${JSON.stringify({ ok: false, awaitingConfirmation: true, summary: toolResult.summary })}`;
+          session.addMessage('tool', waitText, toolCallId, call.name, { ok: false, awaitingConfirmation: true });
+          await endTurn('awaiting_destructive_confirmation', iteration);
           return {
             content,
             iterations: iteration,
@@ -117,26 +160,35 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
         }
         toolCallsExecuted += 1;
         args.callbacks?.onToolEnd?.(call.name, toolResult);
-        session.addMessage('tool', stringifyResult({ ok: true, data: toolResult }), toolCallId, call.name);
-        messages.push({
-          role: 'user',
-          content: `[tool_result ${call.name}] ${stringifyResult({ ok: true, data: toolResult })}`,
+        // EVT-08: >4KB results go to the artifacts store; model history keeps
+        // summary + artifactId + head fragment only.
+        const prepared = prepareToolResult({ sessionId: session.sessionId, toolCallId, toolName: call.name, value: toolResult });
+        if (prepared.artifact) {
+          await getEventStore().saveArtifact(prepared.artifact);
+        }
+        session.addMessage('tool', prepared.modelText, toolCallId, call.name, {
+          ok: true,
+          artifactId: prepared.artifact?.artifactId ?? null,
         });
       } catch (error) {
         const isConfirmation = error instanceof ConfirmationRequiredError;
         const errorMessage = error instanceof Error ? error.message : String(error);
         // ponytail: ConfirmationRequiredError 是预期的"等待确认"流程,不是错误。
-        // 把 errorMessage 透传给 onToolEnd 会让 ChatPanel 的 trace 翻红(⚠️ 失败),
-        // 误导用户。confirmation 时跳过 error 参数,trace 显示 ok;LLM 历史仍记录
-        // { ok: false } payload(工具确实没完成),只有 UI 面的回调被过滤。
+        // confirmation 时 onToolEnd 的 error 参数保持 undefined,trace 显示 ok —
+        // 这是 0bbc3f2 金丝雀行为,不得改动。
         args.callbacks?.onToolEnd?.(
           call.name,
           null,
           isConfirmation ? undefined : errorMessage,
         );
-        session.addMessage('tool', stringifyResult({ ok: false, error: errorMessage }), toolCallId, call.name);
         if (isConfirmation) {
+          // Key order deliberately matches the destructive branch ({ ok, awaitingConfirmation, ... })
+          // so both WAIT branches share one greppable `ok: false, awaitingConfirmation: true` prefix.
+          // (JSON 解析与键序无关,语义不变。)
+          const waitText = `[tool_result ${call.name}] ${JSON.stringify({ ok: false, awaitingConfirmation: true, error: errorMessage })}`;
+          session.addMessage('tool', waitText, toolCallId, call.name, { ok: false, awaitingConfirmation: true, error: errorMessage });
           args.callbacks?.onConfirmationRequired?.(error.candidate);
+          await endTurn('awaiting_confirmation', iteration);
           return {
             content,
             iterations: iteration,
@@ -150,18 +202,20 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
         if (error instanceof ToolArgError) {
           argErrorCount.set(call.name, previousErrors + 1);
         }
-        messages.push({
-          role: 'user',
-          content: `[tool_error ${call.name}] ${errorMessage}. ${isRetryAvailable
-            ? 'Please correct the arguments and retry once.'
-            : 'No more argument retries are available for this tool call.'}`,
-        });
+        const errorText = `[tool_error ${call.name}] ${errorMessage}. ${isRetryAvailable
+          ? 'Please correct the arguments and retry once.'
+          : 'No more argument retries are available for this tool call.'}`;
+        session.addMessage('tool', errorText, toolCallId, call.name, { ok: false, error: errorMessage, retryAvailable: isRetryAvailable });
       }
     }
   }
 
+  const limitedContent = `${content}${content ? '\n\n' : ''}[tool loop reached the ${MAX_ITERATIONS}-iteration limit]`;
+  // Close the turn in the projection too (old code dropped this from the session).
+  session.addMessage('assistant', limitedContent);
+  await endTurn('tool_limit', MAX_ITERATIONS);
   return {
-    content: `${content}${content ? '\n\n' : ''}[tool loop reached the ${MAX_ITERATIONS}-iteration limit]`,
+    content: limitedContent,
     iterations: MAX_ITERATIONS,
     toolCallsExecuted,
     truncated: true,

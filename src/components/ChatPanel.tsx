@@ -202,7 +202,7 @@ export function ChatPanel() {
     if (!pendingDestructiveAction || loading) return;
     setLoading(true);
     try {
-      const candidate = confirmDestructiveAction(pendingDestructiveAction.confirmationToken);
+      const candidate = await confirmDestructiveAction(pendingDestructiveAction.confirmationToken);
       const result = await executeTool(candidate.toolName, {
         ...candidate.args,
         confirmed: true,
@@ -225,9 +225,9 @@ export function ChatPanel() {
     }
   };
 
-  const handleRejectDestructiveAction = () => {
+  const handleRejectDestructiveAction = async () => {
     if (!pendingDestructiveAction) return;
-    rejectDestructiveAction(pendingDestructiveAction.confirmationToken);
+    await rejectDestructiveAction(pendingDestructiveAction.confirmationToken);
     setPendingDestructiveAction(null);
     setMessages((current) => [...current, {
       id: nextIdRef.current++,
@@ -240,7 +240,7 @@ export function ChatPanel() {
     if (!pendingConfirmation || loading) return;
     setLoading(true);
     try {
-      const candidate = confirmKnowledgeWrite(pendingConfirmation.confirmationToken);
+      const candidate = await confirmKnowledgeWrite(pendingConfirmation.confirmationToken);
       const result = await executeTool('writeKnowledgeArticle', {
         productId: candidate.productId,
         itemId: candidate.itemId,
@@ -270,9 +270,9 @@ export function ChatPanel() {
     }
   };
 
-  const handleRejectKnowledgeWrite = () => {
+  const handleRejectKnowledgeWrite = async () => {
     if (!pendingConfirmation) return;
-    rejectKnowledgeWrite(pendingConfirmation.confirmationToken);
+    await rejectKnowledgeWrite(pendingConfirmation.confirmationToken);
     setPendingConfirmation(null);
     setMessages((current) => [...current, {
       id: nextIdRef.current++,
@@ -350,7 +350,7 @@ export function ChatPanel() {
                 <Button type="button" variant="primary" size="sm" onClick={() => void handleConfirmKnowledgeWrite()} disabled={loading}>
                   确认写入
                 </Button>
-                <Button type="button" variant="secondary" size="sm" onClick={handleRejectKnowledgeWrite} disabled={loading}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => void handleRejectKnowledgeWrite()} disabled={loading}>
                   取消
                 </Button>
               </div>
@@ -364,7 +364,7 @@ export function ChatPanel() {
                 <Button type="button" variant="primary" size="sm" onClick={() => void handleConfirmDestructiveAction()} disabled={loading}>
                   确认删除
                 </Button>
-                <Button type="button" variant="secondary" size="sm" onClick={handleRejectDestructiveAction} disabled={loading}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => void handleRejectDestructiveAction()} disabled={loading}>
                   取消
                 </Button>
               </div>

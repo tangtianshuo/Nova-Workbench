@@ -98,7 +98,7 @@ export function ProductKnowledgeTab({ product }: Props) {
   const handleConfirmPolish = async () => {
     if (!pendingPolishCandidate) return;
     try {
-      const candidate = confirmKnowledgeWrite(pendingPolishCandidate.confirmationToken);
+      const candidate = await confirmKnowledgeWrite(pendingPolishCandidate.confirmationToken);
       await executeTool('writeKnowledgeArticle', {
         productId: candidate.productId,
         itemId: candidate.itemId,
@@ -119,9 +119,9 @@ export function ProductKnowledgeTab({ product }: Props) {
     }
   };
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = async () => {
     if (pendingPolishCandidate) {
-      rejectKnowledgeWrite(pendingPolishCandidate.confirmationToken);
+      await rejectKnowledgeWrite(pendingPolishCandidate.confirmationToken);
       setPendingPolishCandidate(null);
     }
     if (selectedItem) {
@@ -425,7 +425,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                   />
 
                   <div className="flex justify-end gap-2">
-                     <Button variant="secondary" size="md" onClick={handleCancelEdit}>
+                     <Button variant="secondary" size="md" onClick={() => void handleCancelEdit()}>
                        取消
                      </Button>
                     <Button variant="primary" size="md" onClick={handleSaveEdit}>

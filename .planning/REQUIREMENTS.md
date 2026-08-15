@@ -34,10 +34,10 @@
 
 ### PM 生产线 (DELIV)
 
-- [ ] **DELIV-01**: 用户可通过 agent 对话生成 PRD 草稿(generateDeliverable tool,携带当前产品上下文)
+- [x] **DELIV-01**: 用户可通过 agent 对话生成 PRD 草稿(generateDeliverable tool,携带当前产品上下文)
 - [ ] **DELIV-02**: PRD 草稿经 HITL 确认后可在 MDXEditor 中编辑,再落入研发中心 PRD 交付物卡槽(版本化)
-- [ ] **DELIV-03**: 生成的 PRD 带 AI 溯源标记(来源会话/事件、生成时间)
-- [ ] **DELIV-04**: PRD 落槽后 FTS5 索引在同一事务内同步更新(单一写 API),检索立即可命中
+- [x] **DELIV-03**: 生成的 PRD 带 AI 溯源标记(来源会话/事件、生成时间)
+- [x] **DELIV-04**: PRD 落槽后 FTS5 索引在同一事务内同步更新(单一写 API),检索立即可命中
 
 ### Agent 交互升级 (UX)
 
@@ -107,10 +107,10 @@
 | MEM-08 | Phase 15 | Complete |
 | CMP-01 | Phase 14 | Complete |
 | CMP-02 | Phase 14 | Complete |
-| DELIV-01 | Phase 16 | Pending |
+| DELIV-01 | Phase 16 | Complete |
 | DELIV-02 | Phase 16 | Pending |
-| DELIV-03 | Phase 16 | Pending |
-| DELIV-04 | Phase 16 | Pending |
+| DELIV-03 | Phase 16 | Complete |
+| DELIV-04 | Phase 16 | Complete |
 | UX-01 | Phase 17 | Pending |
 | UX-02 | Phase 17 | Pending |
 | UX-03 | Phase 17 | Pending |

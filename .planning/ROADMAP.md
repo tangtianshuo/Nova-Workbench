@@ -80,11 +80,11 @@ Plans:
   2. PRD 草稿经 HITL 确认 → MDXEditor 编辑 → 落入研发中心 PRD 交付物卡槽,全程无手动复制粘贴
   3. 落槽的 PRD 带 AI 溯源标记(来源会话/事件、生成时间),在研发中心可查看
   4. PRD 落槽后立即在知识库检索命中(FTS5 索引与文档写入同一事务,无 stale index 窗口)
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 **UI hint**: yes
 
 Plans:
-- [ ] 16-01-PLAN.md — 后端管线:generateDeliverable tool 两段式候选 + 原子消费 + knowledgeRepo 版本链落槽 + rndStore 卡槽投影(aiSource 溯源)+ FTS5 立即命中 + 防重复注入(DELIV-01/03/04)
+- [x] 16-01-PLAN.md — 后端管线:generateDeliverable tool 两段式候选 + 原子消费 + knowledgeRepo 版本链落槽 + rndStore 卡槽投影(aiSource 溯源)+ FTS5 立即命中 + 防重复注入(DELIV-01/03/04)
 - [ ] 16-02-PLAN.md — ChatPanel HITL UI:PRD 草稿确认卡片 + PrdDraftDialog(MDXEditor 编辑)+ 落槽消费链 + deliverable_committed 审计事件 + 重启恢复(DELIV-02)
 - [ ] 16-03-PLAN.md — 研发中心 AI 溯源徽章(Tooltip)+ Phase 16 全流程 UAT 人工验收(DELIV-03)
 
@@ -108,7 +108,7 @@ Plans:
 | 13. Event Log 底座 + ToolLoop 重构 | 1/3 | Complete    | 2026-08-15 |
 | 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Complete    | 2026-08-15 |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 4/4 | Complete   | 2026-08-15 |
-| 16. PRD 生产线 | 0/3 | Planned | - |
+| 16. PRD 生产线 | 1/3 | In Progress|  |
 | 17. Agent UX + 架构文档 | 0/? | Not started | - |
 
 ## Coverage

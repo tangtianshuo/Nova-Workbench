@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-15T14:06:25.634Z"
+last_updated: "2026-08-15T16:31:57.983Z"
 last_activity: 2026-08-15
 progress:
   total_phases: 9
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 14
+  completed_plans: 12
 ---
 
 # Project State
@@ -19,13 +19,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-14)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 15 — 长期记忆 + 知识文档 + FTS5 检索
+**Current focus:** Phase 16 — prd
 
 ## Current Position
 
-Phase: 15
-Plan: 4 of 4 complete (15-01/02/03/04 done — 15-04 UAT checkpoint:human-verify PENDING, see 15-04-SUMMARY.md)
-Status: Awaiting Phase 15 UAT (6 steps: FTS5 中文命中 / 记忆候选流 / 记忆列表 / context_injected 审计 / 级联删除 / Phase 14 回归)
+Phase: 16 (prd) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-08-15
 
 ## Performance Metrics
@@ -46,6 +46,7 @@ Last activity: 2026-08-15
 | Phase 15 P02 | 13m | 3 tasks | 10 files |
 | Phase 15 P03 | ~35 min | 3 tasks | 11 files |
 | Phase 15 P04 | 32min | 4 tasks | 3 files |
+| Phase 16 P01 | 35min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ v0.3.0 roadmap decisions:
 - [Phase 15]: 15-03: rndStore onRehydrateStorage 的 INITIAL_KNOWLEDGE_BASE merge 移除 — 会在 SQLite 投影上复活已删 mock 数据,hydrateKnowledgeFromRepo 独占该桶
 - [Phase 15]: 15-04: 标签 filter = category Select;repo tag param 匹配 tags 数组,故 category 过滤在 UI 侧对 hit.category 应用
 - [Phase 15]: 15-04: Select 过滤器用 undefined+placeholder(全部X),无 all item — 清除筛选为唯一重置;记忆列表 UI 侧过滤 deletedAt,superseded 保留审计
+- [Phase 16]: [16-01] deliverable eventId rides in candidate params (survives restart) but is excluded from the dedup key; consume rehashes full params from candidate original fields
+- [Phase 16]: [16-01] stable docId deliverable-<productId>-<slotCode>: repeat slot commits supersede as new versions
+- [Phase 16]: [16-01] memoryStore listActiveMemories confirmedAt tiebreak by memoryRowid DESC — fixes Phase 15 overflow test flake
 
 ### TODOs (pending)
 

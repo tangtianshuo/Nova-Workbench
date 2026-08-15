@@ -43,17 +43,12 @@ setEventScopeProvider(() => ({
 
 const MAX_ITERATIONS = 5;
 
-// MEM-07/MEM-08 — lazy coupling to knowledgeRepo (delivered by 15-03, same
-// wave). Dynamic import + catch-degradation to []: before 15-03 merges the FTS
-// segment simply retrieves nothing; once it lands this call becomes live
-// without any change here. Never blocks the dialog on retrieval failure.
-// @ts-ignore — knowledgeRepo does not exist yet in this worktree (15-03 wave
-// mate); tsc would fail on the unresolved specifier. Drop the ignore after merge.
+// MEM-07/MEM-08 — lazy coupling to knowledgeRepo (15-03). Dynamic import +
+// catch-degradation to []: never blocks the dialog on retrieval failure.
 const searchKnowledgeLazy = async (query: string, limit: number): Promise<KnowledgeSearchHit[]> => {
   try {
-    // @ts-ignore — knowledgeRepo does not exist yet in this worktree (15-03 wave mate); unresolved-specifier error suppressed on this single line. Drop after merge.
-    const module = await import('./knowledgeRepo') as { searchKnowledgeHybrid: (q: string, k: number) => Promise<KnowledgeSearchHit[]> };
-    return await module.searchKnowledgeHybrid(query, limit);
+    const { searchKnowledgeHybrid } = await import('./knowledgeRepo');
+    return await searchKnowledgeHybrid(query, limit);
   } catch {
     return [];
   }

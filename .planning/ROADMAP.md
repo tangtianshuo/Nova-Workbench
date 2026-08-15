@@ -11,7 +11,8 @@
 
 - [x] **Phase 13: Event Log 底座 + ToolLoop 重构** — Agent 每一步落入 SQLite 事件日志,ChatSession 成为投影,消除双历史分叉 (completed 2026-08-15)
 - [x] **Phase 14: 持久化确认 + 会话恢复 + 上下文压缩** — 重启后待确认项与最近会话可用,孤儿 tool_call 绝不重复执行,超长历史按配对边界摘要 (completed 2026-08-15)
-- [x] **Phase 15: 长期记忆 + 知识文档 + FTS5 检索** — 记忆候选确认流、版本化知识文档、中文可命中的 FTS5 混合检索、按优先级投影组装上下文 (completed 2026-08-15)
+- [x] **Phase 15: 长期记忆 + 知识文档 + FTS5 检索** — 记忆候选确认流、版本化知识文档、中文可命中的 FTS5 混合检索、按优先级投影组装上下文
+ (completed 2026-08-15)
 - [ ] **Phase 16: PRD 生产线** — agent 生成 PRD → HITL 确认 → MDXEditor 编辑 → 版本化落入研发中心卡槽,索引同事务更新
 - [ ] **Phase 17: Agent UX + 架构文档** — Agent 工作区落地、⌘K 携带视图上下文、结构化晨报、右键快捷 AI 动作、ARCHITECTURE.md + ADR 重写
 
@@ -79,8 +80,13 @@ Plans:
   2. PRD 草稿经 HITL 确认 → MDXEditor 编辑 → 落入研发中心 PRD 交付物卡槽,全程无手动复制粘贴
   3. 落槽的 PRD 带 AI 溯源标记(来源会话/事件、生成时间),在研发中心可查看
   4. PRD 落槽后立即在知识库检索命中(FTS5 索引与文档写入同一事务,无 stale index 窗口)
-**Plans**: TBD
+**Plans:** 3 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 16-01-PLAN.md — 后端管线:generateDeliverable tool 两段式候选 + 原子消费 + knowledgeRepo 版本链落槽 + rndStore 卡槽投影(aiSource 溯源)+ FTS5 立即命中 + 防重复注入(DELIV-01/03/04)
+- [ ] 16-02-PLAN.md — ChatPanel HITL UI:PRD 草稿确认卡片 + PrdDraftDialog(MDXEditor 编辑)+ 落槽消费链 + deliverable_committed 审计事件 + 重启恢复(DELIV-02)
+- [ ] 16-03-PLAN.md — 研发中心 AI 溯源徽章(Tooltip)+ Phase 16 全流程 UAT 人工验收(DELIV-03)
 
 ### Phase 17: Agent UX + 架构文档
 **Goal**: Agent 成为一等入口 — 工作区视图落地、⌘K 携带上下文、晨报主动建议、右键快捷动作;架构文档与新真相源对齐
@@ -102,7 +108,7 @@ Plans:
 | 13. Event Log 底座 + ToolLoop 重构 | 1/3 | Complete    | 2026-08-15 |
 | 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Complete    | 2026-08-15 |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 4/4 | Complete   | 2026-08-15 |
-| 16. PRD 生产线 | 0/? | Not started | - |
+| 16. PRD 生产线 | 0/3 | Planned | - |
 | 17. Agent UX + 架构文档 | 0/? | Not started | - |
 
 ## Coverage

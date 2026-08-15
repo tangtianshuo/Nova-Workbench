@@ -61,12 +61,12 @@ Plans:
   3. 用户在知识库搜索"需求"或"日程"等 2 字中文词能命中目标文档;可叠加标签/产品/时间过滤;检索结果展示来源(文档/版本/时间)
   4. 知识文档更新后旧版本仍可审计;被 supersede 的旧记忆不再进入检索,但历史链完整保留
   5. 每轮对话注入的上下文按优先级组装(业务事实→待确认→已确认记忆→FTS5 top-k→最近对话),且每次注入留有 context_injected 事件可审计
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 15-01-PLAN.md — 存储底座：迁移 0004（memories/memory_candidates/knowledge_docs/knowledge_fts FTS5）+ ftsTokens 共享切分 + memoryStore 双实现（防轰炸三项 + supersedes 链）
 - [x] 15-02-PLAN.md — 候选流 + 上下文注入：proposeMemory tool（不终止 turn）+ 五段优先级组装器 + context_injected 审计事件 + toolLoop 接线
-- [ ] 15-03-PLAN.md — 知识域落地：knowledgeRepo 双实现（版本链 + FTS5 混合检索）+ kv→SQLite 迁移 gate + rndStore 投影化 + 产品删除级联
+- [x] 15-03-PLAN.md — 知识域落地：knowledgeRepo 双实现（版本链 + FTS5 混合检索）+ kv→SQLite 迁移 gate + rndStore 投影化 + 产品删除级联
 - [ ] 15-04-PLAN.md — 三 UI surfaces：ChatPanel 记忆确认卡片 + KnowledgeBaseView 搜索/过滤/记忆列表 + UAT 人工验收（含 FTS5 运行时 probe）
 **UI hint**: yes
 

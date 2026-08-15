@@ -55,10 +55,25 @@ export const useProductStore = create<ProductState>()(
       ),
     })),
 
-  deleteProduct: (id) =>
+  deleteProduct: (id) => {
     set((state) => ({
       products: state.products.filter((p) => p.id !== id),
-    })),
+    }));
+    // Phase 15 cascade: products live in kv_store JSON, DB triggers impossible.
+    // memories soft-deleted + knowledge docs/FTS rows removed; agent_events stay
+    // untouched (append-only audit — locked decision). Fire-and-forget keeps the
+    // public sync signature stable.
+    void (async () => {
+      try {
+        const { getMemoryStore } = await import('@/src/ai/memoryStore');
+        const { getKnowledgeRepo } = await import('@/src/ai/knowledgeRepo');
+        await getMemoryStore().deleteByProduct(id);
+        await getKnowledgeRepo().deleteByProduct(id);
+      } catch (err) {
+        console.error('[productStore] Phase 15 delete cascade failed for', id, err);
+      }
+    })();
+  },
 
   setProducts: (products) => set({ products }),
 

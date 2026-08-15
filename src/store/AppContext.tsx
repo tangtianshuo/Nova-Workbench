@@ -88,8 +88,8 @@ interface AppContextType {
   generatePrototypeAI: (productId: string, promptText: string, device?: 'desktop' | 'mobile' | 'tablet', theme?: 'indigo' | 'dark' | 'mint' | 'sunset') => Promise<void>;
 
   getKnowledgeForProduct: (productId: string) => ProductKnowledgeItem[];
-  addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>) => void;
-  updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>) => void;
+  addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>) => Promise<void>;
+  updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>) => Promise<void>;
   deleteKnowledgeItem: (productId: string, itemId: string) => void;
   polishKnowledgeArticleAI: (productId: string, itemId: string, action: string) => Promise<string>;
 

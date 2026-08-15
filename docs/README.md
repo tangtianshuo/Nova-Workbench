@@ -12,6 +12,7 @@
 | [技术选型](./TECH_STACK.md) | 技术栈选择、依赖清单、扩展考虑 | ✅ 已确认 |
 | [Pipeline 设计](./PIPELINE_DESIGN.md) | 工作流设计、状态定义、HITL 交互 | ✅ 已确认 |
 | [决策记录](./DECISIONS.md) | ADR 格式的关键决策记录 | ✅ 已确认 |
+| [Agent Memory 设计参考](./AGENT_MEMORY_REFERENCE.md) | 借鉴 DeepSeek Harness 的会话记忆、知识检索与上下文设计 | 📝 架构参考 |
 
 ---
 
@@ -40,6 +41,7 @@
 | 事项 | 状态 | 说明 |
 |------|------|------|
 | LanceDB 向量检索 | ⏳ 待确认 | 需要评估是否满足第二大脑需求 |
+| Agent Memory Event Log | ⏳ 待设计 | 需要先完成会话事件、审批和工具结果的持久化模型 |
 | Pipeline 具体 Prompt 设计 | ⏳ 待设计 | 各阶段的 LLM 提示词需要详细设计 |
 | 前端 HITL 交互细节 | ⏳ 待细化 | 审批卡片的具体交互流程 |
 

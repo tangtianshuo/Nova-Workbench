@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-15T13:26:37.171Z"
+last_updated: "2026-08-15T13:51:48.847Z"
 last_activity: 2026-08-15
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 ## Current Position
 
 Phase: 15
-Plan: 02 of 4 (15-01 storage foundation complete)
-Status: Executing Phase 15 — plan 01/4 done (migration 0004 + ftsTokens + memoryStore, 96/96 green)
+Plan: 4 of 4 (15-01 storage foundation complete)
+Status: Ready to execute
 Last activity: 2026-08-15
 
 ## Performance Metrics
@@ -43,6 +43,7 @@ Last activity: 2026-08-15
 | Phase 14 P03 | 15 min | 3 tasks | 4 files (+8 tests, 68/68 green) |
 | Phase 14 P04 | 20 min | 4 tasks | 6 files (+12 tests, 80/80 green) |
 | Phase 15 P01 | ~11min | 3 tasks | 8 files |
+| Phase 15 P03 | ~35 min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ v0.3.0 roadmap decisions:
 - [Phase 14 P01]: EVT-05 storage foundation — migration 0003 agent_confirmation_candidates + paramsHash (canonical JSON SHA-256) + ConfirmationStore 双实现 (Memory/Sqlite) + 原子 conditional UPDATE consume (双并发恰一成功) + TTL 派生过期 + kind 单表判别;9 个新测试全部通过;53/53 全绿;不触碰 src/ai/confirmations.ts (Plan 02 范围)
 - [Phase 14 P04]: EVT-04 session restore — crash-tail cut at last turn_ended, orphan tool_calls settled by appended tool_result (NEVER re-execute), module-level promise dedupe for StrictMode, resumeEventEmission for original-stream continuation, restoreComplete submit gate in 3 places; 12 new tests, 80/80 green; append-only throughout
 - [Phase 15 P01]: 存储底座 — migration 0004 (memory_candidates/memories/knowledge_docs + standalone FTS5 knowledge_fts,doc_rowid UNINDEXED join 锚点,supersede 过滤在查询 WHERE 不碰 FTS 行);ftsTokens 索引/查询同源切分(quoted-token MATCH 免注入);memoryStore 双实现防轰炸三项(paramsHash UNIQUE 去重/cap-20 让位/7d TTL 派生过期)+ supersedes 链 + user_directed 直接 confirm+consume 入库(source_candidate_token 审计);过期 pending hash 命中原地刷新 TTL,rejected+user_directed 复活;16 新测试 96/96 绿
+- [Phase 15]: 15-03: deleteProduct 级联统一放 productStore(fire-and-forget),rndStore.cleanupProduct 只留投影 omit — 单一级联点
+- [Phase 15]: 15-03: rndStore onRehydrateStorage 的 INITIAL_KNOWLEDGE_BASE merge 移除 — 会在 SQLite 投影上复活已删 mock 数据,hydrateKnowledgeFromRepo 独占该桶
 
 ### TODOs (pending)
 

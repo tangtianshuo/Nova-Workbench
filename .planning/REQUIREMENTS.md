@@ -21,10 +21,10 @@
 - [ ] **MEM-01**: 用户通过记忆候选确认流保存长期记忆(识别→候选→去重/冲突检查→用户确认→入库);模型推断只能创建候选,用户明确说"记住"才能直接创建确认候选
 - [ ] **MEM-02**: 被拒绝的记忆候选永不进入检索结果,且反馈给模型避免重复提出
 - [x] **MEM-03**: 记忆候选防轰炸:入队前去重、待确认队列有上限(~20)、候选带过期时间
-- [ ] **MEM-04**: 知识文档带版本和来源;更新后旧版本仍可审计,检索不返回失效索引
+- [x] **MEM-04**: 知识文档带版本和来源;更新后旧版本仍可审计,检索不返回失效索引
 - [x] **MEM-05**: 长期记忆通过 supersedes 链替换(新事实取代旧事实而非覆盖历史),每条记忆保留来源和版本
-- [ ] **MEM-06**: 用户可通过 FTS5 混合检索搜索知识库(关键词+标签+产品/项目/时间结构过滤),中文 2 字查询(需求/日程)可命中(CJK 字符切分,索引与查询共用同一 helper)
-- [ ] **MEM-07**: 检索结果带来源元数据(source_type/source_id/version/scope/updated_at),模型收到的每段知识可追溯出处
+- [x] **MEM-06**: 用户可通过 FTS5 混合检索搜索知识库(关键词+标签+产品/项目/时间结构过滤),中文 2 字查询(需求/日程)可命中(CJK 字符切分,索引与查询共用同一 helper)
+- [x] **MEM-07**: 检索结果带来源元数据(source_type/source_id/version/scope/updated_at),模型收到的每段知识可追溯出处
 - [ ] **MEM-08**: 每轮请求的上下文按优先级投影组装(业务事实→待确认动作→已确认记忆约束→FTS5 top-k→最近对话),并记录 context_injected 事件以供审计
 
 ### 上下文压缩 (CMP)
@@ -100,10 +100,10 @@
 | MEM-01 | Phase 15 | Pending |
 | MEM-02 | Phase 15 | Pending |
 | MEM-03 | Phase 15 | Complete |
-| MEM-04 | Phase 15 | Pending |
+| MEM-04 | Phase 15 | Complete |
 | MEM-05 | Phase 15 | Complete |
-| MEM-06 | Phase 15 | Pending |
-| MEM-07 | Phase 15 | Pending |
+| MEM-06 | Phase 15 | Complete |
+| MEM-07 | Phase 15 | Complete |
 | MEM-08 | Phase 15 | Pending |
 | CMP-01 | Phase 14 | Complete |
 | CMP-02 | Phase 14 | Complete |

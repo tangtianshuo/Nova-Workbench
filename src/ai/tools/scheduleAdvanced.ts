@@ -74,7 +74,7 @@ registerTool({
     confirmed: z.boolean().optional(),
     confirmationToken: z.string().min(1).optional(),
   }).strict(),
-  execute: ({ eventId, confirmed, confirmationToken }) => {
+  execute: async ({ eventId, confirmed, confirmationToken }) => {
     const scheduleStore = useScheduleStore.getState();
     const event = scheduleStore.events.find((item) => item.id === eventId);
     if (!event) {
@@ -87,13 +87,13 @@ registerTool({
         success: false,
         pendingConfirmation: true,
         destructive: true,
-        ...createDestructiveActionCandidate('deleteEvent', actionArgs, `删除日程“${event.title}”后将无法恢复。`),
+        ...(await createDestructiveActionCandidate('deleteEvent', actionArgs, `删除日程”${event.title}”后将无法恢复。`)),
       };
     }
     if (!confirmationToken) {
       throw new Error('A confirmation token is required before deleting an event.');
     }
-    consumeDestructiveActionConfirmation(confirmationToken, 'deleteEvent', actionArgs);
+    await consumeDestructiveActionConfirmation(confirmationToken, 'deleteEvent', actionArgs);
 
     const linkedTasks = useTaskStore
       .getState()

@@ -54,7 +54,7 @@ registerTool({
     confirmed: z.boolean().optional(),
     confirmationToken: z.string().min(1).optional(),
   }).strict(),
-  execute: ({ taskId, confirmed, confirmationToken }) => {
+  execute: async ({ taskId, confirmed, confirmationToken }) => {
     if (!findTask(taskId)) return { success: false, error: 'Task not found', taskId };
     const actionArgs = { taskId };
     if (!confirmed) {
@@ -62,13 +62,13 @@ registerTool({
         success: false,
         pendingConfirmation: true,
         destructive: true,
-        ...createDestructiveActionCandidate('deleteTask', actionArgs, '删除任务后将无法恢复。'),
+        ...(await createDestructiveActionCandidate('deleteTask', actionArgs, '删除任务后将无法恢复。')),
       };
     }
     if (!confirmationToken) {
       throw new Error('A confirmation token is required before deleting a task.');
     }
-    consumeDestructiveActionConfirmation(confirmationToken, 'deleteTask', actionArgs);
+    await consumeDestructiveActionConfirmation(confirmationToken, 'deleteTask', actionArgs);
     useTaskStore.getState().deleteTask(taskId);
     return {
       success: true,
@@ -163,7 +163,7 @@ registerTool({
     confirmed: z.boolean().optional(),
     confirmationToken: z.string().min(1).optional(),
   }).strict(),
-  execute: ({ taskIds, confirmed, confirmationToken }) => {
+  execute: async ({ taskIds, confirmed, confirmationToken }) => {
     const existingTaskIds: string[] = [];
     const failed: string[] = [];
 
@@ -180,13 +180,13 @@ registerTool({
         pendingConfirmation: true,
         destructive: true,
         failed,
-        ...createDestructiveActionCandidate('bulkDeleteTasks', actionArgs, `将删除 ${existingTaskIds.length} 个任务，删除后无法恢复。`),
+        ...(await createDestructiveActionCandidate('bulkDeleteTasks', actionArgs, `将删除 ${existingTaskIds.length} 个任务，删除后无法恢复。`)),
       };
     }
     if (!confirmationToken) {
       throw new Error('A confirmation token is required before deleting tasks.');
     }
-    consumeDestructiveActionConfirmation(confirmationToken, 'bulkDeleteTasks', actionArgs);
+    await consumeDestructiveActionConfirmation(confirmationToken, 'bulkDeleteTasks', actionArgs);
     const store = useTaskStore.getState();
     existingTaskIds.forEach((id) => store.deleteTask(id));
     return {

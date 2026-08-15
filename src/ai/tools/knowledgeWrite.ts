@@ -123,12 +123,12 @@ registerTool({
   name: 'writeKnowledgeArticle',
   description: 'Stage or persist a product knowledge article. The first call returns a candidate and requires explicit confirmation; only a confirmed matching token can write.',
   schema: writeKnowledgeArticleSchema,
-  execute: (args) => {
+  execute: async (args) => {
     const draft = resolveDraft(args);
     if (!args.confirmationToken) {
-      throw new ConfirmationRequiredError(createKnowledgeWriteCandidate(draft));
+      throw new ConfirmationRequiredError(await createKnowledgeWriteCandidate(draft));
     }
-    consumeKnowledgeWriteConfirmation(args.confirmationToken, draft);
+    await consumeKnowledgeWriteConfirmation(args.confirmationToken, draft);
     return writeConfirmedArticle(draft);
   },
 });

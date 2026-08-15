@@ -43,7 +43,13 @@ Plans:
   2. 崩溃发生在 tool_call 与 tool_result 之间时,重启恢复的会话中该 tool_call 标记为 interrupted,业务数据无重复写入(崩溃恢复 UAT 通过)
   3. 恢复的会话可继续对话,历史上下文完整;崩溃尾部被切到最后一个完整 turn,不出现残缺消息
   4. token 压力 ≥0.8×窗口时触发摘要压缩;压缩只发生在工具调用配对平衡处,`agent_events` 原始事件无任何丢失;压缩摘要带事件范围/生成时间/模型记录
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — EVT-05 存储底座:迁移 0003 确认候选表 + params_hash(规范化 JSON SHA-256)+ ConfirmationStore 双实现(原子条件 UPDATE 消费)
+- [ ] 14-02-PLAN.md — EVT-05 公开 API 迁移:confirmations.ts 异存储换 + 全部调用点 async 化 + 重启存活/防重复消费测试
+- [ ] 14-03-PLAN.md — CMP-01/02 上下文压缩:≥0.8×窗口压力门 + 配对平衡切分 + 带来源摘要的投影重写
+- [ ] 14-04-PLAN.md — EVT-04 会话恢复:崩溃尾切 + 孤儿 tool_call interrupted 标记 + 最近会话与待确认项恢复
 
 ### Phase 15: 长期记忆 + 知识文档 + FTS5 检索
 **Goal**: PM 拥有可管理的第二大脑 — 记忆需确认才入库、知识带版本与来源、中文关键词可命中、上下文按优先级投影注入
@@ -88,7 +94,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 13. Event Log 底座 + ToolLoop 重构 | 1/3 | Complete    | 2026-08-15 |
-| 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/? | Not started | - |
+| 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Not started | - |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 0/? | Not started | - |
 | 16. PRD 生产线 | 0/? | Not started | - |
 | 17. Agent UX + 架构文档 | 0/? | Not started | - |

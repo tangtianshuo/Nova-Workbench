@@ -26,6 +26,7 @@ import {
 } from '@/src/ai';
 import type { DestructiveActionCandidate, KnowledgeWriteCandidate } from '@/src/ai/confirmations';
 import { ChatSession } from '@/src/ai/chatSession';
+import { restoreLatestSession } from '@/src/ai/sessionRestore';
 import type { Provider } from '@/src/lib/api';
 import { cn } from '@/src/lib/utils';
 
@@ -88,6 +89,7 @@ export function ChatPanel() {
   const [loading, setLoading] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<KnowledgeWriteCandidate | null>(null);
   const [pendingDestructiveAction, setPendingDestructiveAction] = useState<DestructiveActionCandidate | null>(null);
+  const [restoreComplete, setRestoreComplete] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionRef = useRef(new ChatSession({ tokenBudget: 8_000 }));
@@ -98,6 +100,42 @@ export function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, streamingResponse, streamingTrace]);
+
+  // EVT-04: restore the most recent session once per app start. Explicit async entry —
+  // the ChatSession constructor above stays side-effect-free (evaluated every render).
+  // restoreComplete flips on EVERY terminal path (restored / nothing to restore / error)
+  // so the submit gate below can never wedge the panel permanently.
+  useEffect(() => {
+    let cancelled = false;
+    restoreLatestSession()
+      .then((restored) => {
+        if (cancelled) return;
+        if (restored) {
+          sessionRef.current = restored.session;
+          const history = restored.session
+            .getAllMessages()
+            .filter((message) => message.role === 'user' || (message.role === 'assistant' && !message.toolCallId))
+            .map((message) => ({
+              id: nextIdRef.current++,
+              role: message.role as 'user' | 'assistant',
+              content: message.content,
+            }));
+          setMessages(history);
+          const latestKnowledgeWrite = restored.pendingKnowledgeWrites[restored.pendingKnowledgeWrites.length - 1];
+          setPendingConfirmation(latestKnowledgeWrite ?? null);
+          const latestDestructiveAction = restored.pendingDestructiveActions[restored.pendingDestructiveActions.length - 1];
+          setPendingDestructiveAction(latestDestructiveAction ?? null);
+        }
+        setRestoreComplete(true);
+      })
+      .catch((error) => {
+        console.error('[session-restore] failed', error);
+        if (!cancelled) setRestoreComplete(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const updateTrace = (updater: (items: ToolTraceItem[]) => ToolTraceItem[]) => {
     setStreamingTrace((current) => {
@@ -110,7 +148,7 @@ export function ChatPanel() {
   const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || loading) return;
+    if (!restoreComplete || !trimmed || loading) return;
 
     const userMessage: ChatMessage = {
       id: nextIdRef.current++,
@@ -282,7 +320,7 @@ export function ChatPanel() {
   };
 
   const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && restoreComplete) {
       event.preventDefault();
       void handleSubmit();
     }
@@ -397,7 +435,7 @@ export function ChatPanel() {
               variant="primary"
               size="sm"
               loading={loading}
-              disabled={!input.trim()}
+              disabled={!restoreComplete || !input.trim()}
               aria-label="发送消息"
               className="shrink-0"
             >

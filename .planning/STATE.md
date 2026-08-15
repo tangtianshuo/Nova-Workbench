@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-15T16:31:57.983Z"
+last_updated: "2026-08-15T16:37:11.904Z"
 last_activity: 2026-08-15
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 ## Current Position
 
 Phase: 16 (prd) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-08-15
 
@@ -47,6 +47,7 @@ Last activity: 2026-08-15
 | Phase 15 P03 | ~35 min | 3 tasks | 11 files |
 | Phase 15 P04 | 32min | 4 tasks | 3 files |
 | Phase 16 P01 | 35min | 3 tasks | 14 files |
+| Phase 16 P02 | ~3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ v0.3.0 roadmap decisions:
 - [Phase 16]: [16-01] deliverable eventId rides in candidate params (survives restart) but is excluded from the dedup key; consume rehashes full params from candidate original fields
 - [Phase 16]: [16-01] stable docId deliverable-<productId>-<slotCode>: repeat slot commits supersede as new versions
 - [Phase 16]: [16-01] memoryStore listActiveMemories confirmedAt tiebreak by memoryRowid DESC — fixes Phase 15 overflow test flake
+- [Phase 16]: [16-02] consume-at-落槽: card 确认只表达编辑意图,Dialog 落槽是唯一确认消费点 — cancel 无损(候选是落槽前唯一真相,重开恢复原始草稿)
+- [Phase 16]: [16-02] PrdDraftDialog editor wrapped in DialogBody (plan JSX 裸编辑器无 gutter — DialogHeader/Footer 自带 px-5,Content 不带)
 
 ### TODOs (pending)
 

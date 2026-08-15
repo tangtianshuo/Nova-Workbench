@@ -10,7 +10,7 @@
 ## Phases
 
 - [x] **Phase 13: Event Log 底座 + ToolLoop 重构** — Agent 每一步落入 SQLite 事件日志,ChatSession 成为投影,消除双历史分叉 (completed 2026-08-15)
-- [ ] **Phase 14: 持久化确认 + 会话恢复 + 上下文压缩** — 重启后待确认项与最近会话可用,孤儿 tool_call 绝不重复执行,超长历史按配对边界摘要
+- [x] **Phase 14: 持久化确认 + 会话恢复 + 上下文压缩** — 重启后待确认项与最近会话可用,孤儿 tool_call 绝不重复执行,超长历史按配对边界摘要 (completed 2026-08-15)
 - [ ] **Phase 15: 长期记忆 + 知识文档 + FTS5 检索** — 记忆候选确认流、版本化知识文档、中文可命中的 FTS5 混合检索、按优先级投影组装上下文
 - [ ] **Phase 16: PRD 生产线** — agent 生成 PRD → HITL 确认 → MDXEditor 编辑 → 版本化落入研发中心卡槽,索引同事务更新
 - [ ] **Phase 17: Agent UX + 架构文档** — Agent 工作区落地、⌘K 携带视图上下文、结构化晨报、右键快捷 AI 动作、ARCHITECTURE.md + ADR 重写
@@ -43,7 +43,7 @@ Plans:
   2. 崩溃发生在 tool_call 与 tool_result 之间时,重启恢复的会话中该 tool_call 标记为 interrupted,业务数据无重复写入(崩溃恢复 UAT 通过)
   3. 恢复的会话可继续对话,历史上下文完整;崩溃尾部被切到最后一个完整 turn,不出现残缺消息
   4. token 压力 ≥0.8×窗口时触发摘要压缩;压缩只发生在工具调用配对平衡处,`agent_events` 原始事件无任何丢失;压缩摘要带事件范围/生成时间/模型记录
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 14-01-PLAN.md — EVT-05 存储底座:迁移 0003 确认候选表 + params_hash(规范化 JSON SHA-256)+ ConfirmationStore 双实现(原子条件 UPDATE 消费)
@@ -94,7 +94,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 13. Event Log 底座 + ToolLoop 重构 | 1/3 | Complete    | 2026-08-15 |
-| 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Not started | - |
+| 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Complete    | 2026-08-15 |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 0/? | Not started | - |
 | 16. PRD 生产线 | 0/? | Not started | - |
 | 17. Agent UX + 架构文档 | 0/? | Not started | - |

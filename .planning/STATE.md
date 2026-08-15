@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
-status: executing
-last_updated: "2026-08-15T12:30:00.000Z"
-last_activity: 2026-08-15 -- Phase 14 Plan 04 complete (EVT-04 session restore)
+status: completed
+last_updated: "2026-08-15T12:18:55.944Z"
+last_activity: 2026-08-15
 progress:
   total_phases: 9
   completed_phases: 2
@@ -19,22 +19,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-14)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 14 — confirm-restore-compaction
+**Current focus:** Phase 15 — 长期记忆 + 知识文档 + FTS5 检索
 
 ## Current Position
 
-Phase: 14 (confirm-restore-compaction) — IMPLEMENTATION COMPLETE (pending UAT)
-Plan: 4 of 4 (all plans COMPLETE 2026-08-15)
-Status: Phase 14 implementation complete (P01 EVT-05 storage + P02 async facade + P03 compaction + P04 session restore); remaining: manual UAT with tauri:dev + real SQLite
-Last activity: 2026-08-15 -- Phase 14 Plan 04 complete (session restore + 12 tests, 80/80 green)
+Phase: 15
+Plan: Not started
+Status: Phase 14 VERIFICATION PASS — Phase 15 ready (需 /gsd:research-phase: FTS5 runtime probe + CJK tokenizer 决策)
+Last activity: 2026-08-15
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Phases completed | 1 / 5 |
-| Plans completed | 3 / 3 (Phase 13) |
-| Requirements satisfied | 8 / 28 (EVT-01, EVT-02, EVT-03, EVT-04, EVT-05, EVT-06, EVT-07, EVT-08) |
+| Phases completed | 2 / 5 |
+| Plans completed | 7 / 7 (Phase 13 + 14) |
+| Requirements satisfied | 10 / 28 (EVT-01..08, CMP-01, CMP-02) |
 | Phase 13 P01 | 6 min | 4 tasks | 9 files |
 | Phase 13 P02 | 5 min | 2 tasks | 2 files |
 | Phase 13 P03 | 10 min | 3 tasks | 4 files |
@@ -87,6 +87,6 @@ If resuming after context loss:
 1. Read `.planning/ROADMAP.md` — current milestone phases 13-17
 2. Read `.planning/REQUIREMENTS.md` — v0.3.0 requirements (28 v1 REQ-IDs)
 3. Read `.planning/research/SUMMARY.md` — dependency chain rationale + research flags
-4. Next action: `/gsd:discuss-phase 14` then `/gsd:plan-phase 14` — Phase 14 (持久化确认 + 会话恢复 + 上下文压缩: EVT-04, EVT-05, CMP-01, CMP-02);Phase 13 VERIFICATION PASS 已归档
+4. Next action: `/gsd:research-phase 15` then `/gsd:plan-phase 15` — Phase 15 (长期记忆 + 知识文档 + FTS5 检索: MEM-01..08);Phase 13/14 VERIFICATION PASS 已归档
 
-Key files: `src/ai/events/` (eventStore/invariants/artifacts), `src/ai/tokenEstimate.ts`, `src/ai/chatSession.ts` (event-log projection with dual-write addMessage + fromEvents rebuild), `src/ai/toolLoop.ts` (single-history event-driven loop, UUID toolCallId, prepareToolResult, auditSessionEvents), `src/ai/__tests__/phase13*.test.ts` (3 test files, PERMANENT replay parity), `src-tauri/migrations/0002_agent_events.sql`, `docs/AGENT_MEMORY_REFERENCE.md` (新架构真相源)
+Key files: `src/ai/events/` (eventStore/invariants/artifacts), `src/ai/confirmationStore.ts` + `src/ai/paramsHash.ts` (EVT-05 持久化确认), `src/ai/sessionRestore.ts` (EVT-04 会话恢复), `src/ai/compaction.ts` (CMP-01/02), `src/ai/chatSession.ts` (投影 + compaction-aware fromEvents + resumeEventEmission), `src/ai/toolLoop.ts` (单历史 + 压缩触发), `src/ai/__tests__/phase1{3,4}*.test.ts` (PERMANENT replay parity), `src-tauri/migrations/0002_agent_events.sql` + `0003_confirmation_candidates.sql`, `docs/AGENT_MEMORY_REFERENCE.md` (新架构真相源)

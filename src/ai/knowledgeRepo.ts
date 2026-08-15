@@ -24,6 +24,8 @@ export interface KnowledgeDocInput {
   author: string;
   sourceType?: 'seed' | 'agent' | 'user';
   sourceSessionId?: string;
+  /** Phase 16 (DELIV-03): correlation_id of the generating turn (agent_events source-event pointer). */
+  sourceEventId?: string;
   /** Seeding/backfill only — defaults to now. Mock relative strings ('刚刚') must be ISO-converted by the caller. */
   updatedAt?: string;
 }
@@ -41,6 +43,7 @@ export interface KnowledgeDoc {
   author: string;
   sourceType: string;
   sourceSessionId: string | null;
+  sourceEventId: string | null;
   createdAt: string;
   updatedAt: string;
   supersededAt: string | null;
@@ -119,6 +122,7 @@ export class MemoryKnowledgeRepo implements KnowledgeRepo {
       author: input.author,
       sourceType: input.sourceType ?? 'user',
       sourceSessionId: input.sourceSessionId ?? null,
+      sourceEventId: input.sourceEventId ?? null,
       createdAt: current?.createdAt ?? now,
       updatedAt: input.updatedAt ?? now,
       supersededAt: null,
@@ -225,6 +229,7 @@ interface KnowledgeDocRow {
   author: string;
   source_type: string;
   source_session_id: string | null;
+  source_event_id: string | null;
   created_at: string;
   updated_at: string;
   superseded_at: string | null;
@@ -244,6 +249,7 @@ function mapRow(row: KnowledgeDocRow): KnowledgeDoc {
     author: row.author,
     sourceType: row.source_type,
     sourceSessionId: row.source_session_id,
+    sourceEventId: row.source_event_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     supersededAt: row.superseded_at,
@@ -264,13 +270,14 @@ export class SqliteKnowledgeRepo implements KnowledgeRepo {
     await db.execute(
       `INSERT INTO knowledge_docs
          (doc_id, version, product_id, title, category, tags_json, summary, content, author,
-          source_type, source_session_id, created_at, updated_at, superseded_at)
+          source_type, source_session_id, source_event_id, created_at, updated_at, superseded_at)
        VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM knowledge_docs WHERE doc_id = $1),
-               $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL)`,
+               $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULL)`,
       [
         input.docId, input.productId, input.title, input.category,
         JSON.stringify(input.tags), input.summary, input.content, input.author,
-        input.sourceType ?? 'user', input.sourceSessionId ?? null, now, updatedAt,
+        input.sourceType ?? 'user', input.sourceSessionId ?? null, input.sourceEventId ?? null,
+        now, updatedAt,
       ],
     );
     const rows = await db.select<KnowledgeDocRow[]>(

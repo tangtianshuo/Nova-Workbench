@@ -8,7 +8,8 @@ import { isTauri } from '@/src/lib/api';
 import { lazySqlite } from '@/src/stores/storage/lazySqlite';
 import { computeParamsHash } from './paramsHash';
 
-export type ConfirmationKind = 'knowledge_write' | 'destructive_action';
+// 'deliverable_draft' (Phase 16): PRD-pipeline candidates — see confirmations.ts.
+export type ConfirmationKind = 'knowledge_write' | 'destructive_action' | 'deliverable_draft';
 export type ConfirmationStatus = 'pending' | 'confirmed' | 'consumed' | 'rejected';
 
 export interface PersistedConfirmation {
@@ -58,6 +59,8 @@ export interface ConfirmationStore {
   consume(confirmationToken: string, paramsHash: string): Promise<PersistedConfirmation>;
   reject(confirmationToken: string): Promise<boolean>;
   listActive(kind: ConfirmationKind): Promise<PersistedConfirmation[]>;
+  /** Rejected rows (newest first) still inside their TTL — anti-repropose injection has a natural bound. */
+  listRejected(kind: ConfirmationKind, limit?: number): Promise<PersistedConfirmation[]>;
 }
 
 /* === Shared helpers === */
@@ -173,6 +176,19 @@ export class MemoryConfirmationStore implements ConfirmationStore {
     }
     result.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
     return result;
+  }
+
+  async listRejected(kind: ConfirmationKind, limit?: number): Promise<PersistedConfirmation[]> {
+    const now = nowIso();
+    const result: PersistedConfirmation[] = [];
+    for (const row of this.rows.values()) {
+      if (row.kind !== kind || row.status !== 'rejected' || row.expiresAt <= now) continue;
+      result.push(deepCopyRow(row));
+    }
+    result.sort((a, b) =>
+      (a.rejectedAt ?? '') < (b.rejectedAt ?? '') ? 1 : (a.rejectedAt ?? '') > (b.rejectedAt ?? '') ? -1 : 0,
+    );
+    return result.slice(0, limit ?? 5);
   }
 
   reset(): void {
@@ -342,6 +358,19 @@ export class SqliteConfirmationStore implements ConfirmationStore {
           AND expires_at > $2
         ORDER BY created_at ASC`,
       [kind, now],
+    );
+    return rows.map(mapRow);
+  }
+
+  async listRejected(kind: ConfirmationKind, limit?: number): Promise<PersistedConfirmation[]> {
+    const db = await lazySqlite();
+    // Rejected rows keep their row TTL (24h natural expiry) — the anti-repropose
+    // injection stays bounded; it never permanently bans future generations.
+    const rows = await db.select<ConfirmationCandidateRow[]>(
+      `SELECT * FROM agent_confirmation_candidates
+        WHERE kind = $1 AND status = 'rejected' AND expires_at > $2
+        ORDER BY rejected_at DESC LIMIT $3`,
+      [kind, nowIso(), limit ?? 5],
     );
     return rows.map(mapRow);
   }

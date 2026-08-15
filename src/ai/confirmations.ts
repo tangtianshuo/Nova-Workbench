@@ -261,3 +261,161 @@ export async function listPendingDestructiveActions(): Promise<DestructiveAction
   const rows = await getConfirmationStore().listActive('destructive_action');
   return rows.map(destructiveFromRow);
 }
+
+/* === Phase 16: deliverable draft candidates (PRD pipeline, DELIV-01..03) === */
+
+export type DeliverableCode = 'prd';
+
+export interface DeliverableDraftCandidate {
+  confirmationToken: string;
+  productId: string;
+  code: DeliverableCode;
+  title: string;
+  draft: string;
+  sessionId: string | null;
+  /** correlation_id of the generating turn — queryable in agent_events (source-event pointer). */
+  eventId: string | null;
+  createdAt: string;
+}
+
+export class DeliverableDraftConfirmationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DeliverableDraftConfirmationError';
+  }
+}
+
+// type alias (not interface) so `row.params as DeliverableParams` passes tsc —
+// object-literal types get an implicit index signature, interfaces don't.
+type DeliverableParams = {
+  code: DeliverableCode;
+  productId: string;
+  title: string;
+  draft: string;
+  eventId: string | null;
+};
+
+// eventId rides in params so provenance survives restart, but is excluded from
+// the dedup key: a later turn re-generating the same draft still dedups to the
+// original candidate.
+function deliverableParams(input: {
+  code: DeliverableCode;
+  productId: string;
+  title: string;
+  draft: string;
+  eventId: string | null;
+}): Record<string, unknown> {
+  return {
+    code: input.code,
+    productId: input.productId,
+    title: input.title,
+    draft: input.draft,
+    eventId: input.eventId,
+  };
+}
+
+function deliverableFromRow(row: PersistedConfirmation): DeliverableDraftCandidate {
+  const p = row.params as DeliverableParams;
+  return {
+    confirmationToken: row.confirmationToken,
+    productId: p.productId,
+    code: p.code,
+    title: p.title,
+    draft: p.draft,
+    sessionId: row.sessionId,
+    eventId: p.eventId ?? null,
+    createdAt: row.createdAt,
+  };
+}
+
+function deliverableErrorMessage(code: ConfirmationStoreError['code']): string {
+  if (code === 'not_confirmed') return 'Deliverable draft candidate has not been explicitly confirmed.';
+  if (code === 'params_mismatch') return 'Deliverable draft arguments do not match the confirmed candidate.';
+  return 'Deliverable draft confirmation token is invalid or expired.';
+}
+
+// paramsHash dedup (locked decision): agent_confirmation_candidates has no
+// UNIQUE constraint on params_hash, so dedup happens here — same content
+// returns the SAME token without inserting a row.
+export async function createDeliverableDraftCandidate(input: {
+  productId: string;
+  code: DeliverableCode;
+  title: string;
+  draft: string;
+  sessionId: string | null;
+  eventId: string | null;
+}): Promise<DeliverableDraftCandidate> {
+  const active = await getConfirmationStore().listActive('deliverable_draft');
+  const duplicate = active.find((row) => {
+    const p = row.params as DeliverableParams;
+    return p.code === input.code
+      && p.productId === input.productId
+      && p.title === input.title
+      && p.draft === input.draft;
+  });
+  if (duplicate) return deliverableFromRow(duplicate);
+  const row = await getConfirmationStore().create({
+    kind: 'deliverable_draft',
+    params: deliverableParams(input),
+    summary: input.title,
+    sessionId: input.sessionId,
+  });
+  return deliverableFromRow(row);
+}
+
+export async function getDeliverableDraftCandidate(
+  confirmationToken: string,
+): Promise<DeliverableDraftCandidate | undefined> {
+  const row = await getConfirmationStore().get(confirmationToken);
+  if (!row) return undefined;
+  if (row.kind !== 'deliverable_draft') return undefined;
+  if (isRowAlive(row)) return undefined;
+  return deliverableFromRow(row);
+}
+
+export async function confirmDeliverableDraft(
+  confirmationToken: string,
+): Promise<DeliverableDraftCandidate> {
+  try {
+    const row = await getConfirmationStore().confirm(confirmationToken);
+    return deliverableFromRow(row);
+  } catch (error) {
+    if (error instanceof ConfirmationStoreError) {
+      throw new DeliverableDraftConfirmationError(deliverableErrorMessage(error.code));
+    }
+    throw error;
+  }
+}
+
+export async function rejectDeliverableDraft(confirmationToken: string): Promise<boolean> {
+  return getConfirmationStore().reject(confirmationToken);
+}
+
+export async function listPendingDeliverableDrafts(): Promise<DeliverableDraftCandidate[]> {
+  const rows = await getConfirmationStore().listActive('deliverable_draft');
+  return rows.map(deliverableFromRow);
+}
+
+export async function listRejectedDeliverableDrafts(limit = 5): Promise<DeliverableDraftCandidate[]> {
+  const rows = await getConfirmationStore().listRejected('deliverable_draft', limit);
+  return rows.map(deliverableFromRow);
+}
+
+// 关键设计:锁定决策「确认→编辑→落槽」使内容 hash 匹配不可能(draft 被用户
+// 编辑)。消费 hash 从 candidate 的原始字段重算(非调用方编辑后的 draft),
+// 必然等于行内 paramsHash。防护来自:① store 原子条件 UPDATE(双并发恰一
+// 成功,Phase 14 不变量);② tool 内 args↔candidate 身份校验。
+export async function consumeDeliverableDraftConfirmation(
+  candidate: DeliverableDraftCandidate,
+): Promise<DeliverableDraftCandidate> {
+  const hash = await computeParamsHash(deliverableParams(candidate));
+  try {
+    const row = await getConfirmationStore().consume(candidate.confirmationToken, hash);
+    return deliverableFromRow(row);
+  } catch (error) {
+    if (error instanceof ConfirmationStoreError) {
+      throw new DeliverableDraftConfirmationError(deliverableErrorMessage(error.code));
+    }
+    throw error;
+  }
+}

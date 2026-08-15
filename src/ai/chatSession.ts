@@ -33,6 +33,19 @@ export interface ChatSessionOptions {
   __emitEvents?: boolean;
 }
 
+/** CMP-02 provenance: what the summary covers, when it was generated, by which model. */
+export interface CompactionSummaryRecord {
+  coveredSeqStart: number;
+  coveredSeqEnd: number;
+  summaryText: string;
+  model: string;
+  generatedAt: string;
+}
+
+export function formatCompactionSummary(record: CompactionSummaryRecord): string {
+  return `[历史压缩摘要 | 覆盖事件 seq ${record.coveredSeqStart}-${record.coveredSeqEnd} | 生成于 ${record.generatedAt} | 模型 ${record.model}]\n${record.summaryText}`;
+}
+
 type SessionTurn = ChatMessage[];
 
 const DEFAULT_MAX_TURNS = 8;
@@ -103,9 +116,14 @@ export class ChatSession {
   private readonly emitEvents: boolean;
   private sessionCreatedEmitted = false;
   private lastEventPromise: Promise<unknown> = Promise.resolve();
+  private compaction: CompactionSummaryRecord | null = null;
 
   readonly sessionId: string;
   readonly tokenBudget: number;
+
+  getCompaction(): CompactionSummaryRecord | null {
+    return this.compaction ? { ...this.compaction } : null;
+  }
 
   constructor(sessionId?: string, tokenBudget?: number);
   constructor(options?: ChatSessionOptions);
@@ -204,48 +222,87 @@ export class ChatSession {
     };
   }
 
-  /** Rebuild a session as a pure projection of its event stream. Never re-emits events. */
-  static fromEvents(events: AgentEvent[], options?: { sessionId?: string; tokenBudget?: number }): ChatSession {
-    const sessionId = options?.sessionId ?? events[0]?.sessionId ?? crypto.randomUUID();
-    const session = new ChatSession({ sessionId, tokenBudget: options?.tokenBudget, __emitEvents: false });
+  /** Convert an event stream into ChatMessage[] (the switch body formerly inline in
+   * fromEvents). session_created / turn_ended / compaction_started /
+   * compaction_completed carry no message — they hit the default: break. */
+  private static rebuildMessages(events: AgentEvent[]): ChatMessage[] {
+    const messages: ChatMessage[] = [];
     for (const event of events) {
       const eventPayload = event.payload;
       const timestamp = Date.parse(event.createdAt) || Date.now();
       switch (event.eventType) {
         case 'user_message':
-          session.pushRebuilt({ role: 'user', content: String(eventPayload.content ?? '') }, timestamp);
+          messages.push({ role: 'user', content: String(eventPayload.content ?? ''), timestamp });
           break;
         case 'assistant_message':
-          session.pushRebuilt({ role: 'assistant', content: String(eventPayload.content ?? '') }, timestamp);
+          messages.push({ role: 'assistant', content: String(eventPayload.content ?? ''), timestamp });
           break;
         case 'tool_call':
-          session.pushRebuilt({
+          messages.push({
             role: 'assistant',
             content: String(eventPayload.content ?? '[requesting tools]'),
             toolCallId: typeof eventPayload.toolCallId === 'string' ? eventPayload.toolCallId : undefined,
             toolName: typeof eventPayload.toolName === 'string' ? eventPayload.toolName : undefined,
-          }, timestamp);
+            timestamp,
+          });
           break;
         case 'tool_result':
-          session.pushRebuilt({
+          messages.push({
             role: 'tool',
             content: String(eventPayload.modelText ?? ''),
             toolCallId: typeof eventPayload.toolCallId === 'string' ? eventPayload.toolCallId : undefined,
             toolName: typeof eventPayload.toolName === 'string' ? eventPayload.toolName : undefined,
-          }, timestamp);
+            timestamp,
+          });
           break;
         default:
-          break; // session_created / turn_ended / future types carry no message
+          break; // session_created / turn_ended / compaction_started / compaction_completed
       }
     }
+    return messages;
+  }
+
+  /** Rebuild a session as a pure projection of its event stream. Never re-emits events.
+   * Compaction-aware: if the log contains a compaction_completed, only events with
+   * seq > coveredSeqEnd are replayed and the summary is carried on the session so
+   * getMessagesForLLM prepends it as a sourced summary. */
+  static fromEvents(events: AgentEvent[], options?: { sessionId?: string; tokenBudget?: number }): ChatSession {
+    const sessionId = options?.sessionId ?? events[0]?.sessionId ?? crypto.randomUUID();
+    const sorted = [...events].sort((a, b) => a.seq - b.seq);
+    const lastCompaction = [...sorted].reverse().find((event) => event.eventType === 'compaction_completed');
+    let replayEvents = sorted;
+    let compaction: CompactionSummaryRecord | null = null;
+    if (lastCompaction) {
+      const payload = lastCompaction.payload;
+      const coveredSeqEnd = typeof payload.coveredSeqEnd === 'number' ? payload.coveredSeqEnd : -1;
+      if (coveredSeqEnd >= 0 && typeof payload.summaryText === 'string') {
+        compaction = {
+          coveredSeqStart: typeof payload.coveredSeqStart === 'number' ? payload.coveredSeqStart : 1,
+          coveredSeqEnd,
+          summaryText: String(payload.summaryText),
+          model: String(payload.model ?? 'unknown'),
+          generatedAt: String(payload.generatedAt ?? ''),
+        };
+        replayEvents = sorted.filter((event) => event.seq > coveredSeqEnd);
+      }
+    }
+    const session = new ChatSession({ sessionId, tokenBudget: options?.tokenBudget, __emitEvents: false });
+    session.messages = ChatSession.rebuildMessages(replayEvents);
+    session.compaction = compaction;
     return session;
   }
 
-  private pushRebuilt(message: Omit<ChatMessage, 'timestamp'>, timestamp: number): void {
-    this.messages.push({ ...message, timestamp });
+  /** CMP-01 (projection-only): applyCompactionResult replaces the projection with
+   * [sourced summary] + suffix turns after a successful compaction. Called by
+   * maybeCompactSession; events are append-only — nothing here deletes from the log. */
+  applyCompactionResult(record: CompactionSummaryRecord, eventsAfterSplit: AgentEvent[]): void {
+    this.compaction = { ...record };
+    this.messages = ChatSession.rebuildMessages([...eventsAfterSplit].sort((a, b) => a.seq - b.seq));
   }
 
-  /** Return the newest complete exchanges; system prompts are supplied by the caller. */
+  /** Return the newest complete exchanges; system prompts are supplied by the caller.
+   * When a compaction has occurred, the sourced summary is prepended so earlier
+   * history enters context with attribution (CMP-02 provenance). */
   getMessagesForLLM(maxTurns = DEFAULT_MAX_TURNS): Array<{
     role: ChatSessionRole;
     content: string;
@@ -254,7 +311,11 @@ export class ChatSession {
 
     const turns = groupIntoTurns(this.messages).slice(-maxTurns);
     const selected = trimToBudget(turns, this.tokenBudget);
-    return collapseToolCallAssistants(selected).map(({ role, content }) => ({ role, content }));
+    const derived = collapseToolCallAssistants(selected).map(({ role, content }) => ({ role, content }));
+    if (this.compaction) {
+      return [{ role: 'user', content: formatCompactionSummary(this.compaction) }, ...derived];
+    }
+    return derived;
   }
 
   getAllMessages(): ChatMessage[] {

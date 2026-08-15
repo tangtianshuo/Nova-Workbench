@@ -11,6 +11,7 @@ import { chatWithTools, type ChatMessage, type Provider } from '@/src/lib/api';
 import { buildCoreContext } from './context';
 import { ChatSession } from './chatSession';
 import { buildSystemPrompt } from './prompts';
+import { assembleInjectedContext, type KnowledgeSearchHit } from './contextAssembler';
 import { executeTool, ToolArgError, toolsToSchemas } from './registry';
 import { useUIStore } from '@/src/stores/uiStore';
 import './tools/knowledgeWrite';
@@ -41,6 +42,22 @@ setEventScopeProvider(() => ({
 }));
 
 const MAX_ITERATIONS = 5;
+
+// MEM-07/MEM-08 — lazy coupling to knowledgeRepo (delivered by 15-03, same
+// wave). Dynamic import + catch-degradation to []: before 15-03 merges the FTS
+// segment simply retrieves nothing; once it lands this call becomes live
+// without any change here. Never blocks the dialog on retrieval failure.
+// @ts-ignore — knowledgeRepo does not exist yet in this worktree (15-03 wave
+// mate); tsc would fail on the unresolved specifier. Drop the ignore after merge.
+const searchKnowledgeLazy = async (query: string, limit: number): Promise<KnowledgeSearchHit[]> => {
+  try {
+    // @ts-ignore — knowledgeRepo does not exist yet in this worktree (15-03 wave mate); unresolved-specifier error suppressed on this single line. Drop after merge.
+    const module = await import('./knowledgeRepo') as { searchKnowledgeHybrid: (q: string, k: number) => Promise<KnowledgeSearchHit[]> };
+    return await module.searchKnowledgeHybrid(query, limit);
+  } catch {
+    return [];
+  }
+};
 
 export interface ToolLoopCallbacks {
   onToken?: (text: string) => void;
@@ -98,7 +115,22 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
   const correlationId = crypto.randomUUID();
   session.setCorrelationId(correlationId);
   session.addMessage('user', args.userMessage);
-  const systemPrompt = args.systemPromptOverride ?? buildSystemPrompt({ coreContext: buildCoreContext() });
+  // MEM-08 — five-segment context injection. systemPromptOverride short-circuits
+  // FIRST (byte-compatible with the old ?? fallback); only the assembled path
+  // emits the context_injected audit event (payload = segment audit).
+  let systemPrompt: string;
+  if (args.systemPromptOverride) {
+    systemPrompt = args.systemPromptOverride;
+  } else {
+    const assembled = await assembleInjectedContext({
+      buildCore: buildCoreContext,
+      searchKnowledge: searchKnowledgeLazy,
+      productId: useUIStore.getState().selectedProductId,
+      userMessage: args.userMessage,
+    });
+    systemPrompt = buildSystemPrompt({ coreContext: assembled.coreContext });
+    session.appendAuxEvent('context_injected', assembled.audit);
+  }
   const argErrorCount = new Map<string, number>();
   let content = '';
   let toolCallsExecuted = 0;

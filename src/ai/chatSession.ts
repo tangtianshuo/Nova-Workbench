@@ -185,6 +185,21 @@ export class ChatSession {
     }).then(() => undefined, () => undefined);
   }
 
+  /** MEM-08 (Phase 15): append an auxiliary (non-message) event — e.g.
+   * context_injected — through the same event-store enqueue chain as
+   * addMessage, so seq stays contiguous. rebuildMessages' default:break
+   * ignores it: the event log carries the audit, replay produces no message. */
+  appendAuxEvent(eventType: string, payload: Record<string, unknown>): void {
+    if (!this.emitEvents) return;
+    this.ensureSessionCreatedEvent();
+    this.lastEventPromise = getEventStore().append({
+      sessionId: this.sessionId,
+      eventType,
+      payload,
+      correlationId: this.currentCorrelationId,
+    }).then(() => undefined, () => undefined);
+  }
+
   addMessage(message: ChatSessionMessageInput): void;
   addMessage(role: ChatSessionRole, content: string, toolCallId?: string, toolName?: string, payload?: Record<string, unknown>): void;
   addMessage(

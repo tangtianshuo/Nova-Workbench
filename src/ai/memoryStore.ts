@@ -364,7 +364,9 @@ export class MemoryMemoryStore implements MemoryStore {
           m.deletedAt === null &&
           (m.scope === 'global' || (productId !== undefined && m.productId === productId)),
       )
-      .sort((a, b) => (a.confirmedAt < b.confirmedAt ? 1 : a.confirmedAt > b.confirmedAt ? -1 : 0));
+      // memoryRowid tiebreak: tight-loop inserts share a confirmedAt millisecond;
+      // newest-first must stay deterministic (Phase 15 overflow test flake).
+      .sort((a, b) => (a.confirmedAt < b.confirmedAt ? 1 : a.confirmedAt > b.confirmedAt ? -1 : b.memoryRowid - a.memoryRowid));
     return rows.map(copyMemory);
   }
 

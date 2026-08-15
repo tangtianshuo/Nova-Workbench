@@ -9,6 +9,7 @@
 import { estimateTokens } from './tokenEstimate';
 import { toFtsTokens, toFtsMatchString } from './ftsTokens';
 import { getMemoryStore } from './memoryStore';
+import { listPendingDeliverableDrafts, listRejectedDeliverableDrafts } from './confirmations';
 
 export interface KnowledgeSearchHit {
   title: string;
@@ -88,17 +89,28 @@ export async function assembleInjectedContext(opts: {
   sections.push(coreClamped.text);
   segments.push({ name: 'core', items: 1, tokens: estimateTokens(coreClamped.text), truncated: coreClamped.truncated });
 
-  // 2. pending candidates + rejected do-not-repropose list (MEM-02)
-  const [pending, rejected] = await Promise.all([store.listPending(), store.listRejected(REJECTED_LIMIT)]);
+  // 2. pending candidates + rejected do-not-repropose list (MEM-02), plus the
+  // deliverable-draft equivalents (Phase 16, same shape). Deliverable queries
+  // degrade to empty on failure — they must never block injection.
+  const [pending, rejected, deliverablePending, deliverableRejected] = await Promise.all([
+    store.listPending(),
+    store.listRejected(REJECTED_LIMIT),
+    listPendingDeliverableDrafts().catch(() => []),
+    listRejectedDeliverableDrafts(REJECTED_LIMIT).catch(() => []),
+  ]);
   const pendingLines: string[] = [];
   if (rejected.length > 0) {
     pendingLines.push(`不要再提出以下记忆（用户已拒绝）: ${rejected.map((item) => item.content).join('；')}`);
   }
+  if (deliverableRejected.length > 0) {
+    pendingLines.push(`不要再生成以下交付物草稿（用户已忽略）: ${deliverableRejected.map((c) => `${c.code.toUpperCase()}《${c.title}》`).join('；')}`);
+  }
   pendingLines.push(...pending.map((item) => `- （待用户确认）${item.content}`));
+  pendingLines.push(...deliverablePending.map((c) => `- （待用户确认）${c.code.toUpperCase()} 草稿《${c.title}》`));
   if (pendingLines.length > 0) {
     const clamped = clampLines(pendingLines, SEGMENT_QUOTAS.pending);
     sections.push(`## 待确认记忆候选\n${clamped.text}`);
-    segments.push({ name: 'pending', items: pending.length, tokens: estimateTokens(clamped.text), truncated: clamped.truncated });
+    segments.push({ name: 'pending', items: pending.length + deliverablePending.length, tokens: estimateTokens(clamped.text), truncated: clamped.truncated });
   } else {
     segments.push({ name: 'pending', items: 0, tokens: 0, truncated: false });
   }

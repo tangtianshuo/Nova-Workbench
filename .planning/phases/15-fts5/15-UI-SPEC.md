@@ -1,7 +1,8 @@
 ---
 phase: 15
 slug: fts5
-status: draft
+status: approved
+reviewed_at: 2026-08-15
 shadcn_initialized: false
 preset: none
 created: 2026-08-15
@@ -45,7 +46,7 @@ Unchanged from project standard (compact desktop). Declared for this phase's new
 | md | 16px | Confirmation card vertical rhythm (py-3 + mt-2 ≈ standard) |
 | lg | 24px | Result list section padding |
 
-Exceptions: none. Use Tailwind compact classes already in the codebase (`px-3 py-1.5` buttons, `p-2` lists, `space-y-0.5` rows).
+Exceptions: none. Use Tailwind compact classes already in the codebase (`px-3 py-1.5` buttons, `p-2` lists, `space-y-0.5` rows). Note: `py-1.5` (6px) and `space-y-0.5` (2px) are inherited project-wide conventions, NOT new exceptions — do not "correct" them to 4px-grid values during implementation.
 
 ---
 

@@ -35,6 +35,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0003_confirmation_candidates.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "memories_knowledge_fts",
+            sql: include_str!("../migrations/0004_memories_knowledge_fts.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

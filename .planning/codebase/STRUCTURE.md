@@ -15,6 +15,8 @@ pm-workspace/
 │   ├── views/              # 11 top-level route screens (8 are lazy-loaded)
 │   ├── stores/             # 6 Zustand stores (source of truth)
 │   ├── store/              # Legacy AppContext.tsx (compat facade — single file)
+│   ├── ai/                 # AI runtime: toolLoop, chatSession, registry, prompts, tools/
+│   │   └── events/         # Agent Event Log (Phase 13): types, eventStore, invariants, artifacts
 │   ├── data/               # mockProducts.ts, mockRndData.ts, mockTasks.ts (initial state + types)
 │   ├── lib/                # utils.ts (cn, when), icons.ts
 │   ├── hooks/              # useTheme.ts
@@ -71,6 +73,12 @@ pm-workspace/
 - Contains: `AppContext.tsx` only
 - Note: Will be deleted once all `useApp()` callers migrate to direct store hooks
 
+**`src/ai/`:**
+- Purpose: Agent runtime — tool loop, chat session, tool registry + implementations
+- Contains: `toolLoop.ts`, `chatSession.ts`, `registry.ts`, `confirmations.ts`, `prompts.ts`, `context.ts`, `tokenEstimate.ts`, `tools/`, `__tests__/`
+- Key files: `events/eventStore.ts` (EventStore dual implementation — SQLite in Tauri, in-memory otherwise; seq allocated SQL-side), `events/invariants.ts` (tool_call↔tool_result pairing + seq contiguity checks), `events/artifacts.ts` (>4KB tool results), `events/types.ts` (event vocabulary per AGENT_MEMORY_REFERENCE §3)
+- Note: New migrations for agent data land in `src-tauri/migrations/` (0002 = agent_events + agent_artifacts)
+
 **`src/data/`:**
 - Purpose: Initial state and type definitions for domain entities
 - Contains: `mockProducts.ts` (35KB — `Product`, `ProductMilestone`, `ProductDocument`, `ProductSkill`, `INITIAL_PRODUCTS_DATA`), `mockRndData.ts` (59KB — R&D types and `FULL_LIFECYCLE_DELIVERABLES_CATALOG`), `mockTasks.ts` (`Task`, `TaskCategory`, `INITIAL_CATEGORIES`)
@@ -121,7 +129,7 @@ pm-workspace/
 - `src/lib/utils.ts`: `cn()` helper
 
 **Testing:**
-- None. No test files, no test runner, no test config in `package.json`
+- `src/ai/__tests__/` + `src/stores/__tests__/`: node:test suites run via `npx tsx --test src/ai/__tests__/*.test.ts src/stores/__tests__/*.test.ts` (no package.json script)
 
 ## Naming Conventions
 

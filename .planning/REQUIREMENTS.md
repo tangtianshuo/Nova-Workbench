@@ -7,14 +7,14 @@
 
 ### P0 可恢复执行底座 (EVT)
 
-- [ ] **EVT-01**: Agent 运行时每一步(用户消息/模型输出/工具调用/工具结果/审批请求/审批决定)作为事件追加写入 SQLite Agent Event Log,含会话内连续 seq 与 correlation_id
-- [ ] **EVT-02**: tool_call 与 tool_result 严格成对(复用 harness tool-pairing 算法),缺失或重复可被检测并报告
+- [x] **EVT-01**: Agent 运行时每一步(用户消息/模型输出/工具调用/工具结果/审批请求/审批决定)作为事件追加写入 SQLite Agent Event Log,含会话内连续 seq 与 correlation_id
+- [x] **EVT-02**: tool_call 与 tool_result 严格成对(复用 harness tool-pairing 算法),缺失或重复可被检测并报告
 - [ ] **EVT-03**: ChatSession 重构为事件日志的投影(复用 harness surface.ts/deriveEventMessage 纯函数),LLM messages 数组从 session 单一真相派生,消除 toolLoop 双历史分叉
 - [ ] **EVT-04**: 应用重启后能恢复最近会话(含未完成审批和工具调用关系);孤儿 tool_call 标记为 interrupted,绝不自动重试造成重复业务写入;加载时崩溃尾切到最后一个完整 turn
 - [ ] **EVT-05**: 确认候选从内存 Map 迁移到 SQLite 持久化表(params_hash = 规范化 JSON 的 SHA-256、过期时间、原子条件 UPDATE 消费),重启后待确认项仍然可用,重复恢复不重复消费
-- [ ] **EVT-06**: toolCallId 使用 UUID(替代位置计数器),事件可精确回放
-- [ ] **EVT-07**: 中文 token 估算修复(替代 length/4 的 4-8 倍低估),回放时上下文不溢出
-- [ ] **EVT-08**: 超长工具结果(>4KB)存入 artifacts 表,模型历史只保留摘要、引用 ID 和必要片段
+- [x] **EVT-06**: toolCallId 使用 UUID(替代位置计数器),事件可精确回放
+- [x] **EVT-07**: 中文 token 估算修复(替代 length/4 的 4-8 倍低估),回放时上下文不溢出
+- [x] **EVT-08**: 超长工具结果(>4KB)存入 artifacts 表,模型历史只保留摘要、引用 ID 和必要片段
 
 ### P1 可管理长期记忆 (MEM)
 
@@ -89,14 +89,14 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EVT-01 | Phase 13 | Pending |
-| EVT-02 | Phase 13 | Pending |
+| EVT-01 | Phase 13 | Complete |
+| EVT-02 | Phase 13 | Complete |
 | EVT-03 | Phase 13 | Pending |
 | EVT-04 | Phase 14 | Pending |
 | EVT-05 | Phase 14 | Pending |
-| EVT-06 | Phase 13 | Pending |
-| EVT-07 | Phase 13 | Pending |
-| EVT-08 | Phase 13 | Pending |
+| EVT-06 | Phase 13 | Complete |
+| EVT-07 | Phase 13 | Complete |
+| EVT-08 | Phase 13 | Complete |
 | MEM-01 | Phase 15 | Pending |
 | MEM-02 | Phase 15 | Pending |
 | MEM-03 | Phase 15 | Pending |

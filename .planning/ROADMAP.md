@@ -27,10 +27,10 @@
   3. ChatPanel 展示的消息与发送给 LLM 的 messages 数组来自同一次派生 — toolLoop 中不再存在第二份历史(旧双历史 bug 消失)
   4. 同一会话回放两次,派生出的 LLM messages 完全一致(replay parity 测试通过);中文上下文 token 估算不再溢出(4-8 倍低估已修复)
   5. 超过 4KB 的工具结果在模型历史中只出现摘要 + 引用 ID,完整内容可在 artifacts 表查到
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 13-01-PLAN.md — Event Log 存储层与不变量(迁移 0002 + EventStore 双实现 + 配对检查 + artifact 化 + 中文 token 修复)
+- [x] 13-01-PLAN.md — Event Log 存储层与不变量(迁移 0002 + EventStore 双实现 + 配对检查 + artifact 化 + 中文 token 修复)
 - [ ] 13-02-PLAN.md — ChatSession 重构为事件日志投影(addMessage 双写事件 + fromEvents 重建 + 派生折叠)
 - [ ] 13-03-PLAN.md — toolLoop 单历史重写 + 永久 replay parity 测试
 
@@ -87,7 +87,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 13. Event Log 底座 + ToolLoop 重构 | 0/3 | Planning complete | - |
+| 13. Event Log 底座 + ToolLoop 重构 | 1/3 | In Progress|  |
 | 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/? | Not started | - |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 0/? | Not started | - |
 | 16. PRD 生产线 | 0/? | Not started | - |

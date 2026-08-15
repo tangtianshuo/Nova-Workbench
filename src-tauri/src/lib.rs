@@ -29,6 +29,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0002_agent_events.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "agent_confirmation_candidates",
+            sql: include_str!("../migrations/0003_confirmation_candidates.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

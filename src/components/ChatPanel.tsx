@@ -25,6 +25,7 @@ import {
   runToolLoop,
 } from '@/src/ai';
 import type { DestructiveActionCandidate, KnowledgeWriteCandidate } from '@/src/ai/confirmations';
+import { getMemoryStore, type MemoryCandidate } from '@/src/ai/memoryStore';
 import { ChatSession } from '@/src/ai/chatSession';
 import { restoreLatestSession } from '@/src/ai/sessionRestore';
 import type { Provider } from '@/src/lib/api';
@@ -52,6 +53,10 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   gemini: 'Gemini',
   ollama: 'Ollama',
 };
+
+function formatMemoryTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 function TraceIcon({ status }: { status: ToolTraceStatus }) {
   if (status === 'ok') return <Check size={13} weight="bold" className="text-success" />;
@@ -90,6 +95,9 @@ export function ChatPanel() {
   const [pendingConfirmation, setPendingConfirmation] = useState<KnowledgeWriteCandidate | null>(null);
   const [pendingDestructiveAction, setPendingDestructiveAction] = useState<DestructiveActionCandidate | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
+  const [pendingMemory, setPendingMemory] = useState<MemoryCandidate | null>(null);
+  const [autoRemembered, setAutoRemembered] = useState<MemoryCandidate | null>(null);
+  const [memoryBusy, setMemoryBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionRef = useRef(new ChatSession({ tokenBudget: 8_000 }));
@@ -99,7 +107,27 @@ export function ChatPanel() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [messages, streamingResponse, streamingTrace]);
+  }, [messages, streamingResponse, streamingTrace, pendingMemory, autoRemembered]);
+
+  // Phase 15 (MEM-01/02/03) — refresh memory cards: queue head for the
+  // confirmation card, latest user_directed entry for the 已记住 info card.
+  const refreshMemoryCards = async () => {
+    try {
+      const store = getMemoryStore();
+      const pending = await store.listPending();
+      setPendingMemory(pending[0] ?? null);
+      const recent = await store.listRecentUserDirected(1);
+      const latest = recent[0] ?? null;
+      if (latest) {
+        setAutoRemembered((current) =>
+          latest.candidateToken === current?.candidateToken ? current : latest,
+        );
+      }
+    } catch (error) {
+      console.error('[memory-cards] refresh failed', error);
+      toast({ type: 'error', title: '检索失败,请稍后重试;若持续失败请重启应用。' });
+    }
+  };
 
   // EVT-04: restore the most recent session once per app start. Explicit async entry —
   // the ChatSession constructor above stays side-effect-free (evaluated every render).
@@ -126,6 +154,9 @@ export function ChatPanel() {
           const latestDestructiveAction = restored.pendingDestructiveActions[restored.pendingDestructiveActions.length - 1];
           setPendingDestructiveAction(latestDestructiveAction ?? null);
         }
+        // Pending memory candidates re-appear after restore (same behavior as
+        // pendingKnowledgeWrites above).
+        void refreshMemoryCards();
         setRestoreComplete(true);
       })
       .catch((error) => {
@@ -190,6 +221,7 @@ export function ChatPanel() {
               }
               return next;
             });
+            if (name === 'proposeMemory') void refreshMemoryCards();
           },
           onDestructiveConfirmationRequired: setPendingDestructiveAction,
         },
@@ -319,6 +351,46 @@ export function ChatPanel() {
     }]);
   };
 
+  const confirmMemory = async () => {
+    if (!pendingMemory || memoryBusy) return;
+    setMemoryBusy(true);
+    try {
+      const store = getMemoryStore();
+      await store.confirm(pendingMemory.candidateToken);
+      await store.consumeIntoMemories(pendingMemory.candidateToken);
+      toast({ type: 'success', title: '已记住' });
+      const pending = await store.listPending();
+      setPendingMemory(pending[0] ?? null);
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: '检索失败,请稍后重试;若持续失败请重启应用。',
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setMemoryBusy(false);
+    }
+  };
+
+  const rejectMemory = async () => {
+    if (!pendingMemory || memoryBusy) return;
+    setMemoryBusy(true);
+    try {
+      await getMemoryStore().reject(pendingMemory.candidateToken);
+      // Silent by UI spec — rejected candidates never re-render (MEM-02).
+      const pending = await getMemoryStore().listPending();
+      setPendingMemory(pending[0] ?? null);
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: '检索失败,请稍后重试;若持续失败请重启应用。',
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setMemoryBusy(false);
+    }
+  };
+
   const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && restoreComplete) {
       event.preventDefault();
@@ -405,6 +477,27 @@ export function ChatPanel() {
                 <Button type="button" variant="secondary" size="sm" onClick={() => void handleRejectDestructiveAction()} disabled={loading}>
                   取消
                 </Button>
+              </div>
+            </div>
+          )}
+          {pendingMemory && (
+            <div className="rounded-[var(--radius-lg)] border border-accent/30 bg-accent-subtle px-3.5 py-3 text-sm text-text-primary">
+              <div className="font-medium">待确认的记忆</div>
+              <div className="mt-1 text-xs text-text-secondary">{pendingMemory.content}</div>
+              <div className="mt-1 text-xs text-text-tertiary">来源: 本次对话 · {formatMemoryTime(pendingMemory.createdAt)}</div>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="primary" size="sm" onClick={() => void confirmMemory()} disabled={memoryBusy}>记住</Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => void rejectMemory()} disabled={memoryBusy}>忽略</Button>
+              </div>
+            </div>
+          )}
+          {autoRemembered && (
+            <div className="rounded-[var(--radius-lg)] border border-accent/30 bg-accent-subtle px-3.5 py-3 text-sm text-text-primary">
+              <div className="font-medium">已记住</div>
+              <div className="mt-1 text-xs text-text-secondary">{autoRemembered.content}</div>
+              <div className="mt-1 text-xs text-text-tertiary">来源: 你的指令 · {formatMemoryTime(autoRemembered.createdAt)}</div>
+              <div className="mt-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAutoRemembered(null)}>知道了</Button>
               </div>
             </div>
           )}

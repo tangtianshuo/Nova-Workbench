@@ -9,7 +9,7 @@
 
 - [x] **EVT-01**: Agent 运行时每一步(用户消息/模型输出/工具调用/工具结果/审批请求/审批决定)作为事件追加写入 SQLite Agent Event Log,含会话内连续 seq 与 correlation_id
 - [x] **EVT-02**: tool_call 与 tool_result 严格成对(复用 harness tool-pairing 算法),缺失或重复可被检测并报告
-- [ ] **EVT-03**: ChatSession 重构为事件日志的投影(复用 harness surface.ts/deriveEventMessage 纯函数),LLM messages 数组从 session 单一真相派生,消除 toolLoop 双历史分叉
+- [x] **EVT-03**: ChatSession 重构为事件日志的投影(复用 harness surface.ts/deriveEventMessage 纯函数),LLM messages 数组从 session 单一真相派生,消除 toolLoop 双历史分叉
 - [ ] **EVT-04**: 应用重启后能恢复最近会话(含未完成审批和工具调用关系);孤儿 tool_call 标记为 interrupted,绝不自动重试造成重复业务写入;加载时崩溃尾切到最后一个完整 turn
 - [ ] **EVT-05**: 确认候选从内存 Map 迁移到 SQLite 持久化表(params_hash = 规范化 JSON 的 SHA-256、过期时间、原子条件 UPDATE 消费),重启后待确认项仍然可用,重复恢复不重复消费
 - [x] **EVT-06**: toolCallId 使用 UUID(替代位置计数器),事件可精确回放
@@ -91,7 +91,7 @@
 |-------------|-------|--------|
 | EVT-01 | Phase 13 | Complete |
 | EVT-02 | Phase 13 | Complete |
-| EVT-03 | Phase 13 | Pending |
+| EVT-03 | Phase 13 | Complete |
 | EVT-04 | Phase 14 | Pending |
 | EVT-05 | Phase 14 | Pending |
 | EVT-06 | Phase 13 | Complete |
@@ -125,4 +125,4 @@
 
 ---
 *Requirements defined: 2026-08-14*
-*Last updated: 2026-08-14 — traceability filled by roadmap creation (count corrected 26 → 28)*
+*Last updated: 2026-08-15 — EVT-03 Complete (Phase 13 Plan 02: ChatSession as event-log projection)*

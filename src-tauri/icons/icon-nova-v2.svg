@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Nova app icon</title>
+  <desc id="desc">A connected N-shaped workflow with a nova spark.</desc>
+
+  <defs>
+    <linearGradient id="surface" x1="160" y1="96" x2="864" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#182232"/>
+      <stop offset="1" stop-color="#0A111B"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="274" y1="742" x2="744" y2="282" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7FAFC"/>
+      <stop offset="0.56" stop-color="#DDF7F1"/>
+      <stop offset="1" stop-color="#5DE1C2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <rect x="48" y="48" width="928" height="928" rx="224" fill="url(#surface)"/>
+  <rect x="65" y="65" width="894" height="894" rx="207" fill="none" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="4"/>
+
+  <g filter="url(#shadow)">
+    <path
+      d="M282 730V326C282 303 297 282 319 275C341 268 365 276 378 295L650 678V326C650 299 672 277 699 277C726 277 748 299 748 326V730C748 753 733 774 711 781C689 788 665 780 652 761L380 378V730C380 757 358 779 331 779C304 779 282 757 282 730Z"
+      fill="url(#ribbon)"
+    />
+
+    <circle cx="331" cy="730" r="25" fill="#FFFFFF"/>
+    <circle cx="515" cy="568" r="25" fill="#5DE1C2" stroke="#E9FFF9" stroke-width="10"/>
+    <circle cx="699" cy="326" r="25" fill="#FFFFFF"/>
+
+    <path d="M792 190L807 236L853 251L807 266L792 312L777 266L731 251L777 236L792 190Z" fill="#FFCB66"/>
+    <circle cx="861" cy="184" r="10" fill="#5DE1C2"/>
+  </g>
+</svg>

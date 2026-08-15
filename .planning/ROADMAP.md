@@ -9,7 +9,7 @@
 
 ## Phases
 
-- [ ] **Phase 13: Event Log 底座 + ToolLoop 重构** — Agent 每一步落入 SQLite 事件日志,ChatSession 成为投影,消除双历史分叉
+- [x] **Phase 13: Event Log 底座 + ToolLoop 重构** — Agent 每一步落入 SQLite 事件日志,ChatSession 成为投影,消除双历史分叉 (completed 2026-08-15)
 - [ ] **Phase 14: 持久化确认 + 会话恢复 + 上下文压缩** — 重启后待确认项与最近会话可用,孤儿 tool_call 绝不重复执行,超长历史按配对边界摘要
 - [ ] **Phase 15: 长期记忆 + 知识文档 + FTS5 检索** — 记忆候选确认流、版本化知识文档、中文可命中的 FTS5 混合检索、按优先级投影组装上下文
 - [ ] **Phase 16: PRD 生产线** — agent 生成 PRD → HITL 确认 → MDXEditor 编辑 → 版本化落入研发中心卡槽,索引同事务更新
@@ -27,7 +27,7 @@
   3. ChatPanel 展示的消息与发送给 LLM 的 messages 数组来自同一次派生 — toolLoop 中不再存在第二份历史(旧双历史 bug 消失)
   4. 同一会话回放两次,派生出的 LLM messages 完全一致(replay parity 测试通过);中文上下文 token 估算不再溢出(4-8 倍低估已修复)
   5. 超过 4KB 的工具结果在模型历史中只出现摘要 + 引用 ID,完整内容可在 artifacts 表查到
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 13-01-PLAN.md — Event Log 存储层与不变量(迁移 0002 + EventStore 双实现 + 配对检查 + artifact 化 + 中文 token 修复)
@@ -87,7 +87,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 13. Event Log 底座 + ToolLoop 重构 | 1/3 | In Progress|  |
+| 13. Event Log 底座 + ToolLoop 重构 | 1/3 | Complete    | 2026-08-15 |
 | 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/? | Not started | - |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 0/? | Not started | - |
 | 16. PRD 生产线 | 0/? | Not started | - |

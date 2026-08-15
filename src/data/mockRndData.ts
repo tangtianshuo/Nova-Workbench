@@ -181,6 +181,8 @@ export interface FullLifecycleDeliverable {
   wordCount: string;
   tags: string[];
   content: string;
+  /** Phase 16 (DELIV-03): explicit pointer to the truth-source doc (卡槽只存指针 + 当前版本投影). */
+  aiSource?: { sessionId: string; eventId: string; generatedAt: string; docId: string; version: number };
 }
 
 export const INITIAL_REQUIREMENTS: Record<string, ProductRequirementDesign> = {

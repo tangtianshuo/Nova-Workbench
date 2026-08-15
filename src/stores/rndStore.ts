@@ -129,6 +129,8 @@ interface RndState {
   getDeliverablesForProduct: (productId: string) => FullLifecycleDeliverable[];
   generateDeliverableAI: (productId: string, code: string, customPrompt?: string) => Promise<void>;
   generateAllDeliverablesBatchAI: (productId: string, onProgress?: (percent: number, currentTitle: string) => void) => Promise<void>;
+  commitDeliverableDraft: (productId: string, slotCode: string, content: string,
+    aiSource: { sessionId: string; eventId: string; generatedAt: string; docId: string; version: number }) => void;
   syncDeliverableToDocs: (productId: string, deliverableId: string) => void;
 
   // ── Product init helper ───────────────────────────────────────────────────
@@ -393,6 +395,12 @@ export const useRndStore = create<RndState>()(
     const docs = await getKnowledgeRepo().getCurrentDocs();
     const base: Record<string, ProductKnowledgeItem[]> = {};
     for (const doc of docs) {
+      // Phase 16: 'deliverable' 类文档归属研发中心卡槽,在 KnowledgeBaseView 仅经
+      // FTS5 搜索命中,不进浏览列表/分类侧栏 — 侧栏 categories 由本投影派生
+      // (KnowledgeBaseView.tsx:38-41),且跳过避免 ProductKnowledgeItem category
+      // 联合类型撒谎。注:UI-SPEC Surface 4 的「appears automatically」按此口径
+      // 理解为仅搜索命中(checker 修正)。
+      if (doc.category === 'deliverable') continue;
       (base[doc.productId] ??= []).push(docToItem(doc));
     }
     set({ knowledgeBase: base });
@@ -562,6 +570,24 @@ export const useRndStore = create<RndState>()(
         deliverables: { ...state.deliverables, [productId]: state.deliverables[productId].map((d, idx) => idx === i ? { ...d, status: 'ready' as const, generatedAt: new Date().toISOString(), wordCount: `${Math.floor(2500 + Math.random() * 2000)} 字` } : d) },
       }));
     }
+  },
+
+  // Phase 16 (DELIV-02/03): AI slot projection — the truth source is the
+  // knowledge_docs version chain (docId/version pointer); this only mirrors
+  // the current version into the R&D center slot with AI provenance.
+  commitDeliverableDraft: (productId, slotCode, content, aiSource) => {
+    const list = get().getDeliverablesForProduct(productId);
+    if (!list.some((d) => d.code === slotCode)) {
+      throw new Error(`[rndStore] deliverable slot not found: ${slotCode}`);
+    }
+    set((state) => ({
+      deliverables: {
+        ...state.deliverables,
+        [productId]: state.deliverables[productId].map((d) => d.code === slotCode
+          ? { ...d, content, status: 'ready' as const, generatedAt: aiSource.generatedAt, wordCount: `${content.length} 字`, aiSource }
+          : d),
+      },
+    }));
   },
 
   syncDeliverableToDocs: (productId, deliverableId) => {

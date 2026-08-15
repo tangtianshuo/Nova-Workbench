@@ -24,6 +24,7 @@ import { getEventStore, setEventScopeProvider } from './events/eventStore';
 import { checkEventStream } from './events/invariants';
 import { prepareToolResult } from './events/artifacts';
 import { maybeCompactSession } from './compaction';
+import { setActiveAgentScope } from './agentScope';
 
 export {
   confirmDestructiveAction,
@@ -109,6 +110,11 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
   // One turn = one correlation id; every event emitted this run carries it.
   const correlationId = crypto.randomUUID();
   session.setCorrelationId(correlationId);
+  // Phase 16: ambient scope so provenance-stamping tools (see agentScope.ts)
+  // can record sessionId + correlationId without threading args through the
+  // model. Direct executeTool replays (ChatPanel confirm flow) keep the
+  // last value — same ChatPanel, same session.
+  setActiveAgentScope({ sessionId: session.sessionId, correlationId });
   session.addMessage('user', args.userMessage);
   // MEM-08 — five-segment context injection. systemPromptOverride short-circuits
   // FIRST (byte-compatible with the old ?? fallback); only the assembled path

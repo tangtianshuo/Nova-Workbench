@@ -23,12 +23,12 @@ test('toFtsTokens dedupes repeated characters', () => {
 });
 
 test('toFtsIndexedText joins tokens with spaces', () => {
-  assert.equal(toFtsIndexedText('需求评审 api'), '需 求 评 审 api');
+  assert.equal(toFtsIndexedText('需求评审 api'), 'api 需 求 评 审'); // words before CJK, same join either way
 });
 
 test('toFtsMatchString emits only quoted tokens, stripping FTS5 syntax words', () => {
   const match = toFtsMatchString('需求"OR NEAR');
-  assert.equal(match, '"需" "求" "or" "near"');
+  assert.equal(match, '"or" "near" "需" "求"'); // words before CJK (impl order); MATCH is order-insensitive AND
   assert.ok(!/(^|\s)OR(\s|$)/.test(match), 'no bare OR syntax word');
   assert.ok(!/(^|\s)NEAR(\s|$)/.test(match), 'no bare NEAR syntax word');
   for (const part of match.split(' ')) {

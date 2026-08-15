@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { registerTool } from '../registry';
 import { useRndStore, type ProductKnowledgeItem } from '../../stores/rndStore';
+import { toFtsTokens } from '../ftsTokens';
 
 const MAX_ARTICLES = 50;
 const MAX_SUMMARY_LENGTH = 400;
@@ -58,13 +59,6 @@ const searchKnowledgeBaseSchema = z.object({
 
 export { searchKnowledgeBaseSchema };
 
-function lexicalTerms(value: string): string[] {
-  const normalized = value.toLocaleLowerCase().normalize('NFKC');
-  const words = normalized.match(/[a-z0-9]+/g) ?? [];
-  const cjkCharacters = normalized.match(/[\u3400-\u9fff]/g) ?? [];
-  return [...new Set([...words, ...cjkCharacters])];
-}
-
 function scoreArticle(article: ProductKnowledgeItem, query: string): { score: number; fields: string[] } {
   const fields: Array<[string, string, number]> = [
     ['title', article.title, 8],
@@ -74,7 +68,7 @@ function scoreArticle(article: ProductKnowledgeItem, query: string): { score: nu
     ['content', article.content, 1],
   ];
   const normalizedQuery = query.toLocaleLowerCase().normalize('NFKC');
-  const terms = lexicalTerms(query);
+  const terms = toFtsTokens(query);
   let score = 0;
   const matchedFields = new Set<string>();
 

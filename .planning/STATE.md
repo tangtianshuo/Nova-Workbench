@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-15T11:37:43.177Z"
-last_activity: 2026-08-15 -- Phase 14 Plan 01 complete (EVT-05 storage foundation)
+last_updated: "2026-08-15T12:30:00.000Z"
+last_activity: 2026-08-15 -- Phase 14 Plan 04 complete (EVT-04 session restore)
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 7
 ---
 
 # Project State
@@ -23,10 +23,10 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 
 ## Current Position
 
-Phase: 14 (confirm-restore-compaction) — EXECUTING
-Plan: 2 of 4 (Plan 01 COMPLETE 2026-08-15)
-Status: Plan 01 done (EVT-05 storage foundation); next Plan 02 migrates confirmations.ts API to persistent store
-Last activity: 2026-08-15 -- Phase 14 Plan 01 complete (migration 0003 + paramsHash + ConfirmationStore + 9-test suite)
+Phase: 14 (confirm-restore-compaction) — IMPLEMENTATION COMPLETE (pending UAT)
+Plan: 4 of 4 (all plans COMPLETE 2026-08-15)
+Status: Phase 14 implementation complete (P01 EVT-05 storage + P02 async facade + P03 compaction + P04 session restore); remaining: manual UAT with tauri:dev + real SQLite
+Last activity: 2026-08-15 -- Phase 14 Plan 04 complete (session restore + 12 tests, 80/80 green)
 
 ## Performance Metrics
 
@@ -34,11 +34,14 @@ Last activity: 2026-08-15 -- Phase 14 Plan 01 complete (migration 0003 + paramsH
 |--------|-------|
 | Phases completed | 1 / 5 |
 | Plans completed | 3 / 3 (Phase 13) |
-| Requirements satisfied | 6 / 28 (EVT-01, EVT-02, EVT-03, EVT-06, EVT-07, EVT-08) |
+| Requirements satisfied | 8 / 28 (EVT-01, EVT-02, EVT-03, EVT-04, EVT-05, EVT-06, EVT-07, EVT-08) |
 | Phase 13 P01 | 6 min | 4 tasks | 9 files |
 | Phase 13 P02 | 5 min | 2 tasks | 2 files |
 | Phase 13 P03 | 10 min | 3 tasks | 4 files |
 | Phase 14 P01 | 12 min | 4 tasks | 7 files (+9 tests, 53/53 green) |
+| Phase 14 P02 | 15 min | 4 tasks | 10 files (+7 tests, 68/68 green) |
+| Phase 14 P03 | 15 min | 3 tasks | 4 files (+8 tests, 68/68 green) |
+| Phase 14 P04 | 20 min | 4 tasks | 6 files (+12 tests, 80/80 green) |
 
 ## Accumulated Context
 
@@ -57,6 +60,7 @@ v0.3.0 roadmap decisions:
 - [Phase 13]: 缺失 tool_result 的测试场景在 filter 后重排剩余 seq — append-only 日志中"从未写入的 result 不留空洞";解决了 plan 逐字实现与逐字测试规格之间的冲突(原过滤方式会连带触发 2×SEQ_GAP) — 忠实模拟真实的 missing-result 事件流,使配对不变量测试只断言目标违规(MISSING_TOOL_RESULT)
 - [Phase 13 P03]: toolLoop 单历史化重写 — 删除第二份 messages 数组;每迭代从 session.getMessagesForLLM() 重新派生;UUID toolCallId;确认 WAIT 也落 tool_result({ ok: false, awaitingConfirmation: true });turn 末 auditSessionEvents 跑 checkEventStream;公开签名零变化(ChatPanel/CmdKPalette 零 diff);永久 replay parity 测试落地
 - [Phase 14 P01]: EVT-05 storage foundation — migration 0003 agent_confirmation_candidates + paramsHash (canonical JSON SHA-256) + ConfirmationStore 双实现 (Memory/Sqlite) + 原子 conditional UPDATE consume (双并发恰一成功) + TTL 派生过期 + kind 单表判别;9 个新测试全部通过;53/53 全绿;不触碰 src/ai/confirmations.ts (Plan 02 范围)
+- [Phase 14 P04]: EVT-04 session restore — crash-tail cut at last turn_ended, orphan tool_calls settled by appended tool_result (NEVER re-execute), module-level promise dedupe for StrictMode, resumeEventEmission for original-stream continuation, restoreComplete submit gate in 3 places; 12 new tests, 80/80 green; append-only throughout
 
 ### TODOs (pending)
 
@@ -64,6 +68,7 @@ v0.3.0 roadmap decisions:
 - Phase 15 schema design: 产品删除时 events/memories/FTS 索引的保留策略决策
 - Phase 15 UAT: 中文 PM 词汇 recall 质量决策点
 - Phase 13 手动 UAT(残留风险):tauri:dev 触发工具调用后查 nova.db agent_events 表,验证完整配对事件序列 + 连续 seq + 共享 correlation_id(SqliteEventStore.append 返回 seq:-1,SQL 侧真实 INSERT 无自动化覆盖)
+- Phase 14 手动 UAT: UAT-A (knowledge write confirm → kill → restart → banner re-appears), UAT-C (kill mid tool-loop → restart → interrupted marker in agent_events + no duplicate write), UAT-D (restart → history shown → new message continues same session_id with seq+1), UAT-E (long conversation → compaction events present + event count only grows)
 
 ### Blockers
 

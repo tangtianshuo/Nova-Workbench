@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-15T10:25:00.000Z"
+last_updated: "2026-08-15T10:45:00.000Z"
 last_activity: 2026-08-15
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -23,20 +23,21 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 
 ## Current Position
 
-Phase: 13 (Event Log 底座 + ToolLoop 重构) — EXECUTING
-Plan: 3 of 3 (13-02 complete)
-Status: Ready for 13-03 (toolLoop rewrite)
+Phase: 13 (Event Log 底座 + ToolLoop 重构) — COMPLETE
+Plan: 3 of 3 (13-03 complete)
+Status: Phase verification pending (manual UAT of SC1 real-table evidence)
 Last activity: 2026-08-15
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Phases completed | 0 / 5 |
-| Plans completed | 0 / ? |
-| Requirements satisfied | 0 / 28 |
+| Phases completed | 1 / 5 |
+| Plans completed | 3 / 3 (Phase 13) |
+| Requirements satisfied | 5 / 28 (EVT-01, EVT-02, EVT-03, EVT-06, EVT-08) |
 | Phase 13 P01 | 6 min | 4 tasks | 9 files |
 | Phase 13 P02 | 5 min | 2 tasks | 2 files |
+| Phase 13 P03 | 10 min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -53,13 +54,14 @@ v0.3.0 roadmap decisions:
 - [Roadmap]: Phase 15 需 /gsd:research-phase — FTS5 runtime probe + CJK tokenizer 决策
 - [Roadmap]: 需求计数修正 — 实际 28 个 v1 REQ-IDs(REQUIREMENTS.md 原写 26)
 - [Phase 13]: 缺失 tool_result 的测试场景在 filter 后重排剩余 seq — append-only 日志中"从未写入的 result 不留空洞";解决了 plan 逐字实现与逐字测试规格之间的冲突(原过滤方式会连带触发 2×SEQ_GAP) — 忠实模拟真实的 missing-result 事件流,使配对不变量测试只断言目标违规(MISSING_TOOL_RESULT)
+- [Phase 13 P03]: toolLoop 单历史化重写 — 删除第二份 messages 数组;每迭代从 session.getMessagesForLLM() 重新派生;UUID toolCallId;确认 WAIT 也落 tool_result({ ok: false, awaitingConfirmation: true });turn 末 auditSessionEvents 跑 checkEventStream;公开签名零变化(ChatPanel/CmdKPalette 零 diff);永久 replay parity 测试落地
 
 ### TODOs (pending)
 
 - Phase 15 hour one: FTS5 runtime probe on packaged build (`CREATE VIRTUAL TABLE fts5_probe USING fts5(...)`)
 - Phase 15 schema design: 产品删除时 events/memories/FTS 索引的保留策略决策
 - Phase 15 UAT: 中文 PM 词汇 recall 质量决策点
-- ⌘K + ChatPanel 并发会话测试尚不存在 — Phase 13/14 补
+- Phase 13 手动 UAT(残留风险):tauri:dev 触发工具调用后查 nova.db agent_events 表,验证完整配对事件序列 + 连续 seq + 共享 correlation_id(SqliteEventStore.append 返回 seq:-1,SQL 侧真实 INSERT 无自动化覆盖)
 
 ### Blockers
 
@@ -78,6 +80,6 @@ If resuming after context loss:
 1. Read `.planning/ROADMAP.md` — current milestone phases 13-17
 2. Read `.planning/REQUIREMENTS.md` — v0.3.0 requirements (28 v1 REQ-IDs)
 3. Read `.planning/research/SUMMARY.md` — dependency chain rationale + research flags
-4. Next action: `/gsd:execute-phase 13` — execute 13-03-PLAN.md (toolLoop rewrite);13-01 + 13-02 已完成
+4. Next action: Phase 13 complete — proceed to phase verification (manual UAT of SC1 real-table evidence) or begin Phase 14 (状态持久化: ChatSession.restore from agent_events)
 
-Key files: `src/ai/events/` (eventStore/invariants/artifacts,13-01 已交付), `src/ai/tokenEstimate.ts`, `src/ai/chatSession.ts` (13-02 重构为事件投影), `src/ai/toolLoop.ts` (13-03 重写对象), `src-tauri/migrations/0002_agent_events.sql`, `docs/AGENT_MEMORY_REFERENCE.md` (新架构真相源)
+Key files: `src/ai/events/` (eventStore/invariants/artifacts), `src/ai/tokenEstimate.ts`, `src/ai/chatSession.ts` (event-log projection with dual-write addMessage + fromEvents rebuild), `src/ai/toolLoop.ts` (single-history event-driven loop, UUID toolCallId, prepareToolResult, auditSessionEvents), `src/ai/__tests__/phase13*.test.ts` (3 test files, PERMANENT replay parity), `src-tauri/migrations/0002_agent_events.sql`, `docs/AGENT_MEMORY_REFERENCE.md` (新架构真相源)

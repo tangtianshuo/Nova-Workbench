@@ -63,9 +63,9 @@ test('create → get roundtrip preserves params and metadata', async () => {
   assert.deepEqual(fetched.params, params);
   assert.equal(fetched.paramsHash, row.paramsHash);
   // Mutation of returned object must not leak into the store.
-  fetched.params.title = 'MUTATED';
+  (fetched.params as { title: string }).title = 'MUTATED';
   const refetched = await store.get(row.confirmationToken);
-  assert.equal(refetch(refetched, 'params.title'), 't');
+  assert.equal((refetched?.params as { title: string }).title, 't');
 });
 
 test('confirm then consume transitions pending → confirmed → consumed', async () => {
@@ -241,11 +241,5 @@ test('listActive filters by kind and orders by createdAt ASC', async () => {
 
 // Sanity: TTL constant matches the documented 24h window.
 assert.equal(CONFIRMATION_TTL_MS, 24 * 60 * 60 * 1000);
-
-function refetch(row: { params: { title: string } } | null, path: string): string {
-  if (!row) throw new Error('row missing');
-  if (path === 'params.title') return row.params.title;
-  throw new Error('unknown path');
-}
 
 console.log('OK: Phase 14 Plan 01 confirmation store checks passed');

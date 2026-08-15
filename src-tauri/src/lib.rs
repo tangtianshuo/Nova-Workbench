@@ -16,12 +16,20 @@ use state::AppState;
 // ponytail: returns fresh Vec each call — tauri-plugin-sql's Migration does not impl Clone
 // (add_migrations consumes Vec), so we cannot .to_vec() a const slice.
 fn sql_migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "init_kv_store_and_meta",
-        sql: include_str!("../migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "init_kv_store_and_meta",
+            sql: include_str!("../migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "agent_events_and_artifacts",
+            sql: include_str!("../migrations/0002_agent_events.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }
 
 // Linux-only: read GNOME color-scheme via gsettings.

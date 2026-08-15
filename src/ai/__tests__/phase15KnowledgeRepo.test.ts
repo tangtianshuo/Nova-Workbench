@@ -65,7 +65,14 @@ test('MEM-06 Chinese 2-char query hits via per-char token matching', async () =>
 test('MEM-06 AND semantics matches toFtsMatchString: every quoted token must be present', async () => {
   const repo = new MemoryKnowledgeRepo();
   await repo.upsertDoc(docInput({ docId: 'both', title: '需求评审流程' }));
-  await repo.upsertDoc(docInput({ docId: 'partial', title: '内需市场规模分析', productId: 'p2' }));
+  await repo.upsertDoc(docInput({
+    docId: 'partial',
+    title: '内需市场规模分析',
+    productId: 'p2',
+    tags: ['市场'],
+    summary: '国内市场的规模与增速。',
+    content: '国内市场的规模与增速分析。',
+  }));
   // toFtsMatchString('需求') === '"需" "求"' — implicit AND, so '内需' (需 without 求) must NOT match.
   assert.equal(toFtsMatchString('需求'), '"需" "求"');
   const hits = await repo.search('需求');

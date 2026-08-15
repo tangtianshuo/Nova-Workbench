@@ -4,7 +4,7 @@
 // - Orphan tool_calls: settled by APPENDING an interrupted tool_result event — the
 //   tool is NEVER re-executed (re-running could duplicate a business write).
 // - Pending confirmation candidates re-surface from the persistent store (Plan 02).
-// Read + append only: this file contains no UPDATE / DELETE statements.
+// Read + append only: no mutation of existing rows.
 import { ChatSession } from './chatSession';
 import { listPendingDestructiveActions, listPendingKnowledgeWrites } from './confirmations';
 import type { DestructiveActionCandidate, KnowledgeWriteCandidate } from './confirmations';

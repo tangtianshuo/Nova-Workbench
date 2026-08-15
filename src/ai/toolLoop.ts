@@ -22,6 +22,7 @@ import {
 import { getEventStore, setEventScopeProvider } from './events/eventStore';
 import { checkEventStream } from './events/invariants';
 import { prepareToolResult } from './events/artifacts';
+import { maybeCompactSession } from './compaction';
 
 export {
   confirmDestructiveAction,
@@ -109,6 +110,14 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
   };
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
+    // CMP-01: at token pressure >= COMPACTION_PRESSURE_RATIO (0.8) x context window,
+    // compact at a pairing-balanced turn boundary BEFORE the next LLM request.
+    // Append-only: agent_events never lose events; only the model-visible projection
+    // changes (sourced summary + suffix).
+    await maybeCompactSession(session, args.provider, {
+      ollamaModel: args.provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
+    });
+
     // Single source of truth: derive the LLM messages from the session projection
     // on EVERY iteration. No second history array survives across iterations.
     const messages: ChatMessage[] = session.getMessagesForLLM().map((message) => ({

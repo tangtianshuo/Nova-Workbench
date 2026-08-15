@@ -33,11 +33,18 @@ import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { MarkdownRenderer } from '@/src/components/ui';
 import { Badge } from '@/src/components/ui/Badge';
+import { Tooltip } from '@/src/components/ui/Tooltip';
 import { Input } from '@/src/components/ui/Input';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
 
 interface Props {
   product: Product;
+}
+
+function formatAiSourceTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export function FullDeliverablesTab({ product }: Props) {
@@ -281,6 +288,14 @@ export function FullDeliverablesTab({ product }: Props) {
                       {d.code}
                     </Badge>
                     <Badge variant="accent">{d.phaseName}</Badge>
+                    {d.aiSource && (
+                      <Tooltip content={`AI 生成 · ${formatAiSourceTime(d.aiSource.generatedAt)} · 会话 ${d.aiSource.sessionId.slice(0, 8)}`}>
+                        <Badge variant="accent">
+                          <Sparkle size={12} weight="fill" />
+                          AI
+                        </Badge>
+                      </Tooltip>
+                    )}
                   </div>
                   {getStatusBadge(d.status)}
                 </div>

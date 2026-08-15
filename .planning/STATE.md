@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
-status: completed
-last_updated: "2026-08-15T12:18:55.944Z"
+status: executing
+last_updated: "2026-08-15T13:26:37.171Z"
 last_activity: 2026-08-15
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 11
+  completed_plans: 8
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 ## Current Position
 
 Phase: 15
-Plan: Not started
-Status: Phase 14 VERIFICATION PASS — Phase 15 ready (需 /gsd:research-phase: FTS5 runtime probe + CJK tokenizer 决策)
+Plan: 02 of 4 (15-01 storage foundation complete)
+Status: Executing Phase 15 — plan 01/4 done (migration 0004 + ftsTokens + memoryStore, 96/96 green)
 Last activity: 2026-08-15
 
 ## Performance Metrics
@@ -34,7 +34,7 @@ Last activity: 2026-08-15
 |--------|-------|
 | Phases completed | 2 / 5 |
 | Plans completed | 7 / 7 (Phase 13 + 14) |
-| Requirements satisfied | 10 / 28 (EVT-01..08, CMP-01, CMP-02) |
+| Requirements satisfied | 12 / 28 (EVT-01..08, CMP-01, CMP-02, MEM-03, MEM-05) |
 | Phase 13 P01 | 6 min | 4 tasks | 9 files |
 | Phase 13 P02 | 5 min | 2 tasks | 2 files |
 | Phase 13 P03 | 10 min | 3 tasks | 4 files |
@@ -42,6 +42,7 @@ Last activity: 2026-08-15
 | Phase 14 P02 | 15 min | 4 tasks | 10 files (+7 tests, 68/68 green) |
 | Phase 14 P03 | 15 min | 3 tasks | 4 files (+8 tests, 68/68 green) |
 | Phase 14 P04 | 20 min | 4 tasks | 6 files (+12 tests, 80/80 green) |
+| Phase 15 P01 | ~11min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,7 @@ v0.3.0 roadmap decisions:
 - [Phase 13 P03]: toolLoop 单历史化重写 — 删除第二份 messages 数组;每迭代从 session.getMessagesForLLM() 重新派生;UUID toolCallId;确认 WAIT 也落 tool_result({ ok: false, awaitingConfirmation: true });turn 末 auditSessionEvents 跑 checkEventStream;公开签名零变化(ChatPanel/CmdKPalette 零 diff);永久 replay parity 测试落地
 - [Phase 14 P01]: EVT-05 storage foundation — migration 0003 agent_confirmation_candidates + paramsHash (canonical JSON SHA-256) + ConfirmationStore 双实现 (Memory/Sqlite) + 原子 conditional UPDATE consume (双并发恰一成功) + TTL 派生过期 + kind 单表判别;9 个新测试全部通过;53/53 全绿;不触碰 src/ai/confirmations.ts (Plan 02 范围)
 - [Phase 14 P04]: EVT-04 session restore — crash-tail cut at last turn_ended, orphan tool_calls settled by appended tool_result (NEVER re-execute), module-level promise dedupe for StrictMode, resumeEventEmission for original-stream continuation, restoreComplete submit gate in 3 places; 12 new tests, 80/80 green; append-only throughout
+- [Phase 15 P01]: 存储底座 — migration 0004 (memory_candidates/memories/knowledge_docs + standalone FTS5 knowledge_fts,doc_rowid UNINDEXED join 锚点,supersede 过滤在查询 WHERE 不碰 FTS 行);ftsTokens 索引/查询同源切分(quoted-token MATCH 免注入);memoryStore 双实现防轰炸三项(paramsHash UNIQUE 去重/cap-20 让位/7d TTL 派生过期)+ supersedes 链 + user_directed 直接 confirm+consume 入库(source_candidate_token 审计);过期 pending hash 命中原地刷新 TTL,rejected+user_directed 复活;16 新测试 96/96 绿
 
 ### TODOs (pending)
 

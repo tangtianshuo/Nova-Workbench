@@ -1,7 +1,9 @@
-import { BookOpen, FileText, MagnifyingGlass, CaretRight, Star, Tag } from '@phosphor-icons/react';
+import { BookOpen, Brain, FileText, MagnifyingGlass, CaretRight, Star, Tag } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
+import { Badge } from '@/src/components/ui/Badge';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
+import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
 import { Input } from '@/src/components/ui/Input';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { MarkdownRenderer } from '@/src/components/ui/MarkdownRenderer';
@@ -10,6 +12,7 @@ import { Separator } from '@/src/components/ui/Separator';
 import { useToast } from '@/src/components/ui/Toast';
 import { cn } from '@/src/lib/utils';
 import { getKnowledgeRepo, type KnowledgeHit } from '@/src/ai/knowledgeRepo';
+import { getMemoryStore, type MemoryRecord } from '@/src/ai/memoryStore';
 import { useRndStore } from '@/src/stores/rndStore';
 import { useProductStore } from '@/src/stores/productStore';
 import type { ProductKnowledgeItem } from '@/src/data/mockRndData';
@@ -91,6 +94,39 @@ export function KnowledgeBaseView() {
     setFilterTag('');
     setFilterProductId('');
     setTimeRange('');
+  };
+
+  // ── Memory list pane (Phase 15 Surface 3, MEM-01/05/07) ───────────────────
+  const [activePane, setActivePane] = useState<'docs' | 'memories'>('docs');
+  const [memories, setMemories] = useState<MemoryRecord[]>([]);
+  const [memoryPendingDelete, setMemoryPendingDelete] = useState<MemoryRecord | null>(null);
+
+  const loadMemories = async () => {
+    try {
+      const rows = await getMemoryStore().listAllMemories();
+      // Superseded rows stay visible for audit (UI spec); soft-deleted do not.
+      setMemories(rows.filter((m) => m.deletedAt === null));
+    } catch (error) {
+      console.error('[memory-list] load failed', error);
+      toast({ type: 'error', title: '检索失败,请稍后重试;若持续失败请重启应用。' });
+    }
+  };
+
+  useEffect(() => {
+    if (activePane === 'memories') void loadMemories();
+  }, [activePane]);
+
+  const confirmDeleteMemory = async () => {
+    if (!memoryPendingDelete) return;
+    try {
+      await getMemoryStore().deleteMemory(memoryPendingDelete.memoryRowid);
+      toast({ type: 'success', title: '记忆已删除' });
+      setMemoryPendingDelete(null);
+      await loadMemories();
+    } catch (error) {
+      console.error('[memory-list] delete failed', error);
+      toast({ type: 'error', title: '检索失败,请稍后重试;若持续失败请重启应用。' });
+    }
   };
 
   // First render with no selection → pick first item once data is available.
@@ -205,9 +241,22 @@ export function KnowledgeBaseView() {
             <Star size={16} weight="duotone" className="text-warning" />
             我的收藏
           </button>
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 text-text-secondary hover:bg-bg-secondary hover:text-text-primary rounded-[var(--radius-sm)] text-sm font-medium transition-colors">
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 text-text-secondary hover:bg-bg-secondary hover:text-text-primary rounded-[var(--radius-sm)] text-sm font-medium transition-colors"
+            onClick={() => setActivePane('docs')}>
             <BookOpen size={16} weight="duotone" className="text-accent" />
             所有文档
+          </button>
+          <button
+            onClick={() => setActivePane('memories')}
+            className={cn(
+              'w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-sm font-medium transition-colors',
+              activePane === 'memories'
+                ? 'bg-accent/10 text-accent'
+                : 'text-text-secondary hover:bg-bg-secondary hover:text-text-primary'
+            )}
+          >
+            <Brain size={16} weight="duotone" className="text-accent" />
+            长期记忆
           </button>
 
           <Separator className="my-3" />
@@ -295,7 +344,38 @@ export function KnowledgeBaseView() {
         </div>
       </div>
 
-      {/* Document Viewer */}
+      {/* Memory list pane (Surface 3) */}
+      {activePane === 'memories' ? (
+        <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
+          <div className="h-12 border-b border-border-subtle flex items-center px-5 shrink-0">
+            <span className="text-sm text-text-primary font-medium">长期记忆 · {memories.length} 条</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-10">
+            <div className="max-w-2xl mx-auto space-y-2">
+              {memories.length === 0 ? (
+                <div className="text-center text-text-tertiary py-12 leading-relaxed">
+                  <p className="text-sm">还没有长期记忆</p>
+                  <p className="mt-1 text-xs">在对话中让 AI 记住你的偏好和工作习惯,确认后会出现在这里。</p>
+                </div>
+              ) : (
+                memories.map((memory) => (
+                  <Card key={memory.memoryRowid} className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm text-text-primary leading-6">{memory.content}</p>
+                      <Button variant="ghost" size="sm" onClick={() => setMemoryPendingDelete(memory)}>删除</Button>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-text-tertiary">
+                      <Badge variant="neutral">{memory.scope === 'product' ? '产品' : '全局'}</Badge>
+                      <span>确认于 {memory.confirmedAt}</span>
+                      {memory.supersededAt && <Badge variant="warning">已被取代</Badge>}
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
         <div className="h-12 border-b border-border-subtle flex items-center justify-between px-5 shrink-0">
           <div className="flex items-center gap-1.5 text-sm text-text-tertiary">
@@ -356,6 +436,20 @@ export function KnowledgeBaseView() {
           )}
         </div>
       </div>
+      )}
+
+      <Dialog open={memoryPendingDelete !== null} onOpenChange={(open) => !open && setMemoryPendingDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader
+            title="删除这条记忆?"
+            description="删除后 AI 将不再使用这条信息,且无法恢复。"
+          />
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setMemoryPendingDelete(null)}>取消</Button>
+            <Button variant="danger" onClick={() => void confirmDeleteMemory()}>删除记忆</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

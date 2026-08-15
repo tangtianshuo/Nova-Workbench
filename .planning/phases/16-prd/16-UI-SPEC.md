@@ -1,10 +1,11 @@
 ---
 phase: 16
 slug: prd
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-15
+reviewed_at: 2026-08-15
 ---
 
 # Phase 16 — UI Design Contract

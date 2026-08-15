@@ -59,10 +59,10 @@ test('pending candidates + rejected list render with a do-not-repropose section 
 test('memory overflow past the 500-token quota drops oldest, keeps newest, truncated: true', async () => {
   resetMemoryMemoryStore();
   const store = getMemoryMemoryStore();
-  // 30 confirmed memories, each ~20 tokens -> far above the 500-token quota.
+  // 30 confirmed memories, each ~30 tokens -> far above the 500-token quota.
   for (let i = 0; i < 30; i++) {
     await store.insertMemory({
-      content: `确认记忆条目编号${String(i).padStart(3, '0')} 内容文本`,
+      content: `确认记忆条目编号${String(i).padStart(3, '0')} 内容文本`.padEnd(34, '补充'),
       origin: 'user_directed',
       scope: 'global',
     });

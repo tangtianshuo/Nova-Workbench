@@ -10,6 +10,7 @@ export const AGENT_EVENT_TYPES = [
   'tool_call',
   'tool_result',
   'turn_ended',
+  'context_injected', // Phase 15 (MEM-08): per-turn injected-context audit
 ] as const;
 
 export type AgentEventType = (typeof AGENT_EVENT_TYPES)[number] | (string & {});

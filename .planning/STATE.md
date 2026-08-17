@@ -116,9 +116,8 @@ None.
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — current milestone phases 13-17
-2. Read `.planning/REQUIREMENTS.md` — v0.3.0 requirements (28 v1 REQ-IDs)
-3. Read `.planning/research/SUMMARY.md` — dependency chain rationale + research flags
-4. Next action: `/gsd:research-phase 15` then `/gsd:plan-phase 15` — Phase 15 (长期记忆 + 知识文档 + FTS5 检索: MEM-01..08);Phase 13/14 VERIFICATION PASS 已归档
+1. Read `.planning/ROADMAP.md` — v0.3.0 全部 5 phases(13-17)已完成
+2. Read `.planning/reports/MILESTONE_SUMMARY-v0.3.0.md` — 里程碑汇总(2026-08-17 生成)
+3. Next action: 统一 UAT 进行中 — 16-HUMAN-UAT.md(8 项)+ 17-HUMAN-UAT.md(6 项,web Playwright 预验 4 项 partial-pass);UAT 通过后 `/gsd:audit-milestone` → `/gsd:complete-milestone v0.3.0` → cleanup
 
 Key files: `src/ai/events/` (eventStore/invariants/artifacts), `src/ai/confirmationStore.ts` + `src/ai/paramsHash.ts` (EVT-05 持久化确认), `src/ai/sessionRestore.ts` (EVT-04 会话恢复), `src/ai/compaction.ts` (CMP-01/02), `src/ai/chatSession.ts` (投影 + compaction-aware fromEvents + resumeEventEmission), `src/ai/toolLoop.ts` (单历史 + 压缩触发), `src/ai/__tests__/phase1{3,4}*.test.ts` (PERMANENT replay parity), `src-tauri/migrations/0002_agent_events.sql` + `0003_confirmation_candidates.sql`, `docs/AGENT_MEMORY_REFERENCE.md` (新架构真相源)

@@ -47,6 +47,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0005_deliverable_source_event.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "confirmation_kind_deliverable",
+            sql: include_str!("../migrations/0006_confirmation_kind_deliverable.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

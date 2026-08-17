@@ -1,5 +1,5 @@
 ---
-status: partial
+status: testing
 phase: 16-prd
 source: [16-VERIFICATION.md, 16-03-PLAN.md Task 2]
 started: 2026-08-17
@@ -8,7 +8,12 @@ updated: 2026-08-17
 
 ## Current Test
 
-[awaiting human testing — 按用户指令延后至统一 UAT 会话]
+number: 1
+name: 生成 PRD 草稿卡片(修复后回归)
+expected: |
+  侧栏选中任一产品 → ChatPanel 输入「帮我为当前产品生成一份 PRD 草稿」→ 模型调用 generateDeliverable 后
+  出现「待确认的 PRD 草稿」卡片(产品名 + 3 行预览 + 来源时间),对话不中断
+awaiting: user response(after migration 0006 rebuild)
 
 ## Tests
 
@@ -16,7 +21,18 @@ updated: 2026-08-17
 
 ### 1. 生成 PRD 草稿卡片
 expected: 侧栏选中任一产品 → ChatPanel 输入「帮我为当前产品生成一份 PRD 草稿」→ 模型调用 generateDeliverable 后出现「待确认的 PRD 草稿」卡片（产品名 + 3 行预览 + 来源时间），对话不中断
-result: [pending]
+result: issue
+reported: |
+  generateDeliverable 失败(trace 红色)
+severity: blocker
+resolution: |
+  GAP-16-01(Claude 代查 agent_events seq 125-128):tool_error "CHECK constraint failed:
+  kind IN ('knowledge_write', 'destructive_action')" — 0003 迁移的 CHECK 未含 Phase 16 的
+  'deliverable_draft';单测走 MemoryConfirmationStore 故未拦截,真实 SQLite 才炸(与 Phase 13
+  「真实 INSERT 无自动化覆盖」同类盲区)。
+  修复:migration 0006(SQLite CHECK 不可 ALTER,canonical 建新表→拷数据→换名重建;数据保留)+
+  lib.rs 注册 version 6 + APP_SCHEMA_VERSION=6 + 新增 sqlSchemaCheckConstraints.test.ts
+  (node:sqlite 执行真实迁移 SQL,锁定应用层 kind 与 DDL 不再漂移)。161/161 绿。回归待验证。
 
 ### 2. 取消无损
 expected: 「确认并编辑」→ Dialog 预填草稿 → 改动文字 → 「取消」→ 卡片仍在；再次打开内容为原始草稿（编辑未持久）
@@ -50,9 +66,19 @@ result: [pending]
 
 total: 8
 passed: 0
-issues: 0
-pending: 8
+issues: 1
+pending: 7
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+```yaml
+- id: GAP-16-01
+  test: 1
+  severity: blocker
+  symptom: generateDeliverable 落库失败 — CHECK constraint kind IN ('knowledge_write','destructive_action') 拒插 deliverable_draft
+  root_cause: Phase 16 应用层新增 ConfirmationKind='deliverable_draft' 但未重建 0003 的 SQL CHECK;单测走 MemoryStore 无 DDL 覆盖
+  fix: migration 0006 表重建(数据保留)+ lib.rs version 6 + APP_SCHEMA_VERSION 6 + node:sqlite 真实迁移 SQL 回归测试
+  status: fixed — awaiting regression(应用重启后重试 Test 1)
+```

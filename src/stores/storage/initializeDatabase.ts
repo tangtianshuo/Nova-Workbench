@@ -3,7 +3,7 @@
 // load → sanity SELECT → version check → has_seeded gate → seed → flip flag.
 import { lazySqlite } from './lazySqlite';
 
-export const APP_SCHEMA_VERSION = 4;
+export const APP_SCHEMA_VERSION = 6;
 
 interface MetaRow {
   value: string;

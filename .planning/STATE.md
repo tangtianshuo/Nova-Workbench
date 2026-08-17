@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-17T04:17:33.436Z"
+last_updated: "2026-08-17T04:19:08.167Z"
 last_activity: 2026-08-17
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 ## Current Position
 
 Phase: 17 (agent-ux) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-08-17
 
@@ -51,6 +51,7 @@ Last activity: 2026-08-17
 | Phase 17 P04 | ~10min | 2 tasks | 3 files |
 | Phase 17 P01 | ~7min | 3 tasks | 4 files |
 | Phase 17 P03 | ~7min | 2 tasks | 4 files |
+| Phase 17 P02 | ~5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ v0.3.0 roadmap decisions:
 - [Phase 17]: [17-01] Toast 桥 bindToast/emitToast 取代 store 内 useToast — store 保持 React-free，Node 测试可直接加载
 - [Phase 17]: [17-03] 晨报每日一戳只从 AgentWorkspaceView mount 写（空报告也写戳）— ⌘K 进 ChatPanel 不消耗当日晨报；isDue 在 useState initializer 捕获，StrictMode remount 安全
 - [Phase 17]: [17-03] reportSelectors 纯函数模块（零 react/zustand）+ node:test 锁定自由文本 deadline 安全 — 不可解析 deadline 永不过期绝不 throw
+- [Phase 17]: [17-02] carry 快照在唤起时派生（refreshAgentCarry），注入走 buildCoreContext 既有 core segment（同 clamp）— 无第二组装路径
+- [Phase 17]: [17-02] 任务未选中 fallback 携带实际列表过滤器名（任务 · {分类名}），TaskKanban viewMode+活动分类提升为 uiStore transient 字段
 
 ### TODOs (pending)
 

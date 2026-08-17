@@ -247,7 +247,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
                 className="inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accent-subtle px-2 py-0.5 text-xs text-accent">
                 {item.kind === 'schedule' ? `今日日程 (${item.count})` : item.label}
                 <button type="button" onClick={() => removeCarriedItem(item.kind, item.id)}
-                  aria-label={`移除 ${item.label}`} className="shrink-0 hover:text-accent-hover">
+                  aria-label={`移除 ${item.label}`} className="shrink-0 rounded px-1 py-0.5 hover:text-accent-hover">
                   <X size={10} />
                 </button>
               </span>

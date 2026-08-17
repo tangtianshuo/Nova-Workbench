@@ -17,7 +17,7 @@ export function ContextMenuContent({
       <ContextMenuPrimitive.Content
         className={cn(
           // ponytail: z-tooltip — must clear Dialog z-modal (400). See Select.tsx.
-          'z-tooltip min-w-[10rem] p-1',
+          'z-tooltip min-w-[8rem] p-1',
           'bg-bg-primary border border-border-subtle rounded-[var(--radius-md)] shadow-shadow-lg',
           'focus:outline-none',
           className

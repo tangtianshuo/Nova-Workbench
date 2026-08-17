@@ -404,6 +404,7 @@ function KanbanColumn({
   activeDragId, activeDragTask, overCatId,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: cat.id });
+  const taskKanbanCategory = useUIStore((s) => s.taskKanbanCategory);
 
   // D-06 real-time count: +1 for column being dragged-over, -1 for source column
   const isSource = !!activeDragTask && cat.tasks.some((t) => t.id === activeDragTask.id);
@@ -423,7 +424,11 @@ function KanbanColumn({
       <div className="flex items-center justify-between py-1 mb-2 px-1">
         <div className="flex items-center gap-2">
           <div className={cn('w-2 h-2 rounded-full', cat.color)} />
-          <h3 className="text-sm font-semibold text-text-primary" onClick={onHeaderClick}>{cat.name}</h3>
+          <h3 className={cn(
+            'text-sm font-semibold text-text-primary',
+            onHeaderClick && 'cursor-pointer hover:text-accent',
+            onHeaderClick && taskKanbanCategory === cat.name && 'text-accent',
+          )} onClick={onHeaderClick}>{cat.name}</h3>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
               key={derivedCount}

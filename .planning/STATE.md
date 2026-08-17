@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-17T02:19:41.994Z"
-last_activity: 2026-08-17
+last_updated: "2026-08-17T04:07:24.262Z"
+last_activity: 2026-08-17 -- Phase 17 execution started
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 19
+  completed_plans: 15
 ---
 
 # Project State
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-14)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 16 — prd
+**Current focus:** Phase 17 — agent-ux
 
 ## Current Position
 
-Phase: 999.4
-Plan: Not started
-Status: Executing Phase 16
-Last activity: 2026-08-17
+Phase: 17 (agent-ux) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 17
+Last activity: 2026-08-17 -- Phase 17 execution started
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Last activity: 2026-08-17
 | Phase 15 P04 | 32min | 4 tasks | 3 files |
 | Phase 16 P01 | 35min | 3 tasks | 14 files |
 | Phase 16 P02 | ~3min | 2 tasks | 2 files |
+| Phase 17 P04 | ~10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ v0.3.0 roadmap decisions:
 - [Phase 16]: [16-01] memoryStore listActiveMemories confirmedAt tiebreak by memoryRowid DESC — fixes Phase 15 overflow test flake
 - [Phase 16]: [16-02] consume-at-落槽: card 确认只表达编辑意图,Dialog 落槽是唯一确认消费点 — cancel 无损(候选是落槽前唯一真相,重开恢复原始草稿)
 - [Phase 16]: [16-02] PrdDraftDialog editor wrapped in DialogBody (plan JSX 裸编辑器无 gutter — DialogHeader/Footer 自带 px-5,Content 不带)
+- [Phase 17]: [17-04] ARCHITECTURE.md v2.0 全文重写:只描述已落地系统(对照 migrations 0002-0005 + src/ai/),GraphFlow/Rig/LanceDB 仅存于否决/ADR 语境
+- [Phase 17]: [17-04] harness 复用范围 = 设计思想 + 纯函数算法(事件配对/投影派生/恢复切分点),不引入框架;MIT 归属入 ADR-0002
 
 ### TODOs (pending)
 

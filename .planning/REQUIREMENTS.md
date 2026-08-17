@@ -48,8 +48,8 @@
 
 ### 架构文档 (ARCH)
 
-- [ ] **ARCH-01**: docs/ARCHITECTURE.md 重写为「事件日志 + tool loop + FTS5」架构,GraphFlow/Rig/LanceDB 正式出局,docs/AGENT_MEMORY_REFERENCE.md 纳入真相源
-- [ ] **ARCH-02**: 相关 ADR 更新(含 deepseek-harness 纯函数复用的 MIT 归属说明),后续里程碑不再引用旧蓝图
+- [x] **ARCH-01**: docs/ARCHITECTURE.md 重写为「事件日志 + tool loop + FTS5」架构,GraphFlow/Rig/LanceDB 正式出局,docs/AGENT_MEMORY_REFERENCE.md 纳入真相源
+- [x] **ARCH-02**: 相关 ADR 更新(含 deepseek-harness 纯函数复用的 MIT 归属说明),后续里程碑不再引用旧蓝图
 
 ## v2 Requirements
 
@@ -115,8 +115,8 @@
 | UX-02 | Phase 17 | Pending |
 | UX-03 | Phase 17 | Pending |
 | UX-04 | Phase 17 | Pending |
-| ARCH-01 | Phase 17 | Pending |
-| ARCH-02 | Phase 17 | Pending |
+| ARCH-01 | Phase 17 | Complete |
+| ARCH-02 | Phase 17 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total

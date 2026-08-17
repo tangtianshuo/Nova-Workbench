@@ -1,10 +1,11 @@
 ---
 phase: 17
 slug: agent-ux
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-17
+reviewed_at: 2026-08-17
 ---
 
 # Phase 17 — UI Design Contract

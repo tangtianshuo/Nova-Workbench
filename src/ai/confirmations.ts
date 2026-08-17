@@ -203,6 +203,13 @@ export async function createDestructiveActionCandidate(
   args: Record<string, unknown>,
   summary: string,
 ): Promise<DestructiveActionCandidate> {
+  // Same dedup shape as deliverable drafts: repeated step-1 calls for the same
+  // action return the existing pending candidate instead of piling up rows
+  // (a model retrying with fabricated tokens must not spam candidates).
+  const hash = await computeParamsHash(destructiveParams(toolName, args));
+  const duplicate = (await getConfirmationStore().listActive('destructive_action'))
+    .find((row) => row.paramsHash === hash);
+  if (duplicate) return destructiveFromRow(duplicate);
   const row = await getConfirmationStore().create({
     kind: 'destructive_action',
     params: destructiveParams(toolName, args),
@@ -249,6 +256,22 @@ export async function consumeDestructiveActionConfirmation(
       throw new DestructiveActionConfirmationError(destructiveErrorMessage(error.code));
     }
     throw error;
+  }
+}
+
+// GAP-13-01: models see `confirmationToken` in the tool schema and may fabricate
+// one. A failed consume has no side effects, so callers treat false as
+// "step 1 never completed" and fall back to the pendingConfirmation candidate.
+export async function tryConsumeDestructiveActionConfirmation(
+  confirmationToken: string,
+  toolName: string,
+  args: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    await consumeDestructiveActionConfirmation(confirmationToken, toolName, args);
+    return true;
+  } catch {
+    return false;
   }
 }
 

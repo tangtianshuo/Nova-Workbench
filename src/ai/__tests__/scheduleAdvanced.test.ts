@@ -106,6 +106,24 @@ test('schedule advanced tools register and preserve task/event links', async () 
     assert.equal(useScheduleStore.getState().events.length, 1);
     assert.equal(useScheduleStore.getState().events[0].id, created.eventId);
     assert.equal(useTaskStore.getState().categories[0].tasks[0].scheduledEventId, undefined);
+
+    // GAP-13-01: fabricated token falls back to pending confirmation (self-healing).
+    const hallucinated = await executeTool('deleteEvent', {
+      eventId: created.eventId,
+      confirmed: true,
+      confirmationToken: 'fake-token',
+    }) as typeof pendingDelete;
+    assert.equal(hallucinated.pendingConfirmation, true);
+    assert.notEqual(hallucinated.confirmationToken, 'fake-token');
+    assert.equal(useScheduleStore.getState().events.some((item) => item.id === created.eventId), true);
+    await confirmDestructiveAction(hallucinated.confirmationToken);
+    const healed = await executeTool('deleteEvent', {
+      ...hallucinated.args,
+      confirmed: true,
+      confirmationToken: hallucinated.confirmationToken,
+    }) as { success: boolean };
+    assert.equal(healed.success, true);
+    assert.equal(useScheduleStore.getState().events.length, 0);
   } finally {
     useTaskStore.setState({ categories: originalCategories });
     useScheduleStore.setState({ events: originalEvents });

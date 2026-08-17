@@ -113,6 +113,31 @@ try {
     confirmationToken: confirmedCandidate.confirmationToken,
   }), { success: true, taskId: 'task-1', deleted: true });
 
+  // GAP-13-01: a model that fabricates a token (confirmed:true + invented token)
+  // must get the pending-confirmation fallback, not an unretryable tool error.
+  const hallucinated = await executeTool('deleteTask', {
+    taskId: 'task-2',
+    confirmed: true,
+    confirmationToken: 'task-2',
+  }) as typeof pendingDelete;
+  assert.equal(hallucinated.pendingConfirmation, true);
+  assert.notEqual(hallucinated.confirmationToken, 'task-2');
+  assert.equal(useTaskStore.getState().categories[0].tasks.some((item) => item.id === 'task-2'), true);
+  // Repeated fallback calls dedup to the same candidate instead of piling rows.
+  const hallucinatedAgain = await executeTool('deleteTask', {
+    taskId: 'task-2',
+    confirmed: true,
+    confirmationToken: 'still-fake',
+  }) as typeof pendingDelete;
+  assert.equal(hallucinatedAgain.confirmationToken, hallucinated.confirmationToken);
+  // Self-heal: confirm the real candidate and the delete goes through.
+  await confirmDestructiveAction(hallucinated.confirmationToken);
+  assert.deepEqual(await executeTool('deleteTask', {
+    ...hallucinated.args,
+    confirmed: true,
+    confirmationToken: hallucinated.confirmationToken,
+  }), { success: true, taskId: 'task-2', deleted: true });
+
   await assert.rejects(
     executeTool('rescheduleTask', { taskId: 'task-1', newDate: 'tomorrow' }),
     (error: unknown) => error instanceof ToolArgError && error.toolName === 'rescheduleTask',

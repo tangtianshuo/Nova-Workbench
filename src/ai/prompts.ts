@@ -35,6 +35,8 @@ When creating a task without a deadline:
 
 ### Destructive Confirmation
 - deleteTask, bulkDeleteTasks, and deleteEvent are destructive operations.
+- Call them WITHOUT "confirmed" first; the tool returns a pending confirmation that the user confirms in the UI. Relay that to the user and stop.
+- Never fabricate or guess a "confirmationToken". A valid token can only come from a previous tool_result.
 - Before calling one, state exactly what will be deleted and ask for explicit confirmation.
 - Do not call a destructive tool on an implied, vague, or missing confirmation. Treat cancel, refusal, and ambiguity as a stop.
 

@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { registerTool } from '../registry';
 import { useTaskStore } from '../../stores/taskStore';
 import {
-  consumeDestructiveActionConfirmation,
   createDestructiveActionCandidate,
+  tryConsumeDestructiveActionConfirmation,
 } from '../confirmations';
 
 const prioritySchema = z.enum(['high', 'medium', 'low']);
@@ -51,13 +51,15 @@ registerTool({
   description: '[DESTRUCTIVE: confirmation required] Permanently delete one task. Example: 删除那个重复任务。',
   schema: z.object({
     taskId: taskIdSchema.describe('The unique task ID'),
-    confirmed: z.boolean().optional(),
-    confirmationToken: z.string().min(1).optional(),
+    confirmed: z.boolean().optional().describe('Leave unset on the first call. Set true only together with a confirmationToken returned by a previous deleteTask tool_result.'),
+    confirmationToken: z.string().min(1).optional().describe('Only pass a token received from a previous deleteTask tool_result. Never invent one.'),
   }).strict(),
   execute: async ({ taskId, confirmed, confirmationToken }) => {
     if (!findTask(taskId)) return { success: false, error: 'Task not found', taskId };
     const actionArgs = { taskId };
-    if (!confirmed) {
+    const consumed = confirmed === true && typeof confirmationToken === 'string'
+      && await tryConsumeDestructiveActionConfirmation(confirmationToken, 'deleteTask', actionArgs);
+    if (!consumed) {
       return {
         success: false,
         pendingConfirmation: true,
@@ -65,10 +67,6 @@ registerTool({
         ...(await createDestructiveActionCandidate('deleteTask', actionArgs, '删除任务后将无法恢复。')),
       };
     }
-    if (!confirmationToken) {
-      throw new Error('A confirmation token is required before deleting a task.');
-    }
-    await consumeDestructiveActionConfirmation(confirmationToken, 'deleteTask', actionArgs);
     useTaskStore.getState().deleteTask(taskId);
     return {
       success: true,
@@ -160,8 +158,8 @@ registerTool({
   description: '[DESTRUCTIVE: confirmation required] Permanently delete multiple tasks. Example: 删除这些重复任务。',
   schema: z.object({
     taskIds: z.array(taskIdSchema).min(1).max(50),
-    confirmed: z.boolean().optional(),
-    confirmationToken: z.string().min(1).optional(),
+    confirmed: z.boolean().optional().describe('Leave unset on the first call. Set true only together with a confirmationToken returned by a previous bulkDeleteTasks tool_result.'),
+    confirmationToken: z.string().min(1).optional().describe('Only pass a token received from a previous bulkDeleteTasks tool_result. Never invent one.'),
   }).strict(),
   execute: async ({ taskIds, confirmed, confirmationToken }) => {
     const existingTaskIds: string[] = [];
@@ -174,7 +172,9 @@ registerTool({
 
     if (existingTaskIds.length === 0) return { success: false, deleted: 0, failed };
     const actionArgs = { taskIds: existingTaskIds };
-    if (!confirmed) {
+    const consumed = confirmed === true && typeof confirmationToken === 'string'
+      && await tryConsumeDestructiveActionConfirmation(confirmationToken, 'bulkDeleteTasks', actionArgs);
+    if (!consumed) {
       return {
         success: false,
         pendingConfirmation: true,
@@ -183,10 +183,6 @@ registerTool({
         ...(await createDestructiveActionCandidate('bulkDeleteTasks', actionArgs, `将删除 ${existingTaskIds.length} 个任务，删除后无法恢复。`)),
       };
     }
-    if (!confirmationToken) {
-      throw new Error('A confirmation token is required before deleting tasks.');
-    }
-    await consumeDestructiveActionConfirmation(confirmationToken, 'bulkDeleteTasks', actionArgs);
     const store = useTaskStore.getState();
     existingTaskIds.forEach((id) => store.deleteTask(id));
     return {

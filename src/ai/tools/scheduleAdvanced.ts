@@ -6,8 +6,8 @@ import { useRndStore } from '../../stores/rndStore';
 import { useScheduleStore, type ScheduleEventType, type ScheduleEventStatus } from '../../stores/scheduleStore';
 import { useTaskStore } from '../../stores/taskStore';
 import {
-  consumeDestructiveActionConfirmation,
   createDestructiveActionCandidate,
+  tryConsumeDestructiveActionConfirmation,
 } from '../confirmations';
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
@@ -71,8 +71,8 @@ registerTool({
   description: 'Permanently delete a calendar event. This is destructive and requires user confirmation. Linked task references are cleared.',
   schema: z.object({
     eventId: z.string().min(1),
-    confirmed: z.boolean().optional(),
-    confirmationToken: z.string().min(1).optional(),
+    confirmed: z.boolean().optional().describe('Leave unset on the first call. Set true only together with a confirmationToken returned by a previous deleteEvent tool_result.'),
+    confirmationToken: z.string().min(1).optional().describe('Only pass a token received from a previous deleteEvent tool_result. Never invent one.'),
   }).strict(),
   execute: async ({ eventId, confirmed, confirmationToken }) => {
     const scheduleStore = useScheduleStore.getState();
@@ -82,7 +82,9 @@ registerTool({
     }
 
     const actionArgs = { eventId };
-    if (!confirmed) {
+    const consumed = confirmed === true && typeof confirmationToken === 'string'
+      && await tryConsumeDestructiveActionConfirmation(confirmationToken, 'deleteEvent', actionArgs);
+    if (!consumed) {
       return {
         success: false,
         pendingConfirmation: true,
@@ -90,10 +92,6 @@ registerTool({
         ...(await createDestructiveActionCandidate('deleteEvent', actionArgs, `删除日程”${event.title}”后将无法恢复。`)),
       };
     }
-    if (!confirmationToken) {
-      throw new Error('A confirmation token is required before deleting an event.');
-    }
-    await consumeDestructiveActionConfirmation(confirmationToken, 'deleteEvent', actionArgs);
 
     const linkedTasks = useTaskStore
       .getState()

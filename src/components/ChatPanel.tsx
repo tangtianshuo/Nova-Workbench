@@ -108,6 +108,9 @@ export function ChatPanel() {
   const [autoRemembered, setAutoRemembered] = useState<MemoryCandidate | null>(null);
   const [memoryBusy, setMemoryBusy] = useState(false);
   const [pendingPrdDraft, setPendingPrdDraft] = useState<DeliverableDraftCandidate | null>(null);
+  // UI-REVIEW #1/#2: 快照在 Dialog 打开瞬间固定 — 落槽失败后 refreshPrdCard 移除卡片时
+  // 编辑内容仍留在 Dialog;候选对象换血也不冲掉进行中的编辑。
+  const [prdDraftSnapshot, setPrdDraftSnapshot] = useState<DeliverableDraftCandidate | null>(null);
   const [prdBusy, setPrdBusy] = useState(false);
   const [prdDialogOpen, setPrdDialogOpen] = useState(false);
   const products = useProductStore((s) => s.products);
@@ -577,18 +580,21 @@ export function ChatPanel() {
               <div className="mt-1 text-xs text-text-secondary line-clamp-3 whitespace-pre-wrap">{pendingPrdDraft.draft}</div>
               <div className="mt-1 text-xs text-text-tertiary">来源: 本次对话 · {formatMemoryTime(pendingPrdDraft.createdAt)}</div>
               <div className="mt-2 flex gap-2">
-                <Button type="button" variant="primary" size="sm" onClick={() => setPrdDialogOpen(true)} disabled={prdBusy}>确认并编辑</Button>
+                <Button type="button" variant="primary" size="sm" onClick={() => { setPrdDraftSnapshot(pendingPrdDraft); setPrdDialogOpen(true); }} disabled={prdBusy}>确认并编辑</Button>
                 <Button type="button" variant="secondary" size="sm" onClick={() => void rejectDraft()} disabled={prdBusy}>忽略</Button>
               </div>
             </div>
           )}
-          {pendingPrdDraft && (
+          {prdDraftSnapshot && (
             <PrdDraftDialog
               open={prdDialogOpen}
-              onOpenChange={setPrdDialogOpen}
-              title={pendingPrdDraft.title || 'PRD 草稿'}
-              description={`${products.find((p) => p.id === pendingPrdDraft.productId)?.name ?? ''} · 编辑后落槽至研发中心,并同步知识库索引`}
-              initialDraft={pendingPrdDraft.draft}
+              onOpenChange={(nextOpen) => {
+                setPrdDialogOpen(nextOpen);
+                if (!nextOpen) setPrdDraftSnapshot(null);
+              }}
+              title={prdDraftSnapshot.title || 'PRD 草稿'}
+              description={`${products.find((p) => p.id === prdDraftSnapshot.productId)?.name ?? ''} · 编辑后落槽至研发中心,并同步知识库索引`}
+              initialDraft={prdDraftSnapshot.draft}
               busy={prdBusy}
               onCommit={(draft) => void commitToSlot(draft)}
             />

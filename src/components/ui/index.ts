@@ -28,6 +28,7 @@ export { MarkdownRenderer } from './MarkdownRenderer';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
 export { SegmentedControl } from './SegmentedControl';
 export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuCheckboxItem, DropdownMenuRadioItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from './DropdownMenu';
+export { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuGroup, AiContextMenu } from './ContextMenu';
 
 // Overlay & Modal
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogOverlay, DialogHeader, DialogFooter, DialogBody, DialogAnimated } from './Dialog';

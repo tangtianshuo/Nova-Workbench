@@ -3,6 +3,15 @@ import { persist } from 'zustand/middleware';
 import type { Provider } from '@/src/lib/api';
 import { sqliteStorage } from './storage/sqliteStorage';
 
+// Phase 17 UX-02: snapshot of the current view context carried into the agent
+// at ⌘K open time. Transient — never persisted, removal is session-scoped.
+export interface CarriedContextItem {
+  kind: 'product' | 'task' | 'schedule';
+  id?: string;
+  label: string;
+  count?: number;
+}
+
 interface UIState {
   activeTab: string;
   selectedProductId: string | null;
@@ -19,6 +28,11 @@ interface UIState {
   isChatPanelOpen: boolean;
   isCmdKOpen: boolean;
 
+  // Phase 17 UX-02 — transient agent context carry + TaskKanban view state lift
+  agentContextCarry: CarriedContextItem[];
+  taskKanbanView: 'category' | 'date';
+  taskKanbanCategory: string | null;
+
   // Actions
   setActiveTab: (tab: string) => void;
   setSelectedProductId: (id: string | null) => void;
@@ -30,6 +44,10 @@ interface UIState {
   setNewTaskOpen: (open: boolean) => void;
   setChatPanelOpen: (open: boolean) => void;
   setCmdKOpen: (open: boolean) => void;
+  setAgentContextCarry: (items: CarriedContextItem[]) => void;
+  removeCarriedItem: (kind: CarriedContextItem['kind'], id?: string) => void;
+  setTaskKanbanView: (view: 'category' | 'date') => void;
+  setTaskKanbanCategory: (name: string | null) => void;
 
   // Persistence
   _hasHydrated: boolean;
@@ -51,6 +69,10 @@ export const useUIStore = create<UIState>()(
   isChatPanelOpen: false,
   isCmdKOpen: false,
 
+  agentContextCarry: [],
+  taskKanbanView: 'category',
+  taskKanbanCategory: null,
+
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSelectedProductId: (id) => set({ selectedProductId: id }),
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
@@ -61,6 +83,22 @@ export const useUIStore = create<UIState>()(
   setNewTaskOpen: (open) => set({ isNewTaskOpen: open }),
   setChatPanelOpen: (open) => set({ isChatPanelOpen: open }),
   setCmdKOpen: (open) => set({ isCmdKOpen: open }),
+  setAgentContextCarry: (items) => set({ agentContextCarry: items }),
+  removeCarriedItem: (kind, id) =>
+    set((state) => {
+      const index = state.agentContextCarry.findIndex(
+        (item) => item.kind === kind && (id === undefined || item.id === id),
+      );
+      if (index === -1) return state;
+      return { agentContextCarry: state.agentContextCarry.filter((_, i) => i !== index) };
+    }),
+  setTaskKanbanView: (view) =>
+    set((state) => ({
+      taskKanbanView: view,
+      // date view has no category columns — drop the stale active category
+      taskKanbanCategory: view === 'date' ? null : state.taskKanbanCategory,
+    })),
+  setTaskKanbanCategory: (name) => set({ taskKanbanCategory: name }),
 
   // Persistence
   _hasHydrated: false,

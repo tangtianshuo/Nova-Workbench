@@ -8,7 +8,8 @@ import { useUIStore } from '@/src/stores/uiStore';
 import { useTaskStore } from '@/src/stores/taskStore';
 import { useScheduleStore } from '@/src/stores/scheduleStore';
 import { useProductStore } from '@/src/stores/productStore';
-import type { Product, Task } from '@/src/data/mockTasks';
+import type { Task } from '@/src/data/mockTasks';
+import type { Product } from '@/src/data/mockProducts';
 
 function makeTask(overrides: Partial<Task>): Task {
   return {

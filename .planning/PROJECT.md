@@ -61,6 +61,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - ✓ 可恢复执行底座(Agent Event Log + 持久化确认 + 会话恢复/压缩) — **Phase 13-14, v0.3.0**
 - ✓ 长期记忆 + 知识文档 + FTS5 中文检索 — **Phase 15, v0.3.0**
 - ✓ PRD 生产线(agent 生成 → HITL 确认编辑 → 版本化落研发中心卡槽 + AI 溯源徽章) — **Phase 16 (2026-08-17), UAT 8 项延后至统一验证**
+- ✓ Agent 一等入口(AgentConsole 双宿主 + 裸 ⌘K carry + 晨报 + 右键 AI 动作)+ ARCHITECTURE.md v2.0/ADR — **Phase 17 (2026-08-17), UAT 6 项延后至统一验证**
 
 ### Active
 
@@ -69,7 +70,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - [ ] P0 可恢复执行底座(Agent Event Log、持久化确认、会话重建) — ✓ Phase 13-14
 - [ ] P1 可管理长期记忆(记忆候选流、知识文档版本/来源、FTS5 检索) — ✓ Phase 15
 - [ ] agent 驱动生成交付物生产线(PRD 等 → HITL → 研发中心卡槽) — ✓ Phase 16
-- [ ] Agent 全局一等入口 + 主动建议/晨报 + 右键菜单快捷 AI 动作 — Phase 17 进行中
+- [ ] Agent 全局一等入口 + 主动建议/晨报 + 右键菜单快捷 AI 动作 — ✓ Phase 17 (2026-08-17), UAT 6 项延后至统一验证
 - [ ] 架构文档重写(ARCHITECTURE.md + ADR)
 - [ ] Phase 7 的 35 步人工回归(发布签核建议,来自 v0.2.0 audit tech debt)
 
@@ -164,4 +165,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 12 (2026-08-11)**: v0.2.0 Gap Closure — closed all 8 audit gaps (INT-01 KnowledgeBaseView→rndStore wiring, 5 phase VERIFICATION.md backfill, 3 Express MEDIUM hardening, CROSS-04/05/06 traceability). v0.2.0 milestone ready for sign-off.
 
 ---
-*Last updated: 2026-08-17 — Phase 16 complete, Phase 17 next*
+*Last updated: 2026-08-17 — v0.3.0 all phases complete, unified UAT pending*

@@ -1,191 +1,113 @@
-# Nova-PM-Workspace - 架构设计文档
+# Nova-PM-Workspace — 架构文档
 
-> 版本: 1.0  
-> 日期: 2026-08-07  
-> 状态: 已确认
+> 版本: 2.0
+> 日期: 2026-08-17
+> 状态: 现行架构真相源（v1.0 蓝图已废止，见 ADR-0001）
 
 ---
 
 ## 1. 产品定位
 
-**Nova-PM-Workspace** 是一个 **AI native 的产品经理工作台**，核心愿景：
+**Nova** 是一个 **AI native 的产品经理桌面工作台**（Tauri v2 + React 19）：让 PM 拥有一个懂你、能替你干活的桌面 AI Agent —— 不是 chatbot，而是能生成交付物、有可管理的长期记忆与知识库、关键节点 HITL 确认的一等执行者。约束：**零 sidecar**（不引入 Node.js 子进程做 LLM/工作流）、**本地优先**（SQLite 唯一持久层，敏感数据不出本地）、**混合架构**（本地存储 + 云端/本地 LLM API）。
 
-> 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent
+## 2. 架构总览
 
-### 1.1 核心能力
-
-| 能力 | 描述 |
-|------|------|
-| **聊天助手** | 日常对话、任务创建、日程管理 |
-| **任务编排** | 多步 Pipeline 自动化（需求→PRD→原型→代码） |
-| **需求调研** | 信息收集、竞品分析、市场调研 |
-| **成果物生成** | PRD、交互原型、代码脚手架、测试用例 |
-| **第二大脑** | 知识管理、语义检索、长期记忆 |
-| **主动推进** | 定时任务、事件驱动、主动通知 |
-
-### 1.2 设计原则
-
-- **本地优先** — 敏感数据（产品文档、PRD、代码）存储在本地
-- **混合架构** — 本地应用 + 云端 LLM API
-- **人机协作** — 关键节点人工确认（Human-in-the-Loop）
-- **极致轻量** — 全 Rust 后端，资源占用最小化
-
----
-
-## 2. 系统架构
-
-### 2.1 整体架构图
+现行架构一句话：**事件日志（真相源）+ tool loop（执行）+ FTS5（检索）+ HITL 确认队列（人审）+ Tauri 壳（承载）**。
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        前端 (React + TypeScript)                     │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
-│  │ AgentWorkspace   │  │   RndCenter      │  │  KnowledgeBase   │  │
-│  │    View          │  │     View         │  │      View        │  │
-│  │  (聊天助手)       │  │ (Pipeline HITL)  │  │   (第二大脑)      │  │
-│  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
-├─────────────────────────────────────────────────────────────────────┤
-│                        Tauri IPC Layer                               │
-│  chat_stream() │ pipeline_step() │ pipeline_interrupt() │ search()  │
-├─────────────────────────────────────────────────────────────────────┤
-│                      Tauri 后端 (Rust) — 零 Sidecar                  │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │                  GraphFlow 工作流引擎                        │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │    │
-│  │  │需求分析   │→│ PRD生成  │→│ 原型设计  │→│ 代码生成  │      │    │
-│  │  │  🛑 HITL │  │  🛑 HITL │  │  🛑 HITL │  │  🛑 HITL │      │    │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │    │
-│  └────────────────────────────────────────────────────────────┘    │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │                      Rig LLM 调用层                         │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │    │
-│  │  │ Claude   │ │  Gemini  │ │  OpenAI  │ │  Ollama  │      │    │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │    │
-│  └────────────────────────────────────────────────────────────┘    │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │                        存储层                                │    │
-│  │  ┌──────────────────┐  ┌──────────────────┐               │    │
-│  │  │  SQLite          │  │  LanceDB         │               │    │
-│  │  │  (状态持久化)     │  │  (向量检索)       │               │    │
-│  │  └──────────────────┘  └──────────────────┘               │    │
-│  └────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Tauri v2 壳（src-tauri/src/：llm.rs 多 Provider / keychain.rs / 迁移）│
+├──────────────────────────────────────────────────────────────────────┤
+│  前端 React 19 + zustand（6 store + AppContext 兼容层）                │
+│  ChatPanel / ⌘K / AgentWorkspaceView / 产品·任务·日程·研发·知识库视图  │
+├──────────────────────────────────────────────────────────────────────┤
+│  TS Agent 运行时（src/ai/）                                           │
+│  toolLoop（单历史，事件驱动）                                          │
+│    → 事件追加 agent_events（append-only，seq 连续 + correlation_id）   │
+│    → ChatSession 投影 → deriveMessages 派生 LLM messages（唯一来源）   │
+│  contextAssembler（五段优先级投影 + context_injected 审计事件）        │
+│  HITL：确认候选（知识写入/破坏性动作/记忆/交付物）→ 用户确认           │
+│    → 原子条件 UPDATE 消费 → 工具执行/落库                              │
+├──────────────────────────────────────────────────────────────────────┤
+│  SQLite 持久层（src-tauri/migrations/，tauri-plugin-sql，WAL）         │
+│  agent_events / agent_artifacts / agent_confirmation_candidates       │
+│  memory_candidates / memories / knowledge_docs / knowledge_fts (FTS5) │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 架构决策
+**核心数据流**：用户消息进入 `toolLoop` → 每一步（user/assistant 消息、tool_call、tool_result、审批、压缩）作为事件追加到 `agent_events` → `ChatSession` 作为事件日志的投影，每轮迭代从 `getMessagesForLLM()` 重新派生模型上下文 → 需要人审的动作先创建确认候选，经用户确认后原子消费再执行。重启后 `sessionRestore` 从事件日志恢复会话；长会话由 `compaction` 收窄模型可见投影（原始事件不动）。
 
-| 决策 | 选择 | 理由 |
-|------|------|------|
-| **Sidecar 策略** | 零 Sidecar | 全 Rust 后端，避免 Node.js 进程开销 |
-| **工作流引擎** | GraphFlow | Rust 原生，HITL 支持，与 Rig 集成 |
-| **LLM 集成** | Rig | GraphFlow 已集成，多 Provider 支持 |
-| **持久化** | SQLite | 本地优先，成熟稳定 |
-| **向量检索** | LanceDB | 嵌入式，零配置，适合桌面应用 |
+## 3. 分层结构
 
----
+### 3.1 Tauri 壳（Rust，src-tauri/src/）
 
-## 3. 数据流
+- `llm.rs` — provider-agnostic LLM 调用（Ollama 生产 tool-call UAT 已通过；云 Provider 走 keychain API key）
+- `keychain.rs` — API key 安全存储（不进客户端 bundle）
+- `commands.rs` / `state.rs` / `error.rs` — Tauri command 与 IPC（Channel 流式输出）
+- `migrations/` — SQLite schema 前向迁移（forward-only，永不 DROP）
 
-### 3.1 聊天交互流
+### 3.2 前端（React 19 + zustand）
 
-```
-用户输入 → 前端 → Tauri IPC → Rig LLM → 流式响应 → 前端渲染
-```
+- 6 个 Zustand store（task/product/rnd/schedule/workspace/ui）承载业务事实，经 tauri-plugin-sql 持久化
+- `src/store/AppContext.tsx` 兼容层仍在（30 处 useApp 调用者），随 view 迁移逐步移除
+- ChatPanel（Drawer）+ ⌘K 唤起 + HITL 确认卡片是 agent 对用户的统一交互面
 
-### 3.2 Pipeline 工作流
+### 3.3 TS Agent 运行时（src/ai/）
 
-```
-用户发起 → GraphFlow 启动 → 节点执行 → interrupt! 暂停
-                                          ↓
-                                    前端展示审批卡片
-                                          ↓
-用户审批 → 前端提交 → Tauri IPC → GraphFlow 恢复 → 下一节点
-```
+| 模块 | 职责 |
+|---|---|
+| `events/`（eventStore / invariants / artifacts / types） | append-only 事件存储；tool_call/tool_result 配对不变量检查；>4KB tool 结果外置为 artifact（模型历史只留摘要 + artifact_id + 头部片段） |
+| `toolLoop.ts` | 单历史执行循环：每迭代从 session 派生 messages，无第二份历史数组；确认 WAIT 也落 tool_result |
+| `chatSession.ts` | ChatSession = 事件日志投影；`getMessagesForLLM()` 是 LLM messages 的单一派生来源 |
+| `sessionRestore.ts` | 崩溃恢复：尾切到最后完整 `turn_ended`；孤儿 tool_call 以追加 tool_result 标记 interrupted，**绝不重试** |
+| `compaction.ts` | 上下文压缩：≥0.8× 窗口触发，在配对平衡处切分，只改模型可见投影，事件无损 |
+| `confirmationStore.ts` + `paramsHash.ts` | HITL 确认候选持久化：paramsHash = 规范化 JSON 的 SHA-256；消费为原子条件 UPDATE，重启/并发不会双消费 |
+| `memoryStore.ts` | 长期记忆：候选队列（hash 去重、cap、TTL）、确认晋升、supersedes 版本链 |
+| `knowledgeRepo.ts` + `ftsTokens.ts` | 知识文档版本化读写；FTS5 索引与文档写入同事务/同语句生命周期；索引/查询同源切分（quoted-token MATCH 免注入） |
+| `contextAssembler.ts` | 五段优先级上下文投影（业务事实 → 未完成动作 → 已确认约束 → 检索结果 → 近期对话/摘要），每段注入落 `context_injected` 审计事件 |
+| `tools/`（14 个） | 任务/日程/产品/工作区/知识读写检索/记忆候选/导航/交付物生成 |
+| `tools/generateDeliverable.ts` | 两段式：先出候选（草稿），HITL 确认编辑后版本化落研发中心交付物卡槽；落槽 doc 记录生成 turn 的 correlation_id（`source_event_id`），可回放完整生成回合 |
 
-### 3.3 知识检索流
+### 3.4 SQLite 持久层（schema 真相见 src-tauri/migrations/）
 
-```
-用户查询 → LanceDB 向量检索 → 相关文档 → LLM 上下文增强 → 回答生成
-```
+| 迁移 | 表 | 要点 |
+|---|---|---|
+| 0002 | `agent_events` / `agent_artifacts` | `(session_id, seq)` UNIQUE；correlation_id 关联请求/工具/审批；WAL |
+| 0003 | `agent_confirmation_candidates` | params_hash 去重；status 机 pending→confirmed→consumed；expired 为派生态 |
+| 0004 | `memory_candidates` / `memories` / `knowledge_docs` / `knowledge_fts` | content_hash UNIQUE 去重；`(memory_id, version)` / `(doc_id, version)` 版本化 + supersedes/superseded_at；FTS5 standalone 虚表（doc_rowid UNINDEXED join 锚点），同时充当 FTS5 runtime probe |
+| 0005 | `knowledge_docs.source_event_id` | AI 交付物溯源指针（correlation_id） |
 
----
+## 4. 关键设计决策
 
-## 4. 安全与隐私
+1. **append-only 事件日志是 agent 运行的唯一真相源** — 模型看到的一切必须能从持久日志重建；日志追加后不可静默覆盖，修正通过新事件表达。
+2. **投影可重建** — ChatSession、上下文、检索结果均为派生投影；损坏可从事件重放。
+3. **孤儿 tool_call 绝不重试** — 崩溃恢复时以追加 tool_result（interrupted）了结，杜绝重复业务写入。
+4. **>4KB artifact 外置** — 大结果进 `agent_artifacts`，模型历史只留摘要与引用，压缩与窗口控制因此可行。
+5. **压缩无损** — compaction 只收窄模型可见投影，原始事件永久保留（带来源摘要）。
+6. **FTS5 索引与文档写入同事务** — 索引永不指向失效版本；supersede 过滤在查询 WHERE 侧完成，不删 FTS 行。
+7. **HITL 消费原子性** — 条件 UPDATE（`status='confirmed' AND consumed_at IS NULL`）保证恰一消费。
+8. **零 sidecar** — agent 运行时在 TS 侧（webview），LLM/keychain 在 Rust 侧，无任何常驻子进程。
 
-### 4.1 数据分类
+## 5. 真相源索引
 
-| 数据类型 | 存储位置 | 加密 |
-|---------|---------|------|
-| 产品文档、PRD、代码 | 本地 SQLite/文件系统 | 可选加密 |
-| 向量索引 | 本地 LanceDB | N/A |
-| LLM API Key | 本地加密存储 | ✅ |
-| 对话历史 | 本地 SQLite | 可选加密 |
-| 云端交互 | 仅 LLM API 调用 | TLS |
+| 文档 | 权威范围 |
+|---|---|
+| [docs/AGENT_MEMORY_REFERENCE.md](./AGENT_MEMORY_REFERENCE.md) | agent 记忆/知识/事件架构的权威设计参考（分层、晋升机制、明确不采用的做法） |
+| [src-tauri/migrations/](../src-tauri/migrations/) | SQLite schema 真相（forward-only） |
+| [CLAUDE.md](../CLAUDE.md) | 工程约定（技术栈锁定、设计 token、store 模式） |
 
-### 4.2 数据主权
+## 6. ADR 索引
 
-- 所有敏感数据存储在用户本地
-- LLM API 调用仅传输必要的上下文
-- 支持离线模式（本地小模型降级）
+| ADR | 主题 |
+|---|---|
+| [ADR-0001 架构切换](./adr/ADR-0001-architecture-switch.md) | 事件日志 + tool loop + FTS5 取代 GraphFlow/Rig/LanceDB 旧蓝图（正式出局） |
+| [ADR-0002 harness MIT 归属](./adr/ADR-0002-harness-mit-attribution.md) | deepseek-harness 设计/纯函数算法复用范围与 MIT 归属 |
 
----
+## 7. 已否决方向
 
-## 5. 扩展性设计
-
-### 5.1 工具系统
-
-GraphFlow 支持自定义工具注册，可扩展：
-- 文件操作工具
-- 代码分析工具
-- API 调用工具
-- MCP 工具（未来）
-
-### 5.2 Provider 扩展
-
-Rig 支持多 LLM Provider：
-- Anthropic (Claude)
-- OpenAI (GPT)
-- Google (Gemini)
-- Ollama (本地模型)
-- 自定义 Provider
-
----
-
-## 6. 性能目标
-
-| 指标 | 目标 |
-|------|------|
-| 内存占用 | < 100MB (空闲) |
-| 启动时间 | < 2s |
-| 流式响应延迟 | < 500ms (首 token) |
-| Pipeline 恢复时间 | < 100ms |
-| 向量检索延迟 | < 50ms |
-
----
-
-## 7. 里程碑规划
-
-| 阶段 | 目标 | 关键交付物 |
-|------|------|-----------|
-| **Phase 1** | 基础架构搭建 | GraphFlow 集成、Rig 集成、SQLite 持久化 |
-| **Phase 2** | Pipeline 核心 | 需求→PRD 工作流、HITL 交互 |
-| **Phase 3** | 完整 Pipeline | PRD→原型→代码→测试全流程 |
-| **Phase 4** | 第二大脑 | LanceDB 集成、知识检索 |
-| **Phase 5** | 优化迭代 | 性能优化、用户体验改进 |
-
----
-
-## 附录
-
-### 相关文档
-
-- [技术选型决策](./TECH_STACK.md)
-- [Pipeline 工作流设计](./PIPELINE_DESIGN.md)
-- [决策记录](./DECISIONS.md)
-
-### 参考资料
-
-- [GraphFlow GitHub](https://github.com/a-agmon/rs-graph-llm)
-- [GraphFlow Crate](https://crates.io/crates/graph-flow)
-- [Rig Crate](https://crates.io/crates/rig)
-- [LanceDB](https://lancedb.com/)
+| 方向 | 一句话理由（详见 REQUIREMENTS.md Out of Scope） |
+|---|---|
+| GraphFlow 工作流引擎 | pre-1.0 crate 风险 + AGENT_MEMORY_REFERENCE §9 不采用其插件树；事件日志 + tool loop 取代（ADR-0001） |
+| LanceDB / 向量库作为事实源 | 向量索引只是检索加速层；P2 仅评估其派生索引能力 |
+| 静默自动写记忆 | 反功能：静默记忆是最受抱怨的行为；保存前确认是 Nova 差异化 |
+| 无持久检查点的动态脚本工作流 | AGENT_MEMORY_REFERENCE §9 明确不采用 |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-17T04:07:24.262Z"
-last_activity: 2026-08-17 -- Phase 17 execution started
+last_updated: "2026-08-17T04:11:35.851Z"
+last_activity: 2026-08-17
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 19
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 ## Current Position
 
 Phase: 17 (agent-ux) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 17
-Last activity: 2026-08-17 -- Phase 17 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-08-17
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Last activity: 2026-08-17 -- Phase 17 execution started
 | Phase 16 P01 | 35min | 3 tasks | 14 files |
 | Phase 16 P02 | ~3min | 2 tasks | 2 files |
 | Phase 17 P04 | ~10min | 2 tasks | 3 files |
+| Phase 17 P01 | ~7min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ v0.3.0 roadmap decisions:
 - [Phase 16]: [16-02] PrdDraftDialog editor wrapped in DialogBody (plan JSX 裸编辑器无 gutter — DialogHeader/Footer 自带 px-5,Content 不带)
 - [Phase 17]: [17-04] ARCHITECTURE.md v2.0 全文重写:只描述已落地系统(对照 migrations 0002-0005 + src/ai/),GraphFlow/Rig/LanceDB 仅存于否决/ADR 语境
 - [Phase 17]: [17-04] harness 复用范围 = 设计思想 + 纯函数算法(事件配对/投影派生/恢复切分点),不引入框架;MIT 归属入 ADR-0002
+- [Phase 17]: [17-01] 会话状态唯一归属 transient chatConsoleStore — Drawer 与 agent 标签页字面上同一场对话（UX-01 同构保证）; sessionRef/nextId/restorePromise 模块级
+- [Phase 17]: [17-01] Toast 桥 bindToast/emitToast 取代 store 内 useToast — store 保持 React-free，Node 测试可直接加载
 
 ### TODOs (pending)
 

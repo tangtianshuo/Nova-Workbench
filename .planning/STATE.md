@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-17T04:19:08.167Z"
+last_updated: "2026-08-17T04:26:38.626Z"
 last_activity: 2026-08-17
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-14)
 ## Current Position
 
 Phase: 17 (agent-ux) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-17
 
@@ -52,6 +52,7 @@ Last activity: 2026-08-17
 | Phase 17 P01 | ~7min | 3 tasks | 4 files |
 | Phase 17 P03 | ~7min | 2 tasks | 4 files |
 | Phase 17 P02 | ~5min | 2 tasks | 6 files |
+| Phase 17 P05 | ~12min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ v0.3.0 roadmap decisions:
 - [Phase 17]: [17-03] reportSelectors 纯函数模块（零 react/zustand）+ node:test 锁定自由文本 deadline 安全 — 不可解析 deadline 永不过期绝不 throw
 - [Phase 17]: [17-02] carry 快照在唤起时派生（refreshAgentCarry），注入走 buildCoreContext 既有 core segment（同 clamp）— 无第二组装路径
 - [Phase 17]: [17-02] 任务未选中 fallback 携带实际列表过滤器名（任务 · {分类名}），TaskKanban viewMode+活动分类提升为 uiStore transient 字段
+- [Phase 17]: [17-05] contenteditable belt-and-braces 守卫用 capture-phase stopPropagation（plan 的受控 setOpen(false) 无效：Radix composeEventHandlers 内部 onOpenChange(true) 在 child handler 之后同步跑；preventDefault 会连原生菜单一起杀）— 主守卫仍是结构性的：编辑器面板不包裹
+- [Phase 17]: [17-05] 右键动作 = fireAiAction 单一入口：选区快照(≤200字截断)前缀 + setPendingChatPrefill 覆盖式 + Drawer 叠加当前视图不切 tab；AgentConsole consume-on-read（setInput 覆盖+focus+清槽，绝不自动发送）
 
 ### TODOs (pending)
 

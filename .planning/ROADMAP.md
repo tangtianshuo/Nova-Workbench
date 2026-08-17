@@ -14,7 +14,7 @@
 - [x] **Phase 15: 长期记忆 + 知识文档 + FTS5 检索** — 记忆候选确认流、版本化知识文档、中文可命中的 FTS5 混合检索、按优先级投影组装上下文
  (completed 2026-08-15)
 - [x] **Phase 16: PRD 生产线** — agent 生成 PRD → HITL 确认 → MDXEditor 编辑 → 版本化落入研发中心卡槽,索引同事务更新 (completed 2026-08-17)
-- [ ] **Phase 17: Agent UX + 架构文档** — Agent 工作区落地、⌘K 携带视图上下文、结构化晨报、右键快捷 AI 动作、ARCHITECTURE.md + ADR 重写
+- [x] **Phase 17: Agent UX + 架构文档** — Agent 工作区落地、⌘K 携带视图上下文、结构化晨报、右键快捷 AI 动作、ARCHITECTURE.md + ADR 重写 (completed 2026-08-17)
 
 ## Phase Details
 
@@ -98,14 +98,14 @@ Plans:
   3. 每日首次启动时 Agent 工作区呈现结构化晨报卡片(今日日程/过期任务/待确认记忆候选),同一天不重复出现;内容来自数据查询而非 LLM 叙述
   4. 在任务/知识库等区域右键可见 3-5 个快捷 AI 动作;在 MDXEditor 可编辑区域内不劫持原生菜单,动作触发时携带选区快照
   5. docs/ARCHITECTURE.md 描述「事件日志 + tool loop + FTS5」架构,GraphFlow/Rig/LanceDB 正式出局,ADR 含 harness 复用 MIT 归属,后续里程碑无旧蓝图引用
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 17-01-PLAN.md — UX-01: chatConsoleStore 抽取 + AgentConsole 双宿主 + ChatPanel 薄壳 + AgentWorkspaceView 重写
 - [x] 17-02-PLAN.md — UX-02: 裸 ⌘K 绑定 + uiStore carry 状态 + buildCoreContext 扩展(测试先行)+ chip 行
 - [x] 17-03-PLAN.md — UX-03: 晨报纯函数 selectors(测试先行)+ MorningReport 卡片 + View 挂载
 - [x] 17-04-PLAN.md — ARCH-01/02: ADR-0001 架构切换 + ADR-0002 harness MIT 归属 + ARCHITECTURE.md 全文重写
-- [ ] 17-05-PLAN.md — UX-04: @radix-ui/react-context-menu 原语 + 任务/知识库两区各 3 动作 + 预填消费链 + 17-HUMAN-UAT.md(统一延后人工验收)
+- [x] 17-05-PLAN.md — UX-04: @radix-ui/react-context-menu 原语 + 任务/知识库两区各 3 动作 + 预填消费链 + 17-HUMAN-UAT.md(统一延后人工验收)
 **UI hint**: yes
 
 ## Progress
@@ -116,7 +116,7 @@ Plans:
 | 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Complete    | 2026-08-15 |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 4/4 | Complete   | 2026-08-15 |
 | 16. PRD 生产线 | 3/3 | Complete   | 2026-08-17 |
-| 17. Agent UX + 架构文档 | 4/5 | In Progress|  |
+| 17. Agent UX + 架构文档 | 5/5 | Complete   | 2026-08-17 |
 
 ## Coverage
 

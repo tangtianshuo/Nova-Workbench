@@ -25,7 +25,7 @@ import { restoreLatestSession } from '@/src/ai/sessionRestore';
 import { useUIStore } from '@/src/stores/uiStore';
 import type { Provider } from '@/src/lib/api';
 
-type ToolTraceStatus = 'running' | 'ok' | 'error';
+export type ToolTraceStatus = 'running' | 'ok' | 'error';
 
 export interface ToolTraceItem {
   id: number;

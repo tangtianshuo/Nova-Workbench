@@ -1,12 +1,12 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.3.0
-milestone_name: milestone
-status: executing
-last_updated: "2026-08-17T04:30:19.014Z"
+milestone_name: 功能闭环
+status: complete
+last_updated: "2026-08-17T14:34:32.950Z"
 last_activity: 2026-08-17
 progress:
-  total_phases: 9
+  total_phases: 5
   completed_phases: 5
   total_plans: 19
   completed_plans: 19
@@ -16,25 +16,25 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-14)
+See: .planning/PROJECT.md (updated 2026-08-17)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 17 — agent-ux
+**Current focus:** v0.3.0 已归档 — 下一里程碑待 `/gsd:new-milestone` 启动(backlog 候选 999.1-999.4;v2 需求候选 SEM-01..03 / DELIV-05/06 / UX-05..08)
 
 ## Current Position
 
-Phase: 999.4
-Plan: Not started
-Status: Ready to execute
+Phase: None(v0.3.0 已完成并归档)
+Plan: N/A
+Status: Awaiting next milestone
 Last activity: 2026-08-17
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Phases completed | 2 / 5 |
-| Plans completed | 7 / 7 (Phase 13 + 14) |
-| Requirements satisfied | 12 / 28 (EVT-01..08, CMP-01, CMP-02, MEM-03, MEM-05) |
+| Phases completed | 5 / 5 (v0.3.0 全部) |
+| Plans completed | 19 / 19 |
+| Requirements satisfied | 28 / 28(全部,统一 UAT 21/21 + audit tech_debt) |
 | Phase 13 P01 | 6 min | 4 tasks | 9 files |
 | Phase 13 P02 | 5 min | 2 tasks | 2 files |
 | Phase 13 P03 | 10 min | 3 tasks | 4 files |
@@ -116,8 +116,8 @@ None.
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.0 全部 5 phases(13-17)已完成
-2. Read `.planning/reports/MILESTONE_SUMMARY-v0.3.0.md` — 里程碑汇总(2026-08-17 生成)
-3. Next action: 统一 UAT 进行中 — 16-HUMAN-UAT.md(8 项)+ 17-HUMAN-UAT.md(6 项,web Playwright 预验 4 项 partial-pass);UAT 通过后 `/gsd:audit-milestone` → `/gsd:complete-milestone v0.3.0` → cleanup
+1. Read `.planning/ROADMAP.md` — v0.3.0 已归档(Phases 13-17, shipped 2026-08-17),无当前里程碑
+2. Read `.planning/PROJECT.md` Current State — v0.3.0 交付内容 + 结转 tech debt
+3. Next action: `/gsd:new-milestone` 启动下一里程碑(backlog 候选见 ROADMAP.md Backlog 节;可选 `/gsd:cleanup` 归档 phase 目录)
 
-Key files: `src/ai/events/` (eventStore/invariants/artifacts), `src/ai/confirmationStore.ts` + `src/ai/paramsHash.ts` (EVT-05 持久化确认), `src/ai/sessionRestore.ts` (EVT-04 会话恢复), `src/ai/compaction.ts` (CMP-01/02), `src/ai/chatSession.ts` (投影 + compaction-aware fromEvents + resumeEventEmission), `src/ai/toolLoop.ts` (单历史 + 压缩触发), `src/ai/__tests__/phase1{3,4}*.test.ts` (PERMANENT replay parity), `src-tauri/migrations/0002_agent_events.sql` + `0003_confirmation_candidates.sql`, `docs/AGENT_MEMORY_REFERENCE.md` (新架构真相源)
+Key files: `docs/ARCHITECTURE.md` v2.0(架构真相源,从这读起), `src/ai/events/` (eventStore/invariants/artifacts), `src/ai/confirmationStore.ts` + `src/ai/paramsHash.ts` (EVT-05 持久化确认), `src/ai/sessionRestore.ts` (EVT-04 会话恢复), `src/ai/compaction.ts` (CMP-01/02), `src/ai/chatSession.ts` (投影 + compaction-aware fromEvents + resumeEventEmission), `src/ai/toolLoop.ts` (单历史 + 压缩触发), `src/ai/memoryStore.ts` / `knowledgeRepo.ts` / `contextAssembler.ts` (MEM), `src/stores/chatConsoleStore.ts` + `src/components/AgentConsole.tsx` (UX-01 双宿主), `src-tauri/migrations/0002..0006`, `docs/adr/ADR-0001|0002`

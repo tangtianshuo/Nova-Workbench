@@ -1,16 +1,16 @@
 ---
-status: needs-fixes
+status: pass
 phase: 13-event-log-toolloop
 source: [13-01-SUMMARY.md, 13-02-SUMMARY.md, 13-03-SUMMARY.md]
 started: 2026-08-17T13:00:00+08:00
-updated: 2026-08-17T15:05:00+08:00
+updated: 2026-08-17T15:35:00+08:00
 ---
 
 ## Current Test
 <!-- OVERWRITE each test - shows where we are -->
 
-session complete — 7/7 resolved:6 pass / 1 issue(GAP-13-01 blocker)
-next: gap closure 修复 → 回归 Test 4 + Test 5 awaitingConfirmation 子项
+session complete — 7/7 pass(GAP-13-01 已修复并回归验证,commit 7fbf292)
+next: 16-HUMAN-UAT(8 项)
 
 ## Tests
 
@@ -29,13 +29,20 @@ note: 原测试预期误写为「createTask 需确认卡片」— 已纠正为�
 
 ### 4. Destructive 工具 HITL 确认卡片(13-03 WAIT 语义)
 expected: 发「把刚才创建的那个任务删掉」→ 出现删除确认卡片(而非直接删除);等待确认期间对话流 trace 不变红;点确认后任务删除、助手汇报结果
-result: issue
+result: pass
 reported: |
   fail — 删除操作需要确认令牌,刚才的调用没有成功(令牌无效或已过期);deleteTask 失败,
   系统返回错误:确认令牌无效或已过期,且该调用已没有更多重试机会;
   任务「济南元宇宙专家端上线问题排查2」(ID: 380b6d0b-e9e6-4c4f-b210-737db987728b)仍然存在,未被删除;
   模型建议替代方案:1. 在界面上手动删除 2. 稍后重试
 severity: blocker
+resolution: |
+  GAP-13-01 修复(commit 7fbf292):三处 destructive 工具 invalid-token 回落 pendingConfirmation
+  (与 !confirmed 合流,consume 失败零副作用)+ 候选 paramsHash 去重 + schema describe/system prompt
+  禁止伪造 token;新增伪造自愈回归测试,160/160 绿。
+  回归验证 pass:确认卡片出现 → 用户点确认 → 任务删除。
+  DB 证据:seq 111 tool_result 带 awaitingConfirmation:true;seq 112 turn_ended
+  outcome=awaiting_destructive_confirmation;候选 483ba14c status=consumed(恰一消费)。
 
 ### 5. 事件序列落库(核心残留风险:真实 INSERT 无自动化覆盖)
 expected: 测试 3/4 之后查 nova.db agent_events:完整配对序列 session_created → user_message → tool_call → tool_result → assistant_message → turn_ended,seq 连续无空洞,同一 turn 共享 correlation_id;确认 WAIT 分支的 tool_result 带 awaitingConfirmation 语义(Claude 代查,用户核对结果)
@@ -44,8 +51,9 @@ note: |
   Claude 代查 2026-08-17:全表 71 行 seq 1-71 零空洞;session_created 仅 1 行(lazy);5 个 turn 结构完整
   (user_message → context_injected → tool_call/tool_result×N → assistant_message → turn_ended),同 turn 共享 correlation_id;
   tool_call/tool_result 按 toolCallId 严格配对(error 路径同样配对 — seq 62/63、68/69);turn_ended 元数据齐全;
-  context_injected 记录五段 segments。唯一例外:awaitingConfirmation 语义全库 0 次 — WAIT 分支未被真实触发,
-  与 GAP-13-01 同根因,修复后回归覆盖。
+  context_injected 记录五段 segments。awaitingConfirmation 子项初查为 0 次(WAIT 未被触发,GAP-13-01 同根因),
+  修复后回归补齐:seq 111 tool_result 带 awaitingConfirmation:true + seq 112 turn_ended
+  outcome=awaiting_destructive_confirmation — 全部断言闭合。
 
 ### 6. 超长工具结果 artifact 化(EVT-08)
 expected: 触发一次大结果工具(如知识库搜索/文件读取)→ 对话中显示摘要而非全文倾倒;agent_artifacts 表 count ≥ 1(Claude 代查)
@@ -65,14 +73,15 @@ note: |
 ## Summary
 
 total: 7
-passed: 6
-issues: 1
+passed: 7
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
 ```yaml
+# GAP-13-01 — RESOLVED (commit 7fbf292, 回归验证 2026-08-17,详见 Test 4 resolution)
 - id: GAP-13-01
   test: 4
   severity: blocker

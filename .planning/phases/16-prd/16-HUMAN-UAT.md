@@ -8,12 +8,13 @@ updated: 2026-08-17
 
 ## Current Test
 
-number: 1
-name: 生成 PRD 草稿卡片(修复后回归)
+number: 4/5/6 组合验证
+name: 溯源徽章 + 立即检索点击 + 版本链
 expected: |
-  侧栏选中任一产品 → ChatPanel 输入「帮我为当前产品生成一份 PRD 草稿」→ 模型调用 generateDeliverable 后
-  出现「待确认的 PRD 草稿」卡片(产品名 + 3 行预览 + 来源时间),对话不中断
-awaiting: user response(after migration 0006 rebuild)
+  4: 研发中心 DEL-REQ-01 卡片有 AI 徽章(Sparkle+AI),悬停「AI 生成 · 时间 · 会话 <8位>」;
+  5: 知识库搜索 PRD 关键词 → 命中 → 点击能正常查看全文(4732a04 修复后);
+  6: 再让 agent 生成一份内容有改动的草稿 → 落槽 → 版本链 supersede
+awaiting: user response
 
 ## Tests
 
@@ -21,26 +22,31 @@ awaiting: user response(after migration 0006 rebuild)
 
 ### 1. 生成 PRD 草稿卡片
 expected: 侧栏选中任一产品 → ChatPanel 输入「帮我为当前产品生成一份 PRD 草稿」→ 模型调用 generateDeliverable 后出现「待确认的 PRD 草稿」卡片（产品名 + 3 行预览 + 来源时间），对话不中断
-result: issue
-reported: |
-  generateDeliverable 失败(trace 红色)
-severity: blocker
-resolution: |
-  GAP-16-01(Claude 代查 agent_events seq 125-128):tool_error "CHECK constraint failed:
-  kind IN ('knowledge_write', 'destructive_action')" — 0003 迁移的 CHECK 未含 Phase 16 的
-  'deliverable_draft';单测走 MemoryConfirmationStore 故未拦截,真实 SQLite 才炸(与 Phase 13
-  「真实 INSERT 无自动化覆盖」同类盲区)。
-  修复:migration 0006(SQLite CHECK 不可 ALTER,canonical 建新表→拷数据→换名重建;数据保留)+
-  lib.rs 注册 version 6 + APP_SCHEMA_VERSION=6 + 新增 sqlSchemaCheckConstraints.test.ts
-  (node:sqlite 执行真实迁移 SQL,锁定应用层 kind 与 DDL 不再漂移)。161/161 绿。回归待验证。
+result: pass
+note: |
+  首测 issue(GAP-16-01,blocker):generateDeliverable 落库失败 — 0003 迁移 CHECK 未含
+  'deliverable_draft'(单测走 MemoryStore 未拦截,真实 SQLite 才炸)。修复:migration 0006 表重建
+  (数据保留)+ lib.rs v6 + APP_SCHEMA_VERSION=6 + node:sqlite 真实迁移 SQL 回归测试(0dbb2f1)。
+  回归 pass:卡片出现,进入 Test 2。
 
 ### 2. 取消无损
 expected: 「确认并编辑」→ Dialog 预填草稿 → 改动文字 → 「取消」→ 卡片仍在；再次打开内容为原始草稿（编辑未持久）
-result: [pending]
+result: pass
+note: |
+  首测 issue(GAP-16-02):PrdDraftDialog 被 PRD 长文撑开无法预览 — DialogContent 无高度上限,
+  MDXEditor 随内容无限长高。修复(4732a04):DialogContent flex max-h-[85vh] + DialogBody
+  min-h-0 flex-1 overflow-y-auto,Header/Footer 固定。修复后取消/重开流程正常,卡片与原始草稿保留。
 
 ### 3. 落槽
 expected: 编辑 → 「落槽至研发中心」→ toast「PRD 已落槽」、Dialog 关闭、卡片消失、助手追加「PRD 已落槽至研发中心,知识库立即可检索。」
-result: [pending]
+result: pass
+note: |
+  用户确认落槽成功,助手消息与预期一致。Claude 代查:knowledge_docs 行 deliverable-p1-DEL-REQ-01
+  v1(content 5021 字符,source_type=agent,source_event_id=17c95940);deliverable_committed 事件
+  ftsImmediateHit:true ftsHitCount:1(Test 8 审计子项同步闭合)。
+  随后发现 GAP-16-03:知识库搜索命中该 PRD 后点击查看失败 — currentItem 只在浏览投影 allItems 里
+  查找,deliverable 按设计不进浏览列表 → 回退显示第一篇普通文章。修复(4732a04):搜索命中不在
+  浏览列表时按需 getCurrentDocs() 取全文渲染,编辑按钮对 repo 来源禁用,清除筛选回选浏览列表。
 
 ### 4. 溯源徽章
 expected: 研发中心 → 产品详情 → 全生命周期交付物 → DEL-REQ-01 卡片阶段徽章后有 AI 徽章（Sparkle+AI），悬停显示「AI 生成 · yyyy-MM-dd HH:mm · 会话 <8位>」；相邻 mock 卡片无徽章
@@ -65,9 +71,9 @@ result: [pending]
 ## Summary
 
 total: 8
-passed: 0
-issues: 1
-pending: 7
+passed: 3
+issues: 0
+pending: 5
 skipped: 0
 blocked: 0
 
@@ -80,5 +86,19 @@ blocked: 0
   symptom: generateDeliverable 落库失败 — CHECK constraint kind IN ('knowledge_write','destructive_action') 拒插 deliverable_draft
   root_cause: Phase 16 应用层新增 ConfirmationKind='deliverable_draft' 但未重建 0003 的 SQL CHECK;单测走 MemoryStore 无 DDL 覆盖
   fix: migration 0006 表重建(数据保留)+ lib.rs version 6 + APP_SCHEMA_VERSION 6 + node:sqlite 真实迁移 SQL 回归测试
-  status: fixed — awaiting regression(应用重启后重试 Test 1)
+  status: resolved(0dbb2f1,回归 pass)
+- id: GAP-16-02
+  test: 2
+  severity: minor
+  symptom: PrdDraftDialog 被 PRD 长文撑开,无法正常预览
+  root_cause: DialogContent 无高度上限,MDXEditor 随内容无限长高
+  fix: DialogContent flex max-h-[85vh] + DialogBody min-h-0 flex-1 overflow-y-auto
+  status: resolved(4732a04,回归 pass)
+- id: GAP-16-03
+  test: 5
+  severity: major
+  symptom: 知识库搜索命中落槽 PRD 后,点击查看显示的是别的文档
+  root_cause: currentItem 只在浏览投影 allItems 查找;deliverable 按设计不进浏览列表 → find 落空回退 allItems[0]
+  fix: 搜索命中不在浏览列表时按需 getCurrentDocs() 取全文渲染详情面板;repo 来源禁用编辑;清除筛选回选浏览列表
+  status: fixed(4732a04)— awaiting regression
 ```

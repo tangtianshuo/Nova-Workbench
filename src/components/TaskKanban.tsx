@@ -7,6 +7,7 @@ import {
 import {
   CaretDown, Funnel, ArrowsDownUp, CheckCircle, Clock, Sparkle, Plus, DotsThree,
   PencilSimple, Copy, ArrowCounterClockwise, Trash, FolderSimple, Calendar,
+  Notepad, TreeStructure, CalendarPlus,
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 import { TaskCategory, Task } from '../data/mockTasks';
@@ -26,6 +27,8 @@ import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/src/components/ui/DropdownMenu';
+import { AiContextMenu } from '@/src/components/ui/ContextMenu';
+import { fireAiAction } from '@/src/lib/aiActions';
 import {
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
 } from '@/src/components/ui/Dialog';
@@ -570,7 +573,13 @@ function KanbanCard({
     : undefined;
 
   return (
-    <motion.div
+    // Phase 17 UX-04: right-click AI actions — prefill ChatPanel, never auto-send.
+    <AiContextMenu items={[
+      { icon: <Notepad size={14} weight="duotone" className="text-accent" />, label: '总结此任务', onSelect: () => fireAiAction(`请总结任务「${task.title}」：当前状态、关键信息与风险。`) },
+      { icon: <TreeStructure size={14} weight="duotone" className="text-accent" />, label: 'AI 拆解子任务', onSelect: () => fireAiAction(`请把任务「${task.title}」拆解为可执行的子任务清单。`) },
+      { icon: <CalendarPlus size={14} weight="duotone" className="text-accent" />, label: '安排到日程', onSelect: () => fireAiAction(`请把任务「${task.title}」安排到日程，并建议合适的时间段。`) },
+    ]}>
+      <motion.div
       ref={setNodeRef}
       style={dragStyle}
       {...attributes}
@@ -816,5 +825,6 @@ function KanbanCard({
         </div>
       )}
     </motion.div>
+    </AiContextMenu>
   );
 }

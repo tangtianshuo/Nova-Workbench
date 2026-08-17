@@ -100,6 +100,17 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     if (isChatPanelOpen) textareaRef.current?.focus();
   }, [isChatPanelOpen]);
 
+  // Phase 17 UX-04: consume right-click prefill (consume-on-read) — set the
+  // input (overwrite, each menu click is a fresh intent), focus, clear the
+  // slot. Never auto-sends — the user reviews then presses Enter.
+  const pendingPrefill = useUIStore((s) => s.pendingChatPrefill);
+  useEffect(() => {
+    if (pendingPrefill == null) return;
+    setInput(pendingPrefill);
+    useUIStore.getState().setPendingChatPrefill(null);
+    textareaRef.current?.focus();
+  }, [pendingPrefill]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, streamingResponse, streamingTrace, pendingMemory, autoRemembered, pendingPrdDraft]);

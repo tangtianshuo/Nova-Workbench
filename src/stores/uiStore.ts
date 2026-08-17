@@ -33,6 +33,10 @@ interface UIState {
   taskKanbanView: 'category' | 'date';
   taskKanbanCategory: string | null;
 
+  // Phase 17 UX-04 — transient right-click prefill slot. consume-on-read in
+  // AgentConsole (sets input + focuses, clears the slot). Never persisted.
+  pendingChatPrefill: string | null;
+
   // Actions
   setActiveTab: (tab: string) => void;
   setSelectedProductId: (id: string | null) => void;
@@ -48,6 +52,7 @@ interface UIState {
   removeCarriedItem: (kind: CarriedContextItem['kind'], id?: string) => void;
   setTaskKanbanView: (view: 'category' | 'date') => void;
   setTaskKanbanCategory: (name: string | null) => void;
+  setPendingChatPrefill: (v: string | null) => void;
 
   // Persistence
   _hasHydrated: boolean;
@@ -72,6 +77,8 @@ export const useUIStore = create<UIState>()(
   agentContextCarry: [],
   taskKanbanView: 'category',
   taskKanbanCategory: null,
+
+  pendingChatPrefill: null,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSelectedProductId: (id) => set({ selectedProductId: id }),
@@ -99,6 +106,7 @@ export const useUIStore = create<UIState>()(
       taskKanbanCategory: view === 'date' ? null : state.taskKanbanCategory,
     })),
   setTaskKanbanCategory: (name) => set({ taskKanbanCategory: name }),
+  setPendingChatPrefill: (v) => set({ pendingChatPrefill: v }),
 
   // Persistence
   _hasHydrated: false,

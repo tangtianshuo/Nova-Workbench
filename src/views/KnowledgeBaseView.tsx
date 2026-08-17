@@ -1,8 +1,10 @@
-import { BookOpen, Brain, FileText, MagnifyingGlass, CaretRight, Star, Tag } from '@phosphor-icons/react';
+import { BookOpen, Brain, FileText, MagnifyingGlass, CaretRight, Star, Tag, Article, ChatCircleDots } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/src/components/ui/Badge';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
+import { AiContextMenu } from '@/src/components/ui/ContextMenu';
+import { fireAiAction } from '@/src/lib/aiActions';
 import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
 import { Input } from '@/src/components/ui/Input';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
@@ -317,23 +319,29 @@ export function KnowledgeBaseView() {
                   {expandedFolders.has(category) && (
                     <div className="pl-5 space-y-0.5">
                       {itemsInCategory.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveItemId(item.id)}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
-                            currentItem?.id === item.id
-                              ? 'bg-accent/10 text-accent font-semibold'
-                              : 'text-text-secondary hover:bg-bg-secondary'
-                          )}
-                        >
-                          <FileText
-                            size={14}
-                            weight="duotone"
-                            className={currentItem?.id === item.id ? 'text-accent' : 'text-text-tertiary'}
-                          />
-                          <span className="truncate">{item.title}</span>
-                        </button>
+                        // Phase 17 UX-04: right-click AI actions — prefill ChatPanel, never auto-send.
+                        <AiContextMenu key={item.id} items={[
+                          { icon: <Article size={14} weight="duotone" className="text-accent" />, label: '总结文档', onSelect: () => fireAiAction(`请总结文档《${item.title}》的核心内容。`) },
+                          { icon: <Brain size={14} weight="duotone" className="text-accent" />, label: '存为记忆', onSelect: () => fireAiAction(`请把文档《${item.title}》的要点存为长期记忆。`) },
+                          { icon: <ChatCircleDots size={14} weight="duotone" className="text-accent" />, label: '相关问题追问', onSelect: () => fireAiAction(`基于文档《${item.title}》，列出值得进一步追问的问题清单。`) },
+                        ]}>
+                          <button
+                            onClick={() => setActiveItemId(item.id)}
+                            className={cn(
+                              'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
+                              currentItem?.id === item.id
+                                ? 'bg-accent/10 text-accent font-semibold'
+                                : 'text-text-secondary hover:bg-bg-secondary'
+                            )}
+                          >
+                            <FileText
+                              size={14}
+                              weight="duotone"
+                              className={currentItem?.id === item.id ? 'text-accent' : 'text-text-tertiary'}
+                            />
+                            <span className="truncate">{item.title}</span>
+                          </button>
+                        </AiContextMenu>
                       ))}
                     </div>
                   )}

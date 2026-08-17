@@ -8,6 +8,7 @@ import {
   PaperPlaneTilt,
   Sparkle,
   Warning,
+  X,
 } from '@phosphor-icons/react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
@@ -51,6 +52,9 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
   const { toast } = useToast();
   const products = useProductStore((s) => s.products);
   const isChatPanelOpen = useUIStore((s) => s.isChatPanelOpen);
+  // Phase 17 UX-02: carried view context chips (transient, removable).
+  const carry = useUIStore((s) => s.agentContextCarry);
+  const removeCarriedItem = useUIStore((s) => s.removeCarriedItem);
   const {
     messages,
     input,
@@ -224,6 +228,21 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
       </div>
 
       <div className="border-t border-border-subtle px-5 py-4">
+        {carry.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-text-tertiary">已携带:</span>
+            {carry.map((item) => (
+              <span key={`${item.kind}-${item.id ?? 'default'}`}
+                className="inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accent-subtle px-2 py-0.5 text-xs text-accent">
+                {item.kind === 'schedule' ? `今日日程 (${item.count})` : item.label}
+                <button type="button" onClick={() => removeCarriedItem(item.kind, item.id)}
+                  aria-label={`移除 ${item.label}`} className="shrink-0 hover:text-accent-hover">
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <form onSubmit={(event) => void submit(event)} className="flex items-end gap-2">
           <textarea
             ref={textareaRef}

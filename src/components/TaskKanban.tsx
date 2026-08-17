@@ -56,7 +56,11 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
   const { toast } = useToast();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [viewMode, setViewMode] = useState('category');
+  // Phase 17 UX-02: viewMode lifted to uiStore so ⌘K carry can read the active filter.
+  const viewMode = useUIStore((s) => s.taskKanbanView);
+  const setViewMode = useUIStore((s) => s.setTaskKanbanView);
+  const taskKanbanCategory = useUIStore((s) => s.taskKanbanCategory);
+  const setTaskKanbanCategory = useUIStore((s) => s.setTaskKanbanCategory);
 
   // DotsMenu / Dialog state (single source for all cards)
   const [editDialogTask, setEditDialogTask] = useState<Task | undefined>();
@@ -244,6 +248,13 @@ export function TaskKanban({ className = '', categories, selectedTaskId, onSelec
                 key={group.id}
                 cat={group}
                 isDateView={viewMode === 'date'}
+                // Phase 17 UX-02: column-header click sets the active category for
+                // ⌘K carry (「任务 · {分类名}」). Zero visual change — no highlight.
+                onHeaderClick={
+                  viewMode === 'category'
+                    ? () => setTaskKanbanCategory(taskKanbanCategory === group.name ? null : group.name)
+                    : undefined
+                }
                 selectedTaskId={selectedTaskId}
                 onSelectTask={onSelectTask}
                 onRequestDialogEdit={handleRequestDialogEdit}
@@ -371,6 +382,7 @@ function DeleteConfirmButton({ task, onDone }: { task: Task | undefined; onDone:
 interface KanbanColumnProps {
   cat: TaskCategory;
   isDateView: boolean;
+  onHeaderClick?: () => void;
   selectedTaskId: string;
   onSelectTask: (id: string) => void;
   onRequestDialogEdit: (task: Task) => void;
@@ -384,7 +396,7 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({
-  cat, isDateView, selectedTaskId, onSelectTask,
+  cat, isDateView, onHeaderClick, selectedTaskId, onSelectTask,
   onRequestDialogEdit, onRequestDelete, onRequestArrange, onOpenProductDrawer, onRequestCreateTask,
   activeDragId, activeDragTask, overCatId,
 }: KanbanColumnProps) {
@@ -408,7 +420,7 @@ function KanbanColumn({
       <div className="flex items-center justify-between py-1 mb-2 px-1">
         <div className="flex items-center gap-2">
           <div className={cn('w-2 h-2 rounded-full', cat.color)} />
-          <h3 className="text-sm font-semibold text-text-primary">{cat.name}</h3>
+          <h3 className="text-sm font-semibold text-text-primary" onClick={onHeaderClick}>{cat.name}</h3>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
               key={derivedCount}

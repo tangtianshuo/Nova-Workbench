@@ -1,5 +1,5 @@
 ---
-status: testing
+status: pass
 phase: 16-prd
 source: [16-VERIFICATION.md, 16-03-PLAN.md Task 2]
 started: 2026-08-17
@@ -8,13 +8,8 @@ updated: 2026-08-17
 
 ## Current Test
 
-number: 4/5/6 组合验证
-name: 溯源徽章 + 立即检索点击 + 版本链
-expected: |
-  4: 研发中心 DEL-REQ-01 卡片有 AI 徽章(Sparkle+AI),悬停「AI 生成 · 时间 · 会话 <8位>」;
-  5: 知识库搜索 PRD 关键词 → 命中 → 点击能正常查看全文(4732a04 修复后);
-  6: 再让 agent 生成一份内容有改动的草稿 → 落槽 → 版本链 supersede
-awaiting: user response
+session complete — 8/8 pass(3 gaps 全部当场修复并回归:GAP-16-01 migration 0006 / GAP-16-02 弹窗限高 / GAP-16-03 知识库查看)
+next: 17-HUMAN-UAT 剩余项(Tauri 子项 + 35 步回归)
 
 ## Tests
 
@@ -50,30 +45,39 @@ note: |
 
 ### 4. 溯源徽章
 expected: 研发中心 → 产品详情 → 全生命周期交付物 → DEL-REQ-01 卡片阶段徽章后有 AI 徽章（Sparkle+AI），悬停显示「AI 生成 · yyyy-MM-dd HH:mm · 会话 <8位>」；相邻 mock 卡片无徽章
-result: [pending]
+result: pass
 
 ### 5. 立即检索
 expected: 知识库搜索 PRD 标题关键词（2 字词）→ 搜索结果命中该 PRD（来源 AI/agent），无等待窗口；deliverable 不进浏览列表/侧栏分类为预期行为（归属研发中心卡槽）
-result: [pending]
+result: pass
+note: |
+  用户确认:默认浏览页不显示该文档(设计预期 — 归属研发中心卡槽),产品筛选路径可见且可点击
+  查看全文(GAP-16-03 修复后)。deliverable_committed ftsImmediateHit:true 已证即时索引。
 
 ### 6. 版本链
 expected: 再生成一份（内容改动）→ 确认编辑落槽 → 知识库命中新版内容；DEL-REQ-01 内容更新、徽章仍在
-result: [pending]
+result: pass
+note: |
+  v4.0 草稿第一轮模型空谈未调工具,「继续」后成功调用(弱模型行为非代码问题)。Claude 代查:
+  knowledge_docs 同 docId 两版本 — v1(v3.6)superseded / v2(v4.0)current;两条 deliverable_committed
+  审计事件均 ftsImmediateHit:true;两候选全部 consumed。用户已落槽并查看。
 
 ### 7. 重启恢复（tauri:dev）
 expected: 生成草稿不确认 → 关闭应用 → 重启 → ChatPanel「待确认的 PRD 草稿」卡片恢复；确认落槽后重启，卡片不再出现（原子消费）
-result: [pending]
+result: pass
+note: 两段全过:v4.0 pending 候选跨重启恢复(卡片重现);落槽消费后再重启卡片不再出现(原子消费不复活)。
 
 ### 8. 审计（可选）
 expected: nova.db agent_events 每次成功落槽有一条 deliverable_committed 事件，payload 含 docId/version/ftsHitCount
-result: [pending]
+result: pass
+note: Claude 代查:seq 139/154 两条 deliverable_committed,payload 含 docId/version/slotCode/code/ftsImmediateHit/ftsHitCount/sessionId/eventId,与两次落槽一一对应。
 
 ## Summary
 
 total: 8
-passed: 3
+passed: 8
 issues: 0
-pending: 5
+pending: 0
 skipped: 0
 blocked: 0
 

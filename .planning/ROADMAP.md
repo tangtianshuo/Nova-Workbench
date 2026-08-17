@@ -116,7 +116,7 @@ Plans:
 | 14. 持久化确认 + 会话恢复 + 上下文压缩 | 0/4 | Complete    | 2026-08-15 |
 | 15. 长期记忆 + 知识文档 + FTS5 检索 | 4/4 | Complete   | 2026-08-15 |
 | 16. PRD 生产线 | 3/3 | Complete   | 2026-08-17 |
-| 17. Agent UX + 架构文档 | 5/5 | Complete   | 2026-08-17 |
+| 17. Agent UX + 架构文档 | 5/5 | Complete    | 2026-08-17 |
 
 ## Coverage
 

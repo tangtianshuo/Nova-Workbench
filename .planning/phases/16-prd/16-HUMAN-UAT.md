@@ -104,5 +104,5 @@ blocked: 0
   symptom: 知识库搜索命中落槽 PRD 后,点击查看显示的是别的文档
   root_cause: currentItem 只在浏览投影 allItems 查找;deliverable 按设计不进浏览列表 → find 落空回退 allItems[0]
   fix: 搜索命中不在浏览列表时按需 getCurrentDocs() 取全文渲染详情面板;repo 来源禁用编辑;清除筛选回选浏览列表
-  status: fixed(4732a04)— awaiting regression
+  status: resolved(4732a04,回归 pass — Test 5 note:产品筛选路径可见且可点击查看全文)
 ```

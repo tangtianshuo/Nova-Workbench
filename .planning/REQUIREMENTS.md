@@ -43,7 +43,7 @@
 
 - [x] **UX-01**: Agent 工作区(AgentWorkspaceView)真正实现,承载 agent 会话,功能与侧栏 ChatPanel 一致(多 agent 形态留后期规划)
 - [ ] **UX-02**: 全局 agent 入口 ⌘K 携带当前视图上下文(选中产品/任务/日程)唤起
-- [ ] **UX-03**: 晨报在 Agent 工作区以结构化卡片呈现(今日日程/过期任务/待确认记忆候选),启动触发、每日一次,非 LLM 叙述
+- [x] **UX-03**: 晨报在 Agent 工作区以结构化卡片呈现(今日日程/过期任务/待确认记忆候选),启动触发、每日一次,非 LLM 叙述
 - [ ] **UX-04**: 右键菜单提供 3-5 个快捷 AI 动作(@radix-ui/react-context-menu),在可编辑区域(MDXEditor contenteditable)内不劫持原生菜单,触发时快照选区
 
 ### 架构文档 (ARCH)
@@ -113,7 +113,7 @@
 | DELIV-04 | Phase 16 | Complete |
 | UX-01 | Phase 17 | Complete |
 | UX-02 | Phase 17 | Pending |
-| UX-03 | Phase 17 | Pending |
+| UX-03 | Phase 17 | Complete |
 | UX-04 | Phase 17 | Pending |
 | ARCH-01 | Phase 17 | Complete |
 | ARCH-02 | Phase 17 | Complete |

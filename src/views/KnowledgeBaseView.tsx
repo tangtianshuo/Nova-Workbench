@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Separator } from '@/src/components/ui/Separator';
 import { useToast } from '@/src/components/ui/Toast';
 import { cn } from '@/src/lib/utils';
-import { getKnowledgeRepo, type KnowledgeHit } from '@/src/ai/knowledgeRepo';
+import { getKnowledgeRepo, type KnowledgeDoc, type KnowledgeHit } from '@/src/ai/knowledgeRepo';
 import { getMemoryStore, type MemoryRecord } from '@/src/ai/memoryStore';
 import { useRndStore } from '@/src/stores/rndStore';
 import { useProductStore } from '@/src/stores/productStore';
@@ -143,10 +143,41 @@ export function KnowledgeBaseView() {
     setExpandedFolders((prev) => new Set([...prev, ...categories]));
   }, [categories]);
 
-  const currentItem = useMemo<ProductKnowledgeItem | null>(() => {
-    if (!activeItemId) return allItems[0] ?? null;
-    return allItems.find((i) => i.id === activeItemId) ?? allItems[0] ?? null;
-  }, [activeItemId, allItems]);
+  // Deliverable docs (Phase 16 落槽) are searchable but never enter the browse
+  // projection (they occupy R&D slots) — their full content is fetched on demand.
+  const [externalDoc, setExternalDoc] = useState<KnowledgeDoc | null>(null);
+
+  const selectSearchHit = async (docId: string) => {
+    setActiveItemId(docId);
+    if (allItems.some((i) => i.id === docId)) {
+      setExternalDoc(null);
+      return;
+    }
+    try {
+      const docs = await getKnowledgeRepo().getCurrentDocs();
+      setExternalDoc(docs.find((d) => d.docId === docId) ?? null);
+    } catch (error) {
+      console.error('[knowledge-view] load external doc failed', error);
+      setExternalDoc(null);
+    }
+  };
+
+  // Leaving search mode with a deliverable selected → fall back to browse list.
+  useEffect(() => {
+    if (!searchMode && activeItemId !== null && !allItems.some((i) => i.id === activeItemId)) {
+      setActiveItemId(null);
+    }
+  }, [searchMode, activeItemId, allItems]);
+
+  const currentItem = useMemo<ProductKnowledgeItem | KnowledgeDoc | null>(() => {
+    if (activeItemId) {
+      const found = allItems.find((i) => i.id === activeItemId);
+      if (found) return found;
+      if (externalDoc?.docId === activeItemId) return externalDoc;
+      return null;
+    }
+    return allItems[0] ?? null;
+  }, [activeItemId, allItems, externalDoc]);
 
   // Reset edit state when switching articles.
   useEffect(() => {
@@ -165,7 +196,7 @@ export function KnowledgeBaseView() {
   };
 
   const saveEditing = () => {
-    if (!currentItem) return;
+    if (!currentItem || !('id' in currentItem)) return;
     // Route through store action — persists via Zustand persist layer (F5 safe).
     updateKnowledgeItem(currentItem.productId, currentItem.id, { content: editContent });
     setIsEditing(false);
@@ -279,7 +310,7 @@ export function KnowledgeBaseView() {
                 (results ?? []).map((hit) => (
                   <button
                     key={hit.docId}
-                    onClick={() => setActiveItemId(hit.docId)}
+                    onClick={() => void selectSearchHit(hit.docId)}
                     className="w-full flex flex-col gap-0.5 px-3 py-2 rounded-[var(--radius-sm)] text-sm text-text-secondary hover:bg-bg-secondary text-left"
                   >
                     <span className="truncate font-medium text-text-primary">{hit.title}</span>
@@ -329,7 +360,7 @@ export function KnowledgeBaseView() {
                             onClick={() => setActiveItemId(item.id)}
                             className={cn(
                               'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
-                              currentItem?.id === item.id
+                              currentItem && 'id' in currentItem && currentItem.id === item.id
                                 ? 'bg-accent/10 text-accent font-semibold'
                                 : 'text-text-secondary hover:bg-bg-secondary'
                             )}
@@ -337,7 +368,7 @@ export function KnowledgeBaseView() {
                             <FileText
                               size={14}
                               weight="duotone"
-                              className={currentItem?.id === item.id ? 'text-accent' : 'text-text-tertiary'}
+                              className={currentItem && 'id' in currentItem && currentItem.id === item.id ? 'text-accent' : 'text-text-tertiary'}
                             />
                             <span className="truncate">{item.title}</span>
                           </button>
@@ -395,7 +426,12 @@ export function KnowledgeBaseView() {
           </div>
           <div className="flex items-center gap-2">
             {!isEditing ? (
-              <Button variant="ghost" size="sm" onClick={startEditing} disabled={!currentItem}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={startEditing}
+                disabled={!currentItem || !('id' in currentItem)}
+              >
                 编辑
               </Button>
             ) : (

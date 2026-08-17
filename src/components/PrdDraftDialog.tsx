@@ -33,9 +33,9 @@ export function PrdDraftDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col">
         <DialogHeader title={title} description={description} />
-        <DialogBody>
+        <DialogBody className="min-h-0 flex-1 overflow-y-auto">
           <MarkdownEditor value={editedDraft} onChange={setEditedDraft} minHeight="320px" />
         </DialogBody>
         <DialogFooter>

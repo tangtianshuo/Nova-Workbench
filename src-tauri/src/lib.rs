@@ -90,6 +90,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             get_gnome_color_scheme,

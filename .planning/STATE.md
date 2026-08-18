@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-17)
 Phase: None(v0.3.0 已完成并归档)
 Plan: N/A
 Status: Awaiting next milestone
-Last activity: 2026-08-18 - Completed quick task 260818-can: 修复 AI 智能工作区总结弹窗 UI 溢出
+Last activity: 2026-08-18 - Completed quick task 260818-ci0: 知识库补 p2/p3/p4 AI 过程文档种子
 
 ## Performance Metrics
 
@@ -113,6 +113,7 @@ None.
 | 260814-keu | 修复删除产品时工作区 projectId 悬空引用 | 2026-08-14 | 014d1c3 | [260814-keu-projectid](./quick/260814-keu-projectid/) |
 | 260818-bw6 | 新建工作区路径原生文件夹选择器(tauri-plugin-dialog) | 2026-08-18 | 650e000 | [260818-bw6-file-archive-path-picker](./quick/260818-bw6-file-archive-path-picker/) |
 | 260818-can | 修复 AI 智能工作区总结弹窗 UI 溢出 | 2026-08-18 | 1df4940 | [260818-can-ai-ui](./quick/260818-can-ai-ui/) |
+| 260818-ci0 | 知识库补 p2/p3/p4 AI 过程文档种子 | 2026-08-18 | 0948c37 | [260818-ci0-knowledge-base-product-docs](./quick/260818-ci0-knowledge-base-product-docs/) |
 
 ## Session Continuity
 

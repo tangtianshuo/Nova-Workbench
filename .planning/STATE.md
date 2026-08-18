@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.3.1
-milestone_name: 多 Session 会话体系
-status: roadmap_created
-last_updated: "2026-08-18T14:00:00.000Z"
+milestone_name: milestone
+status: executing
+last_updated: "2026-08-18T14:08:07.256Z"
 last_activity: 2026-08-18
 progress:
-  total_phases: 4
+  total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.1 多 Session 会话体系(Phases 18-21)— session 工作区隔离/恢复/分支,真实 session 列表,Ctrl+Shift+K 双下拉,LLM 自动命名
+**Current focus:** Phase 18 — Session 数据模型与底座
 
 ## Current Position
 
-Phase: 18 — Session 数据模型与底座 (Not started)
-Plan: —
-Status: Roadmap created (2026-08-18), awaiting planning
-Last activity: 2026-08-18 — Roadmap created (4 phases, 16/16 requirements mapped)
+Phase: 18 (Session 数据模型与底座) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-08-18
 
 ```
 v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 phases)
@@ -39,6 +39,7 @@ v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | v0.3.1 phases completed | 0 / 4 |
 | v0.3.1 requirements satisfied | 0 / 16 |
 | Historical (v0.3.0) | 5/5 phases, 19/19 plans, 28/28 REQ, 161/161 tests |
+| Phase 18 P01 | 10m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -56,6 +57,8 @@ v0.3.1 roadmap decisions:
 - [Roadmap]: Phase 18/20 需 /gsd:research-phase;Phase 19/21 标准模式
 
 (历史 v0.3.0 decisions 见 git history / PROJECT.md Key Decisions)
+
+- [Phase 18]: Migration 0007: 全部 DDL+回填纯 SQL(INSERT OR IGNORE + NULL-guarded UPDATE),kv_store 缺失时 workspace_id NULL=全局可见
 
 ### TODOs (pending)
 

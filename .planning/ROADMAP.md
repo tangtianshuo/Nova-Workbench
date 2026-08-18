@@ -29,7 +29,7 @@
   4. 所有确认候选落库时带 sessionId(confirmations.ts sessionId:null 缺失修复)
 **Plans**: 2 plans
 Plans:
-- [ ] 18-01-PLAN.md — migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)+ fixture-DB 升级测试先行
+- [x] 18-01-PLAN.md — migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)+ fixture-DB 升级测试先行
 - [ ] 18-02-PLAN.md — 写入时 stamping(toolLoop workspaceId / confirmations sessionId)+ sessionRepo + turn-start upsert
 
 ### Phase 19: 多 Session 运行时
@@ -73,7 +73,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 18. Session 数据模型与底座 | 0/2 | Not started | - |
+| 18. Session 数据模型与底座 | 1/2 | In Progress|  |
 | 19. 多 Session 运行时 | 0/? | Not started | - |
 | 20. 分支与卡片操作 | 0/? | Not started | - |
 | 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |
@@ -100,7 +100,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 1/2 plans executed
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
 

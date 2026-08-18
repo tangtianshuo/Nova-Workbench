@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-17)
 Phase: None(v0.3.0 已完成并归档)
 Plan: N/A
 Status: Awaiting next milestone
-Last activity: 2026-08-18 - Completed quick task 260818-doi: 工作区文件真实扫描替换 mock
+Last activity: 2026-08-18 - Completed quick task 260818-dyo: 知识库⇄文档归档双向通道
 
 ## Performance Metrics
 
@@ -116,7 +116,7 @@ None.
 | 260818-ci0 | 知识库补 p2/p3/p4 AI 过程文档种子 | 2026-08-18 | 0948c37 | [260818-ci0-knowledge-base-product-docs](./quick/260818-ci0-knowledge-base-product-docs/) |
 | 260818-di5 | 知识库 AI 写入 sourceType 溯源修正 | 2026-08-18 | 1584f1b | [260818-di5-ai-sourcetype](./quick/260818-di5-ai-sourcetype/) |
 | 260818-doi | 工作区文件真实扫描替换 mock | 2026-08-18 | d7ffc16 | [260818-doi-workspace-real-scan](./quick/260818-doi-workspace-real-scan/) |
-| 260818-dyo | 知识库 ⇄ 文档归档双向通道(read/write_workspace_file + 提取/归档入口) | 2026-08-18 | worktree 91eeeb1 待 cherry-pick | [260818-dyo-kb-archive-bridge](./quick/260818-dyo-kb-archive-bridge/) |
+| 260818-dyo | 知识库 ⇄ 文档归档双向通道(read/write_workspace_file + 提取/归档入口) | 2026-08-18 | f2d2890 | [260818-dyo-kb-archive-bridge](./quick/260818-dyo-kb-archive-bridge/) |
 
 ## Session Continuity
 

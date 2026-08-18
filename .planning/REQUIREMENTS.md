@@ -22,9 +22,9 @@
 
 ### 分支与卡片操作 (FORK)
 
-- [ ] **FORK-01**: 用户鼠标聚焦 assistant 消息卡片时,卡片下方浮出分支 icon 与复制 icon
+- [x] **FORK-01**: 用户鼠标聚焦 assistant 消息卡片时,卡片下方浮出分支 icon 与复制 icon
 - [x] **FORK-02**: 用户点击分支 icon 后,以该卡片所在 turn 的 turn_ended 为切点创建新 session(引用式 fork:parent 事件前缀投影 + 零事件复制),UI 跳转新 session,原会话保持不动
-- [ ] **FORK-03**: 用户点击复制 icon 后,该 assistant 消息全文写入系统剪贴板
+- [x] **FORK-03**: 用户点击复制 icon 后,该 assistant 消息全文写入系统剪贴板
 
 ### 快捷助手 (QUICK)
 
@@ -72,9 +72,9 @@
 | SESS-03 | Phase 19 | Complete |
 | SESS-04 | Phase 19 | Complete |
 | SESS-05 | Phase 19 | Complete |
-| FORK-01 | Phase 20 | Pending |
+| FORK-01 | Phase 20 | Complete |
 | FORK-02 | Phase 20 | Complete |
-| FORK-03 | Phase 20 | Pending |
+| FORK-03 | Phase 20 | Complete |
 | LIST-03 | Phase 20 | Complete |
 | LIST-01 | Phase 21 | Pending |
 | LIST-02 | Phase 21 | Pending |

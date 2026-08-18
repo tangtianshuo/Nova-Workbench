@@ -1,34 +1,90 @@
 # ROADMAP: Nova-PM-Workspace
 
-**Current milestone:** none — next via `/gsd:new-milestone`
+**Current milestone:** v0.3.1 多 Session 会话体系
 **Phase numbering:** continues from 18 (never restart at 01)
 
 ## Milestones
 
+- 🚀 **v0.3.1 多 Session 会话体系** — Phases 18-21 (started 2026-08-18)
 - ✅ **v0.3.0 功能闭环** — Phases 13-17 (shipped 2026-08-17) — [archive](milestones/v0.3.0-ROADMAP.md)
 - ✅ **v0.2.0 日常管理 CRUD + 弱关联 + AI 驱动** — Phases 5-12 (shipped 2026-08-14) — [archive](milestones/v0.2.0-ROADMAP.md)
 
 ## Phases
 
-<details>
-<summary>✅ v0.3.0 功能闭环 (Phases 13-17) — SHIPPED 2026-08-17</summary>
+- [ ] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo
+- [ ] **Phase 19: 多 Session 运行时** — activeSessionId / switchSession 生命周期 / 默认新 session / streaming 锁 / pending 卡片按 session 过滤
+- [ ] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章
+- [ ] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题
 
-- [x] Phase 13: Event Log 底座 + ToolLoop 重构 (3/3 plans) — completed 2026-08-15
-- [x] Phase 14: 持久化确认 + 会话恢复 + 上下文压缩 (4/4 plans) — completed 2026-08-15
-- [x] Phase 15: 长期记忆 + 知识文档 + FTS5 检索 (4/4 plans) — completed 2026-08-15
-- [x] Phase 16: PRD 生产线 (3/3 plans) — completed 2026-08-17
-- [x] Phase 17: Agent UX + 架构文档 (5/5 plans) — completed 2026-08-17
+## Phase Details
 
-Full details: [milestones/v0.3.0-ROADMAP.md](milestones/v0.3.0-ROADMAP.md) · audit: [v0.3.0-MILESTONE-AUDIT.md](milestones/v0.3.0-MILESTONE-AUDIT.md)
+### Phase 18: Session 数据模型与底座
+**Goal**: session 成为有持久元数据的一等实体,旧数据无损升级 — 一切多 session 能力的数据基础
+**Depends on**: v0.3.0 已 shipped(Phase 13-17)
+**Requirements**: SESS-01, SESS-06
+**Success Criteria** (what must be TRUE):
+  1. 用户从 v0.3.0 数据库升级后,全部历史会话仍可见且事件完整(fixture DB 升级测试,幂等回填不重复不丢失)
+  2. sessions 表记录每个会话的 workspace_id/title/parent_session_id/fork_cut_seq,历史会话均被回填
+  3. agent_events 每条新事件记录 workspaceId,历史事件已回填(列表过滤的数据基础)
+  4. 所有确认候选落库时带 sessionId(confirmations.ts sessionId:null 缺失修复)
+**Plans**: TBD
 
-</details>
+### Phase 19: 多 Session 运行时
+**Goal**: 用户可以在多个 session 之间安全切换,会话历史逐字恢复,流式中不串话
+**Depends on**: Phase 18
+**Requirements**: SESS-02, SESS-03, SESS-04, SESS-05
+**Success Criteria** (what must be TRUE):
+  1. 用户进入应用即处于新 session,工作区为上次退出时选择的工作区(activeWorkspaceId 持久化)
+  2. 用户切换 session 后,该会话完整历史投影恢复,与原会话逐字一致(restoreSession(sessionId?),不依赖 sessions[0])
+  3. streaming 进行中,session 切换与工作区切换入口被禁用且守卫兜底(不产生跨会话事件串流)
+  4. 知识写入/删除确认/PRD 草稿等 pending 卡片只出现在其所属 session,不跨会话串卡
+**Plans**: TBD
 
-<details>
-<summary>✅ v0.2.0 日常管理 CRUD + 弱关联 + AI 驱动 (Phases 5-12) — SHIPPED 2026-08-14</summary>
+### Phase 20: 分支与卡片操作
+**Goal**: 用户可以从任意 assistant 消息创建引用式分支并一键复制消息 — 最高风险纯逻辑(buildForkEventStream)先于 UI 隔离交付
+**Depends on**: Phase 18, Phase 19
+**Requirements**: FORK-01, FORK-02, FORK-03, LIST-03
+**Success Criteria** (what must be TRUE):
+  1. 用户 hover assistant 消息卡片时,卡片下方浮出分支 icon 与复制 icon
+  2. 用户点击分支 icon 后,以该 turn 的 turn_ended 为切点创建新 session(parent 事件前缀投影 + 零事件复制,seq 归一化 + compaction remap),UI 跳转新 session,原会话保持不动
+  3. 用户点击复制 icon 后,该 assistant 消息全文进入系统剪贴板(失败 toast,不静默)
+  4. 分支 session 在列表中显示分支徽章,可识别来源会话
+  5. fork 纯函数测试先行:配对不变量保持、压缩事件 remap、replay parity、mid-turn 切点拒绝
+**Plans**: TBD
+**UI hint**: yes
 
-Full details: [milestones/v0.2.0-ROADMAP.md](milestones/v0.2.0-ROADMAP.md)
+### Phase 21: Session 列表与快捷入口 + 自动命名
+**Goal**: 用户通过 Agent 页列表与 Ctrl+Shift+K 双下拉即可到达任意会话,标题自动生成无需手动管理
+**Depends on**: Phase 19(选择器/列表运行时);分支徽章依赖 Phase 20
+**Requirements**: LIST-01, LIST-02, QUICK-01, QUICK-02, QUICK-03, TITLE-01, TITLE-02
+**Success Criteria** (what must be TRUE):
+  1. Agent 页「最近任务」显示真实 session 列表(标题 + 相对时间 + 消息数),按当前工作区过滤、最近活动倒序
+  2. 用户点击列表项即恢复该 session 到对话区
+  3. Ctrl+Shift+K 的 ChatPanel 头部有工作区 + session 两个下拉,工作区切换后 session 下拉联动过滤;Ctrl+K 保持无选择器的纯净快速对话
+  4. session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
+  5. 标题异步生成后静默更新列表,按 sessionId 守卫不写错会话,不打断用户
+**Plans**: TBD
+**UI hint**: yes
 
-</details>
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 18. Session 数据模型与底座 | 0/? | Not started | - |
+| 19. 多 Session 运行时 | 0/? | Not started | - |
+| 20. 分支与卡片操作 | 0/? | Not started | - |
+| 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |
+
+## Coverage
+
+16/16 v1 requirements mapped (SESS-01..06, LIST-01..03, FORK-01..03, QUICK-01..03, TITLE-01..02) — no orphans, no duplicates.
+
+## Research Flags
+
+- Phase 18: `/gsd:research-phase` — migration 0007 原子性(tauri-plugin-sql)+ fixture-DB 升级测试方案(PITFALLS P-A)
+- Phase 20: `/gsd:research-phase` — buildForkEventStream seq 归一化 + compaction remap 规则精确编码(PITFALLS P-C)
+- Phase 19: 标准模式(全部可追溯到既有代码),跳过 research
+- Phase 21: 标准模式(既有 Select 原语 / llm.rs 路径),跳过 research
 
 ## Backlog (candidate phases — promote with `/gsd:review-backlog`)
 
@@ -74,13 +130,3 @@ Full details: [milestones/v0.2.0-ROADMAP.md](milestones/v0.2.0-ROADMAP.md)
 **建议排期:** v0.4.0 前后的技术投资,或与 999.2 同期
 **Requirements:** TBD
 **Plans:** 0 plans
-
-## Progress
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 13. Event Log 底座 + ToolLoop 重构 | v0.3.0 | 3/3 | Complete | 2026-08-15 |
-| 14. 持久化确认 + 会话恢复 + 上下文压缩 | v0.3.0 | 4/4 | Complete | 2026-08-15 |
-| 15. 长期记忆 + 知识文档 + FTS5 检索 | v0.3.0 | 4/4 | Complete | 2026-08-15 |
-| 16. PRD 生产线 | v0.3.0 | 3/3 | Complete | 2026-08-17 |
-| 17. Agent UX + 架构文档 | v0.3.0 | 5/5 | Complete | 2026-08-17 |

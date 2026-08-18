@@ -66,13 +66,29 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (待 roadmap 创建后回填) | — | — |
+| SESS-01 | Phase 18 | Pending |
+| SESS-06 | Phase 18 | Pending |
+| SESS-02 | Phase 19 | Pending |
+| SESS-03 | Phase 19 | Pending |
+| SESS-04 | Phase 19 | Pending |
+| SESS-05 | Phase 19 | Pending |
+| FORK-01 | Phase 20 | Pending |
+| FORK-02 | Phase 20 | Pending |
+| FORK-03 | Phase 20 | Pending |
+| LIST-03 | Phase 20 | Pending |
+| LIST-01 | Phase 21 | Pending |
+| LIST-02 | Phase 21 | Pending |
+| QUICK-01 | Phase 21 | Pending |
+| QUICK-02 | Phase 21 | Pending |
+| QUICK-03 | Phase 21 | Pending |
+| TITLE-01 | Phase 21 | Pending |
+| TITLE-02 | Phase 21 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️ (roadmap 未创建)
+- Mapped to phases: 16 (Phase 18: 2, Phase 19: 4, Phase 20: 4, Phase 21: 7)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-18*
-*Last updated: 2026-08-18 after milestone scoping discussion*
+*Last updated: 2026-08-18 — roadmap created (Phases 18-21)*

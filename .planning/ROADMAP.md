@@ -11,7 +11,7 @@
 
 ## Phases
 
-- [ ] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo
+- [x] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo (completed 2026-08-18)
 - [ ] **Phase 19: 多 Session 运行时** — activeSessionId / switchSession 生命周期 / 默认新 session / streaming 锁 / pending 卡片按 session 过滤
 - [ ] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章
 - [ ] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题
@@ -30,7 +30,7 @@
 **Plans**: 2 plans
 Plans:
 - [x] 18-01-PLAN.md — migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)+ fixture-DB 升级测试先行
-- [ ] 18-02-PLAN.md — 写入时 stamping(toolLoop workspaceId / confirmations sessionId)+ sessionRepo + turn-start upsert
+- [x] 18-02-PLAN.md — 写入时 stamping(toolLoop workspaceId / confirmations sessionId)+ sessionRepo + turn-start upsert
 
 ### Phase 19: 多 Session 运行时
 **Goal**: 用户可以在多个 session 之间安全切换,会话历史逐字恢复,流式中不串话
@@ -73,7 +73,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 18. Session 数据模型与底座 | 1/2 | In Progress|  |
+| 18. Session 数据模型与底座 | 2/2 | Complete   | 2026-08-18 |
 | 19. 多 Session 运行时 | 0/? | Not started | - |
 | 20. 分支与卡片操作 | 0/? | Not started | - |
 | 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |
@@ -100,7 +100,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
 

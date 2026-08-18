@@ -20,6 +20,8 @@ import {
   getMemoryConfirmationStore,
   resetMemoryConfirmationStore,
 } from '../confirmationStore';
+import { getMemoryMemoryStore, resetMemoryMemoryStore } from '../memoryStore';
+import { listPendingDeliverableDrafts } from '../confirmations';
 import { executeTool } from '../registry';
 import '../tools/knowledgeWrite';
 
@@ -211,6 +213,81 @@ test('expired candidate disappears from the pending queue', async () => {
 
   const pending = await listPendingKnowledgeWrites();
   assert.equal(pending.some((c) => c.confirmationToken === expired.confirmationToken), false);
+});
+
+/* === Phase 19 Plan 03 (SESS-05): session-scoped pending reads === */
+
+test('SESS-05: listPendingKnowledgeWrites filters by sessionId', async () => {
+  resetMemoryConfirmationStore();
+  const store = getMemoryConfirmationStore();
+  const a = await store.create({ kind: 'knowledge_write', params: { title: 'A' }, summary: 'A', sessionId: 'sess-a' });
+  await store.create({ kind: 'knowledge_write', params: { title: 'B' }, summary: 'B', sessionId: 'sess-b' });
+
+  const onlyA = await listPendingKnowledgeWrites('sess-a');
+  assert.equal(onlyA.length, 1);
+  assert.equal(onlyA[0].confirmationToken, a.confirmationToken);
+  assert.equal(onlyA[0].sessionId, 'sess-a');
+
+  const all = await listPendingKnowledgeWrites();
+  assert.equal(all.length, 2);
+});
+
+test('SESS-05: listPendingDestructiveActions and listPendingDeliverableDrafts filter by sessionId', async () => {
+  resetMemoryConfirmationStore();
+  const store = getMemoryConfirmationStore();
+  const dA = await store.create({ kind: 'destructive_action', params: { toolName: 't' }, summary: 'a', sessionId: 'sess-a' });
+  await store.create({ kind: 'destructive_action', params: { toolName: 't2' }, summary: 'b', sessionId: 'sess-b' });
+  const onlyDestructive = await listPendingDestructiveActions('sess-a');
+  assert.equal(onlyDestructive.length, 1);
+  assert.equal(onlyDestructive[0].confirmationToken, dA.confirmationToken);
+  assert.equal(onlyDestructive[0].sessionId, 'sess-a');
+
+  const pA = await store.create({
+    kind: 'deliverable_draft',
+    params: { code: 'prd', productId: 'p1', title: 'A', draft: 'd', eventId: null },
+    summary: 'A', sessionId: 'sess-a',
+  });
+  await store.create({
+    kind: 'deliverable_draft',
+    params: { code: 'prd', productId: 'p1', title: 'B', draft: 'd', eventId: null },
+    summary: 'B', sessionId: 'sess-b',
+  });
+  const onlyDrafts = await listPendingDeliverableDrafts('sess-a');
+  assert.equal(onlyDrafts.length, 1);
+  assert.equal(onlyDrafts[0].confirmationToken, pA.confirmationToken);
+});
+
+test('SESS-05: knowledge/destructive candidates expose stamped sessionId', async () => {
+  resetMemoryConfirmationStore();
+  const store = getMemoryConfirmationStore();
+  const k = await store.create({
+    kind: 'knowledge_write',
+    params: { productId: 'p1', operation: 'created', title: 'S', category: '业务规则', tags: [], content: 'c', summary: 's', author: 'a', readTime: 'r' },
+    summary: 'S', sessionId: 'sess-stamped',
+  });
+  const listed = await listPendingKnowledgeWrites('sess-stamped');
+  assert.equal(listed[0].sessionId, 'sess-stamped');
+
+  const d = await createDestructiveActionCandidate('deleteTask', { taskId: 'x' }, 'sum');
+  const dListed = await listPendingDestructiveActions();
+  const found = dListed.find((c) => c.confirmationToken === d.confirmationToken)!;
+  assert.ok(found.sessionId !== undefined);
+  void k;
+});
+
+test('SESS-05: memory store listPending filters by sessionId', async () => {
+  resetMemoryMemoryStore();
+  const store = getMemoryMemoryStore();
+  await store.propose({ content: 'memory a', origin: 'model_inferred', scope: 'global', sessionId: 'sess-a' });
+  await store.propose({ content: 'memory b', origin: 'model_inferred', scope: 'global', sessionId: 'sess-b' });
+
+  const onlyA = await store.listPending('sess-a');
+  assert.equal(onlyA.length, 1);
+  assert.equal(onlyA[0].sessionId, 'sess-a');
+  assert.equal(onlyA[0].content, 'memory a');
+
+  const all = await store.listPending();
+  assert.equal(all.length, 2);
 });
 
 console.log('OK: Phase 14 Plan 02 confirmation public API checks passed');

@@ -9,6 +9,8 @@ import { resetMemoryEventStore } from '../../ai/events/eventStore';
 import { resetRestoreForTesting } from '../../ai/sessionRestore';
 import { sessionRef, useChatConsoleStore } from '../chatConsoleStore';
 import { useWorkspaceStore } from '../workspaceStore';
+import { getMemoryConfirmationStore, resetMemoryConfirmationStore } from '../../ai/confirmationStore';
+import { getMemoryMemoryStore, resetMemoryMemoryStore } from '../../ai/memoryStore';
 
 async function appendTurn(session: ChatSession, userText: string, assistantText: string) {
   session.setCorrelationId(crypto.randomUUID());
@@ -114,6 +116,46 @@ test('unknown session: switchSession returns not_found', async () => {
   resetAll();
   const result = await useChatConsoleStore.getState().switchSession('nope');
   assert.deepEqual(result, { success: false, reason: 'not_found' });
+});
+
+// SESS-05: pending cards never bleed across sessions — a candidate stamped to
+// session B must not surface while activeSessionId is A.
+test('SESS-05: refreshMemoryCards/refreshPrdCard ignore other sessions pending candidates', async () => {
+  resetAll();
+  resetMemoryConfirmationStore();
+  resetMemoryMemoryStore();
+  useChatConsoleStore.setState({ activeSessionId: 'sess-active-a' });
+
+  await getMemoryMemoryStore().propose({
+    content: 'other session memory', origin: 'model_inferred', scope: 'global', sessionId: 'sess-other-b',
+  });
+  await getMemoryConfirmationStore().create({
+    kind: 'deliverable_draft',
+    params: { code: 'prd', productId: 'p1', title: 'Other', draft: 'd', eventId: null },
+    summary: 'Other', sessionId: 'sess-other-b',
+  });
+
+  await useChatConsoleStore.getState().refreshMemoryCards();
+  await useChatConsoleStore.getState().refreshPrdCard();
+  assert.equal(useChatConsoleStore.getState().pendingMemory, null, 'cross-session memory card must not surface');
+  assert.equal(useChatConsoleStore.getState().pendingPrdDraft, null, 'cross-session PRD card must not surface');
+
+  // Same-session candidate DOES surface.
+  await getMemoryMemoryStore().propose({
+    content: 'own session memory', origin: 'model_inferred', scope: 'global', sessionId: 'sess-active-a',
+  });
+  await getMemoryConfirmationStore().create({
+    kind: 'deliverable_draft',
+    params: { code: 'prd', productId: 'p1', title: 'Own', draft: 'd', eventId: null },
+    summary: 'Own', sessionId: 'sess-active-a',
+  });
+  await useChatConsoleStore.getState().refreshMemoryCards();
+  await useChatConsoleStore.getState().refreshPrdCard();
+  assert.equal(useChatConsoleStore.getState().pendingMemory?.sessionId, 'sess-active-a');
+  assert.equal(useChatConsoleStore.getState().pendingPrdDraft?.sessionId, 'sess-active-a');
+
+  resetMemoryConfirmationStore();
+  resetMemoryMemoryStore();
 });
 
 console.log('OK: Phase 19 Plan 02 runtime lifecycle + guard checks passed');

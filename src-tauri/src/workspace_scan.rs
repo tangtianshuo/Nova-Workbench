@@ -4,7 +4,7 @@
 
 use std::fs;
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 
 const MAX_DEPTH: usize = 3;
 const MAX_FILES: usize = 500;

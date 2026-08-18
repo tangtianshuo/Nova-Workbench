@@ -52,6 +52,9 @@ test('writeKnowledgeArticle creates only after matching explicit confirmation', 
   const article = useRndStore.getState().knowledgeBase[productId]?.find((item) => item.id === result.articleId);
   assert.equal(article?.content, payload.content);
   assert.ok(!Number.isNaN(Date.parse(article?.updatedAt ?? '')), 'updatedAt must be an ISO timestamp since Phase 15');
+  const { getKnowledgeRepo } = await import('../knowledgeRepo');
+  const doc = (await getKnowledgeRepo().getCurrentDocs(productId)).find((d) => d.docId === result.articleId);
+  assert.equal(doc?.sourceType, 'agent');
   useRndStore.getState().deleteKnowledgeItem(productId, result.articleId);
 });
 
@@ -99,6 +102,11 @@ test('writeKnowledgeArticle updates in scope and rejects cross-product article I
   }) as { articleId: string; operation: string };
   assert.deepEqual(result, { articleId: existing.id, operation: 'updated' });
   assert.equal(useRndStore.getState().knowledgeBase[productId]?.find((item) => item.id === existing.id)?.content, updatePayload.content);
+  {
+    const { getKnowledgeRepo } = await import('../knowledgeRepo');
+    const doc = (await getKnowledgeRepo().getCurrentDocs(productId)).find((d) => d.docId === existing.id);
+    assert.equal(doc?.sourceType, 'agent');
+  }
 
   const otherProduct = Object.keys(useRndStore.getState().knowledgeBase).find((id) => id !== productId);
   if (otherProduct) {

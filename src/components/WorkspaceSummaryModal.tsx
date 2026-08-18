@@ -71,7 +71,7 @@ export function WorkspaceSummaryModal({ workspace, onClose }: WorkspaceSummaryMo
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl flex flex-col max-h-[90vh]">
+      <DialogContent className="max-w-3xl flex flex-col max-h-[90vh] p-6 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border-subtle flex items-center justify-between bg-bg-secondary/50 -mx-6 -mt-6 mb-4 rounded-t-[var(--radius-xl)]">
           <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export function WorkspaceSummaryModal({ workspace, onClose }: WorkspaceSummaryMo
         </div>
 
         {/* Content Area */}
-        <div className="overflow-y-auto flex-1 space-y-4">
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
           {loading ? (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-4">
               <div className="relative">
@@ -154,7 +154,7 @@ export function WorkspaceSummaryModal({ workspace, onClose }: WorkspaceSummaryMo
               </div>
             </div>
           ) : (
-            <div className="prose max-w-none text-sm leading-relaxed text-text-secondary">
+            <div className="prose max-w-none text-sm leading-relaxed text-text-secondary break-words">
               <div className="bg-bg-secondary/60 border border-border-subtle rounded-[var(--radius-md)] p-5 shadow-xs">
                 <MarkdownRenderer>{summary}</MarkdownRenderer>
               </div>

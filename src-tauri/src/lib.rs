@@ -8,6 +8,7 @@ mod error;
 mod keychain;
 mod llm;
 mod state;
+mod workspace_scan;
 
 use state::AppState;
 
@@ -108,6 +109,7 @@ pub fn run() {
             commands::has_provider_key,
             commands::set_provider_key,
             commands::ping_provider,
+            workspace_scan::scan_workspace_folder,
         ])
         .setup(|app| {
             // Set minimum window size

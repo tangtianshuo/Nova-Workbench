@@ -14,6 +14,7 @@ import { buildSystemPrompt } from './prompts';
 import { assembleInjectedContext, type KnowledgeSearchHit } from './contextAssembler';
 import { executeTool, ToolArgError, toolsToSchemas } from './registry';
 import { useUIStore } from '@/src/stores/uiStore';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import './tools/knowledgeWrite';
 import {
   ConfirmationRequiredError,
@@ -34,10 +35,10 @@ export {
   rejectKnowledgeWrite,
 } from './confirmations';
 
-// Event scope stamping: current selected product. workspace/project linkage is
-// deferred (see 13-CONTEXT deferred ideas) — columns exist, values stay null.
+// Event scope stamping: workspace (SESS-06) + current selected product,
+// resolved at append time. projectId stays null (no project concept yet).
 setEventScopeProvider(() => ({
-  workspaceId: null,
+  workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
   productId: useUIStore.getState().selectedProductId,
   projectId: null,
 }));

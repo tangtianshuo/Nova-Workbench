@@ -9,6 +9,7 @@ import {
   type PersistedConfirmation,
 } from './confirmationStore';
 import { computeParamsHash } from './paramsHash';
+import { getActiveAgentScope } from './agentScope';
 
 export type KnowledgeWriteOperation = 'created' | 'updated';
 
@@ -149,7 +150,7 @@ export async function createKnowledgeWriteCandidate(
     kind: 'knowledge_write',
     params: knowledgeParams(draft),
     summary: draft.title,
-    sessionId: null,
+    sessionId: getActiveAgentScope()?.sessionId ?? null,
   });
   return { ...draft, tags: [...draft.tags], confirmationToken: row.confirmationToken };
 }
@@ -214,7 +215,7 @@ export async function createDestructiveActionCandidate(
     kind: 'destructive_action',
     params: destructiveParams(toolName, args),
     summary,
-    sessionId: null,
+    sessionId: getActiveAgentScope()?.sessionId ?? null,
   });
   return {
     confirmationToken: row.confirmationToken,

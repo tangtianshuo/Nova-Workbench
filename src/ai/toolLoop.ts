@@ -140,6 +140,13 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
     session.recordTurnEnd({ outcome, iterations, toolCallsExecuted, correlationId });
     await session.flushEvents();
     await auditSessionEvents(session.sessionId);
+    // 260818-f3b: fire-and-forget session summary projection — completed turns
+    // only (turn-level rolling update). Never blocks or breaks the return path.
+    if (outcome === 'completed') {
+      import('./sessionSummaryProjection')
+        .then(({ projectSessionSummary }) => projectSessionSummary(session))
+        .catch((error) => console.warn('[session-summary] projection failed', error));
+    }
   };
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {

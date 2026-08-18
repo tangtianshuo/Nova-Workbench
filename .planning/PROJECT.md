@@ -40,6 +40,9 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 **Next Milestone:** v0.3.1 多 Session 会话体系 — 已启动(2026-08-18,`/gsd:new-milestone`)
 
+**v0.3.1 进度:**
+- **Session 数据模型与底座**(Phase 18,2026-08-18):migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)、toolLoop workspaceId stamping、confirmations sessionId 根因修复、sessionRepo 双实现(memory/sqlite)+ turn-start upsert;fixture-DB 升级测试锁定幂等,174/174 测试通过
+
 ## Requirements
 
 ### Validated
@@ -172,4 +175,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 17 (2026-08-17)**: Agent UX + 架构文档 — 双宿主 + ⌘K carry + 晨报 + 右键动作 + ARCHITECTURE.md v2.0/ADR。17-HUMAN-UAT 6/6(含 35 步回归)。
 
 ---
-*Last updated: 2026-08-18 — v0.3.1 milestone started*
+*Last updated: 2026-08-18 — v0.3.1 Phase 18 complete*

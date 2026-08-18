@@ -111,6 +111,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260814-keu | 修复删除产品时工作区 projectId 悬空引用 | 2026-08-14 | 014d1c3 | [260814-keu-projectid](./quick/260814-keu-projectid/) |
+| 260818-bw6 | 新建工作区路径原生文件夹选择器(tauri-plugin-dialog) | 2026-08-18 | 366238c | [260818-bw6-file-archive-path-picker](./quick/260818-bw6-file-archive-path-picker/) |
 
 ## Session Continuity
 

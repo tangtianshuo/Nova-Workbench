@@ -28,6 +28,7 @@ export interface KnowledgeWriteDraft {
 
 export interface KnowledgeWriteCandidate extends KnowledgeWriteDraft {
   confirmationToken: string;
+  sessionId: string | null;
 }
 
 export class ConfirmationRequiredError extends Error {
@@ -56,6 +57,7 @@ export interface DestructiveActionCandidate {
   toolName: string;
   args: Record<string, unknown>;
   summary: string;
+  sessionId: string | null;
 }
 
 /* === Private helpers === */
@@ -110,7 +112,7 @@ function draftFromParams(params: Record<string, unknown>): KnowledgeWriteDraft {
 }
 
 function candidateFromRow(row: PersistedConfirmation): KnowledgeWriteCandidate {
-  return { ...draftFromParams(row.params), confirmationToken: row.confirmationToken };
+  return { ...draftFromParams(row.params), confirmationToken: row.confirmationToken, sessionId: row.sessionId ?? null };
 }
 
 function destructiveFromRow(row: PersistedConfirmation): DestructiveActionCandidate {
@@ -120,6 +122,7 @@ function destructiveFromRow(row: PersistedConfirmation): DestructiveActionCandid
     toolName: p.toolName,
     args: p.args,
     summary: row.summary ?? '',
+    sessionId: row.sessionId ?? null,
   };
 }
 
@@ -152,7 +155,7 @@ export async function createKnowledgeWriteCandidate(
     summary: draft.title,
     sessionId: getActiveAgentScope()?.sessionId ?? null,
   });
-  return { ...draft, tags: [...draft.tags], confirmationToken: row.confirmationToken };
+  return { ...draft, tags: [...draft.tags], confirmationToken: row.confirmationToken, sessionId: row.sessionId };
 }
 
 export async function getKnowledgeWriteCandidate(
@@ -222,6 +225,7 @@ export async function createDestructiveActionCandidate(
     toolName,
     args: { ...args },
     summary,
+    sessionId: row.sessionId,
   };
 }
 
@@ -276,14 +280,14 @@ export async function tryConsumeDestructiveActionConfirmation(
   }
 }
 
-export async function listPendingKnowledgeWrites(): Promise<KnowledgeWriteCandidate[]> {
+export async function listPendingKnowledgeWrites(sessionId?: string): Promise<KnowledgeWriteCandidate[]> {
   const rows = await getConfirmationStore().listActive('knowledge_write');
-  return rows.map(candidateFromRow);
+  return rows.filter((row) => sessionId === undefined || row.sessionId === sessionId).map(candidateFromRow);
 }
 
-export async function listPendingDestructiveActions(): Promise<DestructiveActionCandidate[]> {
+export async function listPendingDestructiveActions(sessionId?: string): Promise<DestructiveActionCandidate[]> {
   const rows = await getConfirmationStore().listActive('destructive_action');
-  return rows.map(destructiveFromRow);
+  return rows.filter((row) => sessionId === undefined || row.sessionId === sessionId).map(destructiveFromRow);
 }
 
 /* === Phase 16: deliverable draft candidates (PRD pipeline, DELIV-01..03) === */
@@ -415,9 +419,9 @@ export async function rejectDeliverableDraft(confirmationToken: string): Promise
   return getConfirmationStore().reject(confirmationToken);
 }
 
-export async function listPendingDeliverableDrafts(): Promise<DeliverableDraftCandidate[]> {
+export async function listPendingDeliverableDrafts(sessionId?: string): Promise<DeliverableDraftCandidate[]> {
   const rows = await getConfirmationStore().listActive('deliverable_draft');
-  return rows.map(deliverableFromRow);
+  return rows.filter((row) => sessionId === undefined || row.sessionId === sessionId).map(deliverableFromRow);
 }
 
 export async function listRejectedDeliverableDrafts(limit = 5): Promise<DeliverableDraftCandidate[]> {

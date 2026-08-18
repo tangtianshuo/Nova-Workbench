@@ -45,7 +45,7 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 19-01-PLAN.md — restoreSession(sessionId?) 参数化(P-B 移除)+ 逐字恢复/隔离测试
-- [ ] 19-02-PLAN.md — activeSessionId / startNewSession / switchSession + streaming 双守卫(store 兜底)
+- [x] 19-02-PLAN.md — activeSessionId / startNewSession / switchSession + streaming 双守卫(store 兜底)
 - [ ] 19-03-PLAN.md — pending 卡片四类读取路径按 session 过滤 + 切换刷新
 
 ### Phase 20: 分支与卡片操作
@@ -79,7 +79,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 18. Session 数据模型与底座 | 2/2 | Complete    | 2026-08-18 |
-| 19. 多 Session 运行时 | 1/3 | In Progress|  |
+| 19. 多 Session 运行时 | 2/3 | In Progress|  |
 | 20. 分支与卡片操作 | 0/? | Not started | - |
 | 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |
 
@@ -105,7 +105,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
 

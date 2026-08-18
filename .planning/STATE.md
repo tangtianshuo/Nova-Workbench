@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-18T14:25:26.437Z"
+last_updated: "2026-08-18T14:28:33.256Z"
 last_activity: 2026-08-18
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 ## Current Position
 
 Phase: 19 (多 Session 运行时) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-08-18
 
@@ -42,6 +42,7 @@ v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 18 P01 | 10m | 2 tasks | 4 files |
 | Phase 18 P02 | 12m | 2 tasks | 4 files |
 | Phase 19 P01 | 8m | 2 tasks | 2 files |
+| Phase 19 P02 | 10m | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ v0.3.1 roadmap decisions:
 - [Phase 18]: Migration 0007: 全部 DDL+回填纯 SQL(INSERT OR IGNORE + NULL-guarded UPDATE),kv_store 缺失时 workspace_id NULL=全局可见
 - [Phase 18]: sessionRepo SQL 导出为常量,parity 测试 $N→? 适配 node:sqlite;computeParamsHash 不含 sessionId(保留升级前 pending 候选 dedup)
 - [Phase 19]: restoreSession(sessionId?): explicit-id path treats empty event list as not-found -> null; restoreLatestSession kept as compat alias for 19-02 migration
+- [Phase 19]: SESS-02: app entry = fresh session; restore() no auto-restore, restoreSession() no-arg kept as crash-recovery API
+- [Phase 19]: Workspace switch = end session + startNewSession (CONTEXT locked); store-level streaming guard is SESS-04 bottom line
 
 ### TODOs (pending)
 

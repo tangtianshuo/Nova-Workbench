@@ -8,9 +8,9 @@
 ### 会话数据模型与运行时 (SESS)
 
 - [x] **SESS-01**: sessions 元数据表落地(workspace_id/title/parent_session_id/fork_cut_seq/created_at/last_active_at),migration 0007 含历史会话幂等回填,fixture DB 升级测试保证旧数据不丢失、历史会话不消失
-- [ ] **SESS-02**: 用户进入应用时默认获得新 session,工作区为上次退出时选择的工作区(activeWorkspaceId 持久化)
+- [x] **SESS-02**: 用户进入应用时默认获得新 session,工作区为上次退出时选择的工作区(activeWorkspaceId 持久化)
 - [x] **SESS-03**: 用户可切换 session,切换后该会话完整历史投影恢复(与原会话逐字一致)
-- [ ] **SESS-04**: streaming 进行中 session 切换与工作区切换被锁定(禁用入口 + 守卫),防止事件串流
+- [x] **SESS-04**: streaming 进行中 session 切换与工作区切换被锁定(禁用入口 + 守卫),防止事件串流
 - [x] **SESS-05**: pending 确认卡片(知识写入/删除确认/PRD 草稿)按 session 过滤,不跨会话串卡;修复 confirmations.ts 现有 sessionId:null stamp 缺失
 - [x] **SESS-06**: agent_events 事件 scope 记录 workspaceId 并回填历史(列表过滤的数据基础)
 
@@ -68,9 +68,9 @@
 |-------------|-------|--------|
 | SESS-01 | Phase 18 | Complete |
 | SESS-06 | Phase 18 | Complete |
-| SESS-02 | Phase 19 | Pending |
+| SESS-02 | Phase 19 | Complete |
 | SESS-03 | Phase 19 | Complete |
-| SESS-04 | Phase 19 | Pending |
+| SESS-04 | Phase 19 | Complete |
 | SESS-05 | Phase 19 | Complete |
 | FORK-01 | Phase 20 | Pending |
 | FORK-02 | Phase 20 | Pending |

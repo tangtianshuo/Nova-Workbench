@@ -109,8 +109,10 @@ export const INITIAL_LOCAL_FILES: LocalIndexedFile[] = [
 
 interface WorkspaceState {
   workspaces: Workspace[];
+  activeWorkspaceId: string | null;
   localIndexedFiles: LocalIndexedFile[];
 
+  setActiveWorkspaceId: (id: string) => void;
   addWorkspace: (workspace: Workspace) => void;
   updateWorkspace: (id: string, updates: Partial<Workspace>) => void;
   deleteWorkspace: (id: string) => void;
@@ -131,7 +133,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set) => ({
   workspaces: INITIAL_WORKSPACES,
+  activeWorkspaceId: INITIAL_WORKSPACES[0]?.id ?? null,
   localIndexedFiles: INITIAL_LOCAL_FILES,
+
+  setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
 
   addWorkspace: (workspace) =>
     set((state) => {
@@ -197,6 +202,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       storage: sqliteStorage,
       partialize: (s) => ({
         workspaces: s.workspaces,
+        activeWorkspaceId: s.activeWorkspaceId,
         localIndexedFiles: s.localIndexedFiles,
       }),
       migrate: (persisted, _version) => persisted as Partial<WorkspaceState>,

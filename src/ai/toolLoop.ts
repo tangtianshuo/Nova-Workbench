@@ -26,6 +26,7 @@ import { checkEventStream } from './events/invariants';
 import { prepareToolResult } from './events/artifacts';
 import { maybeCompactSession } from './compaction';
 import { setActiveAgentScope } from './agentScope';
+import { getSessionRepo } from './sessionRepo';
 
 export {
   confirmDestructiveAction,
@@ -116,6 +117,14 @@ export async function runToolLoop(args: RunToolLoopArgs): Promise<ToolLoopResult
   // model. Direct executeTool replays (ChatPanel confirm flow) keep the
   // last value — same ChatPanel, same session.
   setActiveAgentScope({ sessionId: session.sessionId, correlationId });
+  // SESS-05: every session gets a sessions row at first turn; later turns only
+  // bump last_active_at. Fire-and-forget — repo failure never blocks a turn.
+  void Promise.resolve(
+    getSessionRepo().upsertSessionMeta({
+      sessionId: session.sessionId,
+      workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+    }),
+  ).catch(() => {});
   session.addMessage('user', args.userMessage);
   // MEM-08 — five-segment context injection. systemPromptOverride short-circuits
   // FIRST (byte-compatible with the old ?? fallback); only the assembled path

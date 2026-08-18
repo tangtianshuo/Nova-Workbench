@@ -49,28 +49,34 @@ test('memory: updateTitle sets title on target row only', async () => {
 
 test('memory: listSessionsByWorkspace filters by workspace, DESC by lastActiveAt, NULL workspace visible everywhere', async () => {
   const repo = new MemorySessionRepo();
+  const tick = () => new Promise((r) => setTimeout(r, 5));
   await repo.upsertSessionMeta({ sessionId: 'old', workspaceId: 'ws-1' });
-  await new Promise((r) => setTimeout(r, 5));
+  await tick();
   await repo.upsertSessionMeta({ sessionId: 'new', workspaceId: 'ws-1' });
+  await tick();
   await repo.upsertSessionMeta({ sessionId: 'ws2', workspaceId: 'ws-2' });
+  await tick();
   await repo.upsertSessionMeta({ sessionId: 'global', workspaceId: null });
 
+  // insert order old → (sleep) → new → ws2 → global, so DESC = global, new, old.
   const ws1 = await repo.listSessionsByWorkspace('ws-1');
-  assert.deepEqual(ws1.map((r: SessionMeta) => r.sessionId), ['new', 'old', 'global']);
+  assert.deepEqual(ws1.map((r: SessionMeta) => r.sessionId), ['global', 'new', 'old']);
   const ws2 = await repo.listSessionsByWorkspace('ws-2');
-  assert.deepEqual(ws2.map((r: SessionMeta) => r.sessionId), ['ws2', 'global']);
+  assert.deepEqual(ws2.map((r: SessionMeta) => r.sessionId), ['global', 'ws2']);
 });
 
 /* === SQL parity: same behaviors against real migration SQL === */
 
-// SQL parity uses the repo's own exported SQL strings against the real 0007 table.
-const UPSERT_SQL = SESSION_UPSERT_SQL;
-const LIST_SQL = SESSION_LIST_SQL;
-const TITLE_SQL = SESSION_TITLE_SQL;
+// SQL parity uses the repo's own exported SQL strings ($N placeholders for
+// tauri-plugin-sql) converted to node:sqlite positional `?`.
+const q = (sql: string) => sql.replace(/\$\d+/g, '?');
+const UPSERT_SQL = q(SESSION_UPSERT_SQL);
+const LIST_SQL = q(SESSION_LIST_SQL);
+const TITLE_SQL = q(SESSION_TITLE_SQL);
 
 function buildDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
-  for (const f of ['0001_init.sql', '0007_sessions.sql']) {
+  for (const f of ['0001_init.sql', '0002_agent_events.sql', '0007_sessions.sql']) {
     db.exec(readFileSync(path.join(migrationsDir, f), 'utf8'));
   }
   return db;

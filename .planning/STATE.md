@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-17)
 Phase: None(v0.3.0 已完成并归档)
 Plan: N/A
 Status: Awaiting next milestone
-Last activity: 2026-08-18 - Completed quick task 260818-f3b: agent 会话纪要自动投影进知识库
+Last activity: 2026-08-18 - Completed quick task 260818-gec: 任务管理统计卡片接入真实数据
 
 ## Performance Metrics
 
@@ -118,6 +118,7 @@ None.
 | 260818-doi | 工作区文件真实扫描替换 mock | 2026-08-18 | d7ffc16 | [260818-doi-workspace-real-scan](./quick/260818-doi-workspace-real-scan/) |
 | 260818-dyo | 知识库 ⇄ 文档归档双向通道(read/write_workspace_file + 提取/归档入口) | 2026-08-18 | f2d2890 | [260818-dyo-kb-archive-bridge](./quick/260818-dyo-kb-archive-bridge/) |
 | 260818-f3b | agent 会话纪要自动投影进知识库(session-summary docId supersede 链) | 2026-08-18 | 6ce44b5 | [260818-f3b-session-summary-projection](./quick/260818-f3b-session-summary-projection/) |
+| 260818-gec | 任务管理统计卡片接入真实数据(taskStore 派生,去假 trend) | 2026-08-18 | a39e338 | [260818-gec-task-stats-real-data](./quick/260818-gec-task-stats-real-data/) |
 
 ## Session Continuity
 

@@ -21,7 +21,7 @@ import {
 } from '@/src/ai/confirmations';
 import { getMemoryStore, type MemoryCandidate } from '@/src/ai/memoryStore';
 import { ChatSession } from '@/src/ai/chatSession';
-import { restoreLatestSession } from '@/src/ai/sessionRestore';
+import { restoreSession } from '@/src/ai/sessionRestore';
 import { useUIStore } from '@/src/stores/uiStore';
 import type { Provider } from '@/src/lib/api';
 
@@ -82,6 +82,7 @@ let restorePromise: Promise<void> | null = null;
 /* === Store === */
 
 interface ChatConsoleState {
+  activeSessionId: string;
   messages: ChatMessage[];
   input: string;
   streamingResponse: string;
@@ -102,6 +103,8 @@ interface ChatConsoleState {
 
   setInput: (v: string) => void;
   restore: () => Promise<void>;
+  startNewSession: () => { success: boolean; reason?: string };
+  switchSession: (sessionId: string) => Promise<{ success: boolean; reason?: string }>;
   submit: (event?: { preventDefault?: () => void }) => Promise<void>;
   confirmKnowledgeWrite: () => Promise<void>;
   rejectKnowledgeWrite: () => Promise<void>;
@@ -163,6 +166,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
   };
 
   return {
+    activeSessionId: sessionRef.current.sessionId,
     messages: [],
     input: '',
     streamingResponse: '',
@@ -181,44 +185,71 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
 
     setInput: (v) => set({ input: v }),
 
-    // EVT-04: restore the most recent session once per app start. Idempotent —
-    // module-level promise cache makes ChatPanel/AgentWorkspaceView double-mount
-    // safe (restoreLatestSession itself also dedupes, Phase 14).
+    // SESS-02: app entry lands in a FRESH session (module-level ChatSession
+    // created above). No auto-restore of the latest session into the
+    // conversation; restoreSession() no-arg remains available in
+    // sessionRestore.ts as crash-recovery API. Promise dedupe keeps
+    // ChatPanel/AgentWorkspaceView double-mount safe.
     restore: async () => {
       if (restorePromise) return restorePromise;
       restorePromise = (async () => {
         try {
-          const restored = await restoreLatestSession();
-          if (restored) {
-            sessionRef.current = restored.session;
-            const history = restored.session
-              .getAllMessages()
-              .filter((message) => message.role === 'user' || (message.role === 'assistant' && !message.toolCallId))
-              .map((message) => ({
-                id: nextId++,
-                role: message.role as 'user' | 'assistant',
-                content: message.content,
-              }));
-            const latestKnowledgeWrite = restored.pendingKnowledgeWrites[restored.pendingKnowledgeWrites.length - 1];
-            const latestDestructiveAction = restored.pendingDestructiveActions[restored.pendingDestructiveActions.length - 1];
-            set({
-              messages: history,
-              pendingConfirmation: latestKnowledgeWrite ?? null,
-              pendingDestructiveAction: latestDestructiveAction ?? null,
-            });
-          }
-          // Pending memory candidates re-appear after restore (same behavior as
-          // pendingKnowledgeWrites above).
+          set({ activeSessionId: sessionRef.current.sessionId, restoreComplete: true });
+          // Pending memory/PRD cards still surface cross-session (Phase 15/16).
           void refreshMemoryCards();
-          // Pending PRD draft candidates re-appear after restore (Phase 16).
           void refreshPrdCard();
-          set({ restoreComplete: true });
         } catch (error) {
           console.error('[session-restore] failed', error);
           set({ restoreComplete: true });
         }
       })();
       return restorePromise;
+    },
+
+    // SESS-02: end the current conversation and enter a brand-new session.
+    // Blocked while streaming (store-level bottom line, SESS-04).
+    startNewSession: () => {
+      if (get().loading) return { success: false, reason: 'streaming' };
+      sessionRef.current = new ChatSession({ tokenBudget: 8_000 });
+      set({
+        activeSessionId: sessionRef.current.sessionId,
+        messages: [],
+        pendingConfirmation: null,
+        pendingDestructiveAction: null,
+        pendingPrdDraft: null,
+        pendingMemory: null,
+      });
+      void refreshMemoryCards();
+      void refreshPrdCard();
+      return { success: true };
+    },
+
+    // SESS-03: switch to a persisted session — history restored verbatim via
+    // the 19-01 engine. Blocked while streaming (SESS-04).
+    switchSession: async (sessionId) => {
+      if (get().loading) return { success: false, reason: 'streaming' };
+      const restored = await restoreSession(sessionId);
+      if (!restored) return { success: false, reason: 'not_found' };
+      sessionRef.current = restored.session;
+      const history = restored.session
+        .getAllMessages()
+        .filter((message) => message.role === 'user' || (message.role === 'assistant' && !message.toolCallId))
+        .map((message) => ({
+          id: nextId++,
+          role: message.role as 'user' | 'assistant',
+          content: message.content,
+        }));
+      const latestKnowledgeWrite = restored.pendingKnowledgeWrites[restored.pendingKnowledgeWrites.length - 1];
+      const latestDestructiveAction = restored.pendingDestructiveActions[restored.pendingDestructiveActions.length - 1];
+      set({
+        activeSessionId: restored.sessionId,
+        messages: history,
+        pendingConfirmation: latestKnowledgeWrite ?? null,
+        pendingDestructiveAction: latestDestructiveAction ?? null,
+      });
+      void refreshMemoryCards();
+      void refreshPrdCard();
+      return { success: true };
     },
 
     submit: async (event) => {

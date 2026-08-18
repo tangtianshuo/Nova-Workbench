@@ -104,7 +104,7 @@ export interface MemoryStore {
   get(candidateToken: string): Promise<MemoryCandidate | null>;
   confirm(candidateToken: string): Promise<MemoryCandidate>;
   reject(candidateToken: string): Promise<boolean>;
-  listPending(): Promise<MemoryCandidate[]>;
+  listPending(sessionId?: string): Promise<MemoryCandidate[]>;
   listRejected(limit?: number): Promise<MemoryCandidate[]>;
   consumeIntoMemories(candidateToken: string): Promise<MemoryRecord>;
   insertMemory(input: InsertMemoryInput): Promise<MemoryRecord>;
@@ -292,10 +292,11 @@ export class MemoryMemoryStore implements MemoryStore {
     return true;
   }
 
-  async listPending(): Promise<MemoryCandidate[]> {
+  async listPending(sessionId?: string): Promise<MemoryCandidate[]> {
     const now = nowIso();
     const rows = [...this.candidates.values()]
-      .filter((r) => r.status === 'pending' && r.expiresAt > now)
+      .filter((r) => r.status === 'pending' && r.expiresAt > now
+        && (sessionId === undefined || r.sessionId === sessionId))
       .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
     return rows.map(copyCandidate);
   }
@@ -638,7 +639,7 @@ export class SqliteMemoryStore implements MemoryStore {
     return result.rowsAffected === 1;
   }
 
-  async listPending(): Promise<MemoryCandidate[]> {
+  async listPending(sessionId?: string): Promise<MemoryCandidate[]> {
     const db = await lazySqlite();
     const rows = await db.select<CandidateRow[]>(
       `SELECT * FROM memory_candidates
@@ -646,7 +647,8 @@ export class SqliteMemoryStore implements MemoryStore {
         ORDER BY created_at ASC`,
       [nowIso()],
     );
-    return rows.map(mapCandidate);
+    // ponytail: JS filter over a ≤20-row capped queue — no SQL change needed
+    return rows.filter((r) => sessionId === undefined || r.session_id === sessionId).map(mapCandidate);
   }
 
   async listRejected(limit = 10): Promise<MemoryCandidate[]> {

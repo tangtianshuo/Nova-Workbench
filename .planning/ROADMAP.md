@@ -11,7 +11,8 @@
 
 ## Phases
 
-- [x] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo (completed 2026-08-18)
+- [x] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo
+ (completed 2026-08-18)
 - [ ] **Phase 19: 多 Session 运行时** — activeSessionId / switchSession 生命周期 / 默认新 session / streaming 锁 / pending 卡片按 session 过滤
 - [ ] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章
 - [ ] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题
@@ -41,7 +42,11 @@ Plans:
   2. 用户切换 session 后,该会话完整历史投影恢复,与原会话逐字一致(restoreSession(sessionId?),不依赖 sessions[0])
   3. streaming 进行中,session 切换与工作区切换入口被禁用且守卫兜底(不产生跨会话事件串流)
   4. 知识写入/删除确认/PRD 草稿等 pending 卡片只出现在其所属 session,不跨会话串卡
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 19-01-PLAN.md — restoreSession(sessionId?) 参数化(P-B 移除)+ 逐字恢复/隔离测试
+- [ ] 19-02-PLAN.md — activeSessionId / startNewSession / switchSession + streaming 双守卫(store 兜底)
+- [ ] 19-03-PLAN.md — pending 卡片四类读取路径按 session 过滤 + 切换刷新
 
 ### Phase 20: 分支与卡片操作
 **Goal**: 用户可以从任意 assistant 消息创建引用式分支并一键复制消息 — 最高风险纯逻辑(buildForkEventStream)先于 UI 隔离交付
@@ -74,7 +79,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 18. Session 数据模型与底座 | 2/2 | Complete    | 2026-08-18 |
-| 19. 多 Session 运行时 | 0/? | Not started | - |
+| 19. 多 Session 运行时 | 0/3 | Not started | - |
 | 20. 分支与卡片操作 | 0/? | Not started | - |
 | 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |
 

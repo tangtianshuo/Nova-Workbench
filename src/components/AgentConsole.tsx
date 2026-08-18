@@ -4,6 +4,8 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import {
   Check,
+  Copy,
+  GitBranch,
   Hourglass,
   PaperPlaneTilt,
   Sparkle,
@@ -71,7 +73,11 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     prdDraftSnapshot,
     prdBusy,
     prdDialogOpen,
+    forkableIds,
+    parentSessionId,
+    parentTitle,
     setInput,
+    forkFromMessage,
     restore,
     submit,
     confirmKnowledgeWrite,
@@ -122,9 +128,28 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     }
   };
 
+  // Phase 20 (FORK-03) — copy never fails silently.
+  const copyMessage = (content: string) => {
+    navigator.clipboard.writeText(content).then(
+      () => toast({ type: 'success', title: '已复制', description: '消息已复制到剪贴板' }),
+      () => toast({ type: 'error', title: '复制失败', description: '无法访问剪贴板，请重试' }),
+    );
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-console-layout={layout}>
       <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
+        {parentSessionId && (
+          <div className="mb-2">
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accent-subtle px-2 py-0.5 text-xs text-accent"
+              title={parentTitle ?? '原会话'}
+            >
+              <GitBranch size={12} weight="fill" />
+              <span className="max-w-[160px] truncate">来自 {parentTitle ?? '原会话'}</span>
+            </span>
+          </div>
+        )}
         {messages.length === 0 && !streamingResponse && streamingTrace.length === 0 && (
           <div className="py-12 text-center text-text-tertiary">
             <Sparkle size={32} weight="duotone" className="mx-auto mb-3 text-accent/70" />
@@ -138,18 +163,46 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
             key={message.id}
             className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
           >
-            <div
-              className={cn(
-                'max-w-[88%] px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap',
-                'rounded-[var(--radius-lg)]',
-                message.role === 'user'
-                  ? 'bg-accent text-white'
-                  : 'border border-border-subtle bg-bg-secondary text-text-primary',
-              )}
-            >
-              {message.toolTrace && <ToolTrace items={message.toolTrace} />}
-              {message.content}
-            </div>
+            {message.role === 'user' ? (
+              <div className="max-w-[88%] rounded-[var(--radius-lg)] bg-accent px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-white">
+                {message.content}
+              </div>
+            ) : (
+              <div className="group flex flex-col items-start">
+                <div className="max-w-[88%] rounded-[var(--radius-lg)] border border-border-subtle bg-bg-secondary px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-text-primary">
+                  {message.toolTrace && <ToolTrace items={message.toolTrace} />}
+                  {message.content}
+                </div>
+                {/* Phase 20 (FORK-01/03) — hover/focus toolbar; fork icon hidden
+                    entirely for store-only ack messages, disabled while streaming. */}
+                <div className="mt-1 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                  {forkableIds.has(message.id) && (
+                    <button
+                      type="button"
+                      onClick={() => void forkFromMessage(message.id)}
+                      disabled={loading}
+                      className={cn(
+                        'p-1 text-text-tertiary hover:text-text-primary',
+                        loading && 'cursor-not-allowed opacity-50',
+                      )}
+                      title="从这里创建分支"
+                      aria-label="从这里创建分支"
+                    >
+                      <GitBranch size={14} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => copyMessage(message.content)}
+                    className="p-1 text-text-tertiary hover:text-text-primary"
+                    title="复制"
+                    aria-label="复制这条回复"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 

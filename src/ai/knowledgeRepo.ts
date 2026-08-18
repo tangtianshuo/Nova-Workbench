@@ -22,7 +22,7 @@ export interface KnowledgeDocInput {
   summary: string;
   content: string;
   author: string;
-  sourceType?: 'seed' | 'agent' | 'user';
+  sourceType?: 'seed' | 'agent' | 'user' | 'archive_import';
   sourceSessionId?: string;
   /** Phase 16 (DELIV-03): correlation_id of the generating turn (agent_events source-event pointer). */
   sourceEventId?: string;

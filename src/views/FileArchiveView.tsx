@@ -33,6 +33,8 @@ import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { cn } from '@/src/lib/utils';
 import { isTauri } from '@/src/lib/api';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { useRndStore } from '@/src/stores/rndStore';
+import { useProductStore } from '@/src/stores/productStore';
 
 import { WorkspaceSummaryModal } from '../components/WorkspaceSummaryModal';
 import { SetAsWorkspaceModal } from '../components/SetAsWorkspaceModal';
@@ -136,6 +138,34 @@ export function FileArchiveView() {
   const handleLocateFile = (path: string) => {
     navigator.clipboard.writeText(path);
     showToast(`已定位并复制路径到剪贴板：${path}`, 'copy');
+  };
+
+  const TEXT_FILE_RE = /\.(md|txt|json|csv|log|ya?ml|xml|ts|tsx|js|rs|py)$/i;
+
+  const handleExtractToKnowledge = async (f: WorkspaceFile) => {
+    if (!currentWorkspace) return;
+    const productId = currentWorkspace.projectId || useProductStore.getState().products[0]?.id;
+    if (!productId) {
+      showToast('请先创建产品再提取到知识库');
+      return;
+    }
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const content = await invoke<string>('read_workspace_file', { path: f.path });
+      await useRndStore.getState().addKnowledgeItem(productId, {
+        title: f.name.replace(/\.[^.]+$/, ''),
+        category: '经验沉淀',
+        tags: ['归档提取'],
+        author: 'AI 助手（归档提取）',
+        readTime: '—',
+        summary: `从工作区 ${currentWorkspace.name} 提取的 ${f.name}`,
+        content,
+      }, { sourceType: 'archive_import' });
+      showToast('已提取到知识库：' + f.name);
+    } catch (err) {
+      console.error('extract to knowledge failed', err);
+      showToast(typeof err === 'string' ? err : '提取失败，请查看控制台');
+    }
   };
 
   const handleConvertToWorkspace = (folder: string, fileName?: string) => {
@@ -467,6 +497,11 @@ export function FileArchiveView() {
                                 <Button variant="ghost" size="xs" onClick={() => handleLocateFile(f.path)}>
                                   <Copy size={12} weight="duotone" />
                                 </Button>
+                                {isTauri() && TEXT_FILE_RE.test(f.name) && (
+                                  <Button variant="ghost" size="xs" className="text-accent" onClick={() => void handleExtractToKnowledge(f)}>
+                                    <FileText size={12} weight="duotone" /> 提取
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>

@@ -17,6 +17,8 @@ import { getKnowledgeRepo, type KnowledgeDoc, type KnowledgeHit } from '@/src/ai
 import { getMemoryStore, type MemoryRecord } from '@/src/ai/memoryStore';
 import { useRndStore } from '@/src/stores/rndStore';
 import { useProductStore } from '@/src/stores/productStore';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { isTauri } from '@/src/lib/api';
 import type { ProductKnowledgeItem } from '@/src/data/mockRndData';
 
 // ponytail: aggregated view over rndStore.knowledgeBase (all productIds).
@@ -200,6 +202,41 @@ export function KnowledgeBaseView() {
     // Route through store action — persists via Zustand persist layer (F5 safe).
     updateKnowledgeItem(currentItem.productId, currentItem.id, { content: editContent });
     setIsEditing(false);
+  };
+
+  // ── Archive to workspace (quick-260818-dyo, Tauri only) ───────────────────
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveTargetWorkspaceId, setArchiveTargetWorkspaceId] = useState('');
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  const confirmArchive = async () => {
+    if (!currentItem) return;
+    const ws = useWorkspaceStore.getState().workspaces.find(
+      (w) => w.id === (archiveTargetWorkspaceId || workspaces[0]?.id)
+    );
+    if (!ws) {
+      toast({ type: 'error', title: '请选择目标工作区' });
+      return;
+    }
+    setIsArchiving(true);
+    try {
+      const cleanTitle = currentItem.title.replace(/[\\/:*?"<>|]/g, '_').trim() || '未命名文档';
+      const { invoke } = await import('@tauri-apps/api/core');
+      const written = await invoke<string>('write_workspace_file', {
+        folderPath: ws.folderPath,
+        fileName: `${cleanTitle}.md`,
+        content: currentItem.content ?? '',
+      });
+      await useWorkspaceStore.getState().scanWorkspaceFiles(ws.id);
+      setShowArchiveDialog(false);
+      toast({ type: 'success', title: '已归档到工作区', description: written });
+    } catch (error) {
+      console.error('[archive-to-workspace] failed', error);
+      toast({ type: 'error', title: typeof error === 'string' ? error : '归档失败，请查看控制台' });
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   const toggleFolder = (id: string) => {
@@ -447,6 +484,11 @@ export function KnowledgeBaseView() {
             <Button variant="primary" size="sm">
               分享
             </Button>
+            {isTauri() && currentItem && (
+              <Button variant="secondary" size="sm" onClick={() => setShowArchiveDialog(true)} disabled={!currentItem.content}>
+                归档到工作区
+              </Button>
+            )}
           </div>
         </div>
 
@@ -491,6 +533,36 @@ export function KnowledgeBaseView() {
           <DialogFooter>
             <Button variant="secondary" onClick={() => setMemoryPendingDelete(null)}>取消</Button>
             <Button variant="danger" onClick={() => void confirmDeleteMemory()}>删除记忆</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader
+            title="归档到工作区"
+            description="选择目标工作区，文档将以 .md 文件写入其文件夹。"
+          />
+          <Select
+            value={archiveTargetWorkspaceId || workspaces[0]?.id || undefined}
+            onValueChange={(value) => setArchiveTargetWorkspaceId(value ?? '')}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="选择工作区" />
+            </SelectTrigger>
+            <SelectContent>
+              {workspaces.map((ws) => (
+                <SelectItem key={ws.id} value={ws.id}>
+                  {ws.name} · {ws.folderPath.length > 32 ? ws.folderPath.slice(0, 32) + '…' : ws.folderPath}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowArchiveDialog(false)}>取消</Button>
+            <Button variant="primary" disabled={isArchiving || workspaces.length === 0} onClick={() => void confirmArchive()}>
+              {isArchiving ? '归档中...' : '归档'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

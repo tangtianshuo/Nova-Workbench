@@ -22,7 +22,12 @@ import {
 import { getMemoryStore, type MemoryCandidate } from '@/src/ai/memoryStore';
 import { ChatSession } from '@/src/ai/chatSession';
 import { restoreSession } from '@/src/ai/sessionRestore';
+import { findForkCutSeq, resolveSessionEvents } from '@/src/ai/fork';
+import { getSessionRepo } from '@/src/ai/sessionRepo';
+import { getEventStore } from '@/src/ai/events/eventStore';
+import type { AgentEvent } from '@/src/ai/events/types';
 import { useUIStore } from '@/src/stores/uiStore';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import type { Provider } from '@/src/lib/api';
 
 export type ToolTraceStatus = 'running' | 'ok' | 'error';
@@ -79,6 +84,43 @@ let streamingTraceRef: ToolTraceItem[] = [];
 // Module-level promise dedupe — StrictMode double mount safe (Phase 14 pattern).
 let restorePromise: Promise<void> | null = null;
 
+/* === Phase 20 (FORK): message ↔ event zip === */
+
+interface ProjectedMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  seq: number;
+}
+
+/** Event-stream projection in conversation order (same filter as rebuildMessages,
+ * user/assistant only). */
+function projectConversationEvents(events: AgentEvent[]): ProjectedMessage[] {
+  return [...events]
+    .sort((a, b) => a.seq - b.seq)
+    .filter((e) => e.eventType === 'user_message' || e.eventType === 'assistant_message')
+    .map((e) => ({
+      role: (e.eventType === 'user_message' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: String(e.payload.content ?? ''),
+      seq: e.seq,
+    }));
+}
+
+/** Ordered content match: per store message, the backing event seq (null =
+ * store-only, e.g. ack injections — not forkable). First mismatch ends the
+ * match window; everything after is treated as store-only.
+ * ponytail: 相同内容的两条 assistant 消息解析到第一条 — 相邻重复至多隔一个 turn,可接受。 */
+function resolveMessageSeqs(messages: ChatMessage[], events: AgentEvent[]): (number | null)[] {
+  const projected = projectConversationEvents(events);
+  let pi = 0;
+  return messages.map((message) => {
+    if (pi >= projected.length) return null;
+    const candidate = projected[pi];
+    if (candidate.role !== message.role || candidate.content !== message.content) return null;
+    pi += 1;
+    return candidate.seq;
+  });
+}
+
 /* === Store === */
 
 interface ChatConsoleState {
@@ -100,8 +142,14 @@ interface ChatConsoleState {
   prdDraftSnapshot: DeliverableDraftCandidate | null;
   prdBusy: boolean;
   prdDialogOpen: boolean;
+  // Phase 20 (FORK): forkable assistant message ids (backed by events) +
+  // provenance badge data for the current session.
+  forkableIds: Set<number>;
+  parentSessionId: string | null;
+  parentTitle: string | null;
 
   setInput: (v: string) => void;
+  forkFromMessage: (messageId: number) => Promise<void>;
   restore: () => Promise<void>;
   startNewSession: () => { success: boolean; reason?: string };
   switchSession: (sessionId: string) => Promise<{ success: boolean; reason?: string }>;
@@ -165,6 +213,36 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     }
   };
 
+  // Phase 20 (FORK-01) — eager forkable resolution: mark which assistant
+  // messages have a backing assistant_message event (hover toolbar gate).
+  const refreshForkable = async () => {
+    try {
+      const events = await resolveSessionEvents(get().activeSessionId);
+      const seqs = resolveMessageSeqs(get().messages, events);
+      const forkable = new Set<number>();
+      get().messages.forEach((message, index) => {
+        if (message.role === 'assistant' && seqs[index] != null) forkable.add(message.id);
+      });
+      set({ forkableIds: forkable });
+    } catch (error) {
+      console.error('[fork] forkable resolution failed', error);
+      set({ forkableIds: new Set() });
+    }
+  };
+
+  // Phase 20 (LIST-03 in-console) — provenance badge data for the active session.
+  const refreshParentMeta = async () => {
+    try {
+      const meta = await getSessionRepo().getSession(get().activeSessionId);
+      set({
+        parentSessionId: meta?.parentSessionId ?? null,
+        parentTitle: meta?.parentSessionId ? meta.parentTitle ?? null : null,
+      });
+    } catch {
+      set({ parentSessionId: null, parentTitle: null });
+    }
+  };
+
   return {
     activeSessionId: sessionRef.current.sessionId,
     messages: [],
@@ -182,8 +260,60 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     prdDraftSnapshot: null,
     prdBusy: false,
     prdDialogOpen: false,
+    forkableIds: new Set<number>(),
+    parentSessionId: null,
+    parentTitle: null,
 
     setInput: (v) => set({ input: v }),
+
+    // Phase 20 (FORK-02) — reference-style fork from a message: locate the
+    // backing assistant_message event, cut at its turn_ended, create the child
+    // session row, drop a session_forked marker event (guarantees the child has
+    // ≥1 row so restoreSession never treats it as not-found), then jump.
+    // Original session is never written to — failure is a toast, never a mutation.
+    forkFromMessage: async (messageId) => {
+      const state = get();
+      if (state.loading) {
+        emitToast({ type: 'warning', title: '创建分支失败', description: '当前回复尚未完成，请稍后再试' });
+        return;
+      }
+      try {
+        const events = await resolveSessionEvents(state.activeSessionId);
+        const seqs = resolveMessageSeqs(state.messages, events);
+        const index = state.messages.findIndex((m) => m.id === messageId);
+        const assistantSeq = index >= 0 ? seqs[index] : null;
+        if (assistantSeq == null) {
+          emitToast({ type: 'error', title: '创建分支失败', description: '创建分支时出错，原会话未受影响' });
+          return;
+        }
+        const cutSeq = findForkCutSeq(events, assistantSeq);
+        if (cutSeq == null) {
+          emitToast({ type: 'warning', title: '创建分支失败', description: '当前回复尚未完成，请稍后再试' });
+          return;
+        }
+        const childId = crypto.randomUUID();
+        await getSessionRepo().createForkSession({
+          sessionId: childId,
+          workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+          parentSessionId: state.activeSessionId,
+          forkCutSeq: cutSeq,
+          title: null,
+        });
+        // Marker event: payload counts are parent-space (informational audit).
+        await getEventStore().append({
+          sessionId: childId,
+          eventType: 'session_forked',
+          payload: { parentSessionId: state.activeSessionId, parentCutSeq: cutSeq, parentEventCount: cutSeq },
+        });
+        const switched = await get().switchSession(childId);
+        if (!switched.success) {
+          emitToast({ type: 'error', title: '创建分支失败', description: '创建分支时出错，原会话未受影响' });
+        }
+      } catch (error) {
+        console.error('[fork] forkFromMessage failed', error);
+        emitToast({ type: 'error', title: '创建分支失败', description: '创建分支时出错，原会话未受影响' });
+      }
+    },
 
     // SESS-02: app entry lands in a FRESH session (module-level ChatSession
     // created above). No auto-restore of the latest session into the
@@ -218,6 +348,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         pendingDestructiveAction: null,
         pendingPrdDraft: null,
         pendingMemory: null,
+        forkableIds: new Set<number>(),
+        parentSessionId: null,
+        parentTitle: null,
       });
       void refreshMemoryCards();
       void refreshPrdCard();
@@ -249,9 +382,14 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         messages: history,
         pendingConfirmation: latestKnowledgeWrite ?? null,
         pendingDestructiveAction: latestDestructiveAction ?? null,
+        forkableIds: new Set<number>(),
+        parentSessionId: null,
+        parentTitle: null,
       });
       void refreshMemoryCards();
       void refreshPrdCard();
+      await refreshForkable();
+      await refreshParentMeta();
       return { success: true };
     },
 
@@ -344,6 +482,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         set({ loading: false, streamingResponse: '', streamingTrace: [] });
         streamingResponseRef = '';
         streamingTraceRef = [];
+        void refreshForkable();
       }
     },
 

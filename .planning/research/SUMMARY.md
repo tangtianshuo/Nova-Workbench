@@ -1,71 +1,125 @@
-# Research Summary — v0.3.0 功能闭环 (Agent Feature Loop)
+# Project Research Summary
 
-**Project:** Nova-PM-Workspace | **Synthesized:** 2026-08-14 | **Inputs:** STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md
+**Project:** Nova-PM-Workspace (v0.3.1 Multi-Session Chat)
+**Domain:** Desktop AI agent (Tauri v2 + React 19) - event-sourced multi-session conversations
+**Researched:** 2026-08-18
+**Confidence:** HIGH
 
 ## Executive Summary
 
-v0.3.0 is an integration milestone, not a technology milestone. All four research streams converge on the same headline: **almost nothing new needs to be installed**. The single new dependency is `@radix-ui/react-context-menu` (~12 KB, same primitive family as the existing DropdownMenu). Zero new Rust crates, zero config changes, zero new tooling. FTS5 is verified compiled into the exact SQLite binary this project ships (read from vendored `libsqlite3-sys-0.30.1/build.rs`: SQLite 3.46.0 with `-DSQLITE_ENABLE_FTS5`), so long-term memory retrieval is pure SQL against the existing `nova.db`.
+Nova v0.3.1 adds multi-session chat to an existing event-sourced agent runtime: per-workspace session lists, on-demand restore, reference-based fork (zero event copy), LLM auto-titling, hover copy/branch actions, and Ctrl+Shift+K workspace+session pickers. The research consensus is that **the event log is the truth source and the DB never changes shape for forks** - a forked child is a normal session plus metadata (parent_session_id, fork_cut_seq) in one new thin table (migration 0007). Prefix concatenation is a pure projection-time function, never inside fromEvents.
 
-The correct architecture keeps everything on the JS side: event log, confirmations, memory, and knowledge tables are new SQLite tables written from TypeScript via `tauri-plugin-sql`, with DDL in the existing forward-only Rust migration files. Rust `llm.rs` stays untouched. The keystone refactor is making `toolLoop.ts` write every step to the event log and **deriving the LLM messages array from the ChatSession projection** — the current code maintains two divergent histories (a latent bug), and the refactor collapses them into one write path.
+**Zero new dependencies.** Migration pattern (0002-0006), fork primitives (ChatSession.fromEvents + resumeEventEmission already exist), clipboard (8 in-repo navigator.clipboard precedents), relative time (Intl.RelativeTimeFormat), and LLM titling (existing llm.rs IPC + conditional-UPDATE pattern) are all covered by existing code. The build order is strict: data model, multi-session runtime, fork (pure function + tests first), UI surfaces + titling.
 
-The dominant risks are all invariants, not unknowns: double-execution of tool calls after restore (never auto-execute orphaned tool_calls + hash-guarded idempotent consume), replay divergence (single write path + permanent replay parity test), Chinese FTS tokenization (unicode61 treats a CJK run as one token — ~10-line CJK char-split helper applied identically at index and query time), and memory candidate spam (dedupe + cap + expiry before the queue reaches the user). One conflict between research files — FTS5 availability (STACK: verified HIGH; PITFALLS: contradictory sources, MEDIUM) — resolves cheaply: **run a 5-minute runtime probe (`CREATE VIRTUAL TABLE fts5_probe USING fts5(...)`) at P1 hour one, on the packaged build**, before finalizing the retrieval schema.
+Top risks: (1) migration 0007 backfill missing legacy sessions/workspace_id causing "migration ate my history" on upgrade; (2) module-level singleton sessionRef racing activeSessionId causing cross-session message bleed (worst user-visible bug class); (3) fork cut mid-turn creating dangling tool_calls that corrupt the child at birth. All three have concrete, code-traced preventions.
 
 ## Key Findings
 
-### From STACK.md
-- **One new npm package total:** `@radix-ui/react-context-menu` 2.3.7 — clone existing `DropdownMenu.tsx` wrapper (~30 lines of edits), register in `ui/index.ts` barrel.
-- **FTS5 verified present** in shipped binary (tauri-plugin-sql 2.4.0 → sqlx 0.8.6 bundled → libsqlite3-sys 0.30.1 build.rs:129, SQLite 3.46.0). No js-search/minisearch/sqlite-vec/LanceDB.
-- **CJK tokenizer is the one real FTS5 gotcha:** no ICU in bundled build. Recommended: ~10-line TS helper space-separating CJK chars before index write and MATCH build, keep `unicode61`. Trigram rejected (3-char minimum kills 2-char Chinese queries like 需求/任务).
-- **Schema via existing migration pattern:** `0002_agent_events.sql`, `0003_memory.sql`, `0004_fts5.sql`. Add `PRAGMA journal_mode = WAL` and `UNIQUE(session_id, seq)` with SQL-side seq allocation.
-- **Morning report needs no scheduler:** launch-time date check against `kv_store` + 60s midnight-crossing interval. Rejected: cron crates, background timers, tray threads.
-- **Explicit rejections:** vector DBs, GraphFlow, JS search libs, event-sourcing libraries, ORMs, new migration tooling.
+### Recommended Stack
 
-### From FEATURES.md
-- **Table stakes:** session survives restart, tool_call↔tool_result pairing integrity, pending confirmations survive restart, memory management list with delete, rejected memories never retrieved, product/workspace-scoped retrieval, morning report, editable AI drafts, AI-provenance marking, clean mid-run cancel.
-- **Differentiators:** pre-save memory candidate confirmation (nobody mainstream does this), auditable event log, deliverable → HITL → versioned slot, contextual ⌘K entry, 3-5 curated right-click actions, sourced retrieval citations.
-- **Anti-features:** silent auto-write memory, full auto-orchestrated pipeline, vector retrieval in v0.3.0, business facts copied into memories, blocking/LLM-only morning report, 15-item context menus, editable event log UI, inline agent per view.
-- **Build order:** Event Log is the keystone — 4 of 6 feature groups depend on it. UX items cheapest and last.
+Everything exists. See STACK.md for full rationale.
 
-### From ARCHITECTURE.md
-- **JS-side event log over tauri-plugin-sql; DDL in Rust migrations; `llm.rs` unchanged** (a Rust-side loop would IPC-marshall every tool call back to JS anyway).
-- **ChatSession becomes a projection:** keep class + API; `addMessage` also appends event (serialized per-session promise chain); `ChatSession.fromEvents()` repairs dangling tool_calls with synthetic interrupted results. ChatPanel diff ~40 lines.
-- **Refactor fixes a live latent bug:** toolLoop's two divergent histories (no-tool-call assistant messages, tool-error retry hints never entering the session).
-- **Idempotent confirmations:** in-memory Maps → `confirmation_candidates` table (params_hash = SHA-256 of canonical JSON, 24h expiry, atomic conditional-UPDATE consume). Canonicalization also fixes existing key-order consume-matching bug.
-- **Context assembly priority** (AGENT_MEMORY_REFERENCE §6): business facts → pending confirmations → confirmed memories → FTS5 top-k with source metadata → recent turns; one `context_injected` event per turn.
-- **Artifacts table** for tool results > 4 KB (upgrades current blind 2000-char slice).
+- migrations/0007_sessions.sql - thin metadata table (title, workspace_id, parent_session_id, fork_cut_seq, title_source) + backfill from agent_events; schema_version to 7
+- src/ai/sessionRepo.ts (~80 LOC, NEW) - dual SQLite/memory impl mirroring eventStore pattern
+- ChatSession.fromEvents + resumeEventEmission - fork primitives already present in chatSession.ts
+- navigator.clipboard.writeText - copy; no clipboard plugin (but see conflict note in Gaps)
+- Intl.RelativeTimeFormat('zh') - ~15-line helper, no date lib
+- Existing Rust llm.rs one-shot call - auto-title with guarded conditional UPDATE (WHERE title IS NULL)
 
-### From PITFALLS.md (top 5)
-1. **Double-execution after restore** (P0) — never auto-execute orphaned tool_calls; crash-mid-loop test in every P0 plan.
-2. **Replay divergence** (P0) — single write path, toolCallId as UUID, permanent replay-parity test; 0bbc3f2 trace-color test is the canary.
-3. **kv_store vs tables truth split** (decide P0, execute P1) — knowledge tables as derived retrieval index keyed on rndStore via content_hash; full inversion deferred to v0.4.
-4. **FTS5 Chinese tokenization** (P1) — CJK char-split helper shared by index and query paths; pure-Chinese/mixed/2-char regression tests from day one; tokenizer not changeable in place later.
-5. **Stale FTS index** (P1, re-verify in DELIV) — single write API for documents in one transaction; MDXEditor saves route through it; DELIV adds a fourth write path.
+### Expected Features
 
-Plus: memory candidate spam controls (dedupe before queue, cap ~20, 1-week expiry, rejected kept and fed back), right-click must skip editable regions (MDXEditor is contenteditable) and snapshot selection, seq in SQL not JS, fix the Chinese token estimate (`length/4` is already wrong today; load-bearing in P0 replay).
+**Must have (table stakes):** session list (title + relative time + count), workspace-filtered reverse-chron ordering, click-to-restore full projection, auto-title with first-message fallback, hover copy, fork-then-navigate-to-new-session, new-session-on-entry, branch badge, streaming switch-lock.
+
+**Should have (differentiators):** reference fork (O(1), audit-preserving), Ctrl+Shift+K dual dropdowns, session-scoped pending HITL cards, branch-from-any-assistant-message hover.
+
+**Defer (out of scope):** rename/delete/pin, edit-message-to-fork, branch tree visualization, cross-workspace memory isolation, background streaming into non-active sessions.
+
+### Architecture Approach
+
+Append-only agent_events unchanged; new sessions table is metadata-only; fork = pure projection via new buildForkEventStream helper that re-seqs the combined stream 1..N AND remaps compaction_completed payload values so fromEvents, crash-tail, and orphan logic stay untouched. Fork cut enforced at turn_ended boundaries only.
+
+**Major components:**
+1. migration 0007 + sessionRepo.ts - sessions metadata, workspace scope provider, sessionId on all candidate call sites
+2. chatConsoleStore changes - activeSessionId, switchSession() (loading-guarded, per-session reset of messages/pending, global memory cards), restoreSession(sessionId?) replacing restoreLatestSession()
+3. buildForkEventStream (pure, tested first) + fork UI (hover icon, sessions INSERT, switchSession)
+4. UI surfaces - ChatPanel selects, recent-sessions panel, LLM auto-title fire-and-forget
+
+### Critical Pitfalls
+
+1. **Fork cut mid-turn creates dangling tool_call** - cut only at turn_ended (reuse findCrashTailCutSeq semantics); test fork inside a tool-heavy turn
+2. **sessions[0] restore assumption** - restore must read persisted activeSessionId, never "latest row"; most load-bearing Phase 2 refactor
+3. **Global singleton vs activeSessionId race** - capture sessionId at submit start, bail in callbacks if changed, hard lock switch while loading; keyed sessionRef
+4. **Migration backfill miss makes legacy history invisible** - backfill workspace_id + legacy sessions row IN migration 0007; test against real v0.3.0 DB fixture
+5. **Title race + fat metadata divergence** - title task carries its own sessionId, guarded conditional UPDATE; keep sessions table thin, derive counts from events
 
 ## Implications for Roadmap
 
-All four files independently arrive at the same dependency chain: **event log → confirmations/restore → memory/FTS5 → deliverable line → UX**. Recommended 5 phases (upper edge of the 3-5 constraint; merge 1+2 for 4).
+Suggested 4 phases (matches ARCHITECTURE.md build order A-B-C-D; Phases 3/4 partially parallel after Phase 2):
 
-1. **P0 Core: Event Log + ToolLoop Refactor** — migrations 0002, `eventLog.ts`, event emission per step, messages-derived-from-session, invariant checker. Confirmations stay in-memory (isolate riskiest refactor). Avoid Pitfalls 1/2/10; fix CJK token estimate here. Research not needed — DDL and seq SQL already written.
-2. **P0 Finish: Persisted Confirmations + Session Restore** — confirmation table + API-compatible swap, `fromEvents`, ChatPanel restore, crash-recovery UAT (THE acceptance test). Research not needed.
-3. **P1: Memory + Knowledge Docs + FTS5 Retrieval** — migrations 0003, candidates with dedupe/cap/expiry, FTS5 + CJK char-split, retrieval.ts, context injection. **First action: FTS5 runtime probe** (resolves the STACK/PITFALLS conflict). **Needs `/gsd:research-phase`** — tokenizer decision point (char-split vs trigram+LIKE) settles with probe + UAT.
-4. **Deliverable Production Line** — `generateDeliverable` tool → HITL → MDXEditor edit → versioned rndStore slot. One deliverable type (PRD) end-to-end first. Re-verify stale-index pitfall (fourth write path). Research not needed.
-5. **Agent UX + Architecture Docs** — ⌘K with view context, morning report (structured cards, launch-triggered, one dated row), right-click actions (3-5, editable-region guard), ARCHITECTURE.md + ADR rewrite, v0.2.0 regression. Cheapest, last. Research light/skip.
+### Phase 1: Data Model & Foundation
+**Rationale:** Everything depends on it; nothing user-visible.
+**Delivers:** Migration 0007 (thin table + backfill), sessionRepo.ts, workspace scope provider, sessionId stamped on ALL candidate call sites, orphan-workspace sentinel policy.
+**Avoids:** Pitfalls 4, 6, 7, 8 (schema-level decisions locked here).
 
-## Research Flags
+### Phase 2: Multi-Session Runtime
+**Rationale:** Hard dependency on Phase 1; runtime must be session-aware before any UI.
+**Delivers:** activeSessionId, switchSession() lifecycle (loading guard, per-session reset, composite message keys, switching skeleton state), restoreSession(sessionId?), new-session-on-entry, session-scoped pending cards.
+**Avoids:** Pitfalls 2, 3, 6b, 9, 10, 13.
 
-Needs research: **Phase 3 only** (FTS5 probe result + tokenizer decision). Standard patterns: Phases 1, 2, 4, 5.
+### Phase 3: Fork & Hover Actions
+**Rationale:** Highest-risk logic isolated as a pure function before UI; depends on Phases 1+2.
+**Delivers:** buildForkEventStream + tests FIRST (pairing invariants, compaction remap, replay parity, idempotency, mid-turn cut), then hover fork/copy UI + branch badge + child-first metadata (session_created).
+**Avoids:** Pitfalls 1, 12, 15.
+
+### Phase 4: UI Surfaces & Titling
+**Rationale:** Depends on Phase 2 (selects) and Phase 3 (badge); can start partially in parallel after Phase 2.
+**Delivers:** ChatPanel workspace/session selects (Ctrl+Shift+K only, conditional render), recent-sessions panel, LLM auto-title with truncation fallback and guarded write.
+**Avoids:** Pitfalls 5, 11, 14, 16.
+
+### Phase Ordering Rationale
+
+- Phase 1 to 2 is a hard dependency (runtime needs the table); Phase 3 needs 1+2 (fork writes metadata + switches sessions); Phase 4 needs 2 minimum
+- Grouping follows architecture seams: pure logic (fork projection) separated from UI so 161 existing tests + replay parity extend naturally
+- Every pitfall is assigned to exactly one phase spec - see PITFALLS.md phase table
+
+### Research Flags
+
+Needs /gsd:research-phase:
+- **Phase 3 (Fork):** seq-space normalization + compaction remap is the trickiest pure logic; spec must encode the re-seq/remap rule and the turn_ended cut rule precisely
+- **Phase 1 (Migration):** verify migration atomicity on tauri-plugin-sql + fixture-DB upgrade test plan
+
+Standard patterns (skip research):
+- **Phase 2:** all patterns traced to existing code (sessionRestore, chatConsoleStore)
+- **Phase 4:** existing Select primitives, existing llm.rs path, ~15-line time formatter
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | FTS5 verified from vendored build.rs on this machine; Radix live-checked on npm |
-| Features | HIGH | Official Claude Code docs + authoritative internal reference |
-| Architecture | HIGH | All six source files read in full; ChatPanel coupling verified before design |
-| Pitfalls | HIGH | Codebase-grounded; one MEDIUM flag (FTS5) closed by mandated probe |
+|--------|------------|-------|
+| Stack | HIGH | Direct code reads; zero-dep claim verified against 6 migrations + chatSession.ts |
+| Features | HIGH | Claude/ChatGPT/Cursor behaviors from official docs; locked decisions honored |
+| Architecture | HIGH | Direct reads of all touched files; invariants verified against existing tests |
+| Pitfalls | HIGH | All codebase-traced, except clipboard specifics (MEDIUM) |
 
-**Overall: HIGH** — unusually well-resolved because verification ran against the actual codebase and vendored binaries, not external docs.
+**Overall confidence:** HIGH
 
-**Gaps to address:** (1) FTS5 runtime confirmation on packaged build — probe at Phase 3 hour one; (2) tokenizer recall quality on real Chinese PM vocabulary — UAT decision point; (3) no concurrent-session (⌘K + ChatPanel) test exists yet; (4) product-deletion retention policy for events/memories/index — decide during Phase 3 schema design.
+### Gaps to Address
+
+- **Clipboard conflict (resolve in Phase 3/4 planning):** STACK.md says navigator.clipboard suffices (8 in-repo precedents, no plugin); PITFALLS.md #11 says packaged Tauri builds may lack clipboard capability and recommends @tauri-apps/plugin-clipboard-manager + capability entry. Recommendation: try navigator.clipboard first, verify in Windows packaged-build UAT, add plugin only if it fails. Either way: toast on failure, never silent.
+- **StrictMode title dedupe:** key promise cache on sessionId (Pitfall 14) - must be in Phase 4 spec.
+- **Pending-candidate fork inheritance:** v1 decision is strict session_id == X scoping (destructive candidates never inherit) - confirm in Phase 1 spec.
+
+## Sources
+
+### Primary (HIGH confidence)
+- Direct reads: src/ai/events/eventStore.ts, src/ai/chatSession.ts, src/ai/sessionRestore.ts, src/stores/chatConsoleStore.ts, src/ai/confirmations.ts, src-tauri/migrations/0002_agent_events.sql, .planning/PROJECT.md
+- Claude Code sessions docs (https://code.claude.com/docs/en/sessions) - title fallback chain, list metadata
+
+### Secondary (MEDIUM confidence)
+- Cursor fork forum thread (https://forum.cursor.com/t/fork-chat-support-for-cursor-agents-new-ui/158692)
+- Raycast AI behavior (training data, unverified)
+- Tauri v2 clipboard capability specifics in packaged builds
+
+---
+*Research completed: 2026-08-18*
+*Ready for roadmap: yes*

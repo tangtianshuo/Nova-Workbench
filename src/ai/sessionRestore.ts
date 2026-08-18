@@ -1,6 +1,12 @@
 // src/ai/sessionRestore.ts
-// Phase 14 (EVT-04) — restore the most recent agent session after app restart.
-// - Crash tail: the projection is cut to the last COMPLETE turn (final turn_ended).
+// Phase 14 (EVT-04) / Phase 19 (SESS-03) — session restore after app restart.
+// Two paths, same settlement pipeline (orphan tool_result append + crash tail cut
+// + tokenBudget rebuild + live emission resume + pending confirmations):
+//   1. restoreSession(sessionId) — restore ANY session by explicit id (multi-session
+//      switching). Queries that session's events directly; never touches listSessions().
+//   2. restoreSession() / restoreLatestSession() — crash-recovery startup path:
+//      restores the most recent session (listSessions()[0], the documented "latest"
+//      semantic, not an assumption).
 // - Orphan tool_calls: settled by APPENDING an interrupted tool_result event — the
 //   tool is NEVER re-executed (re-running could duplicate a business write).
 // - Pending confirmation candidates re-surface from the persistent store (Plan 02).
@@ -51,27 +57,43 @@ export function findOrphanToolCallEvents(events: AgentEvent[]): AgentEvent[] {
   return [...open.values()];
 }
 
-let activeRestore: Promise<RestoredSession | null> | null = null;
+const activeRestores = new Map<string, Promise<RestoredSession | null>>();
 
-/** EVT-04 restore entry. Deduped at module level: React StrictMode mounts the
- * ChatPanel effect twice in dev, but the body must run once per app start.
- * Returns null when no session exists. */
+/** Restore entry. Deduped PER sessionId: concurrent calls for the same session share
+ * one promise; different sessions restore independently. No-arg (crash-recovery
+ * startup path, deduped under '__latest__') restores the most recent session.
+ * Returns null when the session does not exist / has no events. */
+export function restoreSession(sessionId?: string): Promise<RestoredSession | null> {
+  const key = sessionId ?? '__latest__';
+  let promise = activeRestores.get(key);
+  if (!promise) {
+    promise = doRestore(sessionId);
+    activeRestores.set(key, promise);
+  }
+  return promise;
+}
+
+/** Compat alias (Phase 14 callers): no-arg latest-session restore. */
 export function restoreLatestSession(): Promise<RestoredSession | null> {
-  if (!activeRestore) activeRestore = doRestoreLatestSession();
-  return activeRestore;
+  return restoreSession();
 }
 
-/** Test hook: clears the dedupe promise only. */
+/** Test hook: clears all dedupe promises. */
 export function resetRestoreForTesting(): void {
-  activeRestore = null;
+  activeRestores.clear();
 }
 
-async function doRestoreLatestSession(): Promise<RestoredSession | null> {
+async function doRestore(sessionId?: string): Promise<RestoredSession | null> {
   const store = getEventStore();
-  const sessions = await store.listSessions();
-  if (sessions.length === 0) return null;
-  const latest = sessions[0];
-  let events = await store.listEvents(latest.sessionId);
+  // Resolve the target session id. With an explicit id, query that session's
+  // events directly (P-B: never assume sessions[0]). Without, take the latest.
+  let targetSessionId = sessionId;
+  if (!targetSessionId) {
+    const sessions = await store.listSessions();
+    if (sessions.length === 0) return null;
+    targetSessionId = sessions[0].sessionId; // no-arg path: documented "latest" semantic
+  }
+  let events = await store.listEvents(targetSessionId);
   if (events.length === 0) return null;
 
   // 1) Orphan tool_calls from a crashed tool loop: mark interrupted by APPENDING a
@@ -83,7 +105,7 @@ async function doRestoreLatestSession(): Promise<RestoredSession | null> {
     const toolCallId = String(payload.toolCallId);
     const toolName = typeof payload.toolName === 'string' ? payload.toolName : 'unknown';
     await store.append({
-      sessionId: latest.sessionId,
+      sessionId: targetSessionId,
       eventType: 'tool_result',
       payload: {
         toolCallId,
@@ -98,7 +120,7 @@ async function doRestoreLatestSession(): Promise<RestoredSession | null> {
     interruptedToolCallIds.push(toolCallId);
   }
   if (orphans.length > 0) {
-    events = await store.listEvents(latest.sessionId); // re-read: Sqlite append returns seq -1
+    events = await store.listEvents(targetSessionId); // re-read: Sqlite append returns seq -1
   }
 
   // 2) Crash tail: cut the projection to the last COMPLETE turn. Events after cutSeq
@@ -117,7 +139,7 @@ async function doRestoreLatestSession(): Promise<RestoredSession | null> {
     : DEFAULT_RESTORE_TOKEN_BUDGET;
 
   // 4) Rebuild the projection, then resume live emission on the ORIGINAL stream.
-  const session = ChatSession.fromEvents(projectionEvents, { sessionId: latest.sessionId, tokenBudget });
+  const session = ChatSession.fromEvents(projectionEvents, { sessionId: targetSessionId, tokenBudget });
   session.resumeEventEmission();
 
   // 5) Surface pending confirmations that survived the restart (EVT-05 store).
@@ -127,7 +149,7 @@ async function doRestoreLatestSession(): Promise<RestoredSession | null> {
   ]);
 
   return {
-    sessionId: latest.sessionId,
+    sessionId: targetSessionId,
     session,
     cutSeq,
     trimmedTailEventCount,

@@ -54,6 +54,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0006_confirmation_kind_deliverable.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "sessions metadata + backfill",
+            sql: include_str!("../migrations/0007_sessions.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

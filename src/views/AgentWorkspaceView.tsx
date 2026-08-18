@@ -11,8 +11,18 @@ import {
 import { Card, CardHover, Button, Badge, Separator, SegmentedControl } from '@/src/components/ui';
 import { AddWorkspaceModal } from '@/src/components/AddWorkspaceModal';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { useUIStore } from '@/src/stores/uiStore';
+import type { Provider } from '@/src/lib/api';
 import { AgentConsole } from '@/src/components/AgentConsole';
 import { MorningReport } from '@/src/components/MorningReport';
+
+const PROVIDER_LABELS: Record<Provider, string> = {
+  deepseek: 'DeepSeek Chat',
+  openai: 'OpenAI GPT',
+  anthropic: 'Claude',
+  gemini: 'Gemini',
+  ollama: 'Ollama',
+};
 
 const recentTasks = [
   { time: '5 分钟前', title: 'BLCaptain 付费榜扫描选品', messageCount: 7, agent: 'Nova' },
@@ -26,6 +36,11 @@ export function AgentWorkspaceView() {
   const [activeTab, setActiveTab] = useState('recent');
   const [showAddWorkspace, setShowAddWorkspace] = useState(false);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const provider = useUIStore((s) => s.activeAIProvider);
+  const ollamaModel = useUIStore((s) => s.ollamaModel);
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
+  const modelLabel = provider === 'ollama' ? `Ollama · ${ollamaModel}` : PROVIDER_LABELS[provider];
 
   return (
     <div className="flex gap-4 h-[calc(100dvh-var(--titlebar-h)-var(--header-h)-48px)]">
@@ -35,12 +50,12 @@ export function AgentWorkspaceView() {
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="xs" className="gap-1">
               <Folder size={12} weight="duotone" className="text-accent" />
-              当前工作区
+              <span className="max-w-[160px] truncate">{activeWorkspace?.name ?? '当前工作区'}</span>
               <CaretDown size={10} />
             </Button>
             <Button variant="secondary" size="xs" className="gap-1">
               <Cpu size={12} weight="duotone" className="text-accent" />
-              DeepSeek Chat
+              <span className="max-w-[160px] truncate">{modelLabel}</span>
               <CaretDown size={10} />
             </Button>
           </div>

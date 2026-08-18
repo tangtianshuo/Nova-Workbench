@@ -27,7 +27,10 @@
   2. sessions 表记录每个会话的 workspace_id/title/parent_session_id/fork_cut_seq,历史会话均被回填
   3. agent_events 每条新事件记录 workspaceId,历史事件已回填(列表过滤的数据基础)
   4. 所有确认候选落库时带 sessionId(confirmations.ts sessionId:null 缺失修复)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 18-01-PLAN.md — migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)+ fixture-DB 升级测试先行
+- [ ] 18-02-PLAN.md — 写入时 stamping(toolLoop workspaceId / confirmations sessionId)+ sessionRepo + turn-start upsert
 
 ### Phase 19: 多 Session 运行时
 **Goal**: 用户可以在多个 session 之间安全切换,会话历史逐字恢复,流式中不串话
@@ -70,7 +73,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 18. Session 数据模型与底座 | 0/? | Not started | - |
+| 18. Session 数据模型与底座 | 0/2 | Not started | - |
 | 19. 多 Session 运行时 | 0/? | Not started | - |
 | 20. 分支与卡片操作 | 0/? | Not started | - |
 | 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |

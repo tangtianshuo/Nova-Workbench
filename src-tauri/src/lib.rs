@@ -110,6 +110,8 @@ pub fn run() {
             commands::set_provider_key,
             commands::ping_provider,
             workspace_scan::scan_workspace_folder,
+            workspace_scan::read_workspace_file,
+            workspace_scan::write_workspace_file,
         ])
         .setup(|app| {
             // Set minimum window size

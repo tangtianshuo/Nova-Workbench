@@ -3,6 +3,7 @@ import { FolderOpen, FolderPlus, Link, Stack } from '@phosphor-icons/react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { isTauri } from '@/src/lib/api';
 import { useApp, Workspace, WorkspaceFile } from '../store/AppContext';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -35,7 +36,7 @@ export function AddWorkspaceModal({ onClose, onSuccess }: AddWorkspaceModalProps
 
     const selectedProj = projects.find(p => p.id === projectId);
 
-    const defaultFiles: WorkspaceFile[] = [
+    const defaultFiles: WorkspaceFile[] = isTauri() ? [] : [
       {
         id: `f-${Date.now()}-1`,
         name: 'README_工作区规范.md',
@@ -68,6 +69,10 @@ export function AddWorkspaceModal({ onClose, onSuccess }: AddWorkspaceModalProps
     };
 
     addWorkspace(newWs);
+    if (isTauri()) {
+      // real files come from the folder scan, not mock seeds
+      useWorkspaceStore.getState().scanWorkspaceFiles(newWs.id);
+    }
     onSuccess(newWs);
   };
 

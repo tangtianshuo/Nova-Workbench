@@ -20,6 +20,7 @@ import {
   Archive,
   CheckCircle,
   Lightning,
+  ArrowsClockwise,
 } from '@phosphor-icons/react';
 import { useApp, Workspace, LocalIndexedFile, WorkspaceFile } from '../store/AppContext';
 import { Card } from '@/src/components/ui/Card';
@@ -30,6 +31,8 @@ import { ProgressBar } from '@/src/components/ui/ProgressBar';
 import { Separator } from '@/src/components/ui/Separator';
 import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { cn } from '@/src/lib/utils';
+import { isTauri } from '@/src/lib/api';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 
 import { WorkspaceSummaryModal } from '../components/WorkspaceSummaryModal';
 import { SetAsWorkspaceModal } from '../components/SetAsWorkspaceModal';
@@ -62,6 +65,9 @@ export function FileArchiveView() {
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'launch' | 'copy' } | null>(null);
+
+  const [isScanning, setIsScanning] = useState(false);
+  const scanWorkspaceFiles = useWorkspaceStore((s) => s.scanWorkspaceFiles);
 
   const showToast = (text: string, type: 'success' | 'launch' | 'copy' = 'success') => {
     setToastMessage({ text, type });
@@ -326,10 +332,29 @@ export function FileArchiveView() {
                         </div>
                       </div>
                     </div>
-                    <Button variant="primary" onClick={() => setSummaryWorkspace(currentWorkspace)}>
-                      <Sparkle size={14} weight="duotone" />
-                      AI 智能工作区总结
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {isTauri() && (
+                        <Button
+                          variant="secondary"
+                          disabled={isScanning || !currentWorkspace.folderPath}
+                          onClick={async () => {
+                            setIsScanning(true);
+                            try {
+                              await scanWorkspaceFiles(currentWorkspace.id);
+                            } finally {
+                              setIsScanning(false);
+                            }
+                          }}
+                        >
+                          <ArrowsClockwise size={14} weight="duotone" className={isScanning ? 'animate-spin' : undefined} />
+                          {isScanning ? '扫描中...' : '刷新文件'}
+                        </Button>
+                      )}
+                      <Button variant="primary" onClick={() => setSummaryWorkspace(currentWorkspace)}>
+                        <Sparkle size={14} weight="duotone" />
+                        AI 智能工作区总结
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Project Strip */}

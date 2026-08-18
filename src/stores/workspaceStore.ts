@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { isTauri } from '@/src/lib/api';
 import { sqliteStorage } from './storage/sqliteStorage';
 
 export interface WorkspaceFile {
@@ -119,6 +120,8 @@ interface WorkspaceState {
   addLocalIndexedFile: (file: LocalIndexedFile) => void;
   setLocalIndexedFiles: (files: LocalIndexedFile[]) => void;
 
+  scanWorkspaceFiles: (workspaceId: string) => Promise<void>;
+
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: boolean;
   _setHydrated: () => void;
@@ -163,6 +166,26 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     set((state) => ({ localIndexedFiles: [file, ...state.localIndexedFiles] })),
 
   setLocalIndexedFiles: (files) => set({ localIndexedFiles: files }),
+
+  scanWorkspaceFiles: async (workspaceId) => {
+    if (!isTauri()) return; // web dev keeps mock files
+    const store = useWorkspaceStore.getState();
+    const ws = store.workspaces.find((w) => w.id === workspaceId);
+    if (!ws?.folderPath) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    try {
+      const result = await invoke<{
+        files: Array<{ id: string; name: string; fileType: string; size: string; updatedAt: string; path: string }>;
+        truncated: boolean;
+      }>('scan_workspace_folder', { folderPath: ws.folderPath });
+      useWorkspaceStore.getState().updateWorkspace(workspaceId, {
+        files: result.files.map((f) => ({ ...f, type: f.fileType as WorkspaceFile['type'] })),
+      });
+      if (result.truncated) console.warn('工作区文件扫描已截断(>500 文件或 >3 层)');
+    } catch (e) {
+      console.error('scan_workspace_folder failed:', e);
+    }
+  },
 
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: false,

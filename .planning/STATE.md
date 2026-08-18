@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-17)
 Phase: None(v0.3.0 已完成并归档)
 Plan: N/A
 Status: Awaiting next milestone
-Last activity: 2026-08-18 - Completed quick task 260818-shc: Agent 工作区 UIUX 还原原型双栏布局(保留对话功能)
+Last activity: 2026-08-18 - Completed quick task 260818-swm: Agent 工作区接入真实工作区数据与添加流程
 
 ## Performance Metrics
 
@@ -120,6 +120,7 @@ None.
 | 260818-f3b | agent 会话纪要自动投影进知识库(session-summary docId supersede 链) | 2026-08-18 | 6ce44b5 | [260818-f3b-session-summary-projection](./quick/260818-f3b-session-summary-projection/) |
 | 260818-gec | 任务管理统计卡片接入真实数据(taskStore 派生,去假 trend) | 2026-08-18 | a39e338 | [260818-gec-task-stats-real-data](./quick/260818-gec-task-stats-real-data/) |
 | 260818-shc | Agent 工作区 UIUX 还原原型双栏布局(保留 AgentConsole 真实对话 + MorningReport) | 2026-08-18 | b041ff2 | [260818-shc-agent-uiux-agent-uiux](./quick/260818-shc-agent-uiux-agent-uiux/) |
+| 260818-swm | Agent 工作区网格接入真实 workspaces + AddWorkspaceModal 添加流程 | 2026-08-18 | 8aee5bd | [260818-swm-agent](./quick/260818-swm-agent/) |
 
 ## Session Continuity
 

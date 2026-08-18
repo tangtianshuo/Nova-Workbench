@@ -157,7 +157,7 @@ const getProd = (productId: string): Product | null => {
 
 // Phase 15: KnowledgeDoc (repo) → ProductKnowledgeItem (projection). readTime
 // lives only in the projection; repo docs carry no reading-time estimate.
-function docToItem(doc: { docId: string; productId: string; title: string; category: string; tags: string[]; summary: string; content: string; author: string; updatedAt: string }): ProductKnowledgeItem {
+export function docToItem(doc: { docId: string; productId: string; title: string; category: string; tags: string[]; summary: string; content: string; author: string; updatedAt: string }): ProductKnowledgeItem {
   return {
     id: doc.docId,
     productId: doc.productId,

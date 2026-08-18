@@ -220,8 +220,12 @@ test('expired candidate disappears from the pending queue', async () => {
 test('SESS-05: listPendingKnowledgeWrites filters by sessionId', async () => {
   resetMemoryConfirmationStore();
   const store = getMemoryConfirmationStore();
-  const a = await store.create({ kind: 'knowledge_write', params: { title: 'A' }, summary: 'A', sessionId: 'sess-a' });
-  await store.create({ kind: 'knowledge_write', params: { title: 'B' }, summary: 'B', sessionId: 'sess-b' });
+  const params = (title: string) => ({
+    productId: 'p1', itemId: undefined, operation: 'created' as const, title,
+    category: '业务规则' as const, tags: ['t'], content: 'c', summary: 's', author: 'a', readTime: 'r',
+  });
+  const a = await store.create({ kind: 'knowledge_write', params: params('A'), summary: 'A', sessionId: 'sess-a' });
+  await store.create({ kind: 'knowledge_write', params: params('B'), summary: 'B', sessionId: 'sess-b' });
 
   const onlyA = await listPendingKnowledgeWrites('sess-a');
   assert.equal(onlyA.length, 1);
@@ -262,17 +266,17 @@ test('SESS-05: knowledge/destructive candidates expose stamped sessionId', async
   const store = getMemoryConfirmationStore();
   const k = await store.create({
     kind: 'knowledge_write',
-    params: { productId: 'p1', operation: 'created', title: 'S', category: '业务规则', tags: [], content: 'c', summary: 's', author: 'a', readTime: 'r' },
+    params: { productId: 'p1', itemId: undefined, operation: 'created', title: 'S', category: '业务规则', tags: ['t'], content: 'c', summary: 's', author: 'a', readTime: 'r' },
     summary: 'S', sessionId: 'sess-stamped',
   });
   const listed = await listPendingKnowledgeWrites('sess-stamped');
   assert.equal(listed[0].sessionId, 'sess-stamped');
+  assert.equal(listed[0].confirmationToken, k.confirmationToken);
 
   const d = await createDestructiveActionCandidate('deleteTask', { taskId: 'x' }, 'sum');
   const dListed = await listPendingDestructiveActions();
   const found = dListed.find((c) => c.confirmationToken === d.confirmationToken)!;
   assert.ok(found.sessionId !== undefined);
-  void k;
 });
 
 test('SESS-05: memory store listPending filters by sessionId', async () => {

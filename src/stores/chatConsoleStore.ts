@@ -135,7 +135,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
   const refreshMemoryCards = async () => {
     try {
       const store = getMemoryStore();
-      const pending = await store.listPending();
+      const pending = await store.listPending(get().activeSessionId);
       set({ pendingMemory: pending[0] ?? null });
       const recent = await store.listRecentUserDirected(1);
       const latest = recent[0] ?? null;
@@ -157,7 +157,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
   // deliverable_draft candidates (one card at a time, same as memory cards).
   const refreshPrdCard = async () => {
     try {
-      const pending = await listPendingDeliverableDrafts();
+      const pending = await listPendingDeliverableDrafts(get().activeSessionId);
       set({ pendingPrdDraft: pending[0] ?? null });
     } catch (error) {
       console.error('[prd-card] refresh failed', error);
@@ -239,8 +239,11 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           role: message.role as 'user' | 'assistant',
           content: message.content,
         }));
-      const latestKnowledgeWrite = restored.pendingKnowledgeWrites[restored.pendingKnowledgeWrites.length - 1];
-      const latestDestructiveAction = restored.pendingDestructiveActions[restored.pendingDestructiveActions.length - 1];
+      // SESS-05: sessionRestore lists across all sessions — keep only this session's cards.
+      const ownKnowledgeWrites = restored.pendingKnowledgeWrites.filter((c) => c.sessionId === restored.sessionId);
+      const ownDestructiveActions = restored.pendingDestructiveActions.filter((c) => c.sessionId === restored.sessionId);
+      const latestKnowledgeWrite = ownKnowledgeWrites[ownKnowledgeWrites.length - 1];
+      const latestDestructiveAction = ownDestructiveActions[ownDestructiveActions.length - 1];
       set({
         activeSessionId: restored.sessionId,
         messages: history,
@@ -448,7 +451,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         await store.confirm(pendingMemory.candidateToken);
         await store.consumeIntoMemories(pendingMemory.candidateToken);
         emitToast({ type: 'success', title: '已记住' });
-        const pending = await store.listPending();
+        const pending = await store.listPending(get().activeSessionId);
         set({ pendingMemory: pending[0] ?? null });
       } catch (error) {
         emitToast({
@@ -468,7 +471,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       try {
         await getMemoryStore().reject(pendingMemory.candidateToken);
         // Silent by UI spec — rejected candidates never re-render (MEM-02).
-        const pending = await getMemoryStore().listPending();
+        const pending = await getMemoryStore().listPending(get().activeSessionId);
         set({ pendingMemory: pending[0] ?? null });
       } catch (error) {
         emitToast({

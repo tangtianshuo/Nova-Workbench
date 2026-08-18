@@ -90,7 +90,7 @@ async function writeConfirmedArticle(draft: KnowledgeWriteDraft): Promise<{ arti
       summary: draft.summary,
       author: draft.author,
       readTime: draft.readTime,
-    });
+    }, { sourceType: 'agent' as const });
     const updated = useRndStore.getState().knowledgeBase[draft.productId]?.find((item) => item.id === draft.itemId);
     if (!updated || updated.content !== draft.content) {
       throw new Error('Knowledge article update was not persisted.');
@@ -106,7 +106,7 @@ async function writeConfirmedArticle(draft: KnowledgeWriteDraft): Promise<{ arti
     summary: draft.summary,
     author: draft.author,
     readTime: draft.readTime,
-  });
+  }, { sourceType: 'agent' as const });
   const created = useRndStore.getState().knowledgeBase[draft.productId]?.find((item) =>
     item.title === draft.title
     && item.category === draft.category

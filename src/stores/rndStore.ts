@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { KnowledgeDocInput } from '../ai/knowledgeRepo';
 import { persist } from 'zustand/middleware';
 import { useProductStore } from './productStore';
 import { sqliteStorage } from './storage/sqliteStorage';
@@ -100,8 +101,8 @@ interface RndState {
   // SQLite knowledge_docs since Phase 15). Writes go through the repo single
   // write API; the local bucket is refreshed afterwards.
   getKnowledgeForProduct: (productId: string) => ProductKnowledgeItem[];
-  addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>) => Promise<void>;
-  updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>) => Promise<void>;
+  addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>, opts?: { sourceType?: KnowledgeDocInput['sourceType'] }) => Promise<void>;
+  updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>, opts?: { sourceType?: KnowledgeDocInput['sourceType'] }) => Promise<void>;
   deleteKnowledgeItem: (productId: string, itemId: string) => void;
   polishKnowledgeArticleAI: (productId: string, itemId: string, action: string) => Promise<string>;
   hydrateKnowledgeFromRepo: () => Promise<void>;
@@ -326,7 +327,7 @@ export const useRndStore = create<RndState>()(
     return [];
   },
 
-  addKnowledgeItem: async (productId, item) => {
+  addKnowledgeItem: async (productId, item, opts) => {
     const { getKnowledgeRepo } = await import('@/src/ai/knowledgeRepo');
     const doc = await getKnowledgeRepo().upsertDoc({
       docId: `kb-${productId}-${Date.now()}`,
@@ -337,7 +338,7 @@ export const useRndStore = create<RndState>()(
       summary: item.summary,
       content: item.content,
       author: item.author,
-      sourceType: 'user',
+      sourceType: opts?.sourceType ?? 'user',
     });
     const projected = docToItem(doc);
     if (item.readTime) projected.readTime = item.readTime;
@@ -349,7 +350,7 @@ export const useRndStore = create<RndState>()(
     }));
   },
 
-  updateKnowledgeItem: async (productId, itemId, updates) => {
+  updateKnowledgeItem: async (productId, itemId, updates, opts) => {
     const existing = (get().knowledgeBase[productId] || []).find((k) => k.id === itemId);
     if (!existing) return;
     const merged: ProductKnowledgeItem = { ...existing, ...updates, updatedAt: new Date().toISOString() };
@@ -364,7 +365,7 @@ export const useRndStore = create<RndState>()(
       summary: merged.summary,
       content: merged.content,
       author: merged.author,
-      sourceType: 'user',
+      sourceType: opts?.sourceType ?? 'user',
     });
     set((state) => ({
       knowledgeBase: {

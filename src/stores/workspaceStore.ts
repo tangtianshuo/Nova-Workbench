@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isTauri } from '@/src/lib/api';
 import { sqliteStorage } from './storage/sqliteStorage';
+import { useChatConsoleStore } from './chatConsoleStore';
 
 export interface WorkspaceFile {
   id: string;
@@ -112,7 +113,7 @@ interface WorkspaceState {
   activeWorkspaceId: string | null;
   localIndexedFiles: LocalIndexedFile[];
 
-  setActiveWorkspaceId: (id: string) => void;
+  setActiveWorkspaceId: (id: string) => { success: boolean; reason?: string };
   addWorkspace: (workspace: Workspace) => void;
   updateWorkspace: (id: string, updates: Partial<Workspace>) => void;
   deleteWorkspace: (id: string) => void;
@@ -131,12 +132,20 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
   workspaces: INITIAL_WORKSPACES,
   activeWorkspaceId: INITIAL_WORKSPACES[0]?.id ?? null,
   localIndexedFiles: INITIAL_LOCAL_FILES,
 
-  setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
+  // SESS-04: workspace switch is store-guarded (no cross-session event
+  // streaming) and session-ending (CONTEXT locked decision: workspace switch
+  // = end current session, enter new session).
+  setActiveWorkspaceId: (id) => {
+    if (id === get().activeWorkspaceId) return { success: true };
+    if (useChatConsoleStore.getState().loading) return { success: false, reason: 'streaming' };
+    set({ activeWorkspaceId: id });
+    return useChatConsoleStore.getState().startNewSession();
+  },
 
   addWorkspace: (workspace) =>
     set((state) => {

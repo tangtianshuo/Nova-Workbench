@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { FolderPlus, Link, Stack } from '@phosphor-icons/react';
+import { FolderOpen, FolderPlus, Link, Stack } from '@phosphor-icons/react';
+import { open } from '@tauri-apps/plugin-dialog';
+import { isTauri } from '@/src/lib/api';
 import { useApp, Workspace, WorkspaceFile } from '../store/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
 import { Button } from '@/src/components/ui/Button';
@@ -17,6 +19,15 @@ export function AddWorkspaceModal({ onClose, onSuccess }: AddWorkspaceModalProps
   const [name, setName] = useState('');
   const [folderPath, setFolderPath] = useState('D:\\Projects\\NewWorkspace');
   const [projectId, setProjectId] = useState(projects[0]?.id || '');
+
+  const browseFolder = async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false });
+      if (typeof selected === 'string') setFolderPath(selected);
+    } catch {
+      // dialog failure or user cancel — leave input unchanged
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,14 +86,26 @@ export function AddWorkspaceModal({ onClose, onSuccess }: AddWorkspaceModalProps
             placeholder="例如：WenXiBuddy 跨端组件库工作区"
             required
           />
-          <Input
-            label="本地工作区物理路径 *"
-            value={folderPath}
-            onChange={e => setFolderPath(e.target.value)}
-            placeholder="例如：D:\Projects\MobileComponents"
-            className="font-mono text-xs"
-            required
-          />
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Input
+                  label="本地工作区物理路径 *"
+                  value={folderPath}
+                  onChange={e => setFolderPath(e.target.value)}
+                  placeholder="例如：D:\Projects\MobileComponents"
+                  className="font-mono text-xs"
+                  required
+                />
+              </div>
+              {isTauri() && (
+                <Button type="button" variant="secondary" size="md" onClick={browseFolder} className="mt-5">
+                  <FolderOpen size={14} weight="duotone" />
+                  浏览
+                </Button>
+              )}
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1.5">关联项目</label>
             <select

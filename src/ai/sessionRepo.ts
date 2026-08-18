@@ -14,7 +14,10 @@ export interface SessionMeta {
   title: string | null;
   titleSource: string | null;
   parentSessionId: string | null;
+  /** Parent-space seq — input to buildForkEventStream ONLY (Pitfall 6). */
   forkCutSeq: number | null;
+  /** Title of the parent session (LEFT JOIN), null for non-forks. */
+  parentTitle: string | null;
   createdAt: string;
   lastActiveAt: string;
 }
@@ -23,17 +26,35 @@ export interface SessionRepo {
   upsertSessionMeta(input: { sessionId: string; workspaceId: string | null }): Promise<void>;
   listSessionsByWorkspace(workspaceId: string | null): Promise<SessionMeta[]>;
   updateTitle(sessionId: string, title: string): Promise<void>;
+  /** Phase 20: fork metadata by explicit id (resolveSessionEvents). */
+  getSession(sessionId: string): Promise<SessionMeta | null>;
+  /** Phase 20: create a fork session row (parent_session_id + fork_cut_seq). */
+  createForkSession(input: {
+    sessionId: string;
+    workspaceId: string | null;
+    parentSessionId: string;
+    forkCutSeq: number;
+    title: string | null;
+  }): Promise<void>;
 }
 
 export const SESSION_UPSERT_SQL = `INSERT INTO sessions (session_id, workspace_id, created_at, last_active_at)
   VALUES ($1, $2, $3, $4)
   ON CONFLICT(session_id) DO UPDATE SET last_active_at = excluded.last_active_at`;
 
-export const SESSION_LIST_SQL = `SELECT session_id, workspace_id, title, title_source, parent_session_id, fork_cut_seq, created_at, last_active_at
-  FROM sessions WHERE workspace_id = $1 OR workspace_id IS NULL
-  ORDER BY last_active_at DESC`;
+export const SESSION_LIST_SQL = `SELECT s.session_id, s.workspace_id, s.title, s.title_source, s.parent_session_id, s.fork_cut_seq, s.created_at, s.last_active_at, p.title AS parent_title
+  FROM sessions s LEFT JOIN sessions p ON p.session_id = s.parent_session_id
+  WHERE s.workspace_id = $1 OR s.workspace_id IS NULL
+  ORDER BY s.last_active_at DESC`;
 
 export const SESSION_TITLE_SQL = 'UPDATE sessions SET title = $1 WHERE session_id = $2';
+
+export const SESSION_GET_SQL = `SELECT s.session_id, s.workspace_id, s.title, s.title_source, s.parent_session_id, s.fork_cut_seq, s.created_at, s.last_active_at, p.title AS parent_title
+  FROM sessions s LEFT JOIN sessions p ON p.session_id = s.parent_session_id
+  WHERE s.session_id = $1`;
+
+export const SESSION_FORK_INSERT_SQL = `INSERT INTO sessions (session_id, workspace_id, title, title_source, parent_session_id, fork_cut_seq, created_at, last_active_at)
+  VALUES ($1, $2, $3, 'fork', $4, $5, $6, $6)`;
 
 /* === In-memory implementation (Node tests / web dev) === */
 
@@ -54,6 +75,7 @@ export class MemorySessionRepo implements SessionRepo {
         titleSource: null,
         parentSessionId: null,
         forkCutSeq: null,
+        parentTitle: null,
         createdAt: now,
         lastActiveAt: now,
       });
@@ -62,15 +84,51 @@ export class MemorySessionRepo implements SessionRepo {
 
   async listSessionsByWorkspace(workspaceId: string | null): Promise<SessionMeta[]> {
     // NULL workspace = visible everywhere (both stored-NULL rows and query NULL).
+    // parentTitle mirrors the SQL LEFT JOIN (resolved at read time so a parent
+    // title set after the fork still shows through).
     return [...this.rows.values()]
       .filter((row) => row.workspaceId === workspaceId || row.workspaceId === null)
       .sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt))
-      .map((row) => ({ ...row }));
+      .map((row) => ({ ...row, parentTitle: row.parentSessionId ? this.rows.get(row.parentSessionId)?.title ?? null : null }));
+  }
+
+  async getSession(sessionId: string): Promise<SessionMeta | null> {
+    const row = this.rows.get(sessionId);
+    if (!row) return null;
+    return {
+      ...row,
+      parentTitle: row.parentSessionId ? this.rows.get(row.parentSessionId)?.title ?? null : null,
+    };
+  }
+
+  async createForkSession(input: {
+    sessionId: string;
+    workspaceId: string | null;
+    parentSessionId: string;
+    forkCutSeq: number;
+    title: string | null;
+  }): Promise<void> {
+    const now = new Date().toISOString();
+    this.rows.set(input.sessionId, {
+      sessionId: input.sessionId,
+      workspaceId: input.workspaceId,
+      title: input.title,
+      titleSource: 'fork',
+      parentSessionId: input.parentSessionId,
+      forkCutSeq: input.forkCutSeq,
+      parentTitle: this.rows.get(input.parentSessionId)?.title ?? null,
+      createdAt: now,
+      lastActiveAt: now,
+    });
   }
 
   async updateTitle(sessionId: string, title: string): Promise<void> {
     const row = this.rows.get(sessionId);
     if (row) row.title = title;
+  }
+
+  resetForTesting(): void {
+    this.rows.clear();
   }
 }
 
@@ -83,8 +141,23 @@ interface SessionRow {
   title_source: string | null;
   parent_session_id: string | null;
   fork_cut_seq: number | null;
+  parent_title: string | null;
   created_at: string;
   last_active_at: string;
+}
+
+function rowToMeta(row: SessionRow): SessionMeta {
+  return {
+    sessionId: row.session_id,
+    workspaceId: row.workspace_id,
+    title: row.title,
+    titleSource: row.title_source,
+    parentSessionId: row.parent_session_id,
+    forkCutSeq: row.fork_cut_seq,
+    parentTitle: row.parent_title,
+    createdAt: row.created_at,
+    lastActiveAt: row.last_active_at,
+  };
 }
 
 export class SqliteSessionRepo implements SessionRepo {
@@ -97,16 +170,25 @@ export class SqliteSessionRepo implements SessionRepo {
   async listSessionsByWorkspace(workspaceId: string | null): Promise<SessionMeta[]> {
     const db = await lazySqlite();
     const rows = await db.select<SessionRow[]>(SESSION_LIST_SQL, [workspaceId]);
-    return rows.map((row) => ({
-      sessionId: row.session_id,
-      workspaceId: row.workspace_id,
-      title: row.title,
-      titleSource: row.title_source,
-      parentSessionId: row.parent_session_id,
-      forkCutSeq: row.fork_cut_seq,
-      createdAt: row.created_at,
-      lastActiveAt: row.last_active_at,
-    }));
+    return rows.map(rowToMeta);
+  }
+
+  async getSession(sessionId: string): Promise<SessionMeta | null> {
+    const db = await lazySqlite();
+    const rows = await db.select<SessionRow[]>(SESSION_GET_SQL, [sessionId]);
+    return rows[0] ? rowToMeta(rows[0]) : null;
+  }
+
+  async createForkSession(input: {
+    sessionId: string;
+    workspaceId: string | null;
+    parentSessionId: string;
+    forkCutSeq: number;
+    title: string | null;
+  }): Promise<void> {
+    const db = await lazySqlite();
+    const now = new Date().toISOString();
+    await db.execute(SESSION_FORK_INSERT_SQL, [input.sessionId, input.workspaceId, input.title, input.parentSessionId, input.forkCutSeq, now]);
   }
 
   async updateTitle(sessionId: string, title: string): Promise<void> {
@@ -126,4 +208,14 @@ export function getSessionRepo(): SessionRepo {
     return sqliteRepo;
   }
   return memoryRepo;
+}
+
+/** Test access to the in-memory repo singleton (Node tests run with isTauri() === false). */
+export function getMemorySessionRepo(): MemorySessionRepo {
+  return memoryRepo;
+}
+
+/** Test hook: clears the in-memory session table. */
+export function resetMemorySessionRepo(): void {
+  memoryRepo.resetForTesting();
 }

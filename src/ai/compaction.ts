@@ -9,6 +9,7 @@ import type { ChatSession, CompactionSummaryRecord } from './chatSession';
 import type { AgentEvent } from './events/types';
 import { getEventStore } from './events/eventStore';
 import { checkEventStream } from './events/invariants';
+import { resolveSessionEvents } from './fork';
 import { estimateTokens } from './tokenEstimate';
 
 export const COMPACTION_PRESSURE_RATIO = 0.8; // trigger: pressure >= 0.8 x context window
@@ -127,7 +128,7 @@ export async function maybeCompactSession(
 ): Promise<CompactionSummaryRecord | null> {
   if (!options?.force && tokenPressure(session) < COMPACTION_PRESSURE_RATIO) return null;
   const store = getEventStore();
-  const events = await store.listEvents(session.sessionId);
+  const events = await resolveSessionEvents(session.sessionId); // fork-aware: parent prefix included (Phase 20)
   if (events.length === 0) return null;
 
   const keepTarget = Math.floor(session.tokenBudget * COMPACTION_KEEP_RATIO);
@@ -136,11 +137,17 @@ export async function maybeCompactSession(
 
   const prefix = events.filter((event) => event.seq <= splitSeq);
   const suffix = events.filter((event) => event.seq > splitSeq);
+  // Forked child: the resolved stream is normalized (parent prefix + offset child
+  // rows), but compaction events persist into the CHILD's own rows where seqs are
+  // child-space. buildForkEventStream remaps child compaction payloads back by
+  // +offset at resolve time, so store the payload fields in child space here
+  // (coveredSeqStart may go <= 0 — restored verbatim by the remap; informational only).
+  const forkOffset = events.filter((event) => event.sessionId !== session.sessionId).length;
   const startedAt = new Date().toISOString();
   await store.append({
     sessionId: session.sessionId,
     eventType: 'compaction_started',
-    payload: { reason: 'token_pressure', pressure: tokenPressure(session), threshold: COMPACTION_PRESSURE_RATIO, splitSeq },
+    payload: { reason: 'token_pressure', pressure: tokenPressure(session), threshold: COMPACTION_PRESSURE_RATIO, splitSeq: splitSeq - forkOffset },
   });
 
   const transcript = buildCompactionTranscript(prefix);
@@ -161,6 +168,8 @@ export async function maybeCompactSession(
     eventType: 'compaction_completed',
     payload: {
       ...record,
+      coveredSeqStart: record.coveredSeqStart - forkOffset, // persisted in child space (see above)
+      coveredSeqEnd: record.coveredSeqEnd - forkOffset,
       coveredEventCount: prefix.length,
       tokenCountBefore: session.estimateTokens(),
       startedAt,

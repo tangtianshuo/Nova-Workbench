@@ -95,15 +95,16 @@ test('2. seq normalization: prefix keeps 1..cut, child = cut+1..cut+M, contiguou
 
 test('3. compaction remap: child payloads += prefix.length, prefix payloads identity', () => {
   const parent = parentStream();
-  // parent prefix carries an old compaction (identity rule)
-  parent[3] = ev('p1', 4, 'compaction_completed', { coveredSeqStart: 1, coveredSeqEnd: 2, summaryText: 's', model: 'x', generatedAt: 't' });
+  // parent prefix carries an old compaction (identity rule); replacing the seq-5
+  // assistant_message keeps tool pairing balanced
+  parent[4] = ev('p1', 5, 'compaction_completed', { coveredSeqStart: 1, coveredSeqEnd: 2, summaryText: 's', model: 'x', generatedAt: 't' });
   const child = childStream();
   child.push(ev('c1', 5, 'compaction_started', { splitSeq: 2 }));
   child.push(ev('c1', 6, 'compaction_completed', { coveredSeqStart: 1, coveredSeqEnd: 4, summaryText: 's2', model: 'x', generatedAt: 't' }));
 
   const out = buildForkEventStream(parent, 11, child);
   assert.equal(out.invalid, undefined);
-  const prefixCompaction = out.events.find((e) => e.seq === 4);
+  const prefixCompaction = out.events.find((e) => e.seq === 5);
   assert.deepEqual(
     { s: prefixCompaction!.payload.coveredSeqStart, e: prefixCompaction!.payload.coveredSeqEnd },
     { s: 1, e: 2 },
@@ -120,12 +121,11 @@ test('4. replay parity: fromEvents(normalized) projection === parent projection 
   const parent = parentStream();
   const cut = 11;
   const out = buildForkEventStream(parent, cut, childStream());
-  const forkProjection = ChatSession.fromEvents(out.events).messages;
-  const parentProjection = ChatSession.fromEvents(parent.filter((e) => e.seq <= cut)).messages;
-  assert.deepEqual(forkProjection, parentProjection.slice(0, parentProjection.length));
+  const forkProjection = ChatSession.fromEvents(out.events).getMessagesForLLM(1000);
+  const parentProjection = ChatSession.fromEvents(parent.filter((e) => e.seq <= cut)).getMessagesForLLM(1000);
+  assert.deepEqual(forkProjection.slice(0, parentProjection.length), parentProjection, 'verbatim prefix parity');
   // and the child's own turn is appended after the parent prefix
-  const outFull = ChatSession.fromEvents(out.events).messages;
-  assert.ok(outFull.length > parentProjection.length, 'child turn projected after prefix');
+  assert.ok(forkProjection.length > parentProjection.length, 'child turn projected after prefix');
 });
 
 test('5. mid-turn rejection: cut on a tool_call seq / nonexistent seq → MID_TURN', () => {
@@ -166,8 +166,8 @@ test('7. fork-of-fork: resolved child stream serves as grandchild prefix', () =>
   assert.equal(out.invalid, undefined);
   assert.deepEqual(checkEventStream(out.events), []);
   assert.deepEqual(out.events.map((e) => e.seq), Array.from({ length: out.events.length }, (_, i) => i + 1));
-  const proj = ChatSession.fromEvents(out.events).messages;
-  const childProj = ChatSession.fromEvents(childResolved.filter((e) => e.seq <= cut)).messages;
+  const proj = ChatSession.fromEvents(out.events).getMessagesForLLM(1000);
+  const childProj = ChatSession.fromEvents(childResolved.filter((e) => e.seq <= cut)).getMessagesForLLM(1000);
   assert.deepEqual(proj.slice(0, childProj.length), childProj, 'grandchild parity with child prefix');
 });
 
@@ -211,7 +211,7 @@ test('9. round-trip: fork → child turns → forced compaction → resolveSessi
 
   // Fork after the second parent turn.
   const parentEvents = await store.listEvents('rt-parent');
-  const cutSeq = findForkCutSeq(parentEvents, parentEvents.find((e) => e.eventType === 'assistant_message' && e.payload.content?.includes('乙'))!.seq);
+  const cutSeq = findForkCutSeq(parentEvents, parentEvents.find((e) => e.eventType === 'assistant_message' && String(e.payload.content).includes('乙'))!.seq);
   assert.ok(cutSeq !== null);
   await repo.createForkSession({ sessionId: 'rt-child', workspaceId: null, parentSessionId: 'rt-parent', forkCutSeq: cutSeq, title: null });
   await store.append({ sessionId: 'rt-child', eventType: 'session_forked', payload: { parentSessionId: 'rt-parent', parentCutSeq: cutSeq } });
@@ -234,7 +234,7 @@ test('9. round-trip: fork → child turns → forced compaction → resolveSessi
   // Restart-equivalent: resolve from the stores and rebuild.
   const resolved = await resolveSessionEvents('rt-child');
   const restored = ChatSession.fromEvents(resolved, { sessionId: 'rt-child', tokenBudget: 1000 });
-  assert.ok(restored.compaction !== null, 'compaction summary carried through re-resolution');
+  assert.ok(restored.getCompaction() !== null, 'compaction summary carried through re-resolution');
   const llm = restored.getMessagesForLLM();
   assert.ok(llm[0].content.includes('历史压缩摘要'), 'sourced summary prepended');
   const flat = llm.map((m) => m.content).join('\n');
@@ -267,13 +267,13 @@ test('10a. memory repo: createForkSession persists fork columns; list returns pa
 test('10b. SQL parity: fork insert / get / LEFT JOIN parentTitle against real 0007 schema', () => {
   const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../src-tauri/migrations');
   const db = new DatabaseSync(':memory:');
-  for (const f of ['0001_init.sql', '0007_sessions.sql']) {
+  for (const f of ['0001_init.sql', '0002_agent_events.sql', '0007_sessions.sql']) {
     db.exec(readFileSync(path.join(migrationsDir, f), 'utf8'));
   }
   const q = (sql: string) => sql.replace(/\$\d+/g, '?');
   const now = '2026-08-18T00:00:00Z';
   db.prepare(q('INSERT INTO sessions (session_id, workspace_id, title, created_at, last_active_at) VALUES ($1, $2, $3, $4, $5)')).run('sp', 'ws-1', '父标题', now, now);
-  db.prepare(q(SESSION_FORK_INSERT_SQL)).run('sf', 'ws-1', 'sp', 6, now);
+  db.prepare(q(SESSION_FORK_INSERT_SQL)).run('sf', 'ws-1', null, 'sp', 6, now, now);
 
   const got = db.prepare(q(SESSION_GET_SQL)).get('sf') as Record<string, unknown>;
   assert.equal(got.parent_session_id, 'sp');

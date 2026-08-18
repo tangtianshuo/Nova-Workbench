@@ -90,6 +90,7 @@ function rowToMeta(r: Record<string, unknown>): SessionMeta {
     titleSource: (r.title_source as string | null) ?? null,
     parentSessionId: (r.parent_session_id as string | null) ?? null,
     forkCutSeq: (r.fork_cut_seq as number | null) ?? null,
+    parentTitle: (r.parent_title as string | null) ?? null,
     createdAt: r.created_at as string,
     lastActiveAt: r.last_active_at as string,
   };

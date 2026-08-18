@@ -16,6 +16,7 @@ import { listPendingDestructiveActions, listPendingKnowledgeWrites } from './con
 import type { DestructiveActionCandidate, KnowledgeWriteCandidate } from './confirmations';
 import { getEventStore } from './events/eventStore';
 import type { AgentEvent } from './events/types';
+import { resolveSessionEvents } from './fork';
 
 const DEFAULT_RESTORE_TOKEN_BUDGET = 8_000;
 
@@ -93,7 +94,7 @@ async function doRestore(sessionId?: string): Promise<RestoredSession | null> {
     if (sessions.length === 0) return null;
     targetSessionId = sessions[0].sessionId; // no-arg path: documented "latest" semantic
   }
-  let events = await store.listEvents(targetSessionId);
+  let events = await resolveSessionEvents(targetSessionId); // fork-aware (Phase 20)
   if (events.length === 0) return null;
 
   // 1) Orphan tool_calls from a crashed tool loop: mark interrupted by APPENDING a
@@ -120,7 +121,7 @@ async function doRestore(sessionId?: string): Promise<RestoredSession | null> {
     interruptedToolCallIds.push(toolCallId);
   }
   if (orphans.length > 0) {
-    events = await store.listEvents(targetSessionId); // re-read: Sqlite append returns seq -1
+    events = await resolveSessionEvents(targetSessionId); // re-read: Sqlite append returns seq -1
   }
 
   // 2) Crash tail: cut the projection to the last COMPLETE turn. Events after cutSeq

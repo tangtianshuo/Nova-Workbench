@@ -8,6 +8,23 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 
+## Current Milestone: v0.3.1 多 Session 会话体系
+
+**Goal:** 把全局单条 agent 对话升级为工作区隔离、可恢复、可分支的多 session 体系,session 成为 Agent 工作区的一等实体。
+
+**Target features:**
+- Session 数据模型:sessions 元数据表(migration 0007,workspace_id/title/parent_session_id/fork_cut_seq),事件 scope 扩展 workspaceId
+- 多 session 运行时:`sessionRef` 单例 → activeSessionId 状态;启动默认新 session + 上次工作区;streaming 中锁定切换;pending 确认卡片按 session 过滤
+- Agent 页「最近任务」:接真实 session 列表(当前工作区过滤,标题+时间+消息数+分支标识),点击恢复
+- 分支:hover assistant 卡片浮出 分支/复制 icon;引用式 fork(parent 事件前缀投影,零复制);分支后 UI 跳转新 session 并带分支标识
+- 复制:assistant 消息一键复制到剪贴板
+- Ctrl+Shift+K:ChatPanel 头部加 工作区 + session 两个 Select(工作区切换联动过滤);Ctrl+K 保持纯净
+- Session 标题:首个 turn 后 LLM 自动命名,失败回退首条消息截断
+
+**Key decisions(2026-08-18 用户锁定):** 引用式 fork / ChatPanel 加下拉框 / LLM 自动命名 / 列表过滤级隔离(记忆/知识库保持全局)
+
+**Out of scope:** session 手动重命名、session 删除、定时任务 tab(保持 mock)、跨工作区 strict 隔离
+
 ## Current State (after v0.3.0)
 
 **Shipped 2026-08-17** — 5 phases (13-17), 19 plans, 149 commits, 161/161 tests。审计 tech_debt(无阻断):28/28 需求满足、11/11 集成 seam、4/4 E2E flows;统一人工 UAT 21/21(13-UAT 7 + 16-UAT 8 + 17-UAT 6,含 v0.2.0 遗留 35 步回归闭合)。
@@ -21,7 +38,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 **Tech debt(非阻断,完整清单见 `milestones/v0.3.0-MILESTONE-AUDIT.md`):** FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall 决策点、产品 chip × 语义、MarkdownEditor chunk ~297 KB、CSP null、云 provider 凭据 UAT。
 
-**Next Milestone:** 未启动 — `/gsd:new-milestone`(backlog 候选:999.1 工作区产品入驻 / 999.2 Skill 系统 / 999.3 MCP / 999.4 垂类隔离;v2 需求候选:SEM-01..03、DELIV-05/06、UX-05..08)
+**Next Milestone:** v0.3.1 多 Session 会话体系 — 已启动(2026-08-18,`/gsd:new-milestone`)
 
 ## Requirements
 
@@ -52,9 +69,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 ### Active
 
-<!-- 下一里程碑需求待 /gsd:new-milestone 定义 -->
-
-(无 — 下一里程碑未启动)
+<!-- v0.3.1 需求待 REQUIREMENTS.md 定义后回填 -->
 
 **结转 tech debt(v0.2.0/v0.3.0,非阻断):**
 - FTS5 runtime probe on packaged build(v0.3.0)
@@ -157,4 +172,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 17 (2026-08-17)**: Agent UX + 架构文档 — 双宿主 + ⌘K carry + 晨报 + 右键动作 + ARCHITECTURE.md v2.0/ADR。17-HUMAN-UAT 6/6(含 35 步回归)。
 
 ---
-*Last updated: 2026-08-17 after v0.3.0 milestone*
+*Last updated: 2026-08-18 — v0.3.1 milestone started*

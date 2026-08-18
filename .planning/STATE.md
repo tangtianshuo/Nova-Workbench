@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3.0
-milestone_name: 功能闭环
-status: complete
-last_updated: "2026-08-17T14:34:32.950Z"
-last_activity: 2026-08-17
+milestone: v0.3.1
+milestone_name: 多 Session 会话体系
+status: defining_requirements
+last_updated: "2026-08-18T13:00:00.000Z"
+last_activity: 2026-08-18
 progress:
   total_phases: 5
   completed_phases: 5
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-17)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.0 已归档 — 下一里程碑待 `/gsd:new-milestone` 启动(backlog 候选 999.1-999.4;v2 需求候选 SEM-01..03 / DELIV-05/06 / UX-05..08)
+**Current focus:** v0.3.1 多 Session 会话体系(已启动,定义需求中)— session 工作区隔离/恢复/分支,Agent 页真实 session 列表,Ctrl+Shift+K 工作区+session 选择
 
 ## Current Position
 
-Phase: None(v0.3.0 已完成并归档)
-Plan: N/A
-Status: Awaiting next milestone
-Last activity: 2026-08-18 - Completed quick task 260818-swm: Agent 工作区接入真实工作区数据与添加流程
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-18 — Milestone v0.3.1 多 Session 会话体系 started
 
 ## Performance Metrics
 

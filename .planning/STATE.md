@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-08-18T14:28:33.256Z"
+status: verifying
+last_updated: "2026-08-18T14:33:05.769Z"
 last_activity: 2026-08-18
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 Phase: 19 (多 Session 运行时) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-18
 
 ```
@@ -43,6 +43,7 @@ v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 18 P02 | 12m | 2 tasks | 4 files |
 | Phase 19 P01 | 8m | 2 tasks | 2 files |
 | Phase 19 P02 | 10m | 3 tasks | 3 files |
+| Phase 19 P03 | 12m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,7 @@ v0.3.1 roadmap decisions:
 - [Phase 19]: restoreSession(sessionId?): explicit-id path treats empty event list as not-found -> null; restoreLatestSession kept as compat alias for 19-02 migration
 - [Phase 19]: SESS-02: app entry = fresh session; restore() no auto-restore, restoreSession() no-arg kept as crash-recovery API
 - [Phase 19]: Workspace switch = end session + startNewSession (CONTEXT locked); store-level streaming guard is SESS-04 bottom line
+- [Phase 19]: SESS-05: pending-card reads session-filtered in JS after listActive (no SQL change); restore path filtered in chatConsoleStore, sessionRestore.ts untouched
 
 ### TODOs (pending)
 

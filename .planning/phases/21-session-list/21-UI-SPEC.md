@@ -80,6 +80,8 @@ Text: title `text-text-primary`, meta `text-text-tertiary`, disabled rows `opaci
 
 ### 1. 最近任务 list (AgentWorkspaceView, replaces mock at lines 27-33 / 83-101)
 
+**Focal point:** active session row (`bg-accent-subtle/50` tint) is the primary visual anchor; row titles are secondary. Do not add any stronger signal (no icon fill swap, no border) — the tint alone marks "current".
+
 **Row layout** (keep existing motion.div skeleton, extend content):
 ```
 [Clock 12px] [time 11px w-12] [GitBranch 12px + tooltip?] [title truncate flex-1] [N 条 Badge] 

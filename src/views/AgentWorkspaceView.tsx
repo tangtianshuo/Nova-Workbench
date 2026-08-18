@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Clock,
-  Lightning,
-  Cube,
-  FileText,
   CaretRight,
   Plus,
   Folder,
@@ -12,6 +9,8 @@ import {
   CaretDown,
 } from '@phosphor-icons/react';
 import { Card, CardHover, Button, Badge, Separator, SegmentedControl } from '@/src/components/ui';
+import { AddWorkspaceModal } from '@/src/components/AddWorkspaceModal';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { AgentConsole } from '@/src/components/AgentConsole';
 import { MorningReport } from '@/src/components/MorningReport';
 
@@ -23,18 +22,10 @@ const recentTasks = [
   { time: '7月21日', title: '非遗手工制品跨境平台调研', messageCount: 6, agent: 'Nova' },
 ];
 
-const agents = [
-  { name: 'NOVA', path: 'C:\\Users\\10345\\...', icon: Lightning, color: 'text-warning', bg: 'bg-warning-subtle' },
-  { name: 'Obsidian', path: 'G:\\Documents\\N...', icon: Cube, color: 'text-text-secondary', bg: 'bg-bg-secondary' },
-  { name: 'Nova (微信)', path: 'C:\\Users\\10345\\...', icon: Lightning, color: 'text-warning', bg: 'bg-warning-subtle' },
-  { name: '合同审核', path: 'D:\\Projects\\...', icon: FileText, color: 'text-accent', bg: 'bg-accent-subtle' },
-  { name: '文档审核', path: 'D:\\Projects\\...', icon: FileText, color: 'text-accent', bg: 'bg-accent-subtle' },
-  { name: 'AI 报销审查', path: 'D:\\Projects\\...', icon: Cube, color: 'text-text-secondary', bg: 'bg-bg-secondary' },
-  { name: 'Novel', path: 'C:\\Users\\10345\\...', icon: Lightning, color: 'text-warning', bg: 'bg-warning-subtle' },
-];
-
 export function AgentWorkspaceView() {
   const [activeTab, setActiveTab] = useState('recent');
+  const [showAddWorkspace, setShowAddWorkspace] = useState(false);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
 
   return (
     <div className="flex gap-4 h-[calc(100dvh-var(--titlebar-h)-var(--header-h)-48px)]">
@@ -113,43 +104,53 @@ export function AgentWorkspaceView() {
             <h3 className="text-sm font-semibold text-text-primary">
               Agent 工作区
             </h3>
-            <Button variant="primary" size="xs">
+            <Button variant="primary" size="xs" onClick={() => setShowAddWorkspace(true)}>
               <Plus size={12} weight="bold" />
               添加
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            {agents.map((agent, idx) => {
-              const Icon = agent.icon;
-              return (
+          {workspaces.length === 0 ? (
+            <div className="text-center text-sm text-text-tertiary py-8">
+              暂无工作区,点击「添加」创建
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5">
+              {workspaces.map((ws, idx) => (
                 <motion.div
-                  key={idx}
+                  key={ws.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
                 >
                   <CardHover variant="interactive" className="p-3">
                     <div className="flex items-start gap-2.5">
-                      <div className={`w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 ${agent.bg} ${agent.color}`}>
-                        <Icon size={16} weight="duotone" />
+                      <div className="w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 bg-accent-subtle text-accent">
+                        <Folder size={16} weight="duotone" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-text-primary text-truncate">
-                          {agent.name}
+                        <div className="text-sm font-medium text-text-primary truncate">
+                          {ws.name}
                         </div>
-                        <div className="text-[11px] text-text-tertiary text-truncate mt-0.5 font-mono">
-                          {agent.path}
+                        <div className="text-[11px] text-text-tertiary truncate mt-0.5 font-mono">
+                          {ws.folderPath}
                         </div>
                       </div>
                     </div>
                   </CardHover>
                 </motion.div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
+
+      {showAddWorkspace && (
+        <AddWorkspaceModal
+          onClose={() => setShowAddWorkspace(false)}
+          onSuccess={() => setShowAddWorkspace(false)}
+        />
+      )}
     </div>
   );
 }

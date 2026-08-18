@@ -117,6 +117,7 @@ None.
 | 260818-di5 | 知识库 AI 写入 sourceType 溯源修正 | 2026-08-18 | 1584f1b | [260818-di5-ai-sourcetype](./quick/260818-di5-ai-sourcetype/) |
 | 260818-doi | 工作区文件真实扫描替换 mock | 2026-08-18 | d7ffc16 | [260818-doi-workspace-real-scan](./quick/260818-doi-workspace-real-scan/) |
 | 260818-dyo | 知识库 ⇄ 文档归档双向通道(read/write_workspace_file + 提取/归档入口) | 2026-08-18 | f2d2890 | [260818-dyo-kb-archive-bridge](./quick/260818-dyo-kb-archive-bridge/) |
+| 260818-t54 | Agent 工作区顶栏工作区/LLM 模型真实数据绑定 | 2026-08-18 | d0b9a7a | [260818-t54-agent-llm-model-provider](./quick/260818-t54-agent-llm-model-provider/) |
 | 260818-f3b | agent 会话纪要自动投影进知识库(session-summary docId supersede 链) | 2026-08-18 | 6ce44b5 | [260818-f3b-session-summary-projection](./quick/260818-f3b-session-summary-projection/) |
 | 260818-gec | 任务管理统计卡片接入真实数据(taskStore 派生,去假 trend) | 2026-08-18 | a39e338 | [260818-gec-task-stats-real-data](./quick/260818-gec-task-stats-real-data/) |
 | 260818-shc | Agent 工作区 UIUX 还原原型双栏布局(保留 AgentConsole 真实对话 + MorningReport) | 2026-08-18 | b041ff2 | [260818-shc-agent-uiux-agent-uiux](./quick/260818-shc-agent-uiux-agent-uiux/) |

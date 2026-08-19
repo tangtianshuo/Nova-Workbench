@@ -14,10 +14,13 @@ describe('buildFileTree', () => {
     assert.equal(a.kind, 'folder');
     assert.equal(a.name, 'a');
     if (a.kind !== 'folder') return;
+    assert.equal(a.path, 'a');
     assert.equal(a.children.length, 2);
     const b = a.children[0];
     assert.equal(b.kind, 'folder');
     assert.equal(b.name, 'b');
+    if (b.kind !== 'folder') return;
+    assert.equal(b.path, 'a/b');
     if (b.kind !== 'folder') return;
     assert.equal(b.children.length, 1);
     assert.deepEqual(b.children[0], { kind: 'file', name: 'c.txt', path: 'a/b/c.txt' });

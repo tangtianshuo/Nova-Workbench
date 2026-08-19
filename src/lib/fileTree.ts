@@ -1,16 +1,17 @@
 // buildFileTree — pure path-list → nested tree transform (no deps).
 
 export type FileTreeNode =
-  | { kind: 'folder'; name: string; children: FileTreeNode[] }
+  | { kind: 'folder'; name: string; path: string; children: FileTreeNode[] }
   | { kind: 'file'; name: string; path: string };
 
 // internal: nested map — leaf value is the original path string, branches are Maps
-function toTree(map: Map<string, unknown>): FileTreeNode[] {
+function toTree(map: Map<string, unknown>, prefix: string): FileTreeNode[] {
   const folders: FileTreeNode[] = [];
   const files: FileTreeNode[] = [];
   for (const [name, value] of map) {
+    const path = prefix ? `${prefix}/${name}` : name;
     if (value instanceof Map) {
-      folders.push({ kind: 'folder', name, children: toTree(value) });
+      folders.push({ kind: 'folder', name, path, children: toTree(value, path) });
     } else {
       files.push({ kind: 'file', name, path: value as string });
     }
@@ -58,5 +59,5 @@ export function buildFileTree(paths: string[], rootPath?: string): FileTreeNode[
       node.set(fileName, raw);
     }
   }
-  return toTree(root);
+  return toTree(root, '');
 }

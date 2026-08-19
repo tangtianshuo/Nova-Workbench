@@ -16,7 +16,7 @@
 
 ### 最近任务列表 (LIST)
 
-- [ ] **LIST-01**: Agent 页「最近任务」显示真实 session 列表(标题 + 相对时间 + 消息数),按当前工作区过滤,按最近活动倒序
+- [x] **LIST-01**: Agent 页「最近任务」显示真实 session 列表(标题 + 相对时间 + 消息数),按当前工作区过滤,按最近活动倒序
 - [ ] **LIST-02**: 用户点击列表项即恢复该 session 到对话区
 - [x] **LIST-03**: 分支 session 在列表中显示分支徽章,可识别其来源会话
 
@@ -35,7 +35,7 @@
 ### 自动命名 (TITLE)
 
 - [ ] **TITLE-01**: session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
-- [ ] **TITLE-02**: 标题生成后静默更新列表显示,不打断用户;异步回来时按 sessionId 守卫,不写错会话
+- [x] **TITLE-02**: 标题生成后静默更新列表显示,不打断用户;异步回来时按 sessionId 守卫,不写错会话
 
 ## v2 Requirements
 
@@ -76,13 +76,13 @@
 | FORK-02 | Phase 20 | Complete |
 | FORK-03 | Phase 20 | Complete |
 | LIST-03 | Phase 20 | Complete |
-| LIST-01 | Phase 21 | Pending |
+| LIST-01 | Phase 21 | Complete |
 | LIST-02 | Phase 21 | Pending |
 | QUICK-01 | Phase 21 | Pending |
 | QUICK-02 | Phase 21 | Pending |
 | QUICK-03 | Phase 21 | Pending |
 | TITLE-01 | Phase 21 | Pending |
-| TITLE-02 | Phase 21 | Pending |
+| TITLE-02 | Phase 21 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total

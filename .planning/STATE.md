@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.1
 milestone_name: milestone
-status: verifying
-last_updated: "2026-08-18T14:58:59.945Z"
-last_activity: 2026-08-18
+status: executing
+last_updated: "2026-08-19T00:57:20.029Z"
+last_activity: 2026-08-19
 progress:
   total_phases: 8
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 20 — 分支与卡片操作
+**Current focus:** Phase 21 — session-list
 
 ## Current Position
 
-Phase: 999.4
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-08-18
+Phase: 21 (session-list) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-08-19
 
 ```
 v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 phases)
@@ -46,6 +46,7 @@ v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 19 P03 | 12m | 3 tasks | 5 files |
 | Phase 20 P01 | 14m | 2 tasks | 6 files |
 | Phase 20 P02 | 16m | 2 tasks | 3 files |
+| Phase 21 P01 | 10m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ v0.3.1 roadmap decisions:
 - [Phase 19]: SESS-05: pending-card reads session-filtered in JS after listActive (no SQL change); restore path filtered in chatConsoleStore, sessionRestore.ts untouched
 - [Phase 20]: 20-01: child compaction persists coveredSeq*/splitSeq in child space; fork remap (+prefix.length) restores normalized space at resolve time
 - [Phase 20]: 20-02: eager forkable resolution (message-event zip); fork success = jump+badge no toast; switchSession awaits fork/parent meta refresh
+- [Phase 21]: 21-01: updateTitle write-once (title IS NULL guard), countMessagesBySession single aggregate SQL; formatRelativeTime buckets per spec
 
 ### TODOs (pending)
 

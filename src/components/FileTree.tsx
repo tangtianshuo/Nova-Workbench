@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { CaretDown, CaretRight, Folder, FileText, FileCode, FileXls, Image, File, FolderOpen, FolderPlus, FilePlus, PencilSimple } from '@phosphor-icons/react';
 import type { FileTreeNode } from '@/src/lib/fileTree';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from '@/src/components/ui/ContextMenu';
+import { cn } from '@/src/lib/utils';
 
 export interface FileTreeMenu {
   onReveal: (path: string) => void;
   onCreate: (kind: 'dir' | 'file', parentRel: string) => void;
   onRename: (rel: string, kind: 'folder' | 'file', currentName: string) => void;
+}
+
+export interface FileTreeDnd {
+  onMove: (srcRel: string, destDirRel: string) => void;
 }
 
 const EXT_ICONS: Record<string, typeof FileText> = {
@@ -27,24 +32,50 @@ function countFiles(node: FileTreeNode): number {
   return node.children.reduce((sum, c) => sum + countFiles(c), 0);
 }
 
+// parent dir of a rel path, '' at workspace root
+const parentRel = (path: string) =>
+  path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+
 function TreeRow({
   node,
   depth,
   expanded,
   toggle,
   menu,
+  dnd,
 }: {
   node: FileTreeNode;
   depth: number;
   expanded: Set<string>;
   toggle: (key: string) => void;
   menu?: FileTreeMenu;
+  dnd?: FileTreeDnd;
 }) {
   const padding = { paddingLeft: `${8 + depth * 14}px` };
+  const [dragging, setDragging] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
+  const dragProps = dnd
+    ? {
+        draggable: true,
+        onDragStart: (e: React.DragEvent) => {
+          e.dataTransfer.setData('text/plain', node.path);
+          e.dataTransfer.effectAllowed = 'move';
+          setDragging(true);
+        },
+        onDragEnd: () => setDragging(false),
+      }
+    : {};
 
   if (node.kind === 'file') {
     const row = (
-      <div className="flex items-center gap-1.5 py-1 pr-2 rounded-[var(--radius-sm)] hover:bg-bg-secondary text-sm" style={padding}>
+      <div
+        className={cn(
+          'flex items-center gap-1.5 py-1 pr-2 rounded-[var(--radius-sm)] hover:bg-bg-secondary text-sm',
+          dragging && 'opacity-50',
+        )}
+        style={padding}
+        {...dragProps}
+      >
         <FileIcon name={node.name} />
         <span className="text-text-secondary truncate" title={node.path}>{node.name}</span>
       </div>
@@ -58,6 +89,14 @@ function TreeRow({
             <FolderOpen size={12} weight="duotone" className="text-text-tertiary" />
             在文件资源管理器中打开位置
           </ContextMenuItem>
+          <ContextMenuItem onSelect={() => menu.onCreate('dir', parentRel(node.path))}>
+            <FolderPlus size={12} weight="duotone" className="text-text-tertiary" />
+            新建文件夹
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => menu.onCreate('file', parentRel(node.path))}>
+            <FilePlus size={12} weight="duotone" className="text-text-tertiary" />
+            新建文件
+          </ContextMenuItem>
           <ContextMenuItem onSelect={() => menu.onRename(node.path, 'file', node.name)}>
             <PencilSimple size={12} weight="duotone" className="text-text-tertiary" />
             重命名
@@ -69,6 +108,24 @@ function TreeRow({
 
   const key = node.name + '#' + depth; // ponytail: sibling-level key; upgrade to full path key if same-name sibling folders collide
   const isExpanded = expanded.has(key);
+  const dropProps = dnd
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          setDropActive(true);
+        },
+        onDragLeave: () => setDropActive(false),
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation(); // don't bubble to the root container drop target
+          setDropActive(false);
+          setDragging(false);
+          const src = e.dataTransfer.getData('text/plain');
+          if (src && src !== node.path) dnd.onMove(src, node.path);
+        },
+      }
+    : {};
   const header = (
     <div
       role="button"
@@ -81,8 +138,14 @@ function TreeRow({
           toggle(key);
         }
       }}
-      className="flex items-center gap-1.5 py-1 pr-2 rounded-[var(--radius-sm)] hover:bg-bg-secondary cursor-pointer outline-none focus-visible:bg-bg-secondary transition-colors text-sm"
+      className={cn(
+        'flex items-center gap-1.5 py-1 pr-2 rounded-[var(--radius-sm)] hover:bg-bg-secondary cursor-pointer outline-none focus-visible:bg-bg-secondary transition-colors text-sm',
+        dragging && 'opacity-50',
+        dropActive && 'bg-accent-subtle',
+      )}
       style={padding}
+      {...dragProps}
+      {...dropProps}
     >
       {isExpanded
         ? <CaretDown size={10} className="text-text-tertiary shrink-0" />
@@ -118,7 +181,7 @@ function TreeRow({
         </ContextMenu>
       ) : header}
       {isExpanded && node.children.map((child, i) => (
-        <TreeRow key={child.name + i} node={child} depth={depth + 1} expanded={expanded} toggle={toggle} menu={menu} />
+        <TreeRow key={child.name + i} node={child} depth={depth + 1} expanded={expanded} toggle={toggle} menu={menu} dnd={dnd} />
       ))}
     </div>
   );
@@ -129,11 +192,13 @@ export function FileTree({
   defaultExpandedDepth = 1,
   emptyText = '暂无文件',
   menu,
+  dnd,
 }: {
   nodes: FileTreeNode[];
   defaultExpandedDepth?: number;
   emptyText?: string;
   menu?: FileTreeMenu;
+  dnd?: FileTreeDnd;
 }) {
   const initial = new Set<string>();
   const collect = (list: FileTreeNode[], depth: number) => {
@@ -147,6 +212,7 @@ export function FileTree({
   };
   collect(nodes, 0);
   const [expanded, setExpanded] = useState<Set<string>>(initial);
+  const [rootDropActive, setRootDropActive] = useState(false);
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -162,9 +228,27 @@ export function FileTree({
   }
 
   const tree = (
-    <div className="text-sm">
+    <div
+      className={cn('text-sm', dnd && rootDropActive && 'bg-accent-subtle')}
+      {...(dnd
+        ? {
+            onDragOver: (e: React.DragEvent) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setRootDropActive(true);
+            },
+            onDragLeave: () => setRootDropActive(false),
+            onDrop: (e: React.DragEvent) => {
+              e.preventDefault();
+              setRootDropActive(false);
+              const src = e.dataTransfer.getData('text/plain');
+              if (src && src !== '' && parentRel(src) !== '') dnd.onMove(src, '');
+            },
+          }
+        : {})}
+    >
       {nodes.map((node, i) => (
-        <TreeRow key={node.name + i} node={node} depth={0} expanded={expanded} toggle={toggle} menu={menu} />
+        <TreeRow key={node.name + i} node={node} depth={0} expanded={expanded} toggle={toggle} menu={menu} dnd={dnd} />
       ))}
     </div>
   );

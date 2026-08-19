@@ -17,7 +17,7 @@
 ### 最近任务列表 (LIST)
 
 - [x] **LIST-01**: Agent 页「最近任务」显示真实 session 列表(标题 + 相对时间 + 消息数),按当前工作区过滤,按最近活动倒序
-- [ ] **LIST-02**: 用户点击列表项即恢复该 session 到对话区
+- [x] **LIST-02**: 用户点击列表项即恢复该 session 到对话区
 - [x] **LIST-03**: 分支 session 在列表中显示分支徽章,可识别其来源会话
 
 ### 分支与卡片操作 (FORK)
@@ -28,9 +28,9 @@
 
 ### 快捷助手 (QUICK)
 
-- [ ] **QUICK-01**: Ctrl+Shift+K 打开的 ChatPanel 头部提供工作区与 session 两个下拉框
-- [ ] **QUICK-02**: 工作区下拉切换后,session 下拉联动过滤为该工作区的会话
-- [ ] **QUICK-03**: Ctrl+K 保持现状(无选择器的纯净快速对话,行为不变)
+- [x] **QUICK-01**: Ctrl+Shift+K 打开的 ChatPanel 头部提供工作区与 session 两个下拉框
+- [x] **QUICK-02**: 工作区下拉切换后,session 下拉联动过滤为该工作区的会话
+- [x] **QUICK-03**: Ctrl+K 保持现状(无选择器的纯净快速对话,行为不变)
 
 ### 自动命名 (TITLE)
 
@@ -77,10 +77,10 @@
 | FORK-03 | Phase 20 | Complete |
 | LIST-03 | Phase 20 | Complete |
 | LIST-01 | Phase 21 | Complete |
-| LIST-02 | Phase 21 | Pending |
-| QUICK-01 | Phase 21 | Pending |
-| QUICK-02 | Phase 21 | Pending |
-| QUICK-03 | Phase 21 | Pending |
+| LIST-02 | Phase 21 | Complete |
+| QUICK-01 | Phase 21 | Complete |
+| QUICK-02 | Phase 21 | Complete |
+| QUICK-03 | Phase 21 | Complete |
 | TITLE-01 | Phase 21 | Complete |
 | TITLE-02 | Phase 21 | Complete |
 

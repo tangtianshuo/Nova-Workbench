@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-08-19T01:01:08.506Z"
+status: verifying
+last_updated: "2026-08-19T01:09:21.370Z"
 last_activity: 2026-08-19
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 Phase: 21 (session-list) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-19
 
 ```
@@ -48,6 +48,7 @@ v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 20 P02 | 16m | 2 tasks | 3 files |
 | Phase 21 P01 | 10m | 2 tasks | 4 files |
 | Phase 21 P02 | 12m | 2 tasks | 3 files |
+| Phase 21 P03 | 25min | 4 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ v0.3.1 roadmap decisions:
 - [Phase 20]: 20-02: eager forkable resolution (message-event zip); fork success = jump+badge no toast; switchSession awaits fork/parent meta refresh
 - [Phase 21]: 21-01: updateTitle write-once (title IS NULL guard), countMessagesBySession single aggregate SQL; formatRelativeTime buckets per spec
 - [Phase 21]: 21-02: maybeGenerateTitle fire-and-forget in submit finally (captured sessionId), llm-injectable for tests; sessionListVersion bump after write-once updateTitle
+- [Phase 21]: 21-03: chatPanelMode pure/scoped gates conditional selector DOM; session Select '__new__' sentinel for +新对话
 
 ### TODOs (pending)
 

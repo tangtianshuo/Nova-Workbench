@@ -17,7 +17,7 @@
  (completed 2026-08-18)
 - [x] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章
  (completed 2026-08-18)
-- [ ] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题
+- [x] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题 (completed 2026-08-19)
 
 ## Phase Details
 
@@ -77,7 +77,7 @@ Plans:
 Plans:
 - [x] 21-01-PLAN.md — 数据层:消息数聚合 SQL + title IS NULL 守卫 updateTitle + formatRelativeTime
 - [x] 21-02-PLAN.md — LLM 自动命名:titleGenerator(LLM+回退)+ submit finally 触发 + sessionListVersion
-- [ ] 21-03-PLAN.md — UI:最近任务真实列表 + ChatPanel 双下拉(scoped/pure)+ 快捷键分流 + UAT
+- [x] 21-03-PLAN.md — UI:最近任务真实列表 + ChatPanel 双下拉(scoped/pure)+ 快捷键分流 + UAT
 **UI hint**: yes
 
 ## Progress
@@ -87,7 +87,7 @@ Plans:
 | 18. Session 数据模型与底座 | 2/2 | Complete    | 2026-08-18 |
 | 19. 多 Session 运行时 | 3/3 | Complete    | 2026-08-18 |
 | 20. 分支与卡片操作 | 2/2 | Complete    | 2026-08-18 |
-| 21. Session 列表与快捷入口 + 自动命名 | 2/3 | In Progress|  |
+| 21. Session 列表与快捷入口 + 自动命名 | 3/3 | Complete   | 2026-08-19 |
 
 ## Coverage
 
@@ -111,7 +111,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
 

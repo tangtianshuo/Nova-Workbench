@@ -9,7 +9,19 @@ import {
   CaretDown,
   GitBranch,
 } from '@phosphor-icons/react';
-import { Card, CardHover, Button, Badge, Separator, SegmentedControl } from '@/src/components/ui';
+import {
+  Card,
+  CardHover,
+  Button,
+  Badge,
+  Separator,
+  SegmentedControl,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  useToast,
+} from '@/src/components/ui';
 import { AddWorkspaceModal } from '@/src/components/AddWorkspaceModal';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { useUIStore } from '@/src/stores/uiStore';
@@ -40,6 +52,27 @@ export function AgentWorkspaceView() {
   const sessionListVersion = useChatConsoleStore((s) => s.sessionListVersion);
   const loading = useChatConsoleStore((s) => s.loading);
   const switchSession = useChatConsoleStore((s) => s.switchSession);
+  const setActiveWorkspaceId = useWorkspaceStore((s) => s.setActiveWorkspaceId);
+  const { toast } = useToast();
+
+  const handleSelectWorkspace = (id: string) => {
+    const result = setActiveWorkspaceId(id);
+    if (!result.success && result.reason === 'streaming') {
+      toast({ type: 'error', title: '无法切换工作区', description: '请等待当前回复完成' });
+    }
+  };
+
+  const handleSelectSession = (session: RecentSession, isActive: boolean) => {
+    if (isActive) return;
+    if (session.workspaceId !== activeWorkspaceId) {
+      toast({
+        type: 'info',
+        title: session.workspaceId === null ? '全局会话' : '其他工作区会话',
+        description: '该会话不属于当前工作区，仍可继续查看',
+      });
+    }
+    void switchSession(session.sessionId);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -70,11 +103,25 @@ export function AgentWorkspaceView() {
       <Card variant="glass" className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="px-4 py-2.5 flex items-center justify-between border-b border-border-subtle bg-bg-primary/60 backdrop-blur-sm">
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="xs" className="gap-1">
-              <Folder size={12} weight="duotone" className="text-accent" />
-              <span className="max-w-[160px] truncate">{activeWorkspace?.name ?? '当前工作区'}</span>
-              <CaretDown size={10} />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="xs" className="gap-1">
+                  <Folder size={12} weight="duotone" className="text-accent" />
+                  <span className="max-w-[160px] truncate">{activeWorkspace?.name ?? '当前工作区'}</span>
+                  <CaretDown size={10} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {workspaces.map((ws) => (
+                  <DropdownMenuItem key={ws.id} onSelect={() => handleSelectWorkspace(ws.id)}>
+                    <Folder size={12} weight="duotone" className={ws.id === activeWorkspaceId ? 'text-accent' : 'text-text-tertiary'} />
+                    <span className={cn('truncate', ws.id === activeWorkspaceId && 'text-accent font-medium')}>
+                      {ws.name}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="secondary" size="xs" className="gap-1">
               <Cpu size={12} weight="duotone" className="text-accent" />
               <span className="max-w-[160px] truncate">{modelLabel}</span>
@@ -121,10 +168,10 @@ export function AgentWorkspaceView() {
                   tabIndex={isActive || disabledByStreaming ? -1 : 0}
                   aria-disabled={disabledByStreaming || undefined}
                   aria-current={isActive || undefined}
-                  onClick={isActive ? undefined : () => { void switchSession(session.sessionId); }}
+                  onClick={isActive ? undefined : () => handleSelectSession(session, isActive)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !isActive && !disabledByStreaming) {
-                      void switchSession(session.sessionId);
+                      handleSelectSession(session, isActive);
                     }
                   }}
                   className={cn(

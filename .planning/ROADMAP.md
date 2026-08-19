@@ -13,8 +13,10 @@
 
 - [x] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo
  (completed 2026-08-18)
-- [x] **Phase 19: 多 Session 运行时** — activeSessionId / switchSession 生命周期 / 默认新 session / streaming 锁 / pending 卡片按 session 过滤 (completed 2026-08-18)
-- [x] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章 (completed 2026-08-18)
+- [x] **Phase 19: 多 Session 运行时** — activeSessionId / switchSession 生命周期 / 默认新 session / streaming 锁 / pending 卡片按 session 过滤
+ (completed 2026-08-18)
+- [x] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章
+ (completed 2026-08-18)
 - [ ] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题
 
 ## Phase Details
@@ -71,7 +73,11 @@ Plans:
   3. Ctrl+Shift+K 的 ChatPanel 头部有工作区 + session 两个下拉,工作区切换后 session 下拉联动过滤;Ctrl+K 保持无选择器的纯净快速对话
   4. session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
   5. 标题异步生成后静默更新列表,按 sessionId 守卫不写错会话,不打断用户
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 21-01-PLAN.md — 数据层:消息数聚合 SQL + title IS NULL 守卫 updateTitle + formatRelativeTime
+- [ ] 21-02-PLAN.md — LLM 自动命名:titleGenerator(LLM+回退)+ submit finally 触发 + sessionListVersion
+- [ ] 21-03-PLAN.md — UI:最近任务真实列表 + ChatPanel 双下拉(scoped/pure)+ 快捷键分流 + UAT
 **UI hint**: yes
 
 ## Progress
@@ -81,7 +87,7 @@ Plans:
 | 18. Session 数据模型与底座 | 2/2 | Complete    | 2026-08-18 |
 | 19. 多 Session 运行时 | 3/3 | Complete    | 2026-08-18 |
 | 20. 分支与卡片操作 | 2/2 | Complete    | 2026-08-18 |
-| 21. Session 列表与快捷入口 + 自动命名 | 0/? | Not started | - |
+| 21. Session 列表与快捷入口 + 自动命名 | 0/3 | Not started | - |
 
 ## Coverage
 

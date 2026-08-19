@@ -24,6 +24,7 @@ import { ChatSession } from '@/src/ai/chatSession';
 import { restoreSession } from '@/src/ai/sessionRestore';
 import { findForkCutSeq, resolveSessionEvents } from '@/src/ai/fork';
 import { getSessionRepo } from '@/src/ai/sessionRepo';
+import { generateSessionTitle } from '@/src/ai/titleGenerator';
 import { getEventStore } from '@/src/ai/events/eventStore';
 import type { AgentEvent } from '@/src/ai/events/types';
 import { useUIStore } from '@/src/stores/uiStore';
@@ -147,6 +148,8 @@ interface ChatConsoleState {
   forkableIds: Set<number>;
   parentSessionId: string | null;
   parentTitle: string | null;
+  // Phase 21 (TITLE-01): bumped after a title write so session lists silently refresh.
+  sessionListVersion: number;
 
   setInput: (v: string) => void;
   forkFromMessage: (messageId: number) => Promise<void>;
@@ -167,6 +170,7 @@ interface ChatConsoleState {
   dismissAutoRemembered: () => void;
   refreshMemoryCards: () => Promise<void>;
   refreshPrdCard: () => Promise<void>;
+  maybeGenerateTitle: (sessionId: string, llm?: Parameters<typeof generateSessionTitle>[0]['llm']) => Promise<void>;
 }
 
 export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
@@ -243,6 +247,38 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     }
   };
 
+  // Phase 21 (TITLE-01) — first-turn auto-naming. Fire-and-forget: never toasts,
+  // never throws. sessionId is the captured parameter — never read from get()
+  // after an await, so switching sessions mid-generation cannot cross-write.
+  // updateTitle's title IS NULL SQL guard makes this idempotent.
+  const maybeGenerateTitle: ChatConsoleState['maybeGenerateTitle'] = async (sessionId, llm) => {
+    try {
+      const repo = getSessionRepo();
+      const meta = await repo.getSession(sessionId);
+      if (meta?.title) return;
+      const events = (await getEventStore().listEvents(sessionId))
+        .filter((e) => e.eventType === 'user_message' || e.eventType === 'assistant_message')
+        .sort((a, b) => a.seq - b.seq);
+      const firstUserMessage = String(events.find((e) => e.eventType === 'user_message')?.payload.content ?? '');
+      const transcript = events
+        .map((e) => `${e.eventType === 'user_message' ? 'user' : 'assistant'}: ${String(e.payload.content ?? '')}`)
+        .join('\n')
+        .slice(0, 4000);
+      const ui = useUIStore.getState();
+      const { title, source } = await generateSessionTitle({
+        firstUserMessage,
+        transcript,
+        provider: ui.activeAIProvider,
+        ollamaModel: ui.ollamaModel,
+        llm,
+      });
+      await repo.updateTitle(sessionId, title, source);
+      set((s) => ({ sessionListVersion: s.sessionListVersion + 1 }));
+    } catch (error) {
+      console.error('[title] maybeGenerateTitle failed', error);
+    }
+  };
+
   return {
     activeSessionId: sessionRef.current.sessionId,
     messages: [],
@@ -263,6 +299,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     forkableIds: new Set<number>(),
     parentSessionId: null,
     parentTitle: null,
+    sessionListVersion: 0,
 
     setInput: (v) => set({ input: v }),
 
@@ -483,6 +520,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         streamingResponseRef = '';
         streamingTraceRef = [];
         void refreshForkable();
+        void get().maybeGenerateTitle(get().activeSessionId);
       }
     },
 
@@ -705,5 +743,6 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
 
     refreshMemoryCards,
     refreshPrdCard,
+    maybeGenerateTitle,
   };
 });

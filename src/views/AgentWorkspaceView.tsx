@@ -57,7 +57,7 @@ export function AgentWorkspaceView() {
     return () => {
       cancelled = true;
     };
-  }, [activeWorkspaceId, sessionListVersion, activeSessionId]);
+  }, [activeWorkspaceId, sessionListVersion]);
 
   const provider = useUIStore((s) => s.activeAIProvider);
   const ollamaModel = useUIStore((s) => s.ollamaModel);
@@ -117,9 +117,18 @@ export function AgentWorkspaceView() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: idx * 0.04 }}
+                  role="button"
+                  tabIndex={isActive || disabledByStreaming ? -1 : 0}
+                  aria-disabled={disabledByStreaming || undefined}
+                  aria-current={isActive || undefined}
                   onClick={isActive ? undefined : () => { void switchSession(session.sessionId); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isActive && !disabledByStreaming) {
+                      void switchSession(session.sessionId);
+                    }
+                  }}
                   className={cn(
-                    'flex items-center gap-3 px-2 py-2 -mx-2 rounded-[var(--radius-md)] hover:bg-bg-secondary transition-colors cursor-pointer group',
+                    'flex items-center gap-3 px-2 py-2 -mx-2 rounded-[var(--radius-md)] hover:bg-bg-secondary focus-visible:bg-bg-secondary outline-none transition-colors cursor-pointer group',
                     isActive && 'bg-accent-subtle/50',
                     disabledByStreaming && 'opacity-50 pointer-events-none',
                   )}

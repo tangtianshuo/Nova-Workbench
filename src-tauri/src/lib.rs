@@ -123,6 +123,7 @@ pub fn run() {
             file_ops::fs_create_dir,
             file_ops::fs_create_file,
             file_ops::fs_rename,
+            file_ops::fs_move,
         ])
         .setup(|app| {
             // Set minimum window size

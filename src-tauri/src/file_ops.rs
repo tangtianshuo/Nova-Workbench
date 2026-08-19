@@ -119,6 +119,34 @@ pub fn fs_rename(root: String, rel: String, new_name: String) -> Result<String, 
     Ok(new_path.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+pub fn fs_move(root: String, src_rel: String, dest_dir_rel: String) -> Result<String, String> {
+    let src = resolve_in_root(Path::new(&root), &src_rel)?;
+    if !src.exists() {
+        return Err("目标不存在".to_string());
+    }
+    let dest_dir = resolve_in_root(Path::new(&root), &dest_dir_rel)?;
+    if !dest_dir.is_dir() {
+        return Err("目标必须是文件夹".to_string());
+    }
+    if src.parent() == Some(dest_dir.as_path()) {
+        return Err("已在目标位置".to_string());
+    }
+    if src.is_dir() && dest_dir.starts_with(&src) {
+        return Err("不能将文件夹移动到自身内部".to_string());
+    }
+    let name = src
+        .file_name()
+        .ok_or_else(|| "目标不存在".to_string())?
+        .to_os_string();
+    let target = dest_dir.join(&name);
+    if target.exists() {
+        return Err("已存在同名项".to_string());
+    }
+    fs::rename(&src, &target).map_err(|e| format!("移动失败: {e}"))?;
+    Ok(target.to_string_lossy().to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,6 +186,43 @@ mod tests {
         fs::create_dir(d.join("a")).unwrap();
         assert!(resolve_in_root(&d, "a/b.md").is_ok()); // non-existent leaf, existing parent
         assert!(resolve_in_root(&d, "a").is_ok());
+        fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn move_roundtrip() {
+        let d = temp_subdir("mv");
+        let root = d.to_string_lossy().to_string();
+        fs::write(d.join("a.md"), b"x").unwrap();
+        fs::create_dir_all(d.join("docs/sub")).unwrap();
+        fs::write(d.join("docs/b.md"), b"y").unwrap();
+        fs::create_dir(d.join("docs2")).unwrap();
+        // file into folder
+        let moved = fs_move(root.clone(), "a.md".into(), "docs".into()).unwrap();
+        assert!(moved.ends_with("a.md"));
+        assert!(d.join("docs/a.md").exists());
+        assert!(!d.join("a.md").exists());
+        // folder into folder
+        fs_move(root.clone(), "docs".into(), "docs2".into()).unwrap();
+        assert!(d.join("docs2/docs/b.md").exists());
+        // into own descendant rejected
+        assert_eq!(
+            fs_move(root.clone(), "docs2/docs".into(), "docs2/docs/sub".into()).unwrap_err(),
+            "不能将文件夹移动到自身内部"
+        );
+        // name collision rejected
+        fs::write(d.join("b.md"), b"z").unwrap();
+        assert_eq!(
+            fs_move(root.clone(), "b.md".into(), "docs2/docs".into()).unwrap_err(),
+            "已存在同名项"
+        );
+        // same location rejected
+        assert_eq!(
+            fs_move(root.clone(), "b.md".into(), "".into()).unwrap_err(),
+            "已在目标位置"
+        );
+        // missing src
+        assert!(fs_move(root.clone(), "nope.md".into(), "".into()).is_err());
         fs::remove_dir_all(&d).ok();
     }
 

@@ -5,8 +5,8 @@ import { refreshAgentCarry } from '@/src/ai/context';
 // ponytail: global keyboard shortcuts. Tauri webview has no URL bar, so bare
 // Ctrl/Cmd+K is safe there (Phase 17 UX-02); Shift+K stays as the web-dev fallback.
 // Both open paths refresh the view-context carry first.
-// Ctrl/Cmd+K → AI 助手 ChatPanel slide-out (with carried context).
-// Ctrl/Cmd+Shift+K → same panel, web fallback binding.
+// Ctrl/Cmd+K → AI 助手 ChatPanel slide-out, pure mode (with carried context).
+// Ctrl/Cmd+Shift+K → scoped mode (workspace + session Selects) and web fallback binding.
 // Ctrl/Cmd+Shift+F → Search Dialog.
 // Ctrl/Cmd+Shift+P → CmdKPalette (command + AI 对话 modes, Raycast-style).
 // Esc → close any open modal/panel.
@@ -20,12 +20,14 @@ export function useCmdK() {
         event.stopPropagation();
         refreshAgentCarry();
         const s = useUIStore.getState();
+        s.setChatPanelMode('pure');
         s.setChatPanelOpen(!s.isChatPanelOpen);
       } else if (meta && event.shiftKey && key === 'k') {
         event.preventDefault();
         event.stopPropagation();
         refreshAgentCarry();
         const s = useUIStore.getState();
+        s.setChatPanelMode('scoped');
         s.setChatPanelOpen(!s.isChatPanelOpen);
       } else if (meta && event.shiftKey && key === 'f') {
         event.preventDefault();

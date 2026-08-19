@@ -27,6 +27,9 @@ interface UIState {
   isNewTaskOpen: boolean;
   isChatPanelOpen: boolean;
   isCmdKOpen: boolean;
+  // Phase 21 QUICK-01 — Ctrl+Shift+K scoped (workspace+session Selects) vs
+  // Ctrl+K pure ChatPanel. Transient, never persisted.
+  chatPanelMode: 'pure' | 'scoped';
 
   // Phase 17 UX-02 — transient agent context carry + TaskKanban view state lift
   agentContextCarry: CarriedContextItem[];
@@ -47,6 +50,7 @@ interface UIState {
   setSearchOpen: (open: boolean) => void;
   setNewTaskOpen: (open: boolean) => void;
   setChatPanelOpen: (open: boolean) => void;
+  setChatPanelMode: (mode: 'pure' | 'scoped') => void;
   setCmdKOpen: (open: boolean) => void;
   setAgentContextCarry: (items: CarriedContextItem[]) => void;
   removeCarriedItem: (kind: CarriedContextItem['kind'], id?: string) => void;
@@ -73,6 +77,7 @@ export const useUIStore = create<UIState>()(
   isNewTaskOpen: false,
   isChatPanelOpen: false,
   isCmdKOpen: false,
+  chatPanelMode: 'pure',
 
   agentContextCarry: [],
   taskKanbanView: 'category',
@@ -89,6 +94,7 @@ export const useUIStore = create<UIState>()(
   setSearchOpen: (open) => set({ isSearchOpen: open }),
   setNewTaskOpen: (open) => set({ isNewTaskOpen: open }),
   setChatPanelOpen: (open) => set({ isChatPanelOpen: open }),
+  setChatPanelMode: (mode) => set({ chatPanelMode: mode }),
   setCmdKOpen: (open) => set({ isCmdKOpen: open }),
   setAgentContextCarry: (items) => set({ agentContextCarry: items }),
   removeCarriedItem: (kind, id) =>

@@ -40,7 +40,7 @@ import { WorkspaceSummaryModal } from '../components/WorkspaceSummaryModal';
 import { SetAsWorkspaceModal } from '../components/SetAsWorkspaceModal';
 import { AddWorkspaceModal } from '../components/AddWorkspaceModal';
 import { FileTree } from '@/src/components/FileTree';
-import { buildFileTree } from '@/src/lib/fileTree';
+import { buildFileTree, commonRootDir } from '@/src/lib/fileTree';
 
 export function FileArchiveView() {
   const {
@@ -114,9 +114,10 @@ export function FileArchiveView() {
     [localIndexedFiles, searchQuery, categoryFilter, showOnlyFavorites]
   );
 
+  const localFilePaths = useMemo(() => localIndexedFiles.map((f) => f.fullPath), [localIndexedFiles]);
   const localFileTree = useMemo(
-    () => buildFileTree(localIndexedFiles.map((f) => f.fullPath)),
-    [localIndexedFiles],
+    () => buildFileTree(localFilePaths, commonRootDir(localFilePaths)),
+    [localFilePaths],
   );
 
   const commonFolders = useMemo(() => {

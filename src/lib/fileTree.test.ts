@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildFileTree } from './fileTree.ts';
+import { buildFileTree, commonRootDir } from './fileTree.ts';
 
 describe('buildFileTree', () => {
   it('empty input → empty output', () => {
@@ -48,6 +48,28 @@ describe('buildFileTree', () => {
       name: 'PRD.docx',
       path: 'D:\\ws\\docs\\PRD.docx',
     });
+  });
+
+  it('strips rootPath prefix (backslash + case-insensitive)', () => {
+    const tree = buildFileTree(['D:\\ws\\docs\\PRD.docx', 'D:\\ws\\readme.md'], 'd:/ws/');
+    assert.deepEqual(tree.map((n) => n.name), ['docs', 'readme.md']);
+    const docs = tree[0];
+    if (docs?.kind !== 'folder') return;
+    assert.deepEqual(docs.children[0], { kind: 'file', name: 'PRD.docx', path: 'docs/PRD.docx' });
+  });
+
+  it('keeps paths outside rootPath as-is', () => {
+    const tree = buildFileTree(['E:\\other\\x.txt'], 'D:/ws');
+    const e = tree[0];
+    if (e?.kind !== 'folder') return;
+    assert.equal(e.name, 'E:');
+  });
+
+  it('commonRootDir finds shared ancestor and undefined edge cases', () => {
+    assert.equal(commonRootDir([]), undefined);
+    assert.equal(commonRootDir(['D:/a/b/x.txt']), 'D:/a/b/');
+    assert.equal(commonRootDir(['D:\\a\\b\\x.txt', 'd:/A/c/y.txt']), 'D:/a/');
+    assert.equal(commonRootDir(['D:/a/x.txt', 'E:/a/y.txt']), undefined);
   });
 
   it('creates implicit intermediate folders', () => {

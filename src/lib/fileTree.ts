@@ -19,9 +19,32 @@ function toTree(map: Map<string, unknown>): FileTreeNode[] {
   return [...folders.sort(byName), ...files.sort(byName)];
 }
 
-export function buildFileTree(paths: string[]): FileTreeNode[] {
+// strip rootPath prefix (case-insensitive, Windows-safe); paths outside root are kept as-is
+function relativize(p: string, rootPath: string): string {
+  const pp = p.replace(/\\/g, '/');
+  const rr = rootPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  return pp.toLowerCase().startsWith(rr.toLowerCase() + '/') ? pp.slice(rr.length + 1) : pp;
+}
+
+// longest common ancestor directory of a path list ('' → undefined)
+export function commonRootDir(paths: string[]): string | undefined {
+  if (paths.length === 0) return undefined;
+  const posix = paths.map((p) => p.replace(/\\/g, '/'));
+  let prefix = posix[0].slice(0, posix[0].lastIndexOf('/') + 1);
+  for (const p of posix) {
+    while (prefix && !p.toLowerCase().startsWith(prefix.toLowerCase())) {
+      const i = prefix.lastIndexOf('/', prefix.length - 2);
+      if (i < 0) { prefix = ''; break; }
+      prefix = prefix.slice(0, i + 1);
+    }
+  }
+  return prefix || undefined;
+}
+
+export function buildFileTree(paths: string[], rootPath?: string): FileTreeNode[] {
+  const list = rootPath ? paths.map((p) => relativize(p, rootPath)).filter(Boolean) : paths;
   const root = new Map<string, unknown>();
-  for (const raw of paths) {
+  for (const raw of list) {
     const parts = raw.replace(/\\/g, '/').split('/').filter(Boolean);
     let node: Map<string, unknown> = root;
     for (let i = 0; i < parts.length - 1; i++) {

@@ -110,7 +110,7 @@ export function AgentWorkspaceView() {
   }, [activeTab, activeWorkspaceId, scanWorkspaceFiles]);
 
   const fileTree = useMemo(
-    () => buildFileTree(activeWorkspace?.files.map((f) => f.path) ?? []),
+    () => buildFileTree(activeWorkspace?.files.map((f) => f.path) ?? [], activeWorkspace?.folderPath),
     [activeWorkspace],
   );
   const truncated = (activeWorkspace?.files.length ?? 0) >= 1000;

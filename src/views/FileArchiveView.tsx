@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Folder,
@@ -33,13 +33,12 @@ import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { cn } from '@/src/lib/utils';
 import { isTauri } from '@/src/lib/api';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
-import { useRndStore } from '@/src/stores/rndStore';
-import { useProductStore } from '@/src/stores/productStore';
 
 import { WorkspaceSummaryModal } from '../components/WorkspaceSummaryModal';
 import { SetAsWorkspaceModal } from '../components/SetAsWorkspaceModal';
 import { AddWorkspaceModal } from '../components/AddWorkspaceModal';
 import { FileTree } from '@/src/components/FileTree';
+import { WorkspaceFileTree } from '@/src/components/WorkspaceFileTree';
 import { buildFileTree, commonRootDir } from '@/src/lib/fileTree';
 
 export function FileArchiveView() {
@@ -83,6 +82,46 @@ export function FileArchiveView() {
     [workspaces, selectedWorkspaceId]
   );
 
+  // Tauri: refresh real fs state when entering the page / switching workspace
+  // (store no-ops on web dev). Mirrors AgentWorkspaceView scannedFor pattern,
+  // but ref resets on remount so re-entering the tab re-scans.
+  const currentWorkspaceId = currentWorkspace?.id;
+  const scannedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isTauri() || !currentWorkspaceId) return;
+    if (scannedFor.current === currentWorkspaceId) return;
+    scannedFor.current = currentWorkspaceId;
+    void scanWorkspaceFiles(currentWorkspaceId);
+  }, [currentWorkspaceId, scanWorkspaceFiles]);
+
+  // Tauri: local index tab derives from the real scan (ws.files) instead of
+  // the mock/persisted localIndexedFiles; web dev keeps mock data.
+  // favorite/associatedApp state is preserved per fullPath via localIndexedFiles.
+  const localFiles: LocalIndexedFile[] = useMemo(() => {
+    if (!isTauri() || !currentWorkspace) return localIndexedFiles;
+    const prevByPath = new Map(
+      localIndexedFiles.map((f) => [f.fullPath.toLowerCase(), f] as const),
+    );
+    return currentWorkspace.files
+      .filter((f) => f.type !== 'dir')
+      .map((f) => {
+        const prev = prevByPath.get(f.path.toLowerCase());
+        const dot = f.name.lastIndexOf('.');
+        return {
+          id: f.id,
+          name: f.name,
+          folder: f.path.slice(0, Math.max(0, f.path.length - f.name.length - 1)) || f.path,
+          fullPath: f.path,
+          size: f.size,
+          type: f.type as LocalIndexedFile['type'],
+          extension: dot > 0 ? f.name.slice(dot) : '',
+          updatedAt: f.updatedAt,
+          associatedApp: prev?.associatedApp ?? '系统默认程序',
+          isFavorite: prev?.isFavorite,
+        };
+      });
+  }, [isTauri(), currentWorkspace, localIndexedFiles]);
+
   const associatedProject = useMemo(() => {
     if (!currentWorkspace) return null;
     return projects.find(p => p.id === currentWorkspace.projectId || p.name === currentWorkspace.projectName);
@@ -102,7 +141,7 @@ export function FileArchiveView() {
   }, [currentWorkspace, workspaceFileSearch, workspaceFileTypeFilter]);
 
   const filteredLocalFiles = useMemo(() =>
-    localIndexedFiles.filter(file => {
+    localFiles.filter(file => {
       const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         file.folder.toLowerCase().includes(searchQuery.toLowerCase()) ||
         file.extension.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -111,18 +150,24 @@ export function FileArchiveView() {
       const matchesFav = !showOnlyFavorites || file.isFavorite;
       return matchesSearch && matchesCategory && matchesFav;
     }),
-    [localIndexedFiles, searchQuery, categoryFilter, showOnlyFavorites]
+    [localFiles, searchQuery, categoryFilter, showOnlyFavorites]
   );
 
-  const localFilePaths = useMemo(() => localIndexedFiles.map((f) => f.fullPath), [localIndexedFiles]);
+  // Workspace files tree (workspaces tab) — shared component with AgentWorkspaceView,
+  // full ops (context menu / drag-move / create / rename); tree shows filtered files.
+  const localFilePaths = useMemo(() => localFiles.map((f) => f.fullPath), [localFiles]);
+  const wsDirPaths = useMemo(
+    () => (isTauri() && currentWorkspace ? currentWorkspace.files.filter((f) => f.type === 'dir').map((f) => f.path) : []),
+    [isTauri(), currentWorkspace],
+  );
   const localFileTree = useMemo(
-    () => buildFileTree(localFilePaths, commonRootDir(localFilePaths)),
-    [localFilePaths],
+    () => buildFileTree(localFilePaths, commonRootDir(localFilePaths), wsDirPaths),
+    [localFilePaths, wsDirPaths],
   );
 
   const commonFolders = useMemo(() => {
     const map = new Map<string, { folder: string; count: number; files: LocalIndexedFile[] }>();
-    localIndexedFiles.forEach(f => {
+    localFiles.forEach(f => {
       const existing = map.get(f.folder);
       if (existing) {
         existing.count += 1;
@@ -132,10 +177,17 @@ export function FileArchiveView() {
       }
     });
     return Array.from(map.values()).slice(0, 3);
-  }, [localIndexedFiles]);
+  }, [localFiles]);
 
   const toggleFavorite = (id: string) => {
-    setLocalIndexedFiles(prev => prev.map(f => f.id === id ? { ...f, isFavorite: !f.isFavorite } : f));
+    const target = localFiles.find((f) => f.id === id);
+    if (!target) return;
+    // upsert into localIndexedFiles so favorite/associatedApp survive re-scans
+    setLocalIndexedFiles((prev) => {
+      const i = prev.findIndex((f) => f.fullPath.toLowerCase() === target.fullPath.toLowerCase());
+      const next = { ...(i >= 0 ? prev[i] : target), isFavorite: !(i >= 0 ? prev[i].isFavorite : target.isFavorite) };
+      return i >= 0 ? prev.map((f, j) => (j === i ? next : f)) : [next, ...prev];
+    });
   };
 
   const handleLaunchFile = (file: { name: string; associatedApp?: string }) => {
@@ -148,36 +200,8 @@ export function FileArchiveView() {
     showToast(`已定位并复制路径到剪贴板：${path}`, 'copy');
   };
 
-  const TEXT_FILE_RE = /\.(md|txt|json|csv|log|ya?ml|xml|ts|tsx|js|rs|py)$/i;
-
-  const handleExtractToKnowledge = async (f: WorkspaceFile) => {
-    if (!currentWorkspace) return;
-    const productId = currentWorkspace.projectId || useProductStore.getState().products[0]?.id;
-    if (!productId) {
-      showToast('请先创建产品再提取到知识库');
-      return;
-    }
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const content = await invoke<string>('read_workspace_file', { path: f.path });
-      await useRndStore.getState().addKnowledgeItem(productId, {
-        title: f.name.replace(/\.[^.]+$/, ''),
-        category: '经验沉淀',
-        tags: ['归档提取'],
-        author: 'AI 助手（归档提取）',
-        readTime: '—',
-        summary: `从工作区 ${currentWorkspace.name} 提取的 ${f.name}`,
-        content,
-      }, { sourceType: 'archive_import' });
-      showToast('已提取到知识库：' + f.name);
-    } catch (err) {
-      console.error('extract to knowledge failed', err);
-      showToast(typeof err === 'string' ? err : '提取失败，请查看控制台');
-    }
-  };
-
   const handleConvertToWorkspace = (folder: string, fileName?: string) => {
-    const folderFiles = localIndexedFiles.filter(f => f.folder === folder).map(f => ({
+    const folderFiles = localFiles.filter(f => f.folder === folder).map(f => ({
       id: f.id, name: f.name, type: f.type, size: f.size, updatedAt: f.updatedAt, path: f.fullPath,
       contentSnippet: `来自本地索引路径 ${f.fullPath}`,
     }));
@@ -244,7 +268,7 @@ export function FileArchiveView() {
           <SegmentedControl
             segments={[
               { id: 'workspaces', label: `工作区归档 (${workspaces.length})` },
-              { id: 'local_index', label: `本地文件索引 (${localIndexedFiles.length})` },
+              { id: 'local_index', label: `本地文件索引 (${localFiles.length})` },
             ]}
             value={activeTab}
             onChange={setActiveTab}
@@ -461,62 +485,14 @@ export function FileArchiveView() {
                   />
                 </div>
 
-                {/* Files Table */}
+                {/* Files Tree (full ops, shared with Agent workspace) */}
                 <div className="flex-1 overflow-y-auto p-4">
-                  {filteredWorkspaceFiles.length === 0 ? (
-                    <div className="py-14 text-center text-text-tertiary text-xs">
-                      <Folder size={28} weight="duotone" className="mx-auto text-text-placeholder mb-2" />
-                      暂无匹配的工作区文件
-                    </div>
-                  ) : (
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="text-[10px] text-text-tertiary border-b border-border-subtle">
-                          <th className="pb-2.5 px-2.5 font-medium">文件名与内容摘要</th>
-                          <th className="pb-2.5 px-2.5 font-medium">大小</th>
-                          <th className="pb-2.5 px-2.5 font-medium">更新时间</th>
-                          <th className="pb-2.5 px-2.5 font-medium text-right">操作</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredWorkspaceFiles.map(f => (
-                          <tr key={f.id} className="hover:bg-bg-secondary/50 group border-b border-border-subtle last:border-none transition-colors">
-                            <td className="py-2.5 px-2.5">
-                              <div className="flex items-start gap-2.5">
-                                <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-bg-secondary border border-border-subtle flex items-center justify-center shrink-0 mt-0.5">
-                                  {renderFileIcon(f.type, 16)}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-xs text-text-primary group-hover:text-accent transition-colors">{f.name}</div>
-                                  {f.contentSnippet && (
-                                    <p className="text-[10px] text-text-tertiary line-clamp-1 mt-0.5 max-w-md">{f.contentSnippet}</p>
-                                  )}
-                                  <span className="text-[9px] text-text-placeholder font-mono block mt-0.5">{f.path}</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-2.5 text-[11px] text-text-secondary whitespace-nowrap">{f.size}</td>
-                            <td className="py-2.5 px-2.5 text-[11px] text-text-secondary whitespace-nowrap">{f.updatedAt}</td>
-                            <td className="py-2.5 px-2.5 text-right whitespace-nowrap">
-                              <div className="flex justify-end gap-1.5">
-                                <Button variant="ghost" size="xs" onClick={() => handleLaunchFile({ name: f.name, associatedApp: '系统编辑器' })}>
-                                  <Play size={12} weight="duotone" /> 启动
-                                </Button>
-                                <Button variant="ghost" size="xs" onClick={() => handleLocateFile(f.path)}>
-                                  <Copy size={12} weight="duotone" />
-                                </Button>
-                                {isTauri() && TEXT_FILE_RE.test(f.name) && (
-                                  <Button variant="ghost" size="xs" className="text-accent" onClick={() => void handleExtractToKnowledge(f)}>
-                                    <FileText size={12} weight="duotone" /> 提取
-                                  </Button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                  <WorkspaceFileTree
+                    files={filteredWorkspaceFiles}
+                    folderPath={currentWorkspace.folderPath}
+                    workspaceId={currentWorkspace.id}
+                    emptyText="暂无匹配的工作区文件"
+                  />
                 </div>
               </Card>
             ) : (

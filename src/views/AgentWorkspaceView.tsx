@@ -37,7 +37,7 @@ import { formatRelativeTime, cn } from '@/src/lib/utils';
 import type { Provider } from '@/src/lib/api';
 import { AgentConsole } from '@/src/components/AgentConsole';
 import { MorningReport } from '@/src/components/MorningReport';
-import { FileTree, type FileTreeMenu } from '@/src/components/FileTree';
+import { FileTree, type FileTreeMenu, type FileTreeDnd } from '@/src/components/FileTree';
 import { buildFileTree } from '@/src/lib/fileTree';
 import { isValidFsName } from '@/src/lib/fsName';
 import { isTauri } from '@/src/lib/api';
@@ -190,6 +190,21 @@ export function AgentWorkspaceView() {
         }
       : undefined;
 
+  const handleMove = async (srcRel: string, destDirRel: string) => {
+    try {
+      await invoke('fs_move', { root: folderPath, srcRel, destDirRel });
+      toast({ type: 'success', title: '已移动', description: srcRel });
+      refreshTree();
+    } catch (e) {
+      toast({ type: 'error', title: '移动失败', description: String(e) });
+    }
+  };
+
+  const fileTreeDnd: FileTreeDnd | undefined =
+    isTauri() && folderPath
+      ? { onMove: (srcRel, destDirRel) => void handleMove(srcRel, destDirRel) }
+      : undefined;
+
   return (
     <div className="flex gap-4 h-[calc(100dvh-var(--titlebar-h)-var(--header-h)-48px)]">
       {/* Left: Chat Area */}
@@ -302,7 +317,7 @@ export function AgentWorkspaceView() {
             )}
             {activeTab === 'files' && (
               <>
-                <FileTree nodes={fileTree} emptyText="当前工作区暂无文件" menu={fileTreeMenu} />
+                <FileTree nodes={fileTree} emptyText="当前工作区暂无文件" menu={fileTreeMenu} dnd={fileTreeDnd} />
                 {truncated && (
                   <div className="text-[11px] text-text-tertiary text-center mt-2">
                     已截断：仅显示前 1000 个文件

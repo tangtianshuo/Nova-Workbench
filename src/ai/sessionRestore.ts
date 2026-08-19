@@ -60,15 +60,20 @@ export function findOrphanToolCallEvents(events: AgentEvent[]): AgentEvent[] {
 
 const activeRestores = new Map<string, Promise<RestoredSession | null>>();
 
-/** Restore entry. Deduped PER sessionId: concurrent calls for the same session share
- * one promise; different sessions restore independently. No-arg (crash-recovery
+/** Restore entry. Deduped PER sessionId while IN FLIGHT: concurrent calls for the
+ * same session share one promise; different sessions restore independently. The
+ * cache entry is removed on settle — a completed result (including a null from a
+ * mid-write/empty read) must never be frozen, or later clicks on that session
+ * would silently no-op forever even after its events land. No-arg (crash-recovery
  * startup path, deduped under '__latest__') restores the most recent session.
  * Returns null when the session does not exist / has no events. */
 export function restoreSession(sessionId?: string): Promise<RestoredSession | null> {
   const key = sessionId ?? '__latest__';
   let promise = activeRestores.get(key);
   if (!promise) {
-    promise = doRestore(sessionId);
+    promise = doRestore(sessionId).finally(() => {
+      if (activeRestores.get(key) === promise) activeRestores.delete(key);
+    });
     activeRestores.set(key, promise);
   }
   return promise;

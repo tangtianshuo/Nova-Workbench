@@ -18,6 +18,7 @@ import { resetMemoryConfirmationStore } from '../confirmationStore';
 import {
   resetRestoreForTesting,
   restoreLatestSession,
+  restoreSession,
 } from '../sessionRestore';
 
 async function appendTurn(
@@ -240,6 +241,26 @@ test('tokenBudget is restored from the session_created payload', async () => {
   const restored = await restoreLatestSession();
   assert.ok(restored !== null);
   assert.equal(restored.session.tokenBudget, 4321, 'tokenBudget round-trips from session_created payload');
+});
+
+// Regression (agent-recent-session-no-history): the dedupe cache must only
+// cover IN-FLIGHT restores. A settled null (session clicked before its queued
+// event writes landed) must not be frozen — otherwise every later click on that
+// session in the recent list silently no-ops.
+test('dedupe cache does not freeze a settled null: later restore re-reads events', async () => {
+  resetAll();
+  resetRestoreForTesting();
+  assert.equal(await restoreSession('late-write-session'), null);
+
+  const session = new ChatSession({ sessionId: 'late-write-session' });
+  await appendTurn(session, '迟到的问题', '迟到的回答');
+
+  const restored = await restoreSession('late-write-session');
+  assert.ok(restored !== null, 'second restore must not return the cached null');
+  assert.deepEqual(
+    restored.session.getAllMessages().map((m) => `${m.role}:${m.content}`),
+    ['user:迟到的问题', 'assistant:迟到的回答'],
+  );
 });
 
 console.log('OK: Phase 14 Plan 04 session restore checks passed');

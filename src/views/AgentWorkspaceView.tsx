@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Clock,
@@ -7,11 +7,15 @@ import {
   Folder,
   Cpu,
   CaretDown,
+  GitBranch,
 } from '@phosphor-icons/react';
 import { Card, CardHover, Button, Badge, Separator, SegmentedControl } from '@/src/components/ui';
 import { AddWorkspaceModal } from '@/src/components/AddWorkspaceModal';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { useUIStore } from '@/src/stores/uiStore';
+import { useChatConsoleStore } from '@/src/stores/chatConsoleStore';
+import { getSessionRepo, type SessionMeta } from '@/src/ai/sessionRepo';
+import { formatRelativeTime, cn } from '@/src/lib/utils';
 import type { Provider } from '@/src/lib/api';
 import { AgentConsole } from '@/src/components/AgentConsole';
 import { MorningReport } from '@/src/components/MorningReport';
@@ -24,19 +28,37 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   ollama: 'Ollama',
 };
 
-const recentTasks = [
-  { time: '5 分钟前', title: 'BLCaptain 付费榜扫描选品', messageCount: 7, agent: 'Nova' },
-  { time: '5 分钟前', title: '安装 BLCaptain App Store Demand...', messageCount: 1, agent: 'Nova' },
-  { time: '6 天前', title: '直接在 Reddit 上进行需求挖掘', messageCount: 2, agent: 'Nova' },
-  { time: '7月21日', title: '非遗手工制品跨境平台调研', messageCount: 4, agent: 'Nova' },
-  { time: '7月21日', title: '非遗手工制品跨境平台调研', messageCount: 6, agent: 'Nova' },
-];
+type RecentSession = SessionMeta & { messageCount: number };
 
 export function AgentWorkspaceView() {
   const [activeTab, setActiveTab] = useState('recent');
   const [showAddWorkspace, setShowAddWorkspace] = useState(false);
+  const [sessions, setSessions] = useState<RecentSession[]>([]);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeSessionId = useChatConsoleStore((s) => s.activeSessionId);
+  const sessionListVersion = useChatConsoleStore((s) => s.sessionListVersion);
+  const loading = useChatConsoleStore((s) => s.loading);
+  const switchSession = useChatConsoleStore((s) => s.switchSession);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const repo = getSessionRepo();
+      const metas = await repo.listSessionsByWorkspace(activeWorkspaceId);
+      const counts = await repo.countMessagesBySession(metas.map((m) => m.sessionId));
+      if (cancelled) return;
+      setSessions(
+        metas
+          .map((m) => ({ ...m, messageCount: counts.get(m.sessionId) ?? 0 }))
+          .slice(0, 10),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkspaceId, sessionListVersion, activeSessionId]);
+
   const provider = useUIStore((s) => s.activeAIProvider);
   const ollamaModel = useUIStore((s) => s.ollamaModel);
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
@@ -81,24 +103,48 @@ export function AgentWorkspaceView() {
           />
 
           <div className="space-y-1">
-            {activeTab === 'recent' && recentTasks.map((task, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: idx * 0.04 }}
-                className="flex items-center gap-3 px-2 py-2 -mx-2 rounded-[var(--radius-md)] hover:bg-bg-secondary transition-colors cursor-pointer group"
-              >
-                <Clock size={12} className="text-text-tertiary shrink-0" />
-                <span className="text-[11px] text-text-tertiary w-12 shrink-0">{task.time}</span>
-                <span className="text-sm text-text-primary truncate flex-1 font-medium">
-                  {task.title}
-                </span>
-                <Badge variant="neutral" className="text-[10px] px-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {task.messageCount} 条
-                </Badge>
-              </motion.div>
-            ))}
+            {activeTab === 'recent' && sessions.length === 0 && (
+              <div className="text-center text-sm text-text-tertiary py-6">
+                还没有对话，在左侧开始第一句吧
+              </div>
+            )}
+            {activeTab === 'recent' && sessions.map((session, idx) => {
+              const isActive = session.sessionId === activeSessionId;
+              const disabledByStreaming = loading && !isActive;
+              return (
+                <motion.div
+                  key={session.sessionId}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: idx * 0.04 }}
+                  onClick={isActive ? undefined : () => { void switchSession(session.sessionId); }}
+                  className={cn(
+                    'flex items-center gap-3 px-2 py-2 -mx-2 rounded-[var(--radius-md)] hover:bg-bg-secondary transition-colors cursor-pointer group',
+                    isActive && 'bg-accent-subtle/50',
+                    disabledByStreaming && 'opacity-50 pointer-events-none',
+                  )}
+                >
+                  <Clock size={12} className="text-text-tertiary shrink-0" />
+                  <span className="text-[11px] text-text-tertiary w-16 shrink-0">
+                    {formatRelativeTime(session.lastActiveAt)}
+                  </span>
+                  {session.parentSessionId && (
+                    <span
+                      className="shrink-0"
+                      title={`分支自: ${session.parentTitle ?? '未知会话'}`}
+                    >
+                      <GitBranch size={12} weight="duotone" className="text-accent" />
+                    </span>
+                  )}
+                  <span className="text-sm text-text-primary truncate flex-1 font-medium">
+                    {session.title ?? '新对话'}
+                  </span>
+                  <Badge variant="neutral" className="text-[10px] px-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {session.messageCount} 条
+                  </Badge>
+                </motion.div>
+              );
+            })}
             {activeTab === 'scheduled' && (
               <div className="text-center text-sm text-text-tertiary py-6">
                 暂无定时任务
@@ -106,11 +152,15 @@ export function AgentWorkspaceView() {
             )}
           </div>
 
-          <Separator className="my-3" />
-          <Button variant="ghost" size="sm" className="w-full justify-between">
-            查看全部
-            <CaretRight size={14} />
-          </Button>
+          {(activeTab !== 'recent' || sessions.length > 0) && (
+            <>
+              <Separator className="my-3" />
+              <Button variant="ghost" size="sm" className="w-full justify-between">
+                查看全部
+                <CaretRight size={14} />
+              </Button>
+            </>
+          )}
         </Card>
 
         {/* Agent Workspace Grid */}

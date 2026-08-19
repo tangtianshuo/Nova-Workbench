@@ -34,7 +34,7 @@
 
 ### 自动命名 (TITLE)
 
-- [ ] **TITLE-01**: session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
+- [x] **TITLE-01**: session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
 - [x] **TITLE-02**: 标题生成后静默更新列表显示,不打断用户;异步回来时按 sessionId 守卫,不写错会话
 
 ## v2 Requirements
@@ -81,7 +81,7 @@
 | QUICK-01 | Phase 21 | Pending |
 | QUICK-02 | Phase 21 | Pending |
 | QUICK-03 | Phase 21 | Pending |
-| TITLE-01 | Phase 21 | Pending |
+| TITLE-01 | Phase 21 | Complete |
 | TITLE-02 | Phase 21 | Complete |
 
 **Coverage:**

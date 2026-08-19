@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-19T00:57:20.029Z"
+last_updated: "2026-08-19T01:01:08.506Z"
 last_activity: 2026-08-19
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 ## Current Position
 
 Phase: 21 (session-list) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-08-19
 
@@ -47,6 +47,7 @@ v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 20 P01 | 14m | 2 tasks | 6 files |
 | Phase 20 P02 | 16m | 2 tasks | 3 files |
 | Phase 21 P01 | 10m | 2 tasks | 4 files |
+| Phase 21 P02 | 12m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ v0.3.1 roadmap decisions:
 - [Phase 20]: 20-01: child compaction persists coveredSeq*/splitSeq in child space; fork remap (+prefix.length) restores normalized space at resolve time
 - [Phase 20]: 20-02: eager forkable resolution (message-event zip); fork success = jump+badge no toast; switchSession awaits fork/parent meta refresh
 - [Phase 21]: 21-01: updateTitle write-once (title IS NULL guard), countMessagesBySession single aggregate SQL; formatRelativeTime buckets per spec
+- [Phase 21]: 21-02: maybeGenerateTitle fire-and-forget in submit finally (captured sessionId), llm-injectable for tests; sessionListVersion bump after write-once updateTitle
 
 ### TODOs (pending)
 

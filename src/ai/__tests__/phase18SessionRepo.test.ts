@@ -24,7 +24,7 @@ const migrationsDir = path.join(
 test('memory: upsert inserts createdAt/lastActiveAt, second call only bumps lastActiveAt', async () => {
   const repo = new MemorySessionRepo();
   await repo.upsertSessionMeta({ sessionId: 's1', workspaceId: 'ws-1' });
-  await repo.updateTitle('s1', 'First title');
+  await repo.updateTitle('s1', 'First title', 'llm');
   const before = (await repo.listSessionsByWorkspace('ws-1'))[0];
   await new Promise((r) => setTimeout(r, 5));
   await repo.upsertSessionMeta({ sessionId: 's1', workspaceId: 'ws-OTHER' });
@@ -39,7 +39,7 @@ test('memory: updateTitle sets title on target row only', async () => {
   const repo = new MemorySessionRepo();
   await repo.upsertSessionMeta({ sessionId: 's1', workspaceId: 'ws-1' });
   await repo.upsertSessionMeta({ sessionId: 's2', workspaceId: 'ws-1' });
-  await repo.updateTitle('s2', 'T2');
+  await repo.updateTitle('s2', 'T2', 'llm');
   const rows = await repo.listSessionsByWorkspace('ws-1');
   const s1 = rows.find((r: SessionMeta) => r.sessionId === 's1');
   const s2 = rows.find((r: SessionMeta) => r.sessionId === 's2');
@@ -101,7 +101,7 @@ test('sqlite parity: upsert/list/title against real 0007 sessions table', () => 
   const upsert = db.prepare(UPSERT_SQL);
 
   upsert.run('s1', 'ws-1', '2026-08-18T00:00:00Z', '2026-08-18T00:00:00Z');
-  db.prepare(TITLE_SQL).run('First title', 's1');
+  db.prepare(TITLE_SQL).run('First title', 'llm', 's1');
   upsert.run('s1', 'ws-OTHER', '2026-08-18T00:00:00Z', '2026-08-18T09:00:00Z'); // conflict path
   upsert.run('s2', 'ws-2', '2026-08-18T01:00:00Z', '2026-08-18T01:00:00Z');
   upsert.run('global', null, '2026-08-18T02:00:00Z', '2026-08-18T02:00:00Z');
@@ -114,7 +114,7 @@ test('sqlite parity: upsert/list/title against real 0007 sessions table', () => 
   assert.equal(s1.lastActiveAt, '2026-08-18T09:00:00Z'); // bumped
   assert.equal(s1.createdAt, '2026-08-18T00:00:00Z'); // not bumped
 
-  db.prepare(TITLE_SQL).run('T2', 's2');
+  db.prepare(TITLE_SQL).run('T2', 'llm', 's2');
   const s2 = rowToMeta(db.prepare('SELECT * FROM sessions WHERE session_id = ?').get('s2') as Record<string, unknown>);
   assert.equal(s2.title, 'T2');
 });

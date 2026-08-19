@@ -7,6 +7,7 @@
 // matches migration 0007 backfill semantics).
 import { isTauri } from '@/src/lib/api';
 import { lazySqlite } from '@/src/stores/storage/lazySqlite';
+import { getEventStore } from '@/src/ai/events/eventStore';
 
 export interface SessionMeta {
   sessionId: string;
@@ -25,7 +26,9 @@ export interface SessionMeta {
 export interface SessionRepo {
   upsertSessionMeta(input: { sessionId: string; workspaceId: string | null }): Promise<void>;
   listSessionsByWorkspace(workspaceId: string | null): Promise<SessionMeta[]>;
-  updateTitle(sessionId: string, title: string): Promise<void>;
+  updateTitle(sessionId: string, title: string, titleSource: 'llm' | 'fallback'): Promise<void>;
+  /** Phase 21 (LIST-01): batch message counts per session (one SQL round-trip). */
+  countMessagesBySession(sessionIds: string[]): Promise<Map<string, number>>;
   /** Phase 20: fork metadata by explicit id (resolveSessionEvents). */
   getSession(sessionId: string): Promise<SessionMeta | null>;
   /** Phase 20: create a fork session row (parent_session_id + fork_cut_seq). */
@@ -47,7 +50,13 @@ export const SESSION_LIST_SQL = `SELECT s.session_id, s.workspace_id, s.title, s
   WHERE s.workspace_id = $1 OR s.workspace_id IS NULL
   ORDER BY s.last_active_at DESC`;
 
-export const SESSION_TITLE_SQL = 'UPDATE sessions SET title = $1 WHERE session_id = $2';
+export const SESSION_TITLE_SQL =
+  'UPDATE sessions SET title = $1, title_source = $2 WHERE session_id = $3 AND title IS NULL';
+
+// Canonical text ($N style). SQLite impl builds the IN-list dynamically from
+// the ids array ($1..$n, callers cap at 50 ids). Keep in sync with the built
+// variant below — SQL parity tests lock the shape.
+export const SESSION_MESSAGE_COUNT_SQL = `SELECT session_id, COUNT(*) AS message_count FROM agent_events WHERE session_id IN ($1, $2, $3, $4, $5) AND event_type IN ('user_message','assistant_message') GROUP BY session_id`;
 
 export const SESSION_GET_SQL = `SELECT s.session_id, s.workspace_id, s.title, s.title_source, s.parent_session_id, s.fork_cut_seq, s.created_at, s.last_active_at, p.title AS parent_title
   FROM sessions s LEFT JOIN sessions p ON p.session_id = s.parent_session_id
@@ -122,9 +131,26 @@ export class MemorySessionRepo implements SessionRepo {
     });
   }
 
-  async updateTitle(sessionId: string, title: string): Promise<void> {
+  async updateTitle(sessionId: string, title: string, titleSource: 'llm' | 'fallback'): Promise<void> {
     const row = this.rows.get(sessionId);
-    if (row) row.title = title;
+    if (row && row.title === null) {
+      row.title = title;
+      row.titleSource = titleSource;
+    }
+  }
+
+  async countMessagesBySession(sessionIds: string[]): Promise<Map<string, number>> {
+    // ponytail: N+1 per-session listEvents — memory impl is test/web-dev only,
+    // SQLite path is the single aggregate SQL; switch to a shared in-memory
+    // index if web-dev lists grow large.
+    const store = getEventStore();
+    const counts = new Map<string, number>();
+    for (const id of sessionIds) {
+      const events = await store.listEvents(id);
+      const n = events.filter((e) => e.eventType === 'user_message' || e.eventType === 'assistant_message').length;
+      if (n > 0) counts.set(id, n);
+    }
+    return counts;
   }
 
   resetForTesting(): void {
@@ -191,9 +217,18 @@ export class SqliteSessionRepo implements SessionRepo {
     await db.execute(SESSION_FORK_INSERT_SQL, [input.sessionId, input.workspaceId, input.title, input.parentSessionId, input.forkCutSeq, now]);
   }
 
-  async updateTitle(sessionId: string, title: string): Promise<void> {
+  async updateTitle(sessionId: string, title: string, titleSource: 'llm' | 'fallback'): Promise<void> {
     const db = await lazySqlite();
-    await db.execute(SESSION_TITLE_SQL, [title, sessionId]);
+    await db.execute(SESSION_TITLE_SQL, [title, titleSource, sessionId]);
+  }
+
+  async countMessagesBySession(sessionIds: string[]): Promise<Map<string, number>> {
+    if (sessionIds.length === 0) return new Map();
+    const db = await lazySqlite();
+    const placeholders = sessionIds.map((_, i) => `$${i + 1}`).join(', ');
+    const sql = `SELECT session_id, COUNT(*) AS message_count FROM agent_events WHERE session_id IN (${placeholders}) AND event_type IN ('user_message','assistant_message') GROUP BY session_id`;
+    const rows = await db.select<{ session_id: string; message_count: number }[]>(sql, sessionIds);
+    return new Map(rows.map((r) => [r.session_id, r.message_count]));
   }
 }
 

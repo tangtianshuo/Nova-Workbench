@@ -248,7 +248,7 @@ test('9. round-trip: fork → child turns → forced compaction → resolveSessi
 test('10a. memory repo: createForkSession persists fork columns; list returns parentTitle', async () => {
   const repo = new MemorySessionRepo();
   await repo.upsertSessionMeta({ sessionId: 'parent-1', workspaceId: 'ws-1' });
-  await repo.updateTitle('parent-1', '父会话标题');
+  await repo.updateTitle('parent-1', '父会话标题', 'llm');
   await repo.createForkSession({ sessionId: 'fork-1', workspaceId: 'ws-1', parentSessionId: 'parent-1', forkCutSeq: 6, title: null });
 
   const meta = await repo.getSession('fork-1');

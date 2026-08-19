@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: 999.4
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-08-19
+Last activity: 2026-08-19 - Quick task 260819-df6: Agent 工作区工作区切换按钮可用（切换后进入新 session）；点击其他工作区的最近 session 时通知用户
 
 ```
 v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 phases)
@@ -91,7 +91,7 @@ None.
 
 ### Quick Tasks Completed
 
-See git history / prior STATE (12 quick tasks logged through 260818-swm).
+See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest: 260819-df6 Agent 工作区工作区切换下拉 + 跨工作区 session 通知（2026-08-19, 4084db2）。
 
 ## Session Continuity
 

@@ -13,14 +13,66 @@ import {
   SelectSeparator,
 } from '@/src/components/ui/Select';
 import { AgentConsole } from '@/src/components/AgentConsole';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  useToast,
+} from '@/src/components/ui';
+import { Folder, CaretDown, Plus } from '@phosphor-icons/react';
+import { cn } from '@/src/lib/utils';
 import { useUIStore } from '@/src/stores/uiStore';
 import { useChatConsoleStore, PROVIDER_LABELS } from '@/src/stores/chatConsoleStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { getSessionRepo, type SessionMeta } from '@/src/ai/sessionRepo';
 import { formatRelativeTime } from '@/src/lib/utils';
-import { Plus } from '@phosphor-icons/react';
-
 const NEW_SESSION_VALUE = '__new__';
+
+function WorkspaceSwitcherRow() {
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const setActiveWorkspaceId = useWorkspaceStore((s) => s.setActiveWorkspaceId);
+  const { toast } = useToast();
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
+
+  return (
+    <div className="flex px-4 py-2 border-b border-border-subtle">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="secondary" size="xs" className="gap-1">
+            <Folder size={12} weight="duotone" className="text-accent" />
+            <span className="max-w-[160px] truncate">{activeWorkspace?.name ?? '当前工作区'}</span>
+            <CaretDown size={10} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {workspaces.map((ws) => (
+            <DropdownMenuItem
+              key={ws.id}
+              onSelect={() => {
+                const r = setActiveWorkspaceId(ws.id);
+                if (!r.success && r.reason === 'streaming') {
+                  toast({ type: 'error', title: '无法切换工作区', description: '请等待当前回复完成' });
+                }
+              }}
+            >
+              <Folder
+                size={12}
+                weight="duotone"
+                className={ws.id === activeWorkspaceId ? 'text-accent' : 'text-text-tertiary'}
+              />
+              <span className={cn('truncate', ws.id === activeWorkspaceId && 'text-accent font-medium')}>
+                {ws.name}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 function ScopedSelectorRow() {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
@@ -117,6 +169,7 @@ export function ChatPanel() {
     <Drawer open={isOpen} onOpenChange={setOpen}>
       <DrawerContent width={480} className="max-w-[100vw]" onOpenAutoFocus={textareaFocus}>
         <DrawerHeader title="AI 助手" description={`当前 provider：${PROVIDER_LABELS[provider]}`} />
+        <WorkspaceSwitcherRow />
         {chatPanelMode === 'scoped' && <ScopedSelectorRow />}
         <AgentConsole />
       </DrawerContent>

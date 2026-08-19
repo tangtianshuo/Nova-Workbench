@@ -5,6 +5,7 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 // stub); Wave 2 (plan 03-02) wires #[tauri::command] fns into invoke_handler.
 mod commands;
 mod error;
+mod file_ops;
 mod keychain;
 mod llm;
 mod state;
@@ -118,6 +119,10 @@ pub fn run() {
             workspace_scan::scan_workspace_folder,
             workspace_scan::read_workspace_file,
             workspace_scan::write_workspace_file,
+            file_ops::reveal_in_explorer,
+            file_ops::fs_create_dir,
+            file_ops::fs_create_file,
+            file_ops::fs_rename,
         ])
         .setup(|app| {
             // Set minimum window size

@@ -165,15 +165,7 @@ pub fn read_workspace_file(path: String) -> Result<String, String> {
     }
 }
 
-fn sanitize_file_name(name: &str) -> Result<String, String> {
-    if name.is_empty() {
-        return Err("文件名不能为空".to_string());
-    }
-    if name.contains('/') || name.contains('\\') || name.contains("..") {
-        return Err("文件名包含非法字符".to_string());
-    }
-    Ok(name.to_string())
-}
+use crate::file_ops::sanitize_file_name;
 
 #[tauri::command]
 pub fn write_workspace_file(folder_path: String, file_name: String, content: String) -> Result<String, String> {
@@ -251,16 +243,6 @@ mod tests {
         assert!(TEXT_EXTS.contains(&"tsx"));
         assert!(!TEXT_EXTS.contains(&"exe"));
         assert!(!TEXT_EXTS.contains(&"png"));
-    }
-
-    #[test]
-    fn sanitize_rules() {
-        assert!(sanitize_file_name("../x.md").is_err());
-        assert!(sanitize_file_name("a/b.md").is_err());
-        assert!(sanitize_file_name("a\\b.md").is_err());
-        assert!(sanitize_file_name("").is_err());
-        assert!(sanitize_file_name("  ").is_ok()); // whitespace-only allowed; trimmed frontend-side
-        assert_eq!(sanitize_file_name("PRD v3.2.md").unwrap(), "PRD v3.2.md");
     }
 
     fn temp_subdir(tag: &str) -> std::path::PathBuf {

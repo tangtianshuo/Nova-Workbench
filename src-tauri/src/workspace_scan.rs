@@ -6,8 +6,8 @@ use std::fs;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
-const MAX_DEPTH: usize = 3;
-const MAX_FILES: usize = 500;
+const MAX_DEPTH: usize = 6;
+const MAX_FILES: usize = 1000;
 
 const IGNORED_DIRS: &[&str] = &["node_modules", ".git", "target"];
 

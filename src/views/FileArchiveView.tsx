@@ -39,6 +39,8 @@ import { useProductStore } from '@/src/stores/productStore';
 import { WorkspaceSummaryModal } from '../components/WorkspaceSummaryModal';
 import { SetAsWorkspaceModal } from '../components/SetAsWorkspaceModal';
 import { AddWorkspaceModal } from '../components/AddWorkspaceModal';
+import { FileTree } from '@/src/components/FileTree';
+import { buildFileTree } from '@/src/lib/fileTree';
 
 export function FileArchiveView() {
   const {
@@ -110,6 +112,11 @@ export function FileArchiveView() {
       return matchesSearch && matchesCategory && matchesFav;
     }),
     [localIndexedFiles, searchQuery, categoryFilter, showOnlyFavorites]
+  );
+
+  const localFileTree = useMemo(
+    () => buildFileTree(localIndexedFiles.map((f) => f.fullPath)),
+    [localIndexedFiles],
   );
 
   const commonFolders = useMemo(() => {
@@ -524,6 +531,19 @@ export function FileArchiveView() {
       {/* TAB 2: LOCAL FILE INDEX */}
       {activeTab === 'local_index' && (
         <Card className="flex flex-col flex-1 overflow-hidden p-4 space-y-4">
+          {/* Local file tree */}
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+              <Stack size={14} weight="duotone" className="text-accent" />
+              文件树
+            </span>
+            <div className="max-h-64 overflow-y-auto border border-border-subtle rounded-[var(--radius-md)] p-2">
+              <FileTree nodes={localFileTree} emptyText="暂无本地文件" />
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Quick Folders */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">

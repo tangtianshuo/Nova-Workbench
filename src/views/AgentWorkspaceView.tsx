@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Clock,
@@ -31,6 +31,8 @@ import { formatRelativeTime, cn } from '@/src/lib/utils';
 import type { Provider } from '@/src/lib/api';
 import { AgentConsole } from '@/src/components/AgentConsole';
 import { MorningReport } from '@/src/components/MorningReport';
+import { FileTree } from '@/src/components/FileTree';
+import { buildFileTree } from '@/src/lib/fileTree';
 
 const PROVIDER_LABELS: Record<Provider, string> = {
   deepseek: 'DeepSeek Chat',
@@ -53,6 +55,7 @@ export function AgentWorkspaceView() {
   const loading = useChatConsoleStore((s) => s.loading);
   const switchSession = useChatConsoleStore((s) => s.switchSession);
   const setActiveWorkspaceId = useWorkspaceStore((s) => s.setActiveWorkspaceId);
+  const scanWorkspaceFiles = useWorkspaceStore((s) => s.scanWorkspaceFiles);
   const { toast } = useToast();
 
   const handleSelectWorkspace = (id: string) => {
@@ -96,6 +99,21 @@ export function AgentWorkspaceView() {
   const ollamaModel = useUIStore((s) => s.ollamaModel);
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
   const modelLabel = provider === 'ollama' ? `Ollama · ${ollamaModel}` : PROVIDER_LABELS[provider];
+
+  // workspace files tab: scan on activation / workspace switch (store no-ops on web dev)
+  const scannedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'files' || !activeWorkspaceId) return;
+    if (scannedFor.current === activeWorkspaceId) return;
+    scannedFor.current = activeWorkspaceId;
+    void scanWorkspaceFiles(activeWorkspaceId);
+  }, [activeTab, activeWorkspaceId, scanWorkspaceFiles]);
+
+  const fileTree = useMemo(
+    () => buildFileTree(activeWorkspace?.files.map((f) => f.path) ?? []),
+    [activeWorkspace],
+  );
+  const truncated = (activeWorkspace?.files.length ?? 0) >= 1000;
 
   return (
     <div className="flex gap-4 h-[calc(100dvh-var(--titlebar-h)-var(--header-h)-48px)]">
@@ -142,6 +160,7 @@ export function AgentWorkspaceView() {
             segments={[
               { id: 'recent', label: '最近任务' },
               { id: 'scheduled', label: '定时任务' },
+              { id: 'files', label: '工作区文件' },
             ]}
             value={activeTab}
             onChange={setActiveTab}
@@ -206,9 +225,24 @@ export function AgentWorkspaceView() {
                 暂无定时任务
               </div>
             )}
+            {activeTab === 'files' && (
+              <>
+                <FileTree nodes={fileTree} emptyText="当前工作区暂无文件" />
+                {truncated && (
+                  <div className="text-[11px] text-text-tertiary text-center mt-2">
+                    已截断：仅显示前 1000 个文件
+                  </div>
+                )}
+                {!truncated && fileTree.length > 0 && (
+                  <div className="text-[10px] text-text-placeholder text-center mt-2">
+                    文件较多时可能被截断
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {(activeTab !== 'recent' || sessions.length > 0) && (
+          {activeTab !== 'files' && (activeTab !== 'recent' || sessions.length > 0) && (
             <>
               <Separator className="my-3" />
               <Button variant="ghost" size="sm" className="w-full justify-between">

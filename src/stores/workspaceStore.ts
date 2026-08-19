@@ -195,7 +195,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       useWorkspaceStore.getState().updateWorkspace(workspaceId, {
         files: result.files.map((f) => ({ ...f, type: f.fileType as WorkspaceFile['type'] })),
       });
-      if (result.truncated) console.warn('工作区文件扫描已截断(>500 文件或 >3 层)');
+      if (result.truncated) console.warn('工作区文件扫描已截断(>1000 文件或 >6 层)');
     } catch (e) {
       console.error('scan_workspace_folder failed:', e);
     }

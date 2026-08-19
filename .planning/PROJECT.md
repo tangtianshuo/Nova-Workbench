@@ -44,6 +44,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - **Session 数据模型与底座**(Phase 18,2026-08-18):migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)、toolLoop workspaceId stamping、confirmations sessionId 根因修复、sessionRepo 双实现(memory/sqlite)+ turn-start upsert;fixture-DB 升级测试锁定幂等,174/174 测试通过
 - **多 Session 运行时**(Phase 19,2026-08-18):restoreSession(sessionId?) 参数化(sessions[0] 假设移除)、chatConsoleStore activeSessionId/startNewSession/switchSession、streaming 双层守卫(session + 工作区切换)、pending 卡片四类读路径全部按 session 过滤;190/190 测试通过
 - **分支与卡片操作**(Phase 20,2026-08-18):fork.ts 纯函数层(buildForkEventStream 零复制 + seq 归一化 + compaction remap,测试先行 11 case)、resolveSessionEvents 投影融合(restore/compaction 双接线,支持 fork-of-fork)、forkFromMessage 全链路、AgentConsole hover 分支/复制工具栏 + 来源徽章 + 复制 toast;204/204 测试通过
+- **Session 列表与快捷入口 + 自动命名**(Phase 21,2026-08-19):sessionRepo 消息数聚合 + title IS NULL 守卫三参 updateTitle、formatRelativeTime、generateSessionTitle(LLM ≤20 字 + 首条消息回退)+ submit finally fire-and-forget 触发 + sessionListVersion 静默刷新、Agent 页真实最近列表(标题/相对时间/消息数/分支徽章,点击恢复)、ChatPanel scoped 双 Select 联动、Ctrl+K/Ctrl+Shift+K 分流;217/217 测试通过,VERIFICATION PASS(13/13),3 项人工项留里程碑 UAT
 
 ## Requirements
 
@@ -71,6 +72,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - ✓ PRD 生产线(DELIV-01..04:agent 生成 → HITL 确认编辑 → 版本化落研发中心卡槽 + AI 溯源徽章 + FTS5 立即命中) — **v0.3.0(Phase 16), 16-HUMAN-UAT 8/8**
 - ✓ Agent 一等入口(UX-01..04:双宿主/⌘K carry/晨报/右键动作)+ ARCHITECTURE.md v2.0 + ADR(ARCH-01/02) — **v0.3.0(Phase 17), 17-HUMAN-UAT 6/6**
 - ✓ v0.2.0 遗留 35 步人工回归(发布签核项) — **v0.3.0(17-HUMAN-UAT Test 6, 35/35 pass)**
+- ✓ 多 Session 会话体系(SESS-01..06, LIST-01/02, FORK-01..03, QUICK-01..03, TITLE-01/02) — **v0.3.1(Phase 18-21), 15/15 需求满足,217/217 测试;3 项人工项留里程碑 UAT**
 
 ### Active
 
@@ -175,6 +177,10 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 15 (2026-08-15)**: 长期记忆 + 知识文档 + FTS5 — migration 0004 + memoryStore(防轰炸三项 + supersedes)+ knowledgeRepo(版本链 + FTS5)+ 五段上下文注入。VERIFICATION 审计回填 PASS。
 - **Phase 16 (2026-08-17)**: PRD 生产线 — 两段式候选 + PrdDraftDialog + 落槽版本链 + AI 溯源徽章。16-HUMAN-UAT 8/8(3 gap 当场修复)。
 - **Phase 17 (2026-08-17)**: Agent UX + 架构文档 — 双宿主 + ⌘K carry + 晨报 + 右键动作 + ARCHITECTURE.md v2.0/ADR。17-HUMAN-UAT 6/6(含 35 步回归)。
+- **Phase 18 (2026-08-18)**: Session 数据模型与底座 — migration 0007 + sessionRepo 双实现 + workspaceId stamping。VERIFICATION PASS。
+- **Phase 19 (2026-08-18)**: 多 Session 运行时 — activeSessionId/switchSession + streaming 双层守卫 + pending 卡片按 session 过滤。VERIFICATION PASS。
+- **Phase 20 (2026-08-18)**: 分支与卡片操作 — buildForkEventStream 引用式 fork + hover 工具栏 + 复制。VERIFICATION PASS。
+- **Phase 21 (2026-08-19)**: Session 列表与快捷入口 + 自动命名 — 真实列表 + 双下拉 ChatPanel + 快捷键分流 + LLM 自动命名。VERIFICATION PASS(13/13,人工项留 UAT)。
 
 ---
-*Last updated: 2026-08-18 — v0.3.1 Phase 20 complete*
+*Last updated: 2026-08-19 — v0.3.1 Phase 21 complete*

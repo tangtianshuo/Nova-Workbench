@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { motion } from 'motion/react';
 import {
   Clock,
@@ -20,6 +21,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  Input,
   useToast,
 } from '@/src/components/ui';
 import { AddWorkspaceModal } from '@/src/components/AddWorkspaceModal';
@@ -31,8 +37,10 @@ import { formatRelativeTime, cn } from '@/src/lib/utils';
 import type { Provider } from '@/src/lib/api';
 import { AgentConsole } from '@/src/components/AgentConsole';
 import { MorningReport } from '@/src/components/MorningReport';
-import { FileTree } from '@/src/components/FileTree';
+import { FileTree, type FileTreeMenu } from '@/src/components/FileTree';
 import { buildFileTree } from '@/src/lib/fileTree';
+import { isValidFsName } from '@/src/lib/fsName';
+import { isTauri } from '@/src/lib/api';
 
 const PROVIDER_LABELS: Record<Provider, string> = {
   deepseek: 'DeepSeek Chat',
@@ -114,6 +122,73 @@ export function AgentWorkspaceView() {
     [activeWorkspace],
   );
   const truncated = (activeWorkspace?.files.length ?? 0) >= 1000;
+
+  // === File tree context menu (Tauri only) ===
+  type NameDialog = {
+    kind: 'newDir' | 'newFile' | 'rename';
+    parentRel: string;
+    rel?: string;
+    currentName?: string;
+  };
+  const [nameDialog, setNameDialog] = useState<NameDialog | null>(null);
+  const [nameInput, setNameInput] = useState('');
+
+  const folderPath = activeWorkspace?.folderPath ?? '';
+  const toAbs = (rel: string) =>
+    rel ? `${folderPath.replace(/[\\/]+$/, '')}${folderPath.includes('\\') ? '\\' : '/'}${rel}` : folderPath;
+
+  const handleReveal = async (rel: string) => {
+    try {
+      await invoke('reveal_in_explorer', { path: toAbs(rel) });
+    } catch (e) {
+      toast({ type: 'error', title: '打开失败', description: String(e) });
+    }
+  };
+
+  const refreshTree = () => {
+    if (activeWorkspaceId) void scanWorkspaceFiles(activeWorkspaceId);
+  };
+
+  const submitNameDialog = async () => {
+    if (!nameDialog || !activeWorkspace) return;
+    const name = nameInput.trim();
+    if (!isValidFsName(name)) {
+      toast({ type: 'error', title: '名称包含非法字符', description: '不能包含 / \\ : * ? " < > | 或 ..' });
+      return;
+    }
+    try {
+      if (nameDialog.kind === 'rename') {
+        await invoke('fs_rename', { root: folderPath, rel: nameDialog.rel, newName: name });
+        toast({ type: 'success', title: '已重命名', description: name });
+      } else {
+        await invoke(nameDialog.kind === 'newDir' ? 'fs_create_dir' : 'fs_create_file', {
+          root: folderPath,
+          parentRel: nameDialog.parentRel,
+          name,
+        });
+        toast({ type: 'success', title: nameDialog.kind === 'newDir' ? '文件夹已创建' : '文件已创建', description: name });
+      }
+      setNameDialog(null);
+      refreshTree();
+    } catch (e) {
+      toast({ type: 'error', title: '操作失败', description: String(e) });
+    }
+  };
+
+  const fileTreeMenu: FileTreeMenu | undefined =
+    isTauri() && folderPath
+      ? {
+          onReveal: (rel) => void handleReveal(rel),
+          onCreate: (kind, parentRel) => {
+            setNameInput('');
+            setNameDialog({ kind: kind === 'dir' ? 'newDir' : 'newFile', parentRel });
+          },
+          onRename: (rel, _kind, currentName) => {
+            setNameInput(currentName);
+            setNameDialog({ kind: 'rename', parentRel: '', rel, currentName });
+          },
+        }
+      : undefined;
 
   return (
     <div className="flex gap-4 h-[calc(100dvh-var(--titlebar-h)-var(--header-h)-48px)]">
@@ -227,7 +302,7 @@ export function AgentWorkspaceView() {
             )}
             {activeTab === 'files' && (
               <>
-                <FileTree nodes={fileTree} emptyText="当前工作区暂无文件" />
+                <FileTree nodes={fileTree} emptyText="当前工作区暂无文件" menu={fileTreeMenu} />
                 {truncated && (
                   <div className="text-[11px] text-text-tertiary text-center mt-2">
                     已截断：仅显示前 1000 个文件
@@ -322,6 +397,26 @@ export function AgentWorkspaceView() {
           onSuccess={() => setShowAddWorkspace(false)}
         />
       )}
+
+      <Dialog open={nameDialog !== null} onOpenChange={(open) => !open && setNameDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader
+            title={nameDialog?.kind === 'rename' ? '重命名' : nameDialog?.kind === 'newDir' ? '新建文件夹' : '新建文件'}
+            description={nameDialog?.kind === 'rename' ? nameDialog.currentName : nameDialog?.parentRel || '工作区根目录'}
+          />
+          <Input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="输入名称"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && void submitNameDialog()}
+          />
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setNameDialog(null)}>取消</Button>
+            <Button variant="primary" onClick={() => void submitNameDialog()}>确定</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

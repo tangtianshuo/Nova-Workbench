@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.3.1
 milestone_name: milestone
 status: verifying
-last_updated: "2026-08-19T01:12:32.858Z"
+last_updated: "2026-08-19T07:26:10.000Z"
 last_activity: 2026-08-19
 progress:
   total_phases: 8
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 Phase: 999.4
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-08-19 - Quick task 260819-eid: Agent 工作区页右下角「Agent 工作区」卡片磁贴可点击切换工作区（+新 session）
+Last activity: 2026-08-19 - Quick tasks 260819-fqx/gbn + 5 debug fixes: 文件树全操作（右键菜单/拖拽移动）+ 归档页实时数据与树形 + 公共组件 WorkspaceFileTree
 
 ```
 v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 phases)
@@ -91,7 +91,7 @@ None.
 
 ### Quick Tasks Completed
 
-See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest: 260819-df6 工作区切换下拉 + 跨工作区通知（4084db2）; 260819-dxl 右下角 Agent 面板工作区切换（19d0df5, scoped 去重 aaad9aa）; 260819-eid 工作区磁贴点击切换（2aa35c4）; 260819-evz Agent 页/文件归档页工作区文件树 + Rust 扫描上限放宽（fc8ad83, 45caf51, 58ff696）; debug 修复 文件树盘符前缀根（103d491）。
+See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest: 260819-df6 工作区切换下拉 + 跨工作区通知（4084db2）; 260819-dxl 右下角 Agent 面板工作区切换（19d0df5, scoped 去重 aaad9aa）; 260819-eid 工作区磁贴点击切换（2aa35c4）; 260819-evz Agent 页/文件归档页工作区文件树 + Rust 扫描上限放宽（fc8ad83, 45caf51, 58ff696）; debug 修复 文件树盘符前缀根（103d491）; 260819-fqx 文件树右键菜单：资源管理器定位/新建/重命名 + Rust file_ops 路径安全（9917866, e880876, c73a027）; 260819-gbn 文件树拖拽移动 + 文件/文件夹右键新建（a8e228e, aad327d, 30bcb61）; debug×5（用户全部确认）: 空文件夹不显示（dir 条目扫描，6ad4522）、拖拽失效（dragDropEnabled=false，cfc7a0e）、归档页实时数据+工作区归档树形+公共组件 WorkspaceFileTree 两处复用（173b179）。
 
 ## Session Continuity
 

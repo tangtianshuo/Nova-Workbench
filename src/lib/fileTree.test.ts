@@ -86,4 +86,20 @@ describe('buildFileTree', () => {
     }
     assert.deepEqual(node, { kind: 'file', name: 'deep.md', path: 'x/y/z/deep.md' });
   });
+
+  it('explicit dirs appear even when empty (rootPath stripped)', () => {
+    const tree = buildFileTree(
+      ['D:\\ws\\a.txt'],
+      'D:/ws',
+      ['D:\\ws\\empty-folder', 'D:\\ws\\nested\\sub'],
+    );
+    assert.deepEqual(tree.map((n) => n.name), ['empty-folder', 'nested', 'a.txt']);
+    const ef = tree[0];
+    if (ef?.kind !== 'folder') return;
+    assert.equal(ef.children.length, 0);
+    assert.equal(ef.path, 'empty-folder');
+    const nested = tree[1];
+    if (nested?.kind !== 'folder') return;
+    assert.deepEqual(nested.children.map((c) => c.name), ['sub']);
+  });
 });

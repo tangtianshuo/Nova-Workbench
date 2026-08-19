@@ -94,6 +94,21 @@ fn scan_dir(dir: &Path, depth: usize, files: &mut Vec<WorkspaceFileDto>) -> bool
             if is_hidden(&name) || IGNORED_DIRS.contains(&name.as_str()) {
                 continue;
             }
+            // emit dir entries too — empty folders must stay visible in the tree
+            let updated = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| format_unix_epoch(d.as_secs()))
+                .unwrap_or_default();
+            files.push(WorkspaceFileDto {
+                id: entry.path().to_string_lossy().to_string(),
+                name: name.clone(),
+                file_type: "dir".to_string(),
+                size: String::new(),
+                updated_at: updated,
+                path: entry.path().to_string_lossy().to_string(),
+            });
             if depth + 1 <= MAX_DEPTH && !scan_dir(&entry.path(), depth + 1, files) {
                 return false;
             }
@@ -227,6 +242,21 @@ mod tests {
         assert!(IGNORED_DIRS.contains(&"target"));
         assert!(is_hidden(".DS_Store"));
         assert!(!is_hidden("docs"));
+    }
+
+    #[test]
+    fn scan_includes_empty_dirs() {
+        let d = temp_subdir("scan");
+        fs::create_dir_all(d.join("empty-folder")).unwrap();
+        fs::write(d.join("a.md"), "x").unwrap();
+        let result = scan_workspace_folder(d.to_string_lossy().to_string()).unwrap();
+        assert!(!result.truncated);
+        let empty = result.files.iter().find(|f| f.name == "empty-folder").unwrap();
+        assert_eq!(empty.file_type, "dir");
+        assert!(result.files.iter().any(|f| f.name == "a.md" && f.file_type != "dir"));
+        // ignored dirs not emitted
+        assert!(!result.files.iter().any(|f| f.name == "node_modules"));
+        fs::remove_dir_all(&d).ok();
     }
 
     #[test]

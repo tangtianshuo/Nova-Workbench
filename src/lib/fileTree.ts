@@ -42,10 +42,20 @@ export function commonRootDir(paths: string[]): string | undefined {
   return prefix || undefined;
 }
 
-export function buildFileTree(paths: string[], rootPath?: string): FileTreeNode[] {
-  const list = rootPath ? paths.map((p) => relativize(p, rootPath)).filter(Boolean) : paths;
+export function buildFileTree(paths: string[], rootPath?: string, dirs: string[] = []): FileTreeNode[] {
+  const rel = (p: string) => (rootPath ? relativize(p, rootPath) : p);
   const root = new Map<string, unknown>();
-  for (const raw of list) {
+  // explicit dir entries (incl. empty folders) become branch nodes
+  for (const dir of dirs.map(rel).filter(Boolean)) {
+    let node: Map<string, unknown> = root;
+    for (const part of dir.replace(/\\/g, '/').split('/').filter(Boolean)) {
+      const existing: unknown = node.get(part);
+      const next = existing instanceof Map ? existing : new Map<string, unknown>();
+      if (!(existing instanceof Map)) node.set(part, next);
+      node = next;
+    }
+  }
+  for (const raw of paths.map(rel).filter(Boolean)) {
     const parts = raw.replace(/\\/g, '/').split('/').filter(Boolean);
     let node: Map<string, unknown> = root;
     for (let i = 0; i < parts.length - 1; i++) {

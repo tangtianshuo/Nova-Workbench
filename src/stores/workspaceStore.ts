@@ -7,7 +7,7 @@ import { useChatConsoleStore } from './chatConsoleStore';
 export interface WorkspaceFile {
   id: string;
   name: string;
-  type: 'doc' | 'code' | 'sheet' | 'pdf' | 'design' | 'archive';
+  type: 'doc' | 'code' | 'sheet' | 'pdf' | 'design' | 'archive' | 'dir';
   size: string;
   updatedAt: string;
   path: string;

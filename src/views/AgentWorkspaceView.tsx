@@ -243,8 +243,24 @@ export function AgentWorkspaceView() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
+                  role="button"
+                  tabIndex={ws.id === activeWorkspaceId ? -1 : 0}
+                  aria-current={ws.id === activeWorkspaceId || undefined}
+                  onClick={() => ws.id !== activeWorkspaceId && handleSelectWorkspace(ws.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && ws.id !== activeWorkspaceId) {
+                      handleSelectWorkspace(ws.id);
+                    }
+                  }}
+                  className="cursor-pointer outline-none focus-visible:bg-bg-secondary rounded-[var(--radius-lg)]"
                 >
-                  <CardHover variant="interactive" className="p-3">
+                  <CardHover
+                    variant="interactive"
+                    className={cn(
+                      'p-3',
+                      ws.id === activeWorkspaceId && 'border-accent/60 bg-accent-subtle/40',
+                    )}
+                  >
                     <div className="flex items-start gap-2.5">
                       <div className="w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 bg-accent-subtle text-accent">
                         <Folder size={16} weight="duotone" />

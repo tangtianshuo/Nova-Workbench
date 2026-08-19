@@ -169,8 +169,11 @@ export function ChatPanel() {
     <Drawer open={isOpen} onOpenChange={setOpen}>
       <DrawerContent width={480} className="max-w-[100vw]" onOpenAutoFocus={textareaFocus}>
         <DrawerHeader title="AI 助手" description={`当前 provider：${PROVIDER_LABELS[provider]}`} />
-        <WorkspaceSwitcherRow />
-        {chatPanelMode === 'scoped' && <ScopedSelectorRow />}
+        {chatPanelMode === 'scoped' ? (
+          <ScopedSelectorRow />
+        ) : (
+          <WorkspaceSwitcherRow />
+        )}
         <AgentConsole />
       </DrawerContent>
     </Drawer>

@@ -91,7 +91,7 @@ None.
 
 ### Quick Tasks Completed
 
-See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest: 260819-df6 工作区切换下拉 + 跨工作区通知（4084db2）; 260819-dxl 右下角 Agent 面板工作区切换（19d0df5, scoped 去重 aaad9aa）; 260819-eid 工作区磁贴点击切换（2aa35c4）; 260819-evz Agent 页/文件归档页工作区文件树 + Rust 扫描上限放宽（fc8ad83, 45caf51, 58ff696）。
+See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest: 260819-df6 工作区切换下拉 + 跨工作区通知（4084db2）; 260819-dxl 右下角 Agent 面板工作区切换（19d0df5, scoped 去重 aaad9aa）; 260819-eid 工作区磁贴点击切换（2aa35c4）; 260819-evz Agent 页/文件归档页工作区文件树 + Rust 扫描上限放宽（fc8ad83, 45caf51, 58ff696）; debug 修复 文件树盘符前缀根（103d491）。
 
 ## Session Continuity
 

@@ -65,13 +65,28 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (待 roadmap 填充) | — | — |
+| ENG-01 | Phase 22 | Pending |
+| ENG-02 | Phase 22 | Pending |
+| ENG-03 | Phase 22 | Pending |
+| ENG-04 | Phase 22 | Pending |
+| ENG-05 | Phase 22 | Pending |
+| PORT-01 | Phase 22 | Pending |
+| TOOL-01 | Phase 23 | Pending |
+| TOOL-02 | Phase 23 | Pending |
+| TOOL-03 | Phase 23 | Pending |
+| TOOL-04 | Phase 23 | Pending |
+| SCHED-01 | Phase 24 | Pending |
+| SCHED-02 | Phase 24 | Pending |
+| SCHED-03 | Phase 24 | Pending |
+| SCHED-04 | Phase 24 | Pending |
+| PORT-02 | Phase 25 | Pending |
+| PORT-03 | Phase 25 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️(roadmap 创建时回填)
+- Mapped to phases: 16
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-23*
-*Last updated: 2026-08-23 after initial definition*
+*Last updated: 2026-08-23 — roadmap v0.3.2 created (Phase 22-25), traceability backfilled*

@@ -1,104 +1,97 @@
 # ROADMAP: Nova-PM-Workspace
 
-**Current milestone:** v0.3.1 多 Session 会话体系
-**Phase numbering:** continues from 18 (never restart at 01)
+**Current milestone:** v0.3.2 Rust Run Engine(agent 核心迁 Rust)
+**Phase numbering:** continues from 22 (v0.3.1 ended at 21; never restart at 01)
 
 ## Milestones
 
-- 🚀 **v0.3.1 多 Session 会话体系** — Phases 18-21 (started 2026-08-18)
+- 🚀 **v0.3.2 Rust Run Engine** — Phases 22-25 (started 2026-08-23)
+- ✅ **v0.3.1 多 Session 会话体系** — Phases 18-21 (2026-08-18/19, VERIFICATION 全 PASS) — [archive](milestones/v0.3.1-ROADMAP.md)
 - ✅ **v0.3.0 功能闭环** — Phases 13-17 (shipped 2026-08-17) — [archive](milestones/v0.3.0-ROADMAP.md)
 - ✅ **v0.2.0 日常管理 CRUD + 弱关联 + AI 驱动** — Phases 5-12 (shipped 2026-08-14) — [archive](milestones/v0.2.0-ROADMAP.md)
 
+**前置说明(非本里程碑 phase):** v0.3.1 收口 —— 3 项人工 UAT(Phase 21 留档)+ `/gsd:complete-milestone v0.3.1` 须在 Phase 22 执行前完成(见 STATE TODOs)。
+
 ## Phases
 
-- [x] **Phase 18: Session 数据模型与底座** — sessions 元数据表(migration 0007 + 回填)+ 事件 workspaceId scope + sessionRepo
- (completed 2026-08-18)
-- [x] **Phase 19: 多 Session 运行时** — activeSessionId / switchSession 生命周期 / 默认新 session / streaming 锁 / pending 卡片按 session 过滤
- (completed 2026-08-18)
-- [x] **Phase 20: 分支与卡片操作** — buildForkEventStream 纯函数(先测试)+ hover 分支/复制 + 分支徽章
- (completed 2026-08-18)
-- [x] **Phase 21: Session 列表与快捷入口 + 自动命名** — 最近任务真实列表 + Ctrl+Shift+K 双下拉 + LLM 自动标题 (completed 2026-08-19)
+- [ ] **Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)** — toolLoop/compaction/contextAssembler 语义移植 Rust,Rust 接管 agent_* 表唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志逐位回放平价;PORT-01 协议最先定稿
+- [ ] **Phase 23: 工具层 + TS 工具桥** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 工具 + PM CRUD TS 工具桥 + 无头 run 工具降级
+- [ ] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
+- [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
 
 ## Phase Details
 
-### Phase 18: Session 数据模型与底座
-**Goal**: session 成为有持久元数据的一等实体,旧数据无损升级 — 一切多 session 能力的数据基础
-**Depends on**: v0.3.0 已 shipped(Phase 13-17)
-**Requirements**: SESS-01, SESS-06
+### Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)
+**Goal**: 用户在现有 ChatPanel 发起对话,整轮 agent loop 由 Rust 常驻引擎完成,行为与 TS 引擎逐位一致 — 后续一切能力的地基
+**Depends on**: v0.3.1 收口完成(3 项人工 UAT + complete-milestone)
+**Requirements**: ENG-01, ENG-02, ENG-03, ENG-04, ENG-05, PORT-01
 **Success Criteria** (what must be TRUE):
-  1. 用户从 v0.3.0 数据库升级后,全部历史会话仍可见且事件完整(fixture DB 升级测试,幂等回填不重复不丢失)
-  2. sessions 表记录每个会话的 workspace_id/title/parent_session_id/fork_cut_seq,历史会话均被回填
-  3. agent_events 每条新事件记录 workspaceId,历史事件已回填(列表过滤的数据基础)
-  4. 所有确认候选落库时带 sessionId(confirmations.ts sessionId:null 缺失修复)
-**Plans**: 2 plans
-Plans:
-- [x] 18-01-PLAN.md — migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)+ fixture-DB 升级测试先行
-- [x] 18-02-PLAN.md — 写入时 stamping(toolLoop workspaceId / confirmations sessionId)+ sessionRepo + turn-start upsert
-
-### Phase 19: 多 Session 运行时
-**Goal**: 用户可以在多个 session 之间安全切换,会话历史逐字恢复,流式中不串话
-**Depends on**: Phase 18
-**Requirements**: SESS-02, SESS-03, SESS-04, SESS-05
-**Success Criteria** (what must be TRUE):
-  1. 用户进入应用即处于新 session,工作区为上次退出时选择的工作区(activeWorkspaceId 持久化)
-  2. 用户切换 session 后,该会话完整历史投影恢复,与原会话逐字一致(restoreSession(sessionId?),不依赖 sessions[0])
-  3. streaming 进行中,session 切换与工作区切换入口被禁用且守卫兜底(不产生跨会话事件串流)
-  4. 知识写入/删除确认/PRD 草稿等 pending 卡片只出现在其所属 session,不跨会话串卡
-**Plans**: 3 plans
-Plans:
-- [x] 19-01-PLAN.md — restoreSession(sessionId?) 参数化(P-B 移除)+ 逐字恢复/隔离测试
-- [x] 19-02-PLAN.md — activeSessionId / startNewSession / switchSession + streaming 双守卫(store 兜底)
-- [x] 19-03-PLAN.md — pending 卡片四类读取路径按 session 过滤 + 切换刷新
-
-### Phase 20: 分支与卡片操作
-**Goal**: 用户可以从任意 assistant 消息创建引用式分支并一键复制消息 — 最高风险纯逻辑(buildForkEventStream)先于 UI 隔离交付
-**Depends on**: Phase 18, Phase 19
-**Requirements**: FORK-01, FORK-02, FORK-03, LIST-03
-**Success Criteria** (what must be TRUE):
-  1. 用户 hover assistant 消息卡片时,卡片下方浮出分支 icon 与复制 icon
-  2. 用户点击分支 icon 后,以该 turn 的 turn_ended 为切点创建新 session(parent 事件前缀投影 + 零事件复制,seq 归一化 + compaction remap),UI 跳转新 session,原会话保持不动
-  3. 用户点击复制 icon 后,该 assistant 消息全文进入系统剪贴板(失败 toast,不静默)
-  4. 分支 session 在列表中显示分支徽章,可识别来源会话
-  5. fork 纯函数测试先行:配对不变量保持、压缩事件 remap、replay parity、mid-turn 切点拒绝
+  1. PORT-01 协议在此 phase 第一个 plan 定稿:孤儿 exec tool_result 呈 unknown/interrupted(非 error)、命令幂等分类随 tool_call 落盘、模型 unknown 先验证再重跑的约定写入工具描述
+  2. 用户在现有 ChatPanel 发起对话,Rust 引擎完成意图→工具调用→配对落库→流式回复,全程不经 TS toolLoop(ENG-01)
+  3. Rust 是 agent_events/agent_artifacts/agent_confirmation_candidates/memory_candidates 唯一写者;TS 写路径下线后重启,无孤儿事件、无重复写入(ENG-02)
+  4. replay parity 永久测试通过:Rust 引擎逐位回放 v0.3.x 存量事件日志(fixture 复用),ChatSession 投影与 TS 引擎输出一致(ENG-03)
+  5. HITL 卡片确认/取消/编辑跨边界语义与现状一致,原子条件 UPDATE 消费保持(并发恰一成功);崩溃恢复(尾切 + 孤儿 tool_call interrupted 绝不重执行)行为与 v0.3.x 一致(ENG-04/05)
 **Plans**: TBD
-**UI hint**: yes
+**Research**: 建议先 `/gsd:research-phase` — toolLoop/compaction/contextAssembler 语义移植跨 Rust/TS 边界,TS 纯函数 + 217 测试为可执行规格,需先精确编码映射
 
-### Phase 21: Session 列表与快捷入口 + 自动命名
-**Goal**: 用户通过 Agent 页列表与 Ctrl+Shift+K 双下拉即可到达任意会话,标题自动生成无需手动管理
-**Depends on**: Phase 19(选择器/列表运行时);分支徽章依赖 Phase 20
-**Requirements**: LIST-01, LIST-02, QUICK-01, QUICK-02, QUICK-03, TITLE-01, TITLE-02
+### Phase 23: 工具层 + TS 工具桥
+**Goal**: Rust 引擎可调用首批原生工具(exec/fs/knowledge/deliverable),PM CRUD 经 TS 桥过渡,无头 run 明确降级
+**Depends on**: Phase 22(引擎 loop + 事件写者)
+**Requirements**: TOOL-01, TOOL-02, TOOL-03, TOOL-04
 **Success Criteria** (what must be TRUE):
-  1. Agent 页「最近任务」显示真实 session 列表(标题 + 相对时间 + 消息数),按当前工作区过滤、最近活动倒序
-  2. 用户点击列表项即恢复该 session 到对话区
-  3. Ctrl+Shift+K 的 ChatPanel 头部有工作区 + session 两个下拉,工作区切换后 session 下拉联动过滤;Ctrl+K 保持无选择器的纯净快速对话
-  4. session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
-  5. 标题异步生成后静默更新列表,按 sessionId 守卫不写错会话,不打断用户
-**Plans**: 3 plans
-Plans:
-- [x] 21-01-PLAN.md — 数据层:消息数聚合 SQL + title IS NULL 守卫 updateTitle + formatRelativeTime
-- [x] 21-02-PLAN.md — LLM 自动命名:titleGenerator(LLM+回退)+ submit finally 触发 + sessionListVersion
-- [x] 21-03-PLAN.md — UI:最近任务真实列表 + ChatPanel 双下拉(scoped/pure)+ 快捷键分流 + UAT
-**UI hint**: yes
+  1. Rust 工具注册表(静态注册 + schema)落地,exec / fs 读写 / knowledge 检索 / deliverable 生成四类工具可被引擎调用(TOOL-01)
+  2. exec 工具具备进程组清理、超时、取消、stdout/stderr 流式回传;白名单外命令触发 HITL 确认(TOOL-02)
+  3. PM CRUD 工具(任务/日程/知识写入等)经 TS 工具桥调用,webview 存活时行为与现状一致(TOOL-03)
+  4. webview 不可用的无头 run 只暴露 Rust 原生工具,模型可感知工具可用性差异并明确降级(TOOL-04)
+**Plans**: TBD
+**Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows)+ TS 工具桥 IPC 回调机制,值得先研究
+
+### Phase 24: 多 run 并行 + 后台运行(托盘)
+**Goal**: 用户可以多 session 并行跑 agent、关窗后 run 继续、后台完成有通知 — Rust 常驻引擎的核心收益兑现
+**Depends on**: Phase 22(引擎), Phase 23(工具集,无头后台 run 依赖 Rust 原生工具)
+**Requirements**: SCHED-01, SCHED-02, SCHED-03, SCHED-04
+**Success Criteria** (what must be TRUE):
+  1. 用户在两个 session 同时发起对话,两个 run 并行流式输出,事件与确认卡片互不串扰(SCHED-01)
+  2. 用户关闭窗口(hide-on-close + 托盘常驻)后 run 继续执行;重开窗口时运行中状态与历史投影完整一致(SCHED-02)
+  3. 后台 run 完成或等待确认时,用户收到托盘通知/角标,可一键回到对应 session(SCHED-03)
+  4. 用户可取消运行中的 run(含后台 run),取消后子进程清理、事件日志状态一致(SCHED-04)
+**Plans**: TBD
+**UI hint**: yes(托盘/角标/通知为前端可见交互)
+
+### Phase 25: 迁移收口
+**Goal**: 双引擎并存窗口关闭 — TS loop 下线,架构文档与决策记录对齐新现实
+**Depends on**: Phase 22, 23, 24
+**Requirements**: PORT-02, PORT-03
+**Success Criteria** (what must be TRUE):
+  1. TS toolLoop 与双引擎并存代码删除,全量测试通过;agent 语义回归(对话/工具/HITL/恢复/压缩)无退化(PORT-02)
+  2. ADR-0003 状态转 Accepted;ARCHITECTURE.md 更新为引擎分层;CLAUDE.md 同步(PORT-03)
+  3. 里程碑级人工 UAT:多 run 并行 + 后台托盘 + HITL 跨边界 + 崩溃恢复全链路通过
+**Plans**: TBD
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 18. Session 数据模型与底座 | 2/2 | Complete    | 2026-08-18 |
-| 19. 多 Session 运行时 | 3/3 | Complete    | 2026-08-18 |
-| 20. 分支与卡片操作 | 2/2 | Complete    | 2026-08-18 |
-| 21. Session 列表与快捷入口 + 自动命名 | 3/3 | Complete    | 2026-08-19 |
+| 22. 引擎核心 | 0/? | Not started | - |
+| 23. 工具层 + TS 工具桥 | 0/? | Not started | - |
+| 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
+| 25. 迁移收口 | 0/? | Not started | - |
 
 ## Coverage
 
-16/16 v1 requirements mapped (SESS-01..06, LIST-01..03, FORK-01..03, QUICK-01..03, TITLE-01..02) — no orphans, no duplicates.
+16/16 v1 requirements mapped (ENG-01..05, TOOL-01..04, SCHED-01..04, PORT-01..03) — no orphans, no duplicates.
+
+- ENG-01..05 + PORT-01 → Phase 22(PORT-01 是引擎动手前的协议决策,锁在最先 plan)
+- TOOL-01..04 → Phase 23
+- SCHED-01..04 → Phase 24
+- PORT-02, PORT-03 → Phase 25
 
 ## Research Flags
 
-- Phase 18: `/gsd:research-phase` — migration 0007 原子性(tauri-plugin-sql)+ fixture-DB 升级测试方案(PITFALLS P-A)
-- Phase 20: `/gsd:research-phase` — buildForkEventStream seq 归一化 + compaction remap 规则精确编码(PITFALLS P-C)
-- Phase 19: 标准模式(全部可追溯到既有代码),跳过 research
-- Phase 21: 标准模式(既有 Select 原语 / llm.rs 路径),跳过 research
+- Phase 22: `/gsd:research-phase` 强烈建议 — loop/compaction/assembler 语义移植 + replay parity 方案(TS 测试 = 可执行规格,fixture 复用)
+- Phase 23: `/gsd:research-phase` 建议 — omp exec 模式移植(进程组/超时/取消/流式,Windows 兼容)+ TS 工具桥 IPC 设计
+- Phase 24: 标准模式(调度器为自写 tokio,数百行,结构清晰;托盘 Tauri 插件),除非 Phase 22/23 研究发现新风险
+- Phase 25: 标准模式(删除 + 文档收口)
 
 ## Backlog (candidate phases — promote with `/gsd:review-backlog`)
 
@@ -117,7 +110,7 @@ Plans:
 
 **Goal:** [Captured for future planning] 把 PM 领域工作流(竞品分析、PRD 生成、需求评审等)打包为可复用 skill:manifest(名称/描述/触发条件) + prompt 模板 + 允许调用的工具集 + 产出物卡槽。系统 prompt 只放 skill 描述,agent 按需经 FTS5 检索加载全文(同构 Claude Code skill 加载机制)。产出走 Phase 16 交付物管线(生成→HITL 确认→编辑→版本化落卡槽)。附带"从对话沉淀为 skill"入口 — 用户用得好的工作流沉淀为 skill,即第二大脑的活知识。
 **核心判断:** 不需要新架构 — 是 Phase 15(知识文档 + FTS5)与 Phase 16(交付物管线)的自然组装,增量仅为 skill manifest 类型 + 加载器。v0.2.0 的 `runProductSkill` mock 概念由此转正。
-**依赖:** Phase 15, 16 — 已全部落地
+**依赖:** Phase 15, 16 — 已全部落地;v0.3.2 后 Skill 可作为 Rust 引擎新入口直接接入
 **建议排期:** v0.4.0 候选(成本低、PM 价值直接)
 **Requirements:** TBD
 **Plans:** 0 plans
@@ -125,13 +118,13 @@ Plans:
 ### Phase 999.3: MCP 集成（第三方能力扩展） (BACKLOG)
 
 **Goal:** [Captured for future planning] 接入 MCP 让 agent 操作外部 PM 工具链(Figma、飞书、Jira 等),无需 Nova 逐个自建集成。
-**技术路线:** Rust 侧用官方 `rmcp` crate 做 MCP client,工具 schema 桥接进 `ai/tools/` 注册表成为动态工具;前端与 toolLoop 不大改。
+**技术路线:** v0.3.2 后为 Rust 侧 `rmcp` crate 做 MCP client,工具 schema 桥接进 **Rust 工具注册表**(Phase 23 落地)成为动态工具。
 **三个前置条件:**
 1. 审计底座(Phase 13/14)— 每次外部调用落入 `agent_events`,可追责可恢复;无事件日志不接 MCP — **已满足**
-2. 审批分级(Phase 14 确认队列之上)— MCP 工具为外部代码,默认"外部写入一律 HITL 确认",内置工具才可按风险白名单
-3. 零 sidecar 边界澄清 — MCP stdio server 需 spawn 子进程;约束本意是"Nova 自身后端不依赖 Node",用户主动配置的外部工具进程不在此列。此区分需写入 ADR
-**依赖:** Phase 13, 14 — 已满足(待 2/3 补齐)
-**建议排期:** v0.5.0 或需求驱动(真实用户提出"连飞书/Figma"再做)
+2. 审批分级 — MCP 工具为外部代码,默认"外部写入一律 HITL 确认",内置工具才可按风险白名单
+3. Rust 工具注册表落地(v0.3.2 Phase 23)— **本里程碑交付**
+**依赖:** Phase 23(v0.3.2)
+**建议排期:** v0.4.0+(REQUIREMENTS v2 ENTRY-02)
 **Requirements:** TBD
 **Plans:** 0 plans
 

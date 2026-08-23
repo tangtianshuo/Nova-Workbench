@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: rust-run-engine
-status: defining
+status: in_progress
 last_updated: "2026-08-23T00:00:00.000Z"
 last_activity: 2026-08-23
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,13 +19,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.2 Rust Run Engine — 定义中(requirements → roadmap)
+**Current focus:** v0.3.2 Rust Run Engine — roadmap 已建(Phase 22-25),下一步 /gsd:plan-phase 22
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 22 引擎核心 (Not started)
 Plan: —
-Status: Defining requirements
+Status: Roadmap created, awaiting plan-phase 22
 Last activity: 2026-08-23 - Milestone v0.3.2 Rust Run Engine started;ADR-0003 草案落稿(docs/adr/ADR-0003-rust-run-engine.md,Proposed)
 
 ```
@@ -37,7 +37,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Metric | Value |
 |--------|-------|
 | v0.3.1 phases completed | 4 / 4(Phase 18-21 全部 VERIFICATION PASS;剩 3 项人工 UAT + complete-milestone) |
-| v0.3.2 phases | roadmap 待建 |
+| v0.3.2 phases | 4 (22-25: 引擎核心 / 工具层+桥 / 多run并行+后台 / 收口) |
 | Historical (v0.3.0) | 5/5 phases, 19/19 plans, 28/28 REQ, 161/161 tests |
 | Phase 18 P01 | 10m | 2 tasks | 4 files |
 | Phase 18 P02 | 12m | 2 tasks | 4 files |
@@ -55,6 +55,13 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
+
+v0.3.2 roadmap decisions:
+
+- [Roadmap]: 4 phase 拆分(coarse,Phase 22-25),按 ADR-0003 依赖链:引擎核心 → 工具层 → 多run/后台 → 收口
+- [Roadmap]: PORT-01(孤儿 exec 第三态协议)锁 Phase 22 最先 plan——引擎搬家时改协议最贵
+- [Roadmap]: Phase 22/23 建议 /gsd:research-phase(语义移植跨 Rust/TS 边界 + omp exec 模式/TS 桥 IPC);Phase 24/25 标准模式
+- [Roadmap]: v0.3.1 收口(3 项人工 UAT + complete-milestone)是 Phase 22 前置,不占 phase
 
 v0.3.1 roadmap decisions:
 

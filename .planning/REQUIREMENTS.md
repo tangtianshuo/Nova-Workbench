@@ -1,94 +1,77 @@
-# Requirements: Nova-PM-Workspace v0.3.1 多 Session 会话体系
+# Requirements: Nova-PM-Workspace — v0.3.2 Rust Run Engine
 
-**Defined:** 2026-08-18
+**Defined:** 2026-08-23
 **Core Value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
+**Milestone:** v0.3.2 — agent 核心迁 Rust 常驻 run engine,webview 退化为投影 + HITL UI(决策见 `docs/adr/ADR-0003-rust-run-engine.md`)
 
 ## v1 Requirements
 
-### 会话数据模型与运行时 (SESS)
+### 引擎核心 (ENG)
 
-- [x] **SESS-01**: sessions 元数据表落地(workspace_id/title/parent_session_id/fork_cut_seq/created_at/last_active_at),migration 0007 含历史会话幂等回填,fixture DB 升级测试保证旧数据不丢失、历史会话不消失
-- [x] **SESS-02**: 用户进入应用时默认获得新 session,工作区为上次退出时选择的工作区(activeWorkspaceId 持久化)
-- [x] **SESS-03**: 用户可切换 session,切换后该会话完整历史投影恢复(与原会话逐字一致)
-- [x] **SESS-04**: streaming 进行中 session 切换与工作区切换被锁定(禁用入口 + 守卫),防止事件串流
-- [x] **SESS-05**: pending 确认卡片(知识写入/删除确认/PRD 草稿)按 session 过滤,不跨会话串卡;修复 confirmations.ts 现有 sessionId:null stamp 缺失
-- [x] **SESS-06**: agent_events 事件 scope 记录 workspaceId 并回填历史(列表过滤的数据基础)
+- [ ] **ENG-01**: 用户在现有 ChatPanel 发起对话,由 Rust 引擎完成整轮 agent loop(意图→工具调用→配对落库→回复流式呈现),全程不经 TS toolLoop
+- [ ] **ENG-02**: Rust 引擎是 agent_* 表(agent_events / agent_artifacts / agent_confirmation_candidates / memory_candidates)唯一写者;TS 写路径下线后重启无孤儿事件、无重复写入
+- [ ] **ENG-03**: replay parity — Rust 引擎逐位回放 v0.3.x 存量事件日志,ChatSession 投影与 TS 引擎输出一致(fixture 复用,永久测试锁定)
+- [ ] **ENG-04**: HITL 跨边界 — 确认候选由 Rust 落库并推送 webview,卡片确认/取消/编辑流语义与现状一致,原子消费保持(并发恰一成功)
+- [ ] **ENG-05**: 崩溃恢复语义保持 — Rust 引擎启动时尾切不完整 turn、孤儿 tool_call 标记 interrupted 且绝不重执行,行为与 v0.3.x 一致
 
-### 最近任务列表 (LIST)
+### 工具层 (TOOL)
 
-- [x] **LIST-01**: Agent 页「最近任务」显示真实 session 列表(标题 + 相对时间 + 消息数),按当前工作区过滤,按最近活动倒序
-- [x] **LIST-02**: 用户点击列表项即恢复该 session 到对话区
-- [x] **LIST-03**: 分支 session 在列表中显示分支徽章,可识别其来源会话
+- [ ] **TOOL-01**: Rust 工具注册表落地(静态注册 + schema),首批 exec / fs 读写 / knowledge 检索 / deliverable 生成四类工具可被引擎调用
+- [ ] **TOOL-02**: exec 工具具备进程组清理、超时、取消与 stdout/stderr 流式回传,受命令白名单约束(白名单外命令须 HITL 确认;进程管理模式借 omp 设计)
+- [ ] **TOOL-03**: PM CRUD 工具(任务/日程/知识写入等)经 TS 工具桥过渡调用,webview 存活时行为与现状一致
+- [ ] **TOOL-04**: 无头 run(webview 不可用)限制工具集为 Rust 原生工具,模型可感知工具可用性(明确降级)
 
-### 分支与卡片操作 (FORK)
+### 多 run 与后台 (SCHED)
 
-- [x] **FORK-01**: 用户鼠标聚焦 assistant 消息卡片时,卡片下方浮出分支 icon 与复制 icon
-- [x] **FORK-02**: 用户点击分支 icon 后,以该卡片所在 turn 的 turn_ended 为切点创建新 session(引用式 fork:parent 事件前缀投影 + 零事件复制),UI 跳转新 session,原会话保持不动
-- [x] **FORK-03**: 用户点击复制 icon 后,该 assistant 消息全文写入系统剪贴板
+- [ ] **SCHED-01**: 用户可在两个 session 同时发起对话,两个 run 并行流式输出,事件与确认卡片互不串扰
+- [ ] **SCHED-02**: 用户关闭窗口(hide-on-close + 托盘常驻)后 run 继续执行;重新打开窗口时运行中状态与历史投影完整一致
+- [ ] **SCHED-03**: 后台 run 完成或等待确认时,用户收到托盘通知/角标,可一键回到对应 session
+- [ ] **SCHED-04**: 用户可取消运行中的 run(含后台 run),取消后子进程清理、事件日志状态一致
 
-### 快捷助手 (QUICK)
+### 迁移收口 (PORT)
 
-- [x] **QUICK-01**: Ctrl+Shift+K 打开的 ChatPanel 头部提供工作区与 session 两个下拉框
-- [x] **QUICK-02**: 工作区下拉切换后,session 下拉联动过滤为该工作区的会话
-- [x] **QUICK-03**: Ctrl+K 保持现状(无选择器的纯净快速对话,行为不变)
-
-### 自动命名 (TITLE)
-
-- [x] **TITLE-01**: session 首个 turn 完成后 LLM 自动生成标题(fire-and-forget),失败回退首条用户消息截断
-- [x] **TITLE-02**: 标题生成后静默更新列表显示,不打断用户;异步回来时按 sessionId 守卫,不写错会话
+- [ ] **PORT-01**: 孤儿 exec 第三态协议落地 — 崩溃恢复后未配对的 exec tool_result 呈 unknown/interrupted(非 error);命令幂等分类随 tool_call 落盘;模型对 unknown 先验证再重跑(工具描述/提示词约定)
+- [ ] **PORT-02**: TS toolLoop 与双引擎并存代码删除,全量测试通过;agent 语义回归(对话/工具/HITL/恢复/压缩)无退化
+- [ ] **PORT-03**: ADR-0003 转 Accepted;ARCHITECTURE.md 更新引擎分层;CLAUDE.md 同步
 
 ## v2 Requirements
 
-### 会话管理增强
+### 多 Agent 编排 (SUBAGENT)
 
-- **SESS2-01**: 用户可手动重命名 session(Claude Desktop 社区痛点,但 LLM 命名 + 截断回退已够用)
-- **SESS2-02**: 用户可删除 session(含事件日志的墓碑语义设计)
-- **SESS2-03**: 用户可固定/置顶 session(工作区过滤已承担 scoping 职责)
-- **SESS2-04**: 分支树可视化(线性列表 + 徽章已满足识别需求)
-- **SESS2-05**: 编辑历史用户消息产生隐式分支(Cursor classic 模式,复杂度高且有 UX 歧义)
+- **SUB-01**: 编排 agent 经 spawn 工具创建子 agent run(父子 correlation_id + 父 loop await 子结果 + 取消传播)
 
-### 隔离增强
+### 新入口/新工具源 (ENTRY)
 
-- **ISO-01**: 跨工作区严格隔离(记忆/知识库按工作区过滤) — 当前为列表过滤级,记忆保持全局共享
+- **ENTRY-01**: IM 入口 — 外部 IM 消息触发 run 并回复(无头)
+- **ENTRY-02**: MCP client(rmcp)— 第三方工具动态注册进 Rust 工具注册表,外部写入默认 HITL
+- **ENTRY-03**: Skill manifest — prompt 模板 + 允许工具集 + 产出卡槽,FTS5 按需加载
+
+### Pipeline (PIPE)
+
+- **PIPE-01**: 多步全自动 pipeline(DELIV-06)— 事件日志检查点语义评估,编排 run 依次 spawn 阶段 run + 确认队列当门
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Session 手动重命名/删除/置顶 | 用户圈定排除;LLM 命名 + 回退链已覆盖命名需求 |
-| 分支树/图谱可视化 | 无主流产品做好;线性列表 + 分支徽章已可识别 |
-| 编辑消息产生分支 | Cursor classic 模式复杂度高,hover fork 已覆盖核心场景 |
-| Streaming 后台化(切走后续流) | 多活跃 session 运行时复杂度大;可比产品均串行生成 |
-| 跨工作区 strict 隔离 | 用户锁定列表过滤级;记忆/知识库保持全局 |
-| 定时任务 tab 真实化 | 保持 mock,不在本里程碑范围 |
+| rig-core / rig-agent / GraphFlow 依赖 | ADR-0003 物料决策否决(供给错位 + AgentRun/SqliteSaver 与事件日志双记账 + pre-1.0 风险进心脏) |
+| 独立守护进程 / daemon | 后台 = 托盘常驻(hide-on-close),不做进程间通信 |
+| 业务表(产品/任务/日程)Rust 直写 | 过渡期 TS 写、Rust 只读;同表双写绝对禁止(ADR-0003 双写者规则) |
+| subAgent / IM / MCP / Skill 实现 | 留 v0.4+;本里程碑仅由调度器结构与入口层预留扩展位 |
+| 向量检索 P2(embedding/LanceDB/vec) | 维持 ADR-0001 边界:FTS5 先行,向量只作派生索引候选评估 |
+| TS 工具桥长期共存 | 桥是过渡态,不得活过两个版本(ADR-0003) |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SESS-01 | Phase 18 | Complete |
-| SESS-06 | Phase 18 | Complete |
-| SESS-02 | Phase 19 | Complete |
-| SESS-03 | Phase 19 | Complete |
-| SESS-04 | Phase 19 | Complete |
-| SESS-05 | Phase 19 | Complete |
-| FORK-01 | Phase 20 | Complete |
-| FORK-02 | Phase 20 | Complete |
-| FORK-03 | Phase 20 | Complete |
-| LIST-03 | Phase 20 | Complete |
-| LIST-01 | Phase 21 | Complete |
-| LIST-02 | Phase 21 | Complete |
-| QUICK-01 | Phase 21 | Complete |
-| QUICK-02 | Phase 21 | Complete |
-| QUICK-03 | Phase 21 | Complete |
-| TITLE-01 | Phase 21 | Complete |
-| TITLE-02 | Phase 21 | Complete |
+| (待 roadmap 填充) | — | — |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 16 (Phase 18: 2, Phase 19: 4, Phase 20: 4, Phase 21: 7)
-- Unmapped: 0 ✓
+- Mapped to phases: 0
+- Unmapped: 16 ⚠️(roadmap 创建时回填)
 
 ---
-*Requirements defined: 2026-08-18*
-*Last updated: 2026-08-18 — roadmap created (Phases 18-21)*
+*Requirements defined: 2026-08-23*
+*Last updated: 2026-08-23 after initial definition*

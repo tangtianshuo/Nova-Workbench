@@ -1,43 +1,43 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3.1
-milestone_name: milestone
-status: verifying
-last_updated: "2026-08-19T07:26:10.000Z"
-last_activity: 2026-08-19
+milestone: v0.3.2
+milestone_name: rust-run-engine
+status: defining
+last_updated: "2026-08-23T00:00:00.000Z"
+last_activity: 2026-08-23
 progress:
-  total_phases: 8
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-18)
+See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 21 — session-list
+**Current focus:** v0.3.2 Rust Run Engine — 定义中(requirements → roadmap)
 
 ## Current Position
 
-Phase: 999.4
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-08-19 - Quick tasks 260819-fqx/gbn + 5 debug fixes: 文件树全操作（右键菜单/拖拽移动）+ 归档页实时数据与树形 + 公共组件 WorkspaceFileTree
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-23 - Milestone v0.3.2 Rust Run Engine started;ADR-0003 草案落稿(docs/adr/ADR-0003-rust-run-engine.md,Proposed)
 
 ```
-v0.3.1 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/4 phases)
+v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/? phases — roadmap 待建)
 ```
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| v0.3.1 phases completed | 0 / 4 |
-| v0.3.1 requirements satisfied | 0 / 16 |
+| v0.3.1 phases completed | 4 / 4(Phase 18-21 全部 VERIFICATION PASS;剩 3 项人工 UAT + complete-milestone) |
+| v0.3.2 phases | roadmap 待建 |
 | Historical (v0.3.0) | 5/5 phases, 19/19 plans, 28/28 REQ, 161/161 tests |
 | Phase 18 P01 | 10m | 2 tasks | 4 files |
 | Phase 18 P02 | 12m | 2 tasks | 4 files |
@@ -81,8 +81,8 @@ v0.3.1 roadmap decisions:
 
 ### TODOs (pending)
 
-- Phase 18: /gsd:research-phase — migration 0007 原子性(tauri-plugin-sql 无跨 execute 事务)+ fixture DB 升级测试方案
-- Phase 20: /gsd:research-phase — buildForkEventStream re-seq/remap 规则 + turn_ended 切点规则精确编码
+- **v0.3.1 收口(Phase 22 执行前完成)**:3 项人工 UAT(Phase 21 VERIFICATION 留档项)+ `/gsd:complete-milestone v0.3.1`(roadmap 已归档至 milestones/v0.3.1-ROADMAP.md)
+- **v0.3.2 协议决策(Phase 22 动手前定稿)**:孤儿 exec 第三态(unknown/interrupted)+ 命令幂等分类随 tool_call 落盘 — 见 ADR-0003「协议决策」节
 - 结转 tech debt(非阻断):FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null
 
 ### Blockers
@@ -97,9 +97,9 @@ See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.1 phases 18-21, current phase marked
+1. Read `.planning/ROADMAP.md` — v0.3.2 phases(current phase marked)
 2. Read `.planning/PROJECT.md` Current Milestone — key decisions + out of scope
-3. Read `.planning/research/SUMMARY.md` — HIGH confidence research, pitfalls P-A/P-B/P-C mapped to phases
-4. Next action: `/gsd:plan-phase 18`(research flag 先行:`/gsd:research-phase 18`)
+3. Read `docs/adr/ADR-0003-rust-run-engine.md` — 本里程碑架构决策(引擎分层/物料决策/协议决策)
+4. Next action: `/gsd:plan-phase 22`
 
-Key files: `src-tauri/migrations/0002..0006` + `src/ai/events/eventStore.ts` (Phase 18 seam), `src/ai/chatSession.ts` + `src/ai/sessionRestore.ts` + `src/stores/chatConsoleStore.ts` (Phase 19 seam), `src/ai/compaction.ts` (Phase 20 remap), `src/components/AgentConsole.tsx` + Select primitives (Phase 21), `docs/ARCHITECTURE.md` v2.0
+Key files: `src/ai/toolLoop.ts` + `src/ai/compaction.ts` + `src/ai/fork.ts`(移植规格源), `src-tauri/src/llm.rs`(保留的 LLM 层), `src-tauri/migrations/0002..0007`(事件日志 schema), `docs/ARCHITECTURE.md` v2.0 + ADR-0001/0002/0003

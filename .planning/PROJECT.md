@@ -8,22 +8,26 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 
-## Current Milestone: v0.3.1 多 Session 会话体系
+## Current Milestone: v0.3.2 Rust Run Engine(agent 核心迁 Rust)
 
-**Goal:** 把全局单条 agent 对话升级为工作区隔离、可恢复、可分支的多 session 体系,session 成为 Agent 工作区的一等实体。
+**Goal:** 把 agent 运行时从 TS webview 迁入 Rust 常驻 run engine——多 run 并行调度、后台持续运行、事件日志 Rust 唯一写者;webview 退化为投影 + HITL UI;为 IM / MCP / Skill 三类入口铺平道路。
 
 **Target features:**
-- Session 数据模型:sessions 元数据表(migration 0007,workspace_id/title/parent_session_id/fork_cut_seq),事件 scope 扩展 workspaceId
-- 多 session 运行时:`sessionRef` 单例 → activeSessionId 状态;启动默认新 session + 上次工作区;streaming 中锁定切换;pending 确认卡片按 session 过滤
-- Agent 页「最近任务」:接真实 session 列表(当前工作区过滤,标题+时间+消息数+分支标识),点击恢复
-- 分支:hover assistant 卡片浮出 分支/复制 icon;引用式 fork(parent 事件前缀投影,零复制);分支后 UI 跳转新 session 并带分支标识
-- 复制:assistant 消息一键复制到剪贴板
-- Ctrl+Shift+K:ChatPanel 头部加 工作区 + session 两个 Select(工作区切换联动过滤);Ctrl+K 保持纯净
-- Session 标题:首个 turn 后 LLM 自动命名,失败回退首条消息截断
+- ADR-0003 草案:显式取代 ADR-0001「agent 运行时驻留 TS 侧」条款(其余不变)
+- 引擎核心:toolLoop / compaction / contextAssembler 语义移植,agent_* 表迁 Rust 唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志回放平价
+- 工具层:Rust 工具注册表 + 首批工具(exec 借 omp 模式 / fs / knowledge 检索 / deliverable),PM CRUD 工具走 TS 工具桥过渡
+- 多 run 并行 + 后台:调度器(spawn / await / cancel 传播 / 并发上限)、hide-on-close + 托盘常驻、后台 run 角标与通知
+- 收口:TS loop 下线、ADR-0003 转 Accepted、孤儿 exec 第三态协议定稿
 
-**Key decisions(2026-08-18 用户锁定):** 引用式 fork / ChatPanel 加下拉框 / LLM 自动命名 / 列表过滤级隔离(记忆/知识库保持全局)
+**Key decisions(2026-08-23 用户锁定,详见 ADR-0003):**
+- 三驱动:后台长跑 / 多 session 并行 / IM-MCP-Skill 丝滑接入;TS 运行时定性为语义验证(已完成使命)
+- 不采用 rig-core/rig-agent(供给错位 + AgentRun 与事件日志双记账 + pre-1.0 风险进心脏);不采用 GraphFlow 调度(动态拓扑 vs 静态图相克,自写调度器 ≈ 数百行 tokio)
+- llm.rs 原地保留;omp 借模式不引依赖(MIT + ADR-0002 先例)
+- 双写者规则:Rust 立即接管 agent_* 表;业务表过渡期 TS 写、Rust 只读;同表双写禁止
+- 后台运行 = 托盘常驻(hide-on-close),不是守护进程
+- 验收 = Rust 引擎逐位回放 v0.3.x 事件日志,投影一致(TS 纯函数 + 217 测试 = 可执行规格)
 
-**Out of scope:** session 手动重命名、session 删除、定时任务 tab(保持 mock)、跨工作区 strict 隔离
+**Out of scope:** subAgent spawn 工具与编排 agent 模式(留 v0.4+,调度器结构已支持)、IM 入口、MCP client(rmcp)、Skill manifest、业务表 Rust 直写、向量检索 P2、独立守护进程
 
 ## Current State (after v0.3.0)
 
@@ -38,7 +42,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 **Tech debt(非阻断,完整清单见 `milestones/v0.3.0-MILESTONE-AUDIT.md`):** FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall 决策点、产品 chip × 语义、MarkdownEditor chunk ~297 KB、CSP null、云 provider 凭据 UAT。
 
-**Next Milestone:** v0.3.1 多 Session 会话体系 — 已启动(2026-08-18,`/gsd:new-milestone`)
+**v0.3.1 多 Session 会话体系(2026-08-18/19)—— Phase 18-21 全部完成,VERIFICATION 全 PASS;剩 3 项人工 UAT + complete-milestone 待收口(见 STATE TODOs,Phase 22 执行前完成)。进度明细:**
 
 **v0.3.1 进度:**
 - **Session 数据模型与底座**(Phase 18,2026-08-18):migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)、toolLoop workspaceId stamping、confirmations sessionId 根因修复、sessionRepo 双实现(memory/sqlite)+ turn-start upsert;fixture-DB 升级测试锁定幂等,174/174 测试通过
@@ -150,6 +154,8 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 | [v0.3.0] consume-at-落槽(卡片确认 ≠ 消费,Dialog 落槽是唯一消费点) | 取消无损;stable docId 使重复落槽 supersede 为新版本 | ✓ Good — 16-UAT 取消无损/版本链验证 |
 | [v0.3.0] chatConsoleStore 唯一归属 + AgentConsole 双宿主 | Drawer 与工作区同一场对话,同构由结构保证而非测试 | ✓ Good — 17-UAT 流式中途切换验证 |
 | [v0.3.0] harness 复用 = 设计思想 + 纯函数算法,不引入框架 | dsh 是 Node 运行时违反零 sidecar;MIT 归属入 ADR-0002 | ✓ Good |
+| [v0.3.2] Agent 核心迁 Rust run engine,webview 退化为投影 + HITL UI | 三驱动:后台长跑 / 多 session 并行 / IM-MCP-Skill 多入口;TS 运行时已完成语义验证;事件日志 schema 即迁移契约 | ◐ Proposed — ADR-0003 草案,Phase 25 转 Accepted |
+| [v0.3.2] 不采用 Rig / GraphFlow,自写调度器,omp 借模式不引依赖 | Rig 只供 loop 骨架+provider(最廉价部分)且 AgentRun 与事件日志双记账;GraphFlow 静态图 vs subAgent 动态拓扑相克;调度器 ≈ 数百行 tokio | ◐ Proposed — ADR-0003 物料决策表 |
 
 ## Evolution
 
@@ -183,4 +189,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 21 (2026-08-19)**: Session 列表与快捷入口 + 自动命名 — 真实列表 + 双下拉 ChatPanel + 快捷键分流 + LLM 自动命名。VERIFICATION PASS(13/13,人工项留 UAT)。
 
 ---
-*Last updated: 2026-08-19 — v0.3.1 Phase 21 complete*
+*Last updated: 2026-08-23 — v0.3.2 Rust Run Engine started(ADR-0003 草案同步落稿)*

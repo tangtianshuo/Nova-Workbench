@@ -16,7 +16,7 @@ use crate::engine::channel::{EngineEvent, EngineRunResult};
 use crate::engine::event_log::{self, EventInput};
 use crate::engine::chat_session::LlmMessage;
 use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmToolCall, LlmTurn, LoopContext, LoopError, TokenSink};
-use crate::engine::{confirmations, tools};
+use crate::engine::{confirmations, exec, tools};
 use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
 use crate::state::AppState;
@@ -284,6 +284,125 @@ fn with_conn<T>(db: &State<'_, EngineDb>, f: impl FnOnce(&Connection) -> Result<
     f(conn)
 }
 
+/// Confirm an exec_approval candidate, optionally learn the command into the
+/// whitelist, then RE-EXECUTE in Rust (23-02: no TS executeTool seam for exec)
+/// and settle via append_tool_result_inner ([confirmed rerun] pairing).
+/// Runs on tauri::async_runtime (multi-thread) — tokio::process spawn is legal.
+#[tauri::command]
+pub async fn engine_exec_confirmed(
+    session_id: String,
+    token: String,
+    allow_permanently: bool,
+    db: State<'_, EngineDb>,
+) -> Result<Value, AppError> {
+    let conn = db
+        .0
+        .lock()
+        .unwrap()
+        .take()
+        .ok_or_else(|| AppError::InternalError("engine busy: another run holds the DB".into()))?;
+    // Sync prelude/settle around the await: &Connection is !Send, so it must
+    // not live across the subprocess await.
+    let prepared = exec_confirmed_prepare(&conn, &token, allow_permanently);
+    let result = match prepared {
+        Ok((command, args, cwd, params)) => {
+            let outcome = exec::execute_core(&command, &args, &cwd, exec::DEFAULT_TIMEOUT_MS, CancellationToken::new(), &|_| {}).await;
+            exec_confirmed_settle(&conn, &session_id, &params, outcome)
+        }
+        Err(e) => Err(e),
+    };
+    *db.0.lock().unwrap() = Some(conn);
+    result
+}
+
+/// Sync half 1: confirm+consume the candidate, learn the whitelist entry,
+/// extract owned (command, args, cwd, params).
+fn exec_confirmed_prepare(
+    conn: &Connection,
+    token: &str,
+    allow_permanently: bool,
+) -> Result<(String, Vec<String>, std::path::PathBuf, Value), AppError> {
+    let candidate = confirmations::get(conn, token)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
+    if candidate.kind != "exec_approval" {
+        return Err(AppError::InternalError(format!(
+            "candidate kind {} is not exec_approval",
+            candidate.kind
+        )));
+    }
+    confirmations::confirm(conn, token)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+    let consumed = confirmations::consume(conn, token, None)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+
+    let command = consumed.params["command"].as_str().unwrap_or_default().to_string();
+    let args: Vec<String> = consumed
+        .params["args"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+    let cwd = consumed
+        .params["cwd"]
+        .as_str()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+
+    if allow_permanently && !command.is_empty() {
+        exec::add_command_to_whitelist(conn, &command)
+            .map_err(|e| AppError::InternalError(e.to_string()))?;
+    }
+    Ok((command, args, cwd, consumed.params))
+}
+
+/// Sync half 2: settle the execution via append_tool_result_inner.
+fn exec_confirmed_settle(
+    conn: &Connection,
+    session_id: &str,
+    params: &Value,
+    outcome: tools::ToolOutcome,
+) -> Result<Value, AppError> {
+    let (ok, payload) = match outcome {
+        tools::ToolOutcome::Executed(v) => (true, v),
+        tools::ToolOutcome::Failed { message, .. } => (false, json!({ "error": message })),
+        tools::ToolOutcome::AwaitConfirmation { .. } => {
+            return Err(AppError::InternalError("exec core cannot await confirmation".into()))
+        }
+    };
+    append_tool_result_inner(
+        conn,
+        session_id,
+        &uuid::Uuid::new_v4().to_string(),
+        "exec",
+        ok,
+        &payload,
+        Some(params),
+    )
+    .map_err(AppError::InternalError)?;
+    Ok(payload)
+}
+
+/// Testable whole flow (single-thread runtime in tests).
+pub async fn exec_confirmed_inner(
+    conn: &Connection,
+    session_id: &str,
+    token: &str,
+    allow_permanently: bool,
+) -> Result<Value, AppError> {
+    let (command, args, cwd, params) = exec_confirmed_prepare(conn, token, allow_permanently)?;
+    let outcome = exec::execute_core(&command, &args, &cwd, exec::DEFAULT_TIMEOUT_MS, CancellationToken::new(), &|_| {}).await;
+    exec_confirmed_settle(conn, session_id, &params, outcome)
+}
+
+/// Standalone whitelist learning (backup path; the main path is
+/// engine_exec_confirmed allow_permanently=true).
+#[tauri::command]
+pub async fn engine_whitelist_add(command: String, db: State<'_, EngineDb>) -> Result<(), AppError> {
+    with_conn(&db, |conn| {
+        exec::add_command_to_whitelist(conn, &command).map_err(|e| AppError::InternalError(e.to_string()))
+    })
+}
+
 /// Testable core of engine_append_tool_result.
 pub fn append_tool_result_inner(
     conn: &Connection,
@@ -426,5 +545,84 @@ mod tests {
         // sanity: restore module reachable through the command layer's imports
         let conn = mem_conn();
         assert!(crate::engine::restore::restore_session(&conn, "none").unwrap().is_none());
+    }
+
+    #[test]
+    fn exec_confirmed_reruns_in_rust_and_settles() {
+        let conn = mem_conn();
+        // Off-whitelist exec::run → exec_approval candidate (params carry cwd).
+        let cwd = std::env::temp_dir().to_string_lossy().to_string();
+        let (command, args): (&str, Vec<String>) = if cfg!(windows) {
+            ("cmd", vec!["/c".into(), "echo confirmed".into()])
+        } else {
+            ("echo", vec!["confirmed".into()])
+        };
+        let token = {
+            use crate::engine::tools::{execute_async, ToolCtx, ToolOutcome};
+            let ctx = ToolCtx {
+                session_id: "s1",
+                product_id: None,
+                workspace_root: Some(std::path::PathBuf::from(&cwd)),
+            };
+            let outcome = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(execute_async(
+                    &conn,
+                    "exec",
+                    &json!({"command": command, "args": args}),
+                    &ctx,
+                    CancellationToken::new(),
+                    &|_| {},
+                ));
+            match outcome {
+                ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                    candidate["confirmationToken"].as_str().unwrap().to_string()
+                }
+                other => panic!("expected candidate, got {other:?}"),
+            }
+        };
+
+        let payload = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(exec_confirmed_inner(&conn, "s1", &token, true))
+            .unwrap();
+        assert_eq!(payload["ok"], true);
+        assert!(payload["stdout"].as_str().unwrap().contains("confirmed"));
+
+        // Learned permanently into kv_store
+        assert!(crate::engine::exec::whitelist_matches(
+            &crate::engine::exec::merged_whitelist(&conn),
+            command,
+            &args,
+        ));
+
+        // Events: pairing tool_call ([confirmed rerun]) + tool_result
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        assert_eq!(events.iter().map(|e| e.event_type.as_str()).collect::<Vec<_>>(), vec!["tool_call", "tool_result"]);
+        assert_eq!(events[0].payload["content"], "[confirmed rerun]");
+        assert_eq!(events[1].payload["toolName"], "exec");
+        assert_eq!(events[1].payload["ok"], true);
+
+        // Second consume → settled
+        confirmations::confirm(&conn, &token).ok();
+        let err = confirmations::consume(&conn, &token, None).unwrap_err();
+        assert_eq!(err.code(), "already_settled");
+    }
+
+    #[test]
+    fn exec_confirmed_rejects_other_kinds() {
+        let conn = mem_conn();
+        let c = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
+        let err = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(exec_confirmed_inner(&conn, "s1", &c.confirmation_token, false))
+            .unwrap_err();
+        assert!(err.to_string().contains("not exec_approval"));
     }
 }

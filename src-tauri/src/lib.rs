@@ -136,6 +136,8 @@ pub fn run() {
             engine::commands::engine_confirm_candidate,
             engine::commands::engine_reject_candidate,
             engine::commands::engine_append_tool_result,
+            engine::commands::engine_exec_confirmed,
+            engine::commands::engine_whitelist_add,
         ])
         .setup(|app| {
             // Set minimum window size

@@ -7,6 +7,7 @@ import { executeTool } from '@/src/ai';
 import {
   engineAppendToolResult,
   engineConfirmCandidate,
+  engineExecConfirmed,
   engineRejectCandidate,
   engineRun,
   type EnginePendingCandidate,
@@ -34,10 +35,25 @@ import type { Provider } from '@/src/lib/api';
 
 export type ToolTraceStatus = 'running' | 'ok' | 'error';
 
+export interface ToolOutputLine {
+  text: string;
+  isStderr: boolean;
+}
+
 export interface ToolTraceItem {
   id: number;
   name: string;
   status: ToolTraceStatus;
+  /** exec stdout/stderr lines streamed via EngineEvent tool_output (23-02). */
+  outputLines?: ToolOutputLine[];
+}
+
+/** exec_approval 确认卡(23-02):Rust exec 候选 → 三选项卡(拒绝/仅本次/永久)。 */
+export interface ExecApprovalCandidate {
+  confirmationToken: string;
+  command: string;
+  args: string[];
+  summary: string;
 }
 
 export interface ChatMessage {
@@ -162,6 +178,7 @@ interface ChatConsoleState {
   restoreComplete: boolean;
   pendingConfirmation: KnowledgeWriteCandidate | null;
   pendingDestructiveAction: DestructiveActionCandidate | null;
+  pendingExecApproval: ExecApprovalCandidate | null;
   pendingMemory: MemoryCandidate | null;
   autoRemembered: MemoryCandidate | null;
   memoryBusy: boolean;
@@ -189,6 +206,8 @@ interface ChatConsoleState {
   rejectKnowledgeWrite: () => Promise<void>;
   confirmDestructiveAction: () => Promise<void>;
   rejectDestructiveAction: () => Promise<void>;
+  confirmExec: (allowPermanently: boolean) => Promise<void>;
+  rejectExec: () => Promise<void>;
   confirmMemory: () => Promise<void>;
   rejectMemory: () => Promise<void>;
   rejectDraft: () => Promise<void>;
@@ -317,6 +336,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     restoreComplete: false,
     pendingConfirmation: null,
     pendingDestructiveAction: null,
+    pendingExecApproval: null,
     pendingMemory: null,
     autoRemembered: null,
     memoryBusy: false,
@@ -411,6 +431,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         messages: [],
         pendingConfirmation: null,
         pendingDestructiveAction: null,
+        pendingExecApproval: null,
         pendingPrdDraft: null,
         pendingMemory: null,
         forkableIds: new Set<number>(),
@@ -486,6 +507,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         // a runtime caller — its source stays as the porting spec (Phase 25).
         let engineKnowledgeCandidate: KnowledgeWriteCandidate | null = null;
         let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
+        let engineExecCandidate: ExecApprovalCandidate | null = null;
         const result = await engineRun({
           runId: crypto.randomUUID(),
           userMessage: trimmed,
@@ -529,12 +551,37 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
               if (name === 'memory_write') void refreshMemoryCards();
               return;
             }
+            if (msg.kind === 'tool_output' && msg.data?.name) {
+              // 23-02 exec streaming: append the line to the newest running
+              // trace item of this tool (display-only, no persistence).
+              const name = msg.data.name;
+              const line = { text: msg.data.stream ?? '', isStderr: msg.data.isStderr === true };
+              updateTrace((current) => {
+                const next = [...current];
+                for (let index = next.length - 1; index >= 0; index -= 1) {
+                  if (next[index].name === name && next[index].status === 'running') {
+                    const outputLines = [...(next[index].outputLines ?? []), line].slice(-50);
+                    next[index] = { ...next[index], outputLines };
+                    break;
+                  }
+                }
+                return next;
+              });
+              return;
+            }
             if (msg.kind === 'confirmation' && msg.data?.candidate) {
               const candidate = msg.data.candidate;
               if (candidate.kind === 'knowledge_write') {
                 engineKnowledgeCandidate = toKnowledgeWriteCandidate(candidate, get().activeSessionId);
               } else if (candidate.kind === 'destructive_action') {
                 engineDestructiveCandidate = toDestructiveCandidate(candidate);
+              } else if (candidate.kind === 'exec_approval') {
+                engineExecCandidate = {
+                  confirmationToken: candidate.confirmationToken,
+                  command: String(candidate.args?.command ?? ''),
+                  args: Array.isArray(candidate.args?.args) ? (candidate.args?.args as string[]) : [],
+                  summary: String(candidate.summary ?? ''),
+                };
               } else if (candidate.kind === 'memory_write') {
                 void refreshMemoryCards();
               }
@@ -548,6 +595,15 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
 
         if (result.pendingConfirmation?.kind === 'knowledge_write' && !engineKnowledgeCandidate) {
           engineKnowledgeCandidate = toKnowledgeWriteCandidate(result.pendingConfirmation, get().activeSessionId);
+        }
+        if (result.pendingConfirmation?.kind === 'exec_approval' && !engineExecCandidate) {
+          const pc = result.pendingConfirmation;
+          engineExecCandidate = {
+            confirmationToken: pc.confirmationToken,
+            command: String(pc.args?.command ?? ''),
+            args: Array.isArray(pc.args?.args) ? (pc.args?.args as string[]) : [],
+            summary: String(pc.summary ?? ''),
+          };
         }
 
         const assistantContent = result.content || streamingResponseRef || 'AI 没有返回内容';
@@ -563,6 +619,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           ],
           pendingConfirmation: engineKnowledgeCandidate ?? current.pendingConfirmation,
           pendingDestructiveAction: engineDestructiveCandidate ?? current.pendingDestructiveAction,
+          pendingExecApproval: engineExecCandidate ?? current.pendingExecApproval,
         }));
 
         if (result.truncated) {
@@ -637,6 +694,57 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           id: nextId++,
           role: 'assistant' as const,
           content: '已取消本次删除操作。',
+        }],
+      }));
+    },
+
+    // 23-02 exec 确认(拒绝/仅本次允许/永久加入白名单):Rust 侧
+    // confirm+consume(+可选白名单学习)+ 重执行 + [confirmed rerun] 落库,
+    // 前端只收执行结果(payload)。
+    confirmExec: async (allowPermanently: boolean) => {
+      const { pendingExecApproval, loading } = get();
+      if (!pendingExecApproval || loading) return;
+      set({ loading: true });
+      try {
+        const candidate = pendingExecApproval;
+        const result = await engineExecConfirmed(
+          get().activeSessionId,
+          candidate.confirmationToken,
+          allowPermanently,
+        );
+        const ok = result.ok === true;
+        const snippet = ok
+          ? String(result.stdout ?? '').trim().slice(0, 200)
+          : String(result.error ?? '执行失败');
+        set((current) => ({
+          messages: [...current.messages, {
+            id: nextId++,
+            role: 'assistant' as const,
+            content: `${candidate.summary || candidate.command} 已确认执行。${snippet ? `\n${snippet}` : ''}`,
+          }],
+          pendingExecApproval: null,
+        }));
+      } catch (error) {
+        emitToast({
+          type: 'error',
+          title: '命令执行失败',
+          description: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    rejectExec: async () => {
+      const { pendingExecApproval } = get();
+      if (!pendingExecApproval) return;
+      await engineRejectCandidate(pendingExecApproval.confirmationToken);
+      set((current) => ({
+        pendingExecApproval: null,
+        messages: [...current.messages, {
+          id: nextId++,
+          role: 'assistant' as const,
+          content: '已拒绝本次命令执行。',
         }],
       }));
     },

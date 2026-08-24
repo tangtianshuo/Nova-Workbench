@@ -38,12 +38,26 @@ function ToolTrace({ items }: { items: ToolTraceItem[] }) {
   return (
     <div className="mb-2.5 space-y-1 border-b border-border-subtle/70 pb-2.5">
       {items.map((item) => (
-        <div key={item.id} className="flex items-center gap-1.5 text-xs text-text-secondary">
-          <TraceIcon status={item.status} />
-          <span className="truncate">{item.name}</span>
-          <span className="text-text-tertiary">
-            {item.status === 'running' ? '执行中' : item.status === 'ok' ? '已完成' : '失败'}
-          </span>
+        <div key={item.id}>
+          <div className="flex items-center gap-1.5 text-xs text-text-secondary">
+            <TraceIcon status={item.status} />
+            <span className="truncate">{item.name}</span>
+            <span className="text-text-tertiary">
+              {item.status === 'running' ? '执行中' : item.status === 'ok' ? '已完成' : '失败'}
+            </span>
+          </div>
+          {item.outputLines && item.outputLines.length > 0 && (
+            <pre className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-[var(--radius-sm)] bg-bg-primary px-2 py-1 text-[11px] leading-4">
+              {item.outputLines.map((line, index) => (
+                <span
+                  key={index}
+                  className={line.isStderr ? 'text-warning' : 'text-text-tertiary'}
+                >
+                  {line.text}
+                </span>
+              ))}
+            </pre>
+          )}
         </div>
       ))}
     </div>
@@ -66,6 +80,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     restoreComplete,
     pendingConfirmation,
     pendingDestructiveAction,
+    pendingExecApproval,
     pendingMemory,
     autoRemembered,
     memoryBusy,
@@ -84,6 +99,8 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     rejectKnowledgeWrite,
     confirmDestructiveAction,
     rejectDestructiveAction,
+    confirmExec,
+    rejectExec,
     confirmMemory,
     rejectMemory,
     rejectDraft,
@@ -240,6 +257,23 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
               </Button>
               <Button type="button" variant="secondary" size="sm" onClick={() => void rejectDestructiveAction()} disabled={loading}>
                 取消
+              </Button>
+            </div>
+          </div>
+        )}
+        {pendingExecApproval && (
+          <div className="rounded-[var(--radius-lg)] border border-warning/30 bg-bg-secondary px-3.5 py-3 text-sm text-text-primary">
+            <div className="font-medium">需要确认的命令执行</div>
+            <div className="mt-1 font-mono text-xs text-text-secondary">{pendingExecApproval.summary}</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" variant="primary" size="sm" onClick={() => void confirmExec(true)} disabled={loading}>
+                永久加入白名单
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => void confirmExec(false)} disabled={loading}>
+                仅本次允许
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => void rejectExec()} disabled={loading}>
+                拒绝
               </Button>
             </div>
           </div>

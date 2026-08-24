@@ -3,7 +3,7 @@
 // kv_store-learned entries) → spawn, or exec_approval HITL candidate.
 // Process management lives in spawn_core: tokio::process, kill_on_drop,
 // timeout, CancellationToken, line-streamed stdout/stderr via
-// EngineEvent::ToolOutput. No webview invoke anywhere (TOOL-04).
+// EngineEvent::ToolOutput. No webview callback anywhere (TOOL-04).
 
 use std::path::{Path, PathBuf};
 

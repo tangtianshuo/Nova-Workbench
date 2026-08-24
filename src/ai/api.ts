@@ -99,6 +99,31 @@ export async function engineRejectCandidate(confirmationToken: string): Promise<
 }
 
 /**
+ * Confirm an exec_approval candidate (23-02): Rust confirms+consumes, optionally
+ * learns the command into agent.exec.whitelist, RE-EXECUTES the subprocess
+ * itself and settles the [confirmed rerun] events — no TS executeTool seam.
+ * Resolves with the execution payload ({ok, exitCode, stdout, stderr, ...}).
+ */
+export async function engineExecConfirmed(
+  sessionId: string,
+  confirmationToken: string,
+  allowPermanently: boolean,
+): Promise<Record<string, unknown>> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('engine_exec_confirmed', {
+    sessionId,
+    token: confirmationToken,
+    allowPermanently,
+  });
+}
+
+/** Whitelist learning backup path (main path: engineExecConfirmed true). */
+export async function engineWhitelistAdd(command: string): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('engine_whitelist_add', { command });
+}
+
+/**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the
  * caller has no original tool_call id (Rust appends the pairing tool_call).

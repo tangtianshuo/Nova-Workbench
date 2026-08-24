@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
-Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿,待 VERIFICATION)
+Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Current Plan: 4 of 4
-Status: Phase 24 ready for verifier (/gsd:verify-work 24)
+Status: Phase 25 待启动(24-VERIFICATION PASS_WITH_NOTES 80ad866,SCHED-01..04 Complete;deferred UAT 4 项留 milestone 收口)
 Last activity: 2026-08-24
 
 ```

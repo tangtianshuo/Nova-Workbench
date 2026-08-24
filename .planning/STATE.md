@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
 status: verifying
-last_updated: "2026-08-24T03:17:50.175Z"
+last_updated: "2026-08-24T03:27:42.336Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -56,6 +56,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 22 P05 | 55m | 3 tasks | 6 files |
 | Phase 22 P06 | 95m | 2 tasks | 8 files |
 | Phase 22 P06 | 95m | 2 tasks | 8 files |
+| Phase 22 P07 | 12m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,7 @@ v0.3.1 roadmap decisions:
 - [Phase 22]: 22-04: parity 锁定对象=投影而非事件序列;projection-cases.json 由真实 TS 投影生成,双侧单源;serde_json BTreeMap 键序差异仅影响 args token 估算
 - [Phase 22]: 22-05: 系统提示只含 Phase 9 role 块(Phase 10 指南块随 Phase 23 工具桥恢复);turn-end 审计失败即 Err(硬于 TS);Llm trait 注入便于 fake 测试与 22-06 接线
 - [Phase 22]: 22-06: engine_run 以 webview runId 为 cancel key(correlation_id 对 cancel 不可知);append_tool_result 对 fresh id 先补配对 tool_call 避免 DUPLICATE_TOOL_RESULT;memory/deliverable confirm 留 TS(Phase 23 桥迁移)
+- [Phase 22]: parity.rs 单源双侧 glob 拥有全部 fixture 回放测试;真实 v0.3.x DB 抽样 2 份(264+42 events)端到端回放逐位通过
 
 ### TODOs (pending)
 

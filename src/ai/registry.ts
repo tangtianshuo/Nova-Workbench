@@ -54,7 +54,8 @@ export function toolsToSchemas(names?: string[]): JsonSchema[] {
 
   return entries.map(({ tool, jsonSchema }) => ({
     name: tool.name,
-    description: tool.description,
+    // PORT-01 (ADR-0003 附则 A.3): appended to every tool description.
+    description: `${tool.description} 若 tool_result 状态为 unknown,先验证(如查看文件/状态)再决定是否重跑;verify_first 类命令禁止未验证直接重跑。`,
     parameters: jsonSchema,
   }));
 }

@@ -65,6 +65,33 @@ TS 运行时的历史任务已经完成:它验证了语义,而语义是可移植
 
 **孤儿 exec 第三态**:崩溃发生在「命令已发出」与「tool_result 已落盘」之间时,恢复后该 tool_result 呈 `unknown/interrupted`(非 error——命令可能已成功);命令幂等分类(可重跑 / 须先验证)随 tool_call 落盘;模型收到 unknown 的约定动作是先验证(git status / ls)再决定重跑。引擎搬家时改协议最贵,要改趁现在。
 
+## 附则 A:孤儿 tool_result 第三态与幂等分类协议(PORT-01,2026-08-24 定稿)
+
+引擎动手前锁定的恢复协议。三要素:
+
+### A.1 幂等分类随 tool_call 落盘
+
+tool_call 事件 payload 新增字段 `idempotency: 'rerunnable' | 'verify_first'`:
+- 由工具注册时声明(每个工具一个静态 `idempotency` 分类),随 tool_call 事件 payload_json 落盘,**不建单独表**。
+- 旧事件(无 `idempotency` 字段)读取侧一律视为 `verify_first`(保守默认:恢复后先验证再决定重跑)。
+- Phase 22 无 exec 实体工具,字段与协议先落;Phase 23 exec 工具注册时填真值。
+
+### A.2 孤儿 tool_result 第三态(unknown / interrupted)
+
+崩溃发生在「命令已发出」与「tool_result 已落盘」之间时,恢复追加的 marker:
+
+- payload:`{ok:false, interrupted:true, status:'unknown', reason:'app-restart', modelText:...}`
+- modelText:`[tool_result <name>] {"ok":false,"status":"unknown","interrupted":true,"reason":"app restarted before tool completion"}` —— 键序即此序(`ok` 不再单独承载语义;`status:"unknown"` 区别于 error,模型不得假定命令失败:命令可能已执行成功,也可能未执行)。
+- TS 侧 sessionRestore.ts 同步实现(双侧 parity;一行级别 diff)。
+
+### A.3 工具描述约定
+
+工具 description 生成模板追加一句:「若 tool_result 状态为 unknown,先验证(如查看文件/状态)再决定是否重跑;verify_first 类命令禁止未验证直接重跑」。落在 registry 的 schema 生成处(Phase 22 生效,Phase 23 exec 工具注册 `idempotency` 分类时受益)。
+
+### A.4 Phase 22 工具集边界(orchestrator 裁决)
+
+PM CRUD 工具(createTask/scheduleCrud 等)在 Phase 22 期间从模型 schema 消失(TOOL-04 降级先例:能力降级一个 phase 优于提前引入 TS 工具桥);Phase 23 经 TS 桥恢复。Phase 22 的 Rust 工具注册表只含 Rust 侧可执行的工具(候选类 + knowledge 检索)。
+
 ## Consequences
 
 - **对 ADR-0001**:仅「agent 运行时驻留 TS 侧」条款被取代;其否决 Rig/GraphFlow 的结论**不变且被本 ADR 重申**(否决理由从"当时无增量"演化为"供给错位")。

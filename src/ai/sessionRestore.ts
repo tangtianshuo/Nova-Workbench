@@ -118,8 +118,10 @@ async function doRestore(sessionId?: string): Promise<RestoredSession | null> {
         toolName,
         ok: false,
         interrupted: true,
+        status: 'unknown', // PORT-01: third state — NOT error. Model must verify before rerun.
         reason: 'app-restart',
-        modelText: `[tool_result ${toolName}] ${JSON.stringify({ ok: false, interrupted: true, reason: 'app restarted before tool completion' })}`,
+        // Key order is the protocol (ADR-0003 附则 A.2): status:"unknown" before interrupted.
+        modelText: `[tool_result ${toolName}] {"ok":false,"status":"unknown","interrupted":true,"reason":"app restarted before tool completion"}`,
       },
       correlationId: orphan.correlationId,
     });

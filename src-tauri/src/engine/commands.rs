@@ -131,6 +131,9 @@ pub async fn engine_run(
     ollama_model: Option<String>,
     workspace_id: Option<String>,
     product_id: Option<String>,
+    // Active workspace folderPath (23-01): fs/exec tool root. Optional —
+    // None leaves those tools Failed-safe.
+    workspace_root: Option<String>,
     core_context: String,
     on_event: Channel<EngineEvent>,
     state: State<'_, AppState>,
@@ -184,7 +187,7 @@ pub async fn engine_run(
             product_id,
             provider: provider.to_string(),
             ollama_model,
-            workspace_root: None,
+            workspace_root: workspace_root.map(std::path::PathBuf::from),
             core_context,
             llm: Box::new(llm_adapter),
             summarizer: Some(&mut summarizer),

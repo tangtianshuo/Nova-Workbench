@@ -29,10 +29,13 @@ export interface EngineRunResult {
 
 /** Seven-variant channel protocol (engine/channel.rs, tag=kind/content=data). */
 export interface EngineEventMsg {
-  kind: 'token' | 'tool_start' | 'tool_end' | 'event' | 'confirmation' | 'done' | 'error';
+  kind: 'token' | 'tool_start' | 'tool_end' | 'tool_output' | 'event' | 'confirmation' | 'done' | 'error';
   data?: {
     text?: string;
     name?: string;
+    /** tool_output: exec stdout/stderr chunk (23-02 renders it). */
+    stream?: string;
+    isStderr?: boolean;
     ok?: boolean;
     seq?: number;
     event_type?: string;
@@ -51,6 +54,8 @@ export interface EngineRunParams {
   ollamaModel?: string;
   workspaceId?: string | null;
   productId?: string | null;
+  /** Active workspace folderPath — fs/exec tool root (23-01). */
+  workspaceRoot?: string | null;
   /** TS buildCoreContext() output — injected into the Rust system prompt. */
   coreContext: string;
   onEvent: (event: EngineEventMsg) => void;
@@ -69,6 +74,7 @@ export async function engineRun(params: EngineRunParams): Promise<EngineRunResul
     ollamaModel: params.ollamaModel ?? null,
     workspaceId: params.workspaceId ?? null,
     productId: params.productId ?? null,
+    workspaceRoot: params.workspaceRoot ?? null,
     coreContext: params.coreContext,
     onEvent: channel,
   });

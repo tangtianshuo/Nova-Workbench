@@ -21,9 +21,10 @@ pub struct EngineRunResult {
     pub pending_confirmation: Option<Value>,
 }
 
-/// Seven-variant engine channel protocol. Token is high-frequency; everything
-/// else is a turn-level summary. EventCommitted carries {seq, event_type} so
-/// the webview can refresh its projection from SQLite incrementally.
+/// Engine channel protocol. Token is high-frequency; everything else is a
+/// turn-level summary. EventCommitted carries {seq, event_type} so the webview
+/// can refresh its projection from SQLite incrementally. ToolOutput (23-01)
+/// streams exec stdout/stderr chunks; the webview may ignore unknown kinds.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", content = "data")]
 pub enum EngineEvent {
@@ -33,6 +34,8 @@ pub enum EngineEvent {
     ToolStart { name: String },
     #[serde(rename = "tool_end")]
     ToolEnd { name: String, ok: bool },
+    #[serde(rename = "tool_output")]
+    ToolOutput { name: String, stream: String, is_stderr: bool },
     #[serde(rename = "event")]
     EventCommitted { seq: i64, event_type: String },
     #[serde(rename = "confirmation")]
@@ -59,6 +62,20 @@ mod tests {
         let wire: Value = serde_json::to_value(&token).unwrap();
         assert_eq!(wire["kind"], "token");
         assert_eq!(wire["data"]["text"], "你");
+    }
+
+    #[test]
+    fn tool_output_serializes_with_own_kind() {
+        let event = EngineEvent::ToolOutput {
+            name: "exec".into(),
+            stream: "hello\n".into(),
+            is_stderr: false,
+        };
+        let wire: Value = serde_json::to_value(&event).unwrap();
+        assert_eq!(wire["kind"], "tool_output");
+        assert_eq!(wire["data"]["name"], "exec");
+        assert_eq!(wire["data"]["stream"], "hello\n");
+        assert_eq!(wire["data"]["is_stderr"], false);
     }
 
     #[test]

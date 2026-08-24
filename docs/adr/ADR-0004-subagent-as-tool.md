@@ -40,7 +40,7 @@
 ### 3. spawn_subagent 工具语义
 
 - 主 agent 调用 `spawn_subagent(spec, task)` → 调度器建**子 run**(`parent_run_id`,同一张 `agent_events`,真相源不分裂)→ 父 loop 像等普通工具一样 await
-- 子 run 结束,**结果摘要**(非全量历史)作为 tool_result 回父——上下文隔离核心:原型编写的几百条中间事件永不进父会话
+- 子 run 结束,**结果摘要作为 schema-validated 对象**(如 `{ files_changed, summary, artifacts[] }`)回父,父 agent 不解析自由文本;非全量历史回传——上下文隔离核心:原型编写的几百条中间事件永不进父会话(模式来源:oh-my-pi task 工具)
 - 失败 = 带错误的 tool_result,主 agent 自行决定重试/换路/问人,与普通工具失败零区别,无新增错误机制
 - 取消传播:父 run 取消 → 子 run 级联取消
 - 子 run 内触发 HITL → 卡片挂现有确认队列,父工具调用挂起等人,两阶段 confirm 语义直接复用

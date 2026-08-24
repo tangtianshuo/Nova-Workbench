@@ -52,6 +52,7 @@ Plans:
   3. PM CRUD 工具(任务/日程/知识写入等)经 TS 工具桥调用,webview 存活时行为与现状一致(TOOL-03)
   4. webview 不可用的无头 run 只暴露 Rust 原生工具,模型可感知工具可用性差异并明确降级(TOOL-04)
 **Plans**: TBD
+**Carry-in(22-VERIFICATION SC-3 缺口,必须在本 phase 迁移,不得再滑)**: ① `chatConsoleStore.ts` appendAuxEvent('deliverable_committed') → TS 直写 agent_events;② `memoryStore.ts` consumeIntoMemories → TS 直写 memory_candidates。两处 HITL 用户动作接缝须改走 Rust 唯一写者
 **Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows)+ TS 工具桥 IPC 回调机制,值得先研究
 
 ### Phase 24: 多 run 并行 + 后台运行(托盘)

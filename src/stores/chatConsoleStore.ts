@@ -20,10 +20,14 @@ import { buildCoreContext } from '@/src/ai/context';
 import {
   confirmDeliverableDraft,
   listPendingDeliverableDrafts,
+  listPendingExecApprovals,
+  listPendingFsWrites,
   rejectDeliverableDraft,
   type DestructiveActionCandidate,
   type KnowledgeWriteCandidate,
   type DeliverableDraftCandidate,
+  type ExecApprovalPendingCandidate,
+  type FsWritePendingCandidate,
 } from '@/src/ai/confirmations';
 import { getMemoryStore, type MemoryCandidate } from '@/src/ai/memoryStore';
 import { ChatSession } from '@/src/ai/chatSession';
@@ -283,6 +287,44 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     }
   };
 
+  // 24-03 carry-in (23-VERIFICATION): re-surface this session's pending
+  // exec_approval / fs_write candidates — one card each, latest wins (same
+  // semantics as knowledge/destructive cards in switchSession). TTL (24h)
+  // filtering lives in listActive. Restored cards render through the same
+  // pendingExecApproval / pendingFsWrite branches as live pushes (shape parity).
+  const refreshExecFsCards = async (sessionId?: string) => {
+    const target = sessionId ?? get().activeSessionId;
+    try {
+      const [execs, fss] = await Promise.all([
+        listPendingExecApprovals(target),
+        listPendingFsWrites(target),
+      ]);
+      const latestExec: ExecApprovalPendingCandidate | null = execs[execs.length - 1] ?? null;
+      const latestFs: FsWritePendingCandidate | null = fss[fss.length - 1] ?? null;
+      set((current) => ({
+        pendingExecApproval: latestExec
+          ? {
+              confirmationToken: latestExec.confirmationToken,
+              command: latestExec.command,
+              args: latestExec.args,
+              summary: latestExec.summary,
+            }
+          : current.pendingExecApproval,
+        pendingFsWrite: latestFs
+          ? {
+              confirmationToken: latestFs.confirmationToken,
+              operation: latestFs.operation,
+              path: latestFs.path,
+              content: latestFs.content,
+              summary: latestFs.summary,
+            }
+          : current.pendingFsWrite,
+      }));
+    } catch (error) {
+      console.error('[exec-fs-cards] refresh failed', error);
+    }
+  };
+
   // Phase 20 (FORK-01) — eager forkable resolution: mark which assistant
   // messages have a backing assistant_message event (hover toolbar gate).
   const refreshForkable = async () => {
@@ -434,6 +476,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           // Pending memory/PRD cards still surface cross-session (Phase 15/16).
           void refreshMemoryCards();
           void refreshPrdCard();
+          // 24-03 carry-in: exec/fs HITL cards re-surface on app restart too.
+          void refreshExecFsCards();
         } catch (error) {
           console.error('[session-restore] failed', error);
           set({ restoreComplete: true });
@@ -490,12 +534,17 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         messages: history,
         pendingConfirmation: latestKnowledgeWrite ?? null,
         pendingDestructiveAction: latestDestructiveAction ?? null,
+        // 24-03 carry-in: clear stale exec/fs cards from the previous session;
+        // refreshExecFsCards re-populates from this session's pending candidates.
+        pendingExecApproval: null,
+        pendingFsWrite: null,
         forkableIds: new Set<number>(),
         parentSessionId: null,
         parentTitle: null,
       });
       void refreshMemoryCards();
       void refreshPrdCard();
+      void refreshExecFsCards(restored.sessionId);
       await refreshForkable();
       await refreshParentMeta();
       return { success: true };

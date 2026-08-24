@@ -9,7 +9,8 @@ import { lazySqlite } from '@/src/stores/storage/lazySqlite';
 import { computeParamsHash } from './paramsHash';
 
 // 'deliverable_draft' (Phase 16): PRD-pipeline candidates — see confirmations.ts.
-export type ConfirmationKind = 'knowledge_write' | 'destructive_action' | 'deliverable_draft';
+// 'exec_approval' / 'fs_write' (24-03): Rust-native engine candidates (restore path).
+export type ConfirmationKind = 'knowledge_write' | 'destructive_action' | 'deliverable_draft' | 'exec_approval' | 'fs_write';
 export type ConfirmationStatus = 'pending' | 'confirmed' | 'consumed' | 'rejected';
 
 export interface PersistedConfirmation {

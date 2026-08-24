@@ -424,6 +424,58 @@ export async function listPendingDeliverableDrafts(sessionId?: string): Promise<
   return rows.filter((row) => sessionId === undefined || row.sessionId === sessionId).map(deliverableFromRow);
 }
 
+/* === 24-03 carry-in: exec/fs HITL candidates restore (23-VERIFICATION note) ===
+ * Rust-native exec_approval / fs_write candidates (created by the engine tools)
+ * re-surface after app restart or session switch, same listActive pipeline as
+ * memory/deliverable cards. TTL (24h) filtering is inside listActive. Shapes
+ * match chatConsoleStore's ExecApprovalCandidate / FsWriteCandidate cards. */
+
+export interface ExecApprovalPendingCandidate {
+  confirmationToken: string;
+  command: string;
+  args: string[];
+  summary: string;
+  sessionId: string | null;
+}
+
+export interface FsWritePendingCandidate {
+  confirmationToken: string;
+  operation: 'write' | 'mkdir' | 'delete' | 'move';
+  path: string;
+  content?: string;
+  summary: string;
+  sessionId: string | null;
+}
+
+export async function listPendingExecApprovals(sessionId?: string): Promise<ExecApprovalPendingCandidate[]> {
+  const rows = await getConfirmationStore().listActive('exec_approval');
+  return rows
+    .filter((row) => sessionId === undefined || row.sessionId === sessionId)
+    .map((row) => ({
+      confirmationToken: row.confirmationToken,
+      command: String(row.params.command ?? ''),
+      args: Array.isArray(row.params.args) ? (row.params.args as string[]) : [],
+      summary: row.summary ?? '',
+      sessionId: row.sessionId ?? null,
+    }));
+}
+
+export async function listPendingFsWrites(sessionId?: string): Promise<FsWritePendingCandidate[]> {
+  const rows = await getConfirmationStore().listActive('fs_write');
+  return rows
+    .filter((row) => sessionId === undefined || row.sessionId === sessionId)
+    .map((row) => ({
+      confirmationToken: row.confirmationToken,
+      operation: (['write', 'mkdir', 'delete', 'move'] as const).includes(row.params.operation as FsWritePendingCandidate['operation'])
+        ? (row.params.operation as FsWritePendingCandidate['operation'])
+        : 'write',
+      path: String(row.params.path ?? row.params.src ?? ''),
+      content: typeof row.params.content === 'string' ? row.params.content : undefined,
+      summary: row.summary ?? '',
+      sessionId: row.sessionId ?? null,
+    }));
+}
+
 export async function listRejectedDeliverableDrafts(limit = 5): Promise<DeliverableDraftCandidate[]> {
   const rows = await getConfirmationStore().listRejected('deliverable_draft', limit);
   return rows.map(deliverableFromRow);

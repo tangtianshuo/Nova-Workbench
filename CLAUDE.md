@@ -19,11 +19,13 @@ npm run tauri:build  # Tauri production build
 
 ## Architecture Overview
 
-**Nova** is an Apple-style project management desktop client built with:
-- **Frontend:** React 19 + Vite + Tailwind v4
-- **Backend:** Express server with Gemini AI integration (server.ts)
-- **Desktop:** Tauri v2 wrapper (src-tauri/)
+**Nova** is an AI-native PM desktop workbench built with:
+- **Agent runtime:** Rust resident run engine (`src-tauri/src/engine/`, ADR-0003 Accepted) — scheduler (multi-run parallel), loop_runner, native tools (exec/fs_ops/knowledge), event_log (sole writer to `agent_*` tables), HITL confirmations, tray resident (hide-on-close)
+- **Webview:** React 19 + Vite + Tailwind v4 — projection (`ChatSession.fromEvents`) + HITL UI; TS tool registry (`executeTool`) serves webview-initiated user actions and post-confirmation replay
+- **Dev fallback:** Express server with Gemini AI integration (server.ts) for web-mode dev
 - **State:** Zustand stores (migrating from legacy AppContext)
+
+The TS toolLoop / compaction / contextAssembler were deleted at v0.3.2 closeout (Phase 25); `engine_run` via Channel is the sole agent runtime. Agent semantics are locked by bilateral replay-parity tests sharing fixtures in `src/ai/__tests__/fixtures/`.
 
 ### Directory Structure
 
@@ -36,13 +38,22 @@ src/
 ├── views/           # 11 lazy-loaded route views
 ├── stores/          # 6 Zustand stores (task, product, rnd, schedule, workspace, ui)
 ├── store/           # Legacy AppContext (compatibility layer - delegates to Zustand)
+├── ai/              # Projection + HITL + TS tool registry (src/ai/tools/, registry.ts, chatSession, events/, confirmations)
 ├── styles/          # tokens.css (design system foundation)
 ├── lib/             # utils.ts (cn), api.ts, icons.ts
 ├── hooks/           # Custom hooks (useTheme)
 └── data/            # Mock data files
 
-src-tauri/src/       # Rust backend (Tauri commands, tray)
-server.ts            # Express API endpoints (Gemini AI integration)
+src-tauri/src/
+├── engine/          # Rust run engine (scheduler, loop_runner, tools, exec, fs_ops,
+│                    #   event_log, confirmations, channel, chat_session, compaction,
+│                    #   context_assembler, fork, restore, commands, parity, db)
+├── llm.rs           # Provider-agnostic LLM calls (multi-provider)
+├── keychain.rs      # API key secure storage
+├── tray.rs / notify.rs  # Tray resident + system notifications
+└── migrations/      # SQLite schema (forward-only)
+
+server.ts            # Express API endpoints (Gemini, dev web fallback)
 ```
 
 ## Design System
@@ -152,10 +163,10 @@ Express server provides AI endpoints using Gemini API:
 
 ## Tauri Integration
 
-Tauri wraps the web app as a native desktop client:
+Tauri hosts the Rust run engine and wraps the webview as a native desktop client:
 - **Config:** `src-tauri/tauri.conf.json`
-- **Window:** Frameless (`decorations: false`), transparent, custom TitleBar
-- **IPC:** Tauri commands in `src-tauri/src/lib.rs` (currently minimal - Express fallback for dev)
+- **Window:** Frameless (`decorations: false`), transparent, custom TitleBar; hide-on-close with tray resident (background runs keep executing)
+- **IPC:** `engine_*` commands in `src-tauri/src/engine/commands.rs` (engine_run etc., Channel streaming events to webview); tray in `tray.rs`, notifications in `notify.rs`
 
 **Platform detection:**
 ```tsx
@@ -212,7 +223,7 @@ Views are automatically code-split via lazy loading in App.tsx. Product sub-comp
 
 **Nova-PM-Workspace**
 
-Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。当前 v0.1.0 已交付完整的 PM 视图框架(产品/任务/研发/日程/文件/知识库)、Apple 风格设计系统、以及 Gemini Express 后端。下一步目标是按 `docs/ARCHITECTURE.md` 蓝图,把"AI native Agent 工作台"从 UI 框架落地到真正的 Rust 原生后端(GraphFlow + Rig + LanceDB + SQLite,零 Sidecar)。
+Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.3.2 已完成 agent 核心的 Rust 常驻 run engine 迁移(ADR-0003 Accepted:调度器多 run 并行 + 事件日志唯一写者 + HITL 跨边界 + 托盘常驻),webview 退化为投影 + HITL UI。PM 视图框架(产品/任务/研发/日程/文件/知识库)与 Apple 风格设计系统完整;PM CRUD 工具原生化与业务数据关系化留 v0.3.3(RND-ROLLOUT)。
 
 **Core Value:** 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 

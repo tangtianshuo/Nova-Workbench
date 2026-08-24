@@ -1,8 +1,8 @@
 # Nova-PM-Workspace — 架构文档
 
-> 版本: 2.0
-> 日期: 2026-08-17
-> 状态: 现行架构真相源（v1.0 蓝图已废止，见 ADR-0001）
+> 版本: 3.0
+> 日期: 2026-08-24
+> 状态: 现行架构真相源（v1.0 蓝图已废止见 ADR-0001；agent 核心迁 Rust 引擎见 ADR-0003 Accepted）
 
 ---
 
@@ -12,38 +12,56 @@
 
 ## 2. 架构总览
 
-现行架构一句话：**事件日志（真相源）+ tool loop（执行）+ FTS5（检索）+ HITL 确认队列（人审）+ Tauri 壳（承载）**。
+现行架构一句话（v0.3.2 起，ADR-0003 Accepted）：**Rust 常驻 run engine（执行）+ 事件日志（真相源）+ FTS5（检索）+ HITL 确认队列（人审）+ webview 投影/HITL UI**。
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  Tauri v2 壳（src-tauri/src/：llm.rs 多 Provider / keychain.rs / 迁移）│
+┌─────────────────────────── Rust 进程（常驻，src-tauri/）──────────────┐
+│  Run Engine（src-tauri/src/engine/，v0.3.2 全量落地）                 │
+│    scheduler 多 run 并行 → loop_runner agent 循环                      │
+│    → event_log 事件追加 agent_events（append-only，唯一写者）          │
+│    → chat_session 投影 / compaction / context_assembler               │
+│    tools（exec / fs_ops / knowledge 检索）+ confirmations（HITL）      │
+│  入口：engine_* commands（Channel 流式）；托盘常驻（tray.rs）          │
+│  llm.rs 多 Provider / keychain.rs / notify.rs                         │
+├──────────────── Channel/emit（token 流、事件、待确认推送）────────────┤
+│  webview：投影 + HITL UI（React 19 + zustand）                        │
+│  ChatSession TS 投影（fromEvents）/ ChatPanel / ⌘K / 确认卡片         │
+│  TS 工具注册表（executeTool）：webview 用户动作 + 确认后重放           │
 ├──────────────────────────────────────────────────────────────────────┤
-│  前端 React 19 + zustand（6 store + AppContext 兼容层）                │
-│  ChatPanel / ⌘K / AgentWorkspaceView / 产品·任务·日程·研发·知识库视图  │
-├──────────────────────────────────────────────────────────────────────┤
-│  TS Agent 运行时（src/ai/）                                           │
-│  toolLoop（单历史，事件驱动）                                          │
-│    → 事件追加 agent_events（append-only，seq 连续 + correlation_id）   │
-│    → ChatSession 投影 → deriveMessages 派生 LLM messages（唯一来源）   │
-│  contextAssembler（五段优先级投影 + context_injected 审计事件）        │
-│  HITL：确认候选（知识写入/破坏性动作/记忆/交付物）→ 用户确认           │
-│    → 原子条件 UPDATE 消费 → 工具执行/落库                              │
-├──────────────────────────────────────────────────────────────────────┤
-│  SQLite 持久层（src-tauri/migrations/，tauri-plugin-sql，WAL）         │
+│  SQLite 持久层（src-tauri/migrations/，rusqlite 直写，WAL）            │
 │  agent_events / agent_artifacts / agent_confirmation_candidates       │
 │  memory_candidates / memories / knowledge_docs / knowledge_fts (FTS5) │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**核心数据流**：用户消息进入 `toolLoop` → 每一步（user/assistant 消息、tool_call、tool_result、审批、压缩）作为事件追加到 `agent_events` → `ChatSession` 作为事件日志的投影，每轮迭代从 `getMessagesForLLM()` 重新派生模型上下文 → 需要人审的动作先创建确认候选，经用户确认后原子消费再执行。重启后 `sessionRestore` 从事件日志恢复会话；长会话由 `compaction` 收窄模型可见投影（原始事件不动）。
+**核心数据流**：用户消息经 `engine_run` command 进入 Rust 引擎 → scheduler 排程、loop_runner 逐迭代执行 → 每一步（user/assistant 消息、tool_call、tool_result、审批、压缩）作为事件由 Rust 唯一写者追加到 `agent_events` → webview 经 `ChatSession.fromEvents` 投影渲染，engine 事件经 Channel 流式推送 → 需要人审的动作先创建确认候选，经用户在 webview 确认后原子消费再执行。重启后 engine/restore 从事件日志恢复会话；长会话由 Rust compaction 收窄模型可见投影（原始事件不动）。agent 语义由双侧 replay parity 测试锁定（fixture 单源 `src/ai/__tests__/fixtures/`）。
 
 ## 3. 分层结构
 
-### 3.1 Tauri 壳（Rust，src-tauri/src/）
+### 3.1 Rust 进程（src-tauri/src/）
+
+**Run Engine（`engine/`，v0.3.2 全量落地，模块清单以 `engine/mod.rs` 为准）：**
+
+| 模块 | 职责 |
+|---|---|
+| `scheduler.rs` | 多 run 并行调度：run 注册表、并发上限、状态机（running/等确认/done/cancelled）、cancel 传播 |
+| `loop_runner.rs` | agent 执行循环（TS toolLoop 语义移植）：每迭代从 chat_session 投影派生 messages，单历史 |
+| `tools.rs` | Rust 原生工具注册表：exec / fs_ops / knowledge 检索 / 候选类工具；idempotency 分类随 tool_call 落盘 |
+| `exec.rs` | shell 命令执行：进程组、超时、流式输出、取消（借模式 oh-my-pi，不引依赖） |
+| `fs_ops.rs` | 文件系统写操作（write/mkdir/delete/move），破坏性操作走 HITL 候选 |
+| `event_log.rs` | 事件日志唯一写者：append-only 追加 `agent_events`，seq 连续 + correlation_id |
+| `confirmations.rs` | HITL 确认候选持久化与原子条件 UPDATE 消费 |
+| `chat_session.rs` / `compaction.rs` / `context_assembler.rs` / `fork.rs` / `restore.rs` | 投影、压缩、五段优先级上下文、fork、崩溃恢复（TS 语义逐项移植，parity fixture 锁定） |
+| `channel.rs` | EngineEvent 流式通道（token、事件、待确认推送 → webview） |
+| `commands.rs` | `engine_*` Tauri command 入口层 |
+| `db.rs` / `params_hash.rs` / `fts_tokens.rs` / `token_estimate.rs` / `parity.rs` | rusqlite 连接与 SQL、参数哈希、FTS 切分、token 估算、replay parity 回放 |
+
+**壳层：**
 
 - `llm.rs` — provider-agnostic LLM 调用（Ollama 生产 tool-call UAT 已通过；云 Provider 走 keychain API key）
 - `keychain.rs` — API key 安全存储（不进客户端 bundle）
-- `commands.rs` / `state.rs` / `error.rs` — Tauri command 与 IPC（Channel 流式输出）
+- `tray.rs` / `notify.rs` — 托盘常驻（hide-on-close）与系统通知（后台 run 完成/待确认）
+- `state.rs` / `error.rs` / `commands.rs`（壳层）— Tauri 状态与 IPC
 - `migrations/` — SQLite schema 前向迁移（forward-only，永不 DROP）
 
 ### 3.2 前端（React 19 + zustand）
@@ -52,21 +70,21 @@
 - `src/store/AppContext.tsx` 兼容层仍在（30 处 useApp 调用者），随 view 迁移逐步移除
 - ChatPanel（Drawer）+ ⌘K 唤起 + HITL 确认卡片是 agent 对用户的统一交互面
 
-### 3.3 TS Agent 运行时（src/ai/）
+### 3.3 webview 侧 TS 模块（src/ai/，投影 + HITL + 工具接缝）
+
+TS agent 运行时已在 Phase 25 删除（toolLoop / compaction / contextAssembler 源码不存在）；现存模块全部是活路径：
 
 | 模块 | 职责 |
 |---|---|
-| `events/`（eventStore / invariants / artifacts / types） | append-only 事件存储；tool_call/tool_result 配对不变量检查；>4KB tool 结果外置为 artifact（模型历史只留摘要 + artifact_id + 头部片段） |
-| `toolLoop.ts` | 单历史执行循环：每迭代从 session 派生 messages，无第二份历史数组；确认 WAIT 也落 tool_result |
-| `chatSession.ts` | ChatSession = 事件日志投影；`getMessagesForLLM()` 是 LLM messages 的单一派生来源 |
-| `sessionRestore.ts` | 崩溃恢复：尾切到最后完整 `turn_ended`；孤儿 tool_call 以追加 tool_result 标记 interrupted，**绝不重试** |
-| `compaction.ts` | 上下文压缩：≥0.8× 窗口触发，在配对平衡处切分，只改模型可见投影，事件无损 |
-| `confirmationStore.ts` + `paramsHash.ts` | HITL 确认候选持久化：paramsHash = 规范化 JSON 的 SHA-256；消费为原子条件 UPDATE，重启/并发不会双消费 |
+| `events/`（eventStore / invariants / artifacts / types） | 事件存储 TS 侧读写；tool_call/tool_result 配对不变量检查；>4KB tool 结果外置为 artifact |
+| `chatSession.ts` | ChatSession = 事件日志投影（`fromEvents` / `getMessagesForLLM()`），渲染与 parity 回放的 TS 侧锚点 |
+| `sessionRestore.ts` / `sessionRepo.ts` / `fork.ts` | 崩溃恢复尾切、session 元数据仓库、fork 事件流构造（孤儿 tool_result 第三态与 Rust 双侧 parity） |
+| `confirmationStore.ts` + `paramsHash.ts` | HITL 确认候选 TS 侧持久化与原子消费 |
 | `memoryStore.ts` | 长期记忆：候选队列（hash 去重、cap、TTL）、确认晋升、supersedes 版本链 |
-| `knowledgeRepo.ts` + `ftsTokens.ts` | 知识文档版本化读写；FTS5 索引与文档写入同事务/同语句生命周期；索引/查询同源切分（quoted-token MATCH 免注入） |
-| `contextAssembler.ts` | 五段优先级上下文投影（业务事实 → 未完成动作 → 已确认约束 → 检索结果 → 近期对话/摘要），每段注入落 `context_injected` 审计事件 |
-| `tools/`（14 个） | 任务/日程/产品/工作区/知识读写检索/记忆候选/导航/交付物生成 |
-| `tools/generateDeliverable.ts` | 两段式：先出候选（草稿），HITL 确认编辑后版本化落研发中心交付物卡槽；落槽 doc 记录生成 turn 的 correlation_id（`source_event_id`），可回放完整生成回合 |
+| `knowledgeRepo.ts` + `ftsTokens.ts` | 知识文档版本化读写；FTS5 索引与文档写入同事务；索引/查询同源切分（quoted-token MATCH 免注入） |
+| `tools/` + `registry.ts`（executeTool） | TS 工具注册表：服务 webview 发起的用户动作（知识读写、⌘K、工作区摘要）与 HITL 确认后重放；PM CRUD 原生化留 v0.3.3 |
+| `tools/generateDeliverable.ts` | 两段式：先出候选（草稿），HITL 确认编辑后版本化落研发中心交付物卡槽（`source_event_id` 溯源） |
+| `__tests__/fixtures/` + `parity.rust.test.ts` | replay parity 双侧单源 fixture（Rust cargo 侧逐位回放同一批 JSON） |
 
 ### 3.4 SQLite 持久层（schema 真相见 src-tauri/migrations/）
 
@@ -86,7 +104,8 @@
 5. **压缩无损** — compaction 只收窄模型可见投影，原始事件永久保留（带来源摘要）。
 6. **FTS5 索引与文档写入同事务** — 索引永不指向失效版本；supersede 过滤在查询 WHERE 侧完成，不删 FTS 行。
 7. **HITL 消费原子性** — 条件 UPDATE（`status='confirmed' AND consumed_at IS NULL`）保证恰一消费。
-8. **零 sidecar** — agent 运行时在 TS 侧（webview），LLM/keychain 在 Rust 侧，无任何常驻子进程。
+8. **零 sidecar** — agent 运行时是 Rust 常驻 run engine（ADR-0003 Accepted），webview 仅投影 + HITL UI；无任何常驻子进程。
+9. **双写者规则**（ADR-0003）— Rust 引擎唯一写 `agent_*` 表；业务表（产品/任务/日程）TS 写、Rust 只读；同表双写绝对禁止。PM CRUD Rust 原生化留 v0.3.3。
 
 ## 5. 真相源索引
 
@@ -102,6 +121,7 @@
 |---|---|
 | [ADR-0001 架构切换](./adr/ADR-0001-architecture-switch.md) | 事件日志 + tool loop + FTS5 取代 GraphFlow/Rig/LanceDB 旧蓝图（正式出局） |
 | [ADR-0002 harness MIT 归属](./adr/ADR-0002-harness-mit-attribution.md) | deepseek-harness 设计/纯函数算法复用范围与 MIT 归属 |
+| [ADR-0003 Rust run engine](./adr/ADR-0003-rust-run-engine.md) | agent 核心迁 Rust 常驻引擎，webview 退化为投影 + HITL UI（Accepted 2026-08-24） |
 
 ## 7. 已否决方向
 

@@ -100,27 +100,29 @@ npm run tauri:build    # 生产构建(Win/macOS/Linux 原生安装包)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    React Webview (TS)                       │
+│                    React Webview (TS) — 投影 + HITL UI      │
 │  Views ── Components ── UI primitives                       │
 │      │                                                      │
 │      ├── Zustand stores ── persist ── SQLite (Tauri SQL)    │
 │      │                                                      │
-│      └── AI toolLoop (33+ Zod-defined tools)                │
+│      └── ChatSession 投影 + TS 工具注册表(executeTool,     │
+│          webview 用户动作与 HITL 确认后重放)                │
 │             │                                               │
-│              ← Tauri IPC (invoke + Channel<StreamChunk>) →  │
+│              ← engine_* commands (Channel<EngineEvent>) →   │
 ├─────────────────────────────────────────────────────────────┤
-│                    Rust Backend                             │
-│  commands.rs ── chat_with_tools ── rig ── DeepSeek/OAI/...  │
+│                 Rust Run Engine(src-tauri/src/engine/)     │
+│  scheduler(多 run 并行) ── loop_runner ── 原生工具         │
+│  event_log(事件日志唯一写者) ── confirmations(HITL)       │
 │                │                                            │
-│                └── keychain (Windows/macOS/Linux native)    │
+│                └── llm.rs + keychain(原生)                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **核心原则:**
 
-1. **Rust 转发,JS 执行** —— LLM 调用走 Rust(`rig`),tool 执行留在 webview(JS 调 Zustand store)。Rust 是 LLM 边界,JS 是业务边界。
+1. **Rust 引擎执行,webview 投影**(ADR-0003 Accepted)—— agent 运行时是 Rust 常驻 run engine;webview 是事件日志的投影 + HITL 确认 UI。业务表 TS 写、Rust 只读,同表双写禁止。
 2. **API key 不进客户端 bundle** —— 通过 `keyring` 写 OS keychain,Tauri 命令是唯一读取入口,前端只看 `has_provider_key: boolean`。
-3. **流式 + 可取消** —— `Channel<StreamChunk>` token-by-token 流式输出,`CancellationToken` 允许前端 Stop 按钮中途取消。
+3. **流式 + 可取消** —— `Channel<EngineEvent>` 流式输出,scheduler cancel 传播允许前端 Stop 中途取消;托盘常驻支持后台 run。
 4. **本地优先** —— 数据全部存 SQLite,不依赖任何云服务;LLM 调用是唯一外部网络出口。
 
 ## 📁 项目结构
@@ -137,18 +139,20 @@ nova-pm-workspace/
 │   │   └── ChatPanel.tsx         # AI 助手侧滑
 │   ├── stores/                   # 6 个 Zustand store + AppContext 兼容层
 │   ├── ai/
-│   │   ├── toolLoop.ts           # 多轮 tool_call 循环(5 iter 上限)
-│   │   ├── registry.ts           # Zod schema → JSON Schema + 执行分发
+│   │   ├── registry.ts           # Zod schema → JSON Schema + 执行分发(TS 工具注册表)
+│   │   ├── chatSession.ts        # 事件日志投影(fromEvents / getMessagesForLLM)
 │   │   ├── context.ts            # 核心 system prompt 注入
 │   │   └── tools/                # 33+ tools(任务/日程/产品/研发/知识)
 │   ├── hooks/                    # useTheme / useCmdK
 │   ├── lib/                      # api.ts(Tauri IPC 适配)/ utils.ts
 │   └── styles/                   # tokens.css(设计系统基础)
-├── src-tauri/                    # Rust 桌面端
+├── src-tauri/                    # Rust 桌面端(run engine)
 │   ├── src/
+│   │   ├── engine/               # Rust run engine(scheduler/loop_runner/tools/
+│   │   │                         #   event_log/confirmations/channel/...)
 │   │   ├── lib.rs                # Tauri builder + 命令注册
-│   │   ├── commands.rs           # chat / generate_project / keychain IPC
-│   │   ├── llm.rs                # provider-agnostic Rig 集成
+│   │   ├── tray.rs / notify.rs   # 托盘常驻 + 系统通知
+│   │   ├── llm.rs                # provider-agnostic LLM 调用
 │   │   ├── keychain.rs           # OS keychain wrapper
 │   │   └── error.rs              # AppError(thiserror)
 │   ├── Cargo.toml

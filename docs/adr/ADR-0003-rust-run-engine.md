@@ -1,6 +1,6 @@
 # ADR-0003: Agent 核心迁 Rust Run Engine — webview 退化为投影 + HITL UI
 
-> Status: Proposed(草案,随 v0.3.2 Phase 22 启动生效;Phase 25 收口时转 Accepted)
+> Status: Accepted(2026-08-24,v0.3.2 Phase 25 迁移收口;实施结果见文末注记)
 > Date: 2026-08-23
 > Phase: v0.3.2(Phase 22-25)
 > Supersedes: ADR-0001 中「agent 运行时驻留 TS 侧」单一条款;ADR-0001 其余决定(事件日志真相源 / FTS5 / HITL 队列 / 零 sidecar)不变
@@ -99,3 +99,16 @@ PM CRUD 工具(createTask/scheduleCrud 等)在 Phase 22 期间从模型 schema �
 - **subAgent / IM / MCP / Skill**:本里程碑不实现,仅由调度器结构与入口层预留扩展位(subAgent = spawn 工具 + 父子 correlation_id,结构已支持)。
 - **PIPELINE_DESIGN.md / ARCHITECTURE.md**:Phase 25 时更新为引擎分层;多步 Pipeline(DELIV-06)仍按 ADR-0001 路径——事件日志检查点语义评估,pipeline ≈ 编排 run 依次 spawn 阶段 run + 确认队列当门。
 - **风险**:引擎移植期间存在双引擎并存窗口,以 replay parity 测试与逐 phase 切换收窄;v0.3.1 遗留 3 项人工 UAT 需在 Phase 22 执行前收口。
+
+## 实施结果(2026-08-24,Phase 25 收口)
+
+决策已全量落地,双引擎并存窗口关闭:
+
+- **Phase 22**:agent loop 语义移植完成(loop_runner / chat_session / compaction / fork / context_assembler / event_log / restore / channel);replay parity 以 `src/ai/__tests__/fixtures/*.json` 为双侧单源 fixture,cargo 侧逐位回放对齐,agent 语义被永久测试锁定。
+- **Phase 23**:原生工具落地(exec / fs_ops / knowledge 检索),**无桥修订兑现**——TS 工具桥按 2026-08-24 用户决策整体取消,PM CRUD 工具保持缺席至 v0.3.3 业务数据关系化后以 Rust 原生工具回归。
+- **Phase 24**:scheduler 多 run 并行(run 注册表 / 并发上限 / cancel 传播)与托盘裁定兑现(hide-on-close + tray 常驻,后台 run 通知)。
+- **Phase 25**:TS toolLoop / compaction / contextAssembler 源码删除,`grep runToolLoop src/` 零命中;TS 侧仅存活路径(tools registry / 投影 / stores / parity fixtures)。
+
+**TS 工具注册表(executeTool)保留**:服务 webview 发起的用户动作(知识读写 / ⌘K / 工作区摘要)与 HITL 确认后重放;PM CRUD 原生化留 v0.3.3(RND-ROLLOUT)。
+
+里程碑级人工 UAT(多 run 并行 / 后台托盘 / HITL 跨边界 / 崩溃恢复全链路)按用户裁定 defer 至 complete-milestone 统一执行,输入见 `.planning/phases/24-multi-run-tray/24-VERIFICATION.md` deferred 清单。

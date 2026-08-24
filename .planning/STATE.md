@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-24T04:39:19.004Z"
+last_updated: "2026-08-24T04:48:11.632Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native, 无桥决策 2026-08-24) — IN PROGRESS
-Plan: 4 of 5 done(23-04 deliverable 工具:generate_deliverable 纯候选入队零 LLM + ROLE_AND_TOOL_RULES 适配版(PM CRUD 降级说明)+ engine_commit_deliverable 接缝①迁移(TS 直写消灭);无 migration 0010(0006 已含 kind);cargo 147 / npm 241 / tsc clean;TOOL-01/TOOL-03 待 verifier 确认后勾;下一计划 23-05)
+Plan: 5 of 5 done(23-04 deliverable 工具:generate_deliverable 纯候选入队零 LLM + ROLE_AND_TOOL_RULES 适配版(PM CRUD 降级说明)+ engine_commit_deliverable 接缝①迁移(TS 直写消灭);无 migration 0010(0006 已含 kind);cargo 147 / npm 241 / tsc clean;TOOL-01/TOOL-03 待 verifier 确认后勾;下一计划 23-05)
 Status: Ready to execute
 Last activity: 2026-08-24
 
@@ -62,6 +62,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 23 P02 | 55m | 2 tasks | 10 files |
 | Phase 23 P03 | 45m | 2 tasks | 12 files |
 | Phase 23 P04 | 9m | 2 tasks | 6 files |
+| Phase 23 P05 | 11m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,7 @@ v0.3.1 roadmap decisions:
 - [Phase 23]: 23-03: migration 0009 CHECK +fs_write(0008 同构);fs_write 候选走 params_hash dedup;fs 路径安全用 resolve_deep(逐级 canonicalize,支持缺失父目录)而非单叶 resolve_in_root
 - [Phase 23]: 23-04: deliverable_committed AlreadySettled 容忍 + docId+version 事件幂等(TS/Rust 同一用户动作先后 consume 共享 DB)
 - [Phase 23]: 23-04: 模型带 confirmationToken 自提交 = arg_error;commit 恒为 webview 用户动作
+- [Phase 23]: 23-05 接缝②无双闸需求:memory 卡片确认是唯一消费入口,原子条件 UPDATE 单闸保恰好一次;consumeIntoMemories 重命名 consumeConfirmed 保留 web/test 路径
 
 ### TODOs (pending)
 

@@ -16,7 +16,7 @@
 
 - [x] **Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)** — toolLoop/compaction/contextAssembler 语义移植 Rust,Rust 接管 agent_* 表唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志逐位回放平价;PORT-01 协议最先定稿
  (completed 2026-08-24)
-- [ ] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归)
+- [x] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归) (completed 2026-08-24)
 - [ ] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
 - [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
 
@@ -59,7 +59,7 @@ Plan list:
 - [x] 23-02-PLAN.md — exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行 (completed 2026-08-24)
 - [x] 23-03-PLAN.md — fs 六工具:读自由/写 HITL/越界拒 + engine_fs_apply (completed 2026-08-24)
 - [x] 23-04-PLAN.md — deliverable 工具 + CRUD 降级说明 + 接缝① engine_commit_deliverable
-- [ ] 23-05-PLAN.md — 接缝② engine_consume_memory + TOOL-04 集成锁定与收口 gates
+- [x] 23-05-PLAN.md — 接缝② engine_consume_memory + TOOL-04 集成锁定与收口 gates
 **Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows;Windows 无进程组,需 Job Object 或 taskkill /T 等价方案)
 
 ### Phase 24: 多 run 并行 + 后台运行(托盘)
@@ -89,7 +89,7 @@ Plan list:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 22. 引擎核心 | 7/7 | Complete   | 2026-08-24 |
-| 23. 工具层(原生,无桥) | 4/5 | In Progress|  |
+| 23. 工具层(原生,无桥) | 5/5 | Complete   | 2026-08-24 |
 | 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
 | 25. 迁移收口 | 0/? | Not started | - |
 
@@ -120,7 +120,7 @@ Plan list:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

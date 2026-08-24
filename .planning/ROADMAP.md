@@ -75,7 +75,7 @@ Plan list:
 **Plans**: 4 plans
 Plans:
 - [x] 24-01-PLAN.md — 调度器核心:per-run Connection(除单 slot busy)+ FIFO cap 3 + queued 状态事件 + SCHED-01 并行集成测试
-- [ ] 24-02-PLAN.md — 托盘常驻 + hide-on-close + 动态 run 列表菜单 + 点击跳 session(SCHED-02)
+- [x] 24-02-PLAN.md — 托盘常驻 + hide-on-close + 动态 run 列表菜单 + 点击跳 session(SCHED-02)
 - [ ] 24-03-PLAN.md — 后台门控通知(完成/待确认)+ carry-in 确认卡 sessionRestore 恢复(SCHED-03)
 - [ ] 24-04-PLAN.md — SCHED-04 取消全链路集成测试 + 收口 gates
 **Carry-in(23-VERIFICATION note,低危择机)**: exec/fs 确认卡 sessionRestore 不恢复(候选在 DB,24h TTL)— 后台 run 场景窗口重开需确认卡重现;顺手项,不阻塞 SC
@@ -97,7 +97,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 22. 引擎核心 | 7/7 | Complete   | 2026-08-24 |
 | 23. 工具层(原生,无桥) | 5/5 | Complete   | 2026-08-24 |
-| 24. 多 run 并行 + 后台运行 | 1/4 | In Progress|  |
+| 24. 多 run 并行 + 后台运行 | 2/4 | In Progress|  |
 | 25. 迁移收口 | 0/? | Not started | - |
 
 ## Coverage
@@ -127,7 +127,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

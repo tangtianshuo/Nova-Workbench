@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native, 无桥决策 2026-08-24) — IN PROGRESS
-Plan: 1 of 5 done(23-01 异步地基:execute_async + ToolOutput + workspace_root 贯通;cargo 119 / npm 241 / tsc clean)
-Status: Next plan 23-02(exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行)
+Plan: 2 of 5 done(23-02 exec 工具:tokio 子进程核心 + 白名单/HITL 学习/确认后 Rust 重执行;TOOL-02 已勾;cargo 131 / npm 241 / tsc clean)
+Status: Next plan 23-03(fs 六工具:读自由/写 HITL/越界拒 + engine_fs_apply)
 Last activity: 2026-08-24
 
 ```
@@ -59,6 +59,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 22 P06 | 95m | 2 tasks | 8 files |
 | Phase 22 P07 | 12m | 2 tasks | 6 files |
 | Phase 23 P01 | 25m | 2 tasks | 6 files |
+| Phase 23 P02 | 55m | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,8 @@ v0.3.1 roadmap decisions:
 - [Phase 22]: 22-06: engine_run 以 webview runId 为 cancel key(correlation_id 对 cancel 不可知);append_tool_result 对 fresh id 先补配对 tool_call 避免 DUPLICATE_TOOL_RESULT;memory/deliverable confirm 留 TS(Phase 23 桥迁移)
 - [Phase 22]: parity.rs 单源双侧 glob 拥有全部 fixture 回放测试;真实 v0.3.x DB 抽样 2 份(264+42 events)端到端回放逐位通过
 - [Phase 23]: 23-01: execute_async 签名定型(cancel+on_event 过渡 allow,23-02 消费);workspace_root 落 ToolCtx+LoopContext 双处(plan 写 tools.rs 的 LoopContext 实际定义在 loop_runner.rs,语义等价);webview 未知 kind 防护零改动(if-chain 天然落穿)
+- [Phase 23]: 23-02: exec 白名单=command+只读子命令二元组(basename 小写去 .exe 归一;堵 git push/裸 git);学习条目仅 command 级落 kv agent.exec.whitelist;确认后 Rust 重执行 settle [confirmed rerun]
+- [Phase 23]: 23-02: migration 0008 重开 candidates CHECK 加 exec_approval(SQLite 无法 ALTER CHECK,复用 0006 copy→drop→rename);tauri command future 须 Send,&Connection 不能跨 await → prepare/await/settle 三段;确认卡不进 sessionRestore(24h TTL 自然清)
 
 ### TODOs (pending)
 

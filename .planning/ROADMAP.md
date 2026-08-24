@@ -56,7 +56,7 @@ Plans:
 **Plans**: 5 plans
 Plan list:
 - [x] 23-01-PLAN.md — 异步地基:execute_async + ToolOutput 变体 + workspace_root 贯通 (completed 2026-08-24)
-- [ ] 23-02-PLAN.md — exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行
+- [x] 23-02-PLAN.md — exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行 (completed 2026-08-24)
 - [ ] 23-03-PLAN.md — fs 六工具:读自由/写 HITL/越界拒 + engine_fs_apply
 - [ ] 23-04-PLAN.md — deliverable 工具 + CRUD 降级说明 + 接缝① engine_commit_deliverable
 - [ ] 23-05-PLAN.md — 接缝② engine_consume_memory + TOOL-04 集成锁定与收口 gates

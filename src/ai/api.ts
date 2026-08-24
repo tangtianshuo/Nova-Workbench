@@ -135,6 +135,41 @@ export async function engineFsApply(sessionId: string, confirmationToken: string
 }
 
 /**
+ * Seam ① (23-04): land the deliverable_committed audit event via Rust — sole
+ * writer of agent_events. Called by commitToSlot AFTER the TS executeTool half
+ * (consume + knowledgeRepo upsert + rndStore slot projection, transition-period
+ * legal) succeeded. Rust confirms+consumes of record (tolerating the TS
+ * consumption on the shared nova.db) and appends the event exactly-once
+ * (docId+version idempotent).
+ */
+export async function engineCommitDeliverable(args: {
+  sessionId: string;
+  token: string;
+  code: string;
+  title: string;
+  editedDraft: string;
+  productId: string;
+  docId: string;
+  version: number;
+  ftsHitCount: number;
+  ftsImmediateHit: boolean;
+}): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('engine_commit_deliverable', {
+    sessionId: args.sessionId,
+    token: args.token,
+    code: args.code,
+    title: args.title,
+    editedDraft: args.editedDraft,
+    productId: args.productId,
+    docId: args.docId,
+    version: args.version,
+    ftsHitCount: args.ftsHitCount,
+    ftsImmediateHit: args.ftsImmediateHit,
+  });
+}
+
+/**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the
  * caller has no original tool_call id (Rust appends the pairing tool_call).

@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { executeTool } from '@/src/ai';
 import {
   engineAppendToolResult,
+  engineCommitDeliverable,
   engineConfirmCandidate,
   engineExecConfirmed,
   engineFsApply,
@@ -972,13 +973,20 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           ftsImmediateHit: boolean; ftsHitCount: number;
           aiSource: { sessionId: string; eventId: string; generatedAt: string; docId: string; version: number };
         };
-        // DELIV-04 可审计:落槽事件 payload 记录 FTS 命中数(CONTEXT 锁定)。
-        sessionRef.current.appendAuxEvent('deliverable_committed', {
-          docId: result.docId, version: result.version, slotCode: result.slotCode, code: 'prd',
-          ftsImmediateHit: result.ftsImmediateHit, ftsHitCount: result.ftsHitCount,
-          sessionId: result.aiSource.sessionId, eventId: result.aiSource.eventId,
+        // DELIV-04 可审计 + 23-04 接缝①:deliverable_committed 事件改走 Rust
+        // command(唯一写者);payload 字段逐字保留,由 Rust 组装落库。
+        await engineCommitDeliverable({
+          sessionId: get().activeSessionId,
+          token: pendingPrdDraft.confirmationToken,
+          code: pendingPrdDraft.code,
+          title: pendingPrdDraft.title,
+          editedDraft: editedDraft,
+          productId: pendingPrdDraft.productId,
+          docId: result.docId,
+          version: result.version,
+          ftsHitCount: result.ftsHitCount,
+          ftsImmediateHit: result.ftsImmediateHit,
         });
-        await sessionRef.current.flushEvents();
         emitToast({ type: 'success', title: 'PRD 已落槽' });
         set((current) => ({
           messages: [...current.messages, {

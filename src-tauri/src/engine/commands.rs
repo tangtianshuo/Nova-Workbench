@@ -447,6 +447,130 @@ pub fn fs_apply_inner(conn: &Connection, session_id: &str, token: &str) -> Resul
     Ok(payload)
 }
 
+/// Seam ① migration (23-04): commit the confirmed deliverable draft's audit
+/// event from Rust — sole writer of agent_events. The webview keeps the
+/// user-action half (TS executeTool: consume + knowledgeRepo upsert + rndStore
+/// slot projection, transition-period legal), then lands the
+/// deliverable_committed event via this command instead of appendAuxEvent.
+/// Fully sync (no awaits). Order is consume → append, never inverted.
+#[tauri::command]
+pub async fn engine_commit_deliverable(
+    session_id: String,
+    token: String,
+    code: String,
+    title: String,
+    edited_draft: String,
+    product_id: String,
+    doc_id: String,
+    version: i64,
+    fts_hit_count: i64,
+    fts_immediate_hit: bool,
+    db: State<'_, EngineDb>,
+) -> Result<(), AppError> {
+    let _ = edited_draft; // user-edited draft only reaches rndStore/knowledgeRepo (TS)
+    with_conn(&db, |conn| {
+        commit_deliverable_inner(
+            conn, &session_id, &token, &code, &title, &product_id,
+            &doc_id, version, fts_hit_count, fts_immediate_hit,
+        )
+    })
+}
+
+/// Testable core of engine_commit_deliverable.
+pub fn commit_deliverable_inner(
+    conn: &Connection,
+    session_id: &str,
+    token: &str,
+    code: &str,
+    title: &str,
+    product_id: &str,
+    doc_id: &str,
+    version: i64,
+    fts_hit_count: i64,
+    fts_immediate_hit: bool,
+) -> Result<(), AppError> {
+    let candidate = confirmations::get(conn, token)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
+    if candidate.kind != "deliverable_draft" {
+        return Err(AppError::InternalError(format!(
+            "candidate kind {} is not deliverable_draft",
+            candidate.kind
+        )));
+    }
+    // Identity guard (TS generateDeliverable.ts:45-47 parity): only
+    // code/title identify the candidate — the draft is user-edited on purpose.
+    if candidate.params["code"].as_str() != Some(code) || candidate.params["title"].as_str() != Some(title) {
+        return Err(AppError::InternalError("confirmed draft does not match the candidate".into()));
+    }
+    let Some(slot_code) = tools::slot_by_code(code) else {
+        return Err(AppError::InternalError(format!("unknown deliverable code {code}")));
+    };
+    // Scope inheritance: the event lands in the candidate's own session.
+    let event_session = candidate.session_id.clone().unwrap_or_else(|| session_id.to_string());
+
+    // Consume of record (deliverable locked decision: expected_params=None):
+    // confirm → consume, order locked. The TS executeTool call in the SAME user
+    // action already confirm+consumed the row on the shared nova.db —
+    // AlreadySettled is tolerated only because the docId+version idempotency
+    // check below keeps the event exactly-once.
+    // ponytail: tolerance assumes one logical commit per token; per-event
+    // unique constraint if double-commit abuse ever shows up.
+    let is_consumed = |conn: &Connection| -> Result<bool, AppError> {
+        Ok(confirmations::get(conn, token)
+            .map_err(|e| AppError::InternalError(e.to_string()))?
+            .map(|c| c.status == "consumed")
+            .unwrap_or(false))
+    };
+    if let Err(f) = confirmations::confirm(conn, token) {
+        if !matches!(f, confirmations::ConfirmationFailure::AlreadySettled) || !is_consumed(conn)? {
+            return Err(AppError::InternalError(f.to_string()));
+        }
+    }
+    if let Err(f) = confirmations::consume(conn, token, None) {
+        if !matches!(f, confirmations::ConfirmationFailure::AlreadySettled) || !is_consumed(conn)? {
+            return Err(AppError::InternalError(f.to_string()));
+        }
+    }
+
+    // Exactly-once event: same docId+version already committed → idempotent Ok.
+    let events = event_log::list_events(conn, &event_session).map_err(|e| AppError::InternalError(e.to_string()))?;
+    if events.iter().any(|e| {
+        e.event_type == "deliverable_committed"
+            && e.payload.get("docId").and_then(|v| v.as_str()) == Some(doc_id)
+            && e.payload.get("version").and_then(|v| v.as_i64()) == Some(version)
+    }) {
+        return Ok(());
+    }
+
+    let session_param = candidate.params["sessionId"].as_str().unwrap_or_default();
+    let event_id = candidate.params["eventId"].clone();
+    event_log::append(
+        conn,
+        &EventInput {
+            session_id: event_session.clone(),
+            event_type: "deliverable_committed".into(),
+            workspace_id: None,
+            product_id: Some(product_id.to_string()),
+            project_id: None,
+            correlation_id: None,
+            payload: json!({
+                "docId": doc_id,
+                "version": version,
+                "slotCode": slot_code,
+                "code": code,
+                "ftsImmediateHit": fts_immediate_hit,
+                "ftsHitCount": fts_hit_count,
+                "sessionId": session_param,
+                "eventId": event_id,
+            }),
+        },
+    )
+    .map_err(|e| AppError::InternalError(e.to_string()))?;
+    let events = event_log::list_events(conn, &event_session).map_err(|e| AppError::InternalError(e.to_string()))?;
+    event_log::check_event_stream(&events).map_err(AppError::InternalError)
+}
+
 /// Testable core of engine_append_tool_result.
 pub fn append_tool_result_inner(
     conn: &Connection,
@@ -711,5 +835,94 @@ mod tests {
         let c = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
         let err = fs_apply_inner(&conn, "s1", &c.confirmation_token).unwrap_err();
         assert!(err.to_string().contains("not fs_write"));
+    }
+
+    /// Queue a deliverable_draft candidate via the native tool (product p1).
+    fn queue_deliverable(conn: &Connection) -> String {
+        use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v1", "draft": "D"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                candidate["confirmationToken"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected candidate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn commit_deliverable_after_ts_consume_lands_event_once() {
+        let conn = mem_conn();
+        let token = queue_deliverable(&conn);
+        // Webview half of the user action: TS executeTool confirm+consume.
+        confirmations::confirm(&conn, &token).unwrap();
+        confirmations::consume(&conn, &token, None).unwrap();
+
+        commit_deliverable_inner(&conn, "s1", &token, "prd", "PRD v1", "p1", "deliverable-p1-DEL-REQ-01", 2, 3, true).unwrap();
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        assert_eq!(events.len(), 1);
+        let payload = &events[0].payload;
+        assert_eq!(events[0].event_type, "deliverable_committed");
+        assert_eq!(payload["docId"], "deliverable-p1-DEL-REQ-01");
+        assert_eq!(payload["version"], 2);
+        assert_eq!(payload["slotCode"], "DEL-REQ-01");
+        assert_eq!(payload["code"], "prd");
+        assert_eq!(payload["ftsImmediateHit"], true);
+        assert_eq!(payload["ftsHitCount"], 3);
+        assert_eq!(payload["sessionId"], "s1");
+        assert!(payload["eventId"].is_null());
+        assert_eq!(events[0].product_id.as_deref(), Some("p1"));
+
+        // Idempotent re-invoke (same docId+version): Ok, still exactly one event.
+        commit_deliverable_inner(&conn, "s1", &token, "prd", "PRD v1", "p1", "deliverable-p1-DEL-REQ-01", 2, 3, true).unwrap();
+        assert_eq!(event_log::list_events(&conn, "s1").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn commit_deliverable_consumes_unconsumed_candidate() {
+        let conn = mem_conn();
+        let token = queue_deliverable(&conn);
+        // Only confirmed (not yet consumed): the command is the consume of record.
+        confirmations::confirm(&conn, &token).unwrap();
+        commit_deliverable_inner(&conn, "s1", &token, "prd", "PRD v1", "p1", "d", 1, 0, false).unwrap();
+        assert_eq!(event_log::list_events(&conn, "s1").unwrap().len(), 1);
+        // The command's own confirm step settles a still-pending candidate (the
+        // user's commit click IS the confirmation). (Different title: the first
+        // candidate is still active and would dedup the queue call.)
+        let token2 = {
+            use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
+            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+            match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v2", "draft": "D"}), &ctx) {
+                ToolOutcome::AwaitConfirmation { candidate, .. } => candidate["confirmationToken"].as_str().unwrap().to_string(),
+                other => panic!("expected candidate, got {other:?}"),
+            }
+        };
+        commit_deliverable_inner(&conn, "s1", &token2, "prd", "PRD v2", "p1", "d2", 1, 0, false).unwrap();
+        // Rejected candidate → confirm fails non-AlreadySettled → error, no event.
+        let token3 = {
+            use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
+            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+            match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v3", "draft": "D"}), &ctx) {
+                ToolOutcome::AwaitConfirmation { candidate, .. } => candidate["confirmationToken"].as_str().unwrap().to_string(),
+                other => panic!("expected candidate, got {other:?}"),
+            }
+        };
+        confirmations::reject(&conn, &token3);
+        let err = commit_deliverable_inner(&conn, "s1", &token3, "prd", "PRD v3", "p1", "d3", 1, 0, false).unwrap_err();
+        assert!(err.to_string().contains("already_settled") || err.to_string().contains("not_confirmed"), "{err}");
+        assert_eq!(event_log::list_events(&conn, "s1").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn commit_deliverable_guards_kind_and_identity() {
+        let conn = mem_conn();
+        // Wrong kind.
+        let c = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
+        let err = commit_deliverable_inner(&conn, "s1", &c.confirmation_token, "prd", "t", "p1", "d", 1, 0, false).unwrap_err();
+        assert!(err.to_string().contains("not deliverable_draft"));
+        // Identity mismatch (title edited between queue and commit).
+        let token = queue_deliverable(&conn);
+        confirmations::confirm(&conn, &token).unwrap();
+        let err = commit_deliverable_inner(&conn, "s1", &token, "prd", "别的标题", "p1", "d", 1, 0, false).unwrap_err();
+        assert!(err.to_string().contains("does not match"));
     }
 }

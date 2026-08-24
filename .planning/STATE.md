@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 ## Current Position
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
-Phase: 23 (tools-ts-bridge) — NEXT
-Plan: 0 of ? (需 discuss → research → plan)
-Status: Ready to discuss Phase 23
+Phase: 23 (tools-native, 无桥决策 2026-08-24) — IN PROGRESS
+Plan: 1 of 5 done(23-01 异步地基:execute_async + ToolOutput + workspace_root 贯通;cargo 119 / npm 241 / tsc clean)
+Status: Next plan 23-02(exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行)
 Last activity: 2026-08-24
 
 ```
@@ -58,6 +58,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 22 P06 | 95m | 2 tasks | 8 files |
 | Phase 22 P06 | 95m | 2 tasks | 8 files |
 | Phase 22 P07 | 12m | 2 tasks | 6 files |
+| Phase 23 P01 | 25m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ v0.3.1 roadmap decisions:
 - [Phase 22]: 22-05: 系统提示只含 Phase 9 role 块(Phase 10 指南块随 Phase 23 工具桥恢复);turn-end 审计失败即 Err(硬于 TS);Llm trait 注入便于 fake 测试与 22-06 接线
 - [Phase 22]: 22-06: engine_run 以 webview runId 为 cancel key(correlation_id 对 cancel 不可知);append_tool_result 对 fresh id 先补配对 tool_call 避免 DUPLICATE_TOOL_RESULT;memory/deliverable confirm 留 TS(Phase 23 桥迁移)
 - [Phase 22]: parity.rs 单源双侧 glob 拥有全部 fixture 回放测试;真实 v0.3.x DB 抽样 2 份(264+42 events)端到端回放逐位通过
+- [Phase 23]: 23-01: execute_async 签名定型(cancel+on_event 过渡 allow,23-02 消费);workspace_root 落 ToolCtx+LoopContext 双处(plan 写 tools.rs 的 LoopContext 实际定义在 loop_runner.rs,语义等价);webview 未知 kind 防护零改动(if-chain 天然落穿)
 
 ### TODOs (pending)
 

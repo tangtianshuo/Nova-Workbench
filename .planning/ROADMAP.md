@@ -18,7 +18,8 @@
  (completed 2026-08-24)
 - [x] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归)
  (completed 2026-08-24)
-- [x] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知 (completed 2026-08-24)
+- [x] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
+ (completed 2026-08-24)
 - [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
 
 ## Phase Details
@@ -89,7 +90,9 @@ Plans:
   1. TS toolLoop 与双引擎并存代码删除,全量测试通过;agent 语义回归(对话/工具/HITL/恢复/压缩)无退化(PORT-02)
   2. ADR-0003 状态转 Accepted;ARCHITECTURE.md 更新为引擎分层;CLAUDE.md 同步(PORT-03)
   3. 里程碑级人工 UAT:多 run 并行 + 后台托盘 + HITL 跨边界 + 崩溃恢复全链路通过
-**Plans**: TBD
+**Plans**: 1 plan
+Plan list:
+- [ ] 25-01-PLAN.md — TS toolLoop/算法副本删除 + ADR-0003 Accepted + ARCHITECTURE/CLAUDE.md 同步(PORT-02/03;UAT defer milestone)
 
 ## Progress
 
@@ -98,7 +101,7 @@ Plans:
 | 22. 引擎核心 | 7/7 | Complete   | 2026-08-24 |
 | 23. 工具层(原生,无桥) | 5/5 | Complete   | 2026-08-24 |
 | 24. 多 run 并行 + 后台运行 | 4/4 | Complete   | 2026-08-24 |
-| 25. 迁移收口 | 0/? | Not started | - |
+| 25. 迁移收口 | 0/1 | In progress | - |
 
 ## Coverage
 

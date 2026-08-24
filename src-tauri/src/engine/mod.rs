@@ -12,6 +12,7 @@ pub mod compaction;
 pub mod fork;
 pub mod context_assembler;
 pub mod exec;
+pub mod fs_ops;
 pub mod tools;
 pub mod channel;
 pub mod loop_runner;

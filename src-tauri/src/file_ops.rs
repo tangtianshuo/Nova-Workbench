@@ -18,7 +18,7 @@ pub(crate) fn sanitize_file_name(name: &str) -> Result<String, String> {
 // Resolve rel against root, refusing anything that escapes the workspace.
 // Non-existent targets (create/rename destination) canonicalize the parent
 // then re-append the leaf so new items are covered too.
-fn resolve_in_root(root: &Path, rel: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve_in_root(root: &Path, rel: &str) -> Result<PathBuf, String> {
     let root_canon = root
         .canonicalize()
         .map_err(|e| format!("工作区根目录无效: {e}"))?;

@@ -68,6 +68,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0008_confirmation_kind_exec.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "confirmation kind fs_write",
+            sql: include_str!("../migrations/0009_confirmation_kind_fs.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

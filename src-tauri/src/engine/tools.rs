@@ -16,6 +16,7 @@ use crate::engine::channel::EngineEvent;
 use crate::engine::confirmations;
 use crate::engine::context_assembler::search_knowledge_hybrid;
 use crate::engine::exec;
+use crate::engine::fs_ops;
 use crate::engine::fts_tokens::{fts_match_string, fts_tokens};
 use crate::engine::params_hash::params_hash;
 
@@ -29,6 +30,12 @@ const KNOWLEDGE_SEARCH_DESCRIPTION: &str = "Search product knowledge via FTS5 hy
 const KNOWLEDGE_WRITE_DESCRIPTION: &str = "Stage a product knowledge article for user confirmation. The first call returns a candidate and requires explicit confirmation; only a confirmed matching token can write.";
 const MEMORY_WRITE_DESCRIPTION: &str = "Propose a long-term memory about the user. The first call returns a pending candidate that the user must confirm before it is stored.";
 const EXEC_DESCRIPTION: &str = "Run a read-only shell command in the workspace root. Takes an argv array (command + args) — no shell interpolation. Requires an active workspace; default timeout 120s. Whitelisted read-only commands (e.g. git status/diff/log/show/branch, ls, cat, rg) run directly; anything else returns a confirmation candidate the user must approve.";
+const FS_LIST_DESCRIPTION: &str = "List directory entries (name/isDir/size) in the workspace. path is workspace-root-relative (\"\" = root); reads are free, no confirmation.";
+const FS_READ_DESCRIPTION: &str = "Read a workspace file (UTF-8, max 1MB). path is workspace-root-relative; reads are free, no confirmation.";
+const FS_WRITE_DESCRIPTION: &str = "Write content to a workspace file (workspace-root-relative path). Returns a confirmation candidate — the write only happens after the user approves.";
+const FS_MKDIR_DESCRIPTION: &str = "Create a directory (with parents) inside the workspace. Returns a confirmation candidate requiring user approval.";
+const FS_DELETE_DESCRIPTION: &str = "Delete a file or directory (recursive) inside the workspace. Returns a confirmation candidate requiring user approval.";
+const FS_MOVE_DESCRIPTION: &str = "Move/rename within the workspace; src and dest are workspace-root-relative. Returns a confirmation candidate requiring user approval.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
 const CONFIRMATION_REQUIRED_MEMORY: &str = "Explicit confirmation is required before saving memory.";
@@ -42,6 +49,7 @@ pub enum ToolKind {
     KnowledgeWrite,
     MemoryWrite,
     Exec,
+    Fs,
 }
 
 pub struct ToolSpec {
@@ -124,6 +132,83 @@ pub fn registry() -> Vec<ToolSpec> {
             // Commands with side effects must not be blind-rerun (PORT-01).
             idempotency: "verify_first",
         },
+        ToolSpec {
+            name: "fs_list",
+            description: FS_LIST_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "path": { "type": "string", "default": "" } },
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Fs,
+            idempotency: "rerunnable",
+        },
+        ToolSpec {
+            name: "fs_read",
+            description: FS_READ_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "path": { "type": "string", "minLength": 1 } },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Fs,
+            idempotency: "rerunnable",
+        },
+        ToolSpec {
+            name: "fs_write",
+            description: FS_WRITE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "content": { "type": "string" }
+                },
+                "required": ["path", "content"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Fs,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "fs_mkdir",
+            description: FS_MKDIR_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "path": { "type": "string", "minLength": 1 } },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Fs,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "fs_delete",
+            description: FS_DELETE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "path": { "type": "string", "minLength": 1 } },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Fs,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "fs_move",
+            description: FS_MOVE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "src": { "type": "string", "minLength": 1 },
+                    "dest": { "type": "string", "minLength": 1 }
+                },
+                "required": ["src", "dest"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Fs,
+            idempotency: "verify_first",
+        },
         // ORCHESTRATOR RULING (22-05 plan / ADR-0003): PM CRUD tools
         // (createTask / updateTask / schedule CRUD / ...) are NOT registered in
         // Phase 22 — no TS bridge yet. Phase 23 restores them via the bridge.
@@ -183,6 +268,12 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "knowledge_search" => execute_knowledge_search(conn, args),
         "knowledge_write" => execute_knowledge_write(conn, args, ctx),
         "memory_write" => execute_memory_write(conn, args, ctx),
+        "fs_list" => fs_ops::fs_list(args, ctx),
+        "fs_read" => fs_ops::fs_read(args, ctx),
+        "fs_write" => fs_ops::fs_write(conn, args, ctx),
+        "fs_mkdir" => fs_ops::fs_mkdir(conn, args, ctx),
+        "fs_delete" => fs_ops::fs_delete(conn, args, ctx),
+        "fs_move" => fs_ops::fs_move(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -344,16 +435,24 @@ mod tests {
     fn schemas_three_tools_with_port01_suffix() {
         let schemas = schemas();
         let names: Vec<&str> = schemas.iter().map(|s| s["name"].as_str().unwrap()).collect();
-        assert_eq!(names, vec!["knowledge_search", "knowledge_write", "memory_write", "exec"]);
+        assert_eq!(names, vec![
+            "knowledge_search", "knowledge_write", "memory_write", "exec",
+            "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move"
+        ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));
             assert!(s["parameters"].is_object());
         }
-        // idempotency classes: 1 rerunnable + 3 verify_first
+        // idempotency classes: reads rerunnable, writes verify_first
         assert_eq!(idempotency("knowledge_search"), "rerunnable");
         assert_eq!(idempotency("knowledge_write"), "verify_first");
         assert_eq!(idempotency("memory_write"), "verify_first");
         assert_eq!(idempotency("exec"), "verify_first");
+        assert_eq!(idempotency("fs_list"), "rerunnable");
+        assert_eq!(idempotency("fs_read"), "rerunnable");
+        for t in ["fs_write", "fs_mkdir", "fs_delete", "fs_move"] {
+            assert_eq!(idempotency(t), "verify_first");
+        }
         assert_eq!(idempotency("createTask"), "verify_first"); // old-event default
     }
 

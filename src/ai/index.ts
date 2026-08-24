@@ -18,7 +18,6 @@ export { VIEW_IDS } from './tools/navigation';
 
 // Keep the Phase 9 barrel usable by the loop and context consumers.
 export * from './context';
-export * from './toolLoop';
 export * from './dateContext';
 export * from './chatSession';
 export * from './prompts';

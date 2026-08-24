@@ -574,9 +574,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       streamingTraceRef = [];
 
       try {
-        // Phase 22 (22-06): the whole agent turn runs in the Rust engine
-        // (engine_run + Channel<EngineEvent>). The TS runToolLoop is retired as
-        // a runtime caller — its source stays as the porting spec (Phase 25).
+        // Phase 25: Rust engine_run is the sole agent runtime (engine_run +
+        // Channel<EngineEvent>) — the TS loop was deleted at migration closeout.
         let engineKnowledgeCandidate: KnowledgeWriteCandidate | null = null;
         let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
         let engineExecCandidate: ExecApprovalCandidate | null = null;

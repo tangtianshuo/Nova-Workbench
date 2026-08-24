@@ -18,12 +18,6 @@ import {
   resetRestoreForTesting,
   restoreLatestSession,
 } from '../sessionRestore';
-import {
-  maybeCompactSession,
-  type CompactionSummarizer,
-} from '../compaction';
-
-const fakeSummarizer: CompactionSummarizer = async ({ transcript }) => `SUMMARY:${transcript.slice(0, 24)}`;
 
 async function appendTurn(
   session: ChatSession,
@@ -50,35 +44,6 @@ function resetAll() {
   resetMemoryConfirmationStore();
   resetRestoreForTesting();
 }
-
-test('restore parity of a compacted session (Plan 03 × Plan 04)', async () => {
-  resetAll();
-  const session = new ChatSession({ sessionId: 'compact-restore', tokenBudget: 1000 });
-  await appendTurn(session, '背景讨论'.repeat(60), '结论摘要'.repeat(60));
-  await appendTurn(session, '背景讨论'.repeat(60), '结论摘要'.repeat(60));
-  await appendTurn(session, '背景讨论'.repeat(60), '结论摘要'.repeat(60));
-
-  const record = await maybeCompactSession(session, 'deepseek', { summarizer: fakeSummarizer });
-  assert.ok(record !== null, 'compaction must trigger');
-
-  // One complete turn AFTER compaction.
-  await appendTurn(session, '压缩后的问题', '压缩后的回答');
-
-  resetRestoreForTesting();
-  const restored = await restoreLatestSession();
-  assert.ok(restored !== null);
-  assert.equal(restored.sessionId, 'compact-restore');
-
-  // Sourced-summary parity: both the live session and the rebuilt projection
-  // derive identical LLM messages (summary prefix + post-compaction turn).
-  assert.deepEqual(restored.session.getMessagesForLLM(), session.getMessagesForLLM());
-
-  // Verify the summary prefix is present.
-  const messages = restored.session.getMessagesForLLM();
-  assert.ok(messages[0].content.includes('历史压缩摘要'), 'sourced summary present');
-  assert.ok(messages[0].content.includes(`seq ${record.coveredSeqStart}-${record.coveredSeqEnd}`), 'seq range present');
-  assert.ok(messages[0].content.includes('模型 deepseek'), 'model attribution present');
-});
 
 test('awaiting_confirmation crash tail restores with the pending candidate and no orphan', async () => {
   resetAll();

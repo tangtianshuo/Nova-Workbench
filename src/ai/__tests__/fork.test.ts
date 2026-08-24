@@ -9,10 +9,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { buildForkEventStream, findForkCutSeq, resolveSessionEvents } from '../fork';
+import { buildForkEventStream, findForkCutSeq } from '../fork';
 import { ChatSession } from '../chatSession';
-import { maybeCompactSession, type CompactionSummarizer } from '../compaction';
-import { getEventStore, resetMemoryEventStore } from '../events/eventStore';
 import { checkEventStream } from '../events/invariants';
 import type { AgentEvent } from '../events/types';
 import {
@@ -178,69 +176,6 @@ test('8. findForkCutSeq: first turn_ended after the assistant seq; null when abs
   assert.equal(findForkCutSeq(parent, 13), 14);
   const openTail = parent.slice(0, 13); // last assistant_message, no turn_ended after
   assert.equal(findForkCutSeq(openTail, 13), null);
-});
-
-/* === 9. round-trip through the real memory repos (eventStore + sessionRepo) === */
-
-const capturedTranscripts: string[] = [];
-const fakeSummarizer: CompactionSummarizer = async ({ transcript }) => {
-  capturedTranscripts.push(transcript);
-  return `SUMMARY:${transcript.slice(0, 24)}`;
-};
-
-async function appendTurn(session: ChatSession, userText: string, assistantText: string) {
-  session.setCorrelationId(crypto.randomUUID());
-  session.addMessage('user', userText);
-  session.addMessage('assistant', assistantText);
-  session.recordTurnEnd({ outcome: 'completed', iterations: 1, toolCallsExecuted: 0 });
-  await session.flushEvents();
-}
-
-test('9. round-trip: fork → child turns → forced compaction → resolveSessionEvents → fromEvents parity', async () => {
-  resetMemoryEventStore();
-  resetMemorySessionRepo();
-  capturedTranscripts.length = 0;
-  const repo = getMemorySessionRepo();
-  const store = getEventStore();
-
-  // Parent: three big turns.
-  const parent = new ChatSession({ sessionId: 'rt-parent', tokenBudget: 1000 });
-  await appendTurn(parent, '背景讨论甲'.repeat(60), '结论摘要甲'.repeat(60));
-  await appendTurn(parent, '背景讨论乙'.repeat(60), '结论摘要乙'.repeat(60));
-  await appendTurn(parent, '背景讨论丙'.repeat(60), '结论摘要丙'.repeat(60));
-
-  // Fork after the second parent turn.
-  const parentEvents = await store.listEvents('rt-parent');
-  const cutSeq = findForkCutSeq(parentEvents, parentEvents.find((e) => e.eventType === 'assistant_message' && String(e.payload.content).includes('乙'))!.seq);
-  assert.ok(cutSeq !== null);
-  await repo.createForkSession({ sessionId: 'rt-child', workspaceId: null, parentSessionId: 'rt-parent', forkCutSeq: cutSeq, title: null });
-  await store.append({ sessionId: 'rt-child', eventType: 'session_forked', payload: { parentSessionId: 'rt-parent', parentCutSeq: cutSeq } });
-
-  // Child gains two turns of its own.
-  const child = ChatSession.fromEvents(await resolveSessionEvents('rt-child'), { sessionId: 'rt-child', tokenBudget: 1000 });
-  child.resumeEventEmission();
-  await appendTurn(child, '子代问题一'.repeat(60), '子代回答一'.repeat(60));
-  await appendTurn(child, '子代问题二'.repeat(60), '子代回答二'.repeat(60));
-
-  // Forced compaction: the transcript must cover the PARENT prefix (Pitfall 1).
-  const record = await maybeCompactSession(child, 'deepseek', { force: true, summarizer: fakeSummarizer });
-  assert.ok(record !== null, 'forced compaction must run');
-  assert.ok(capturedTranscripts.at(-1)!.includes('背景讨论甲'), 'parent prefix entered the compaction transcript');
-  assert.ok(record.coveredSeqEnd > cutSeq, 'coveredSeqEnd spans the parent prefix (normalized space)');
-
-  // Post-compaction turn.
-  await appendTurn(child, '压缩后的问题', '压缩后的回答');
-
-  // Restart-equivalent: resolve from the stores and rebuild.
-  const resolved = await resolveSessionEvents('rt-child');
-  const restored = ChatSession.fromEvents(resolved, { sessionId: 'rt-child', tokenBudget: 1000 });
-  assert.ok(restored.getCompaction() !== null, 'compaction summary carried through re-resolution');
-  const llm = restored.getMessagesForLLM();
-  assert.ok(llm[0].content.includes('历史压缩摘要'), 'sourced summary prepended');
-  const flat = llm.map((m) => m.content).join('\n');
-  assert.ok(flat.includes('压缩后的问题') && flat.includes('压缩后的回答'), 'post-compaction turn replayed');
-  assert.ok(!flat.includes('子代问题一'), 'pre-compaction child turn filtered by coveredSeqEnd');
-  assert.ok(!flat.includes('背景讨论乙'), 'pre-compaction parent prefix filtered (covered by summary, not replayed)');
 });
 
 /* === 10. sessionRepo: createForkSession / getSession / parentTitle === */

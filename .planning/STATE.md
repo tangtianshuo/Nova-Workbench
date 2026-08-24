@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 23 — tools-ts-bridge
+**Current focus:** Phase 24 — multi-run-tray
 
 ## Current Position
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
-Plan: 5 of 5 done(23-04 deliverable 工具:generate_deliverable 纯候选入队零 LLM + ROLE_AND_TOOL_RULES 适配版(PM CRUD 降级说明)+ engine_commit_deliverable 接缝①迁移(TS 直写消灭);无 migration 0010(0006 已含 kind);cargo 147 / npm 241 / tsc clean;TOOL-01/TOOL-03 待 verifier 确认后勾;下一计划 23-05)
-Status: Ready to execute
+Plan: 0 of ? (需 discuss → plan → execute)
+Status: Ready to discuss Phase 24 (multi-run-tray)
 Last activity: 2026-08-24
 
 ```

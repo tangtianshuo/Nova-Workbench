@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
+current_plan: 2 of 4
 status: executing
-last_updated: "2026-08-24T04:48:11.632Z"
+last_updated: "2026-08-24T07:49:12.320Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
 ---
 
 # Project State
@@ -25,8 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
-Plan: 0 of ? (需 discuss → plan → execute)
-Status: Ready to discuss Phase 24 (multi-run-tray)
+Phase: 24 (multi-run-tray) — IN PROGRESS(24-01 done: scheduler cap3+FIFO + per-run Connection + 排队 UI)
+Current Plan: 2 of 4
+Status: Ready to execute 24-02 (tray)
 Last activity: 2026-08-24
 
 ```
@@ -63,6 +65,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 23 P03 | 45m | 2 tasks | 12 files |
 | Phase 23 P04 | 9m | 2 tasks | 6 files |
 | Phase 23 P05 | 11m | 2 tasks | 8 files |
+| Phase 24 P01 | 45m | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -114,6 +117,8 @@ v0.3.1 roadmap decisions:
 - [Phase 23]: 23-04: deliverable_committed AlreadySettled 容忍 + docId+version 事件幂等(TS/Rust 同一用户动作先后 consume 共享 DB)
 - [Phase 23]: 23-04: 模型带 confirmationToken 自提交 = arg_error;commit 恒为 webview 用户动作
 - [Phase 23]: 23-05 接缝②无双闸需求:memory 卡片确认是唯一消费入口,原子条件 UPDATE 单闸保恰好一次;consumeIntoMemories 重命名 consumeConfirmed 保留 web/test 路径
+- [Phase 24]: 24-01: 调度器显式 VecDeque FIFO(非 semaphore)— 队列内容供托盘 snapshot(24-02);Permit Drop promote 队首,cancel-vs-promotion 竞态 release 兜底
+- [Phase 24]: 24-01: EngineDb 扩 path 字段,per-run db::open;managed 单连接留 with_conn 系命令;take+restore 双删,engine busy 路径清除;event_log seq 注释改写(per-session 单写者=TS guard)
 
 ### TODOs (pending)
 

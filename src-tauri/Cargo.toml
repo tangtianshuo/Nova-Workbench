@@ -42,6 +42,13 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 uuid = { version = "1", features = ["v4"] }
 thiserror = "1"
+# --- Phase 22 (v0.3.2) engine additions ---
+# ponytail: bundled sqlite — same binary as sqlx bundled in tauri-plugin-sql;
+# avoids system sqlite version drift; binary size cost accepted (RESEARCH.md §SQLite).
+rusqlite = { version = "0.32", features = ["bundled"] }
+sha2 = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+unicode-normalization = "0.1"
 
 [profile.release]
 panic = "abort"

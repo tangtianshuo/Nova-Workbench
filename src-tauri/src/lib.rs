@@ -4,6 +4,7 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 // Phase 3 modules. Wave 1 ships the substrate (error/keychain/state/llm + commands
 // stub); Wave 2 (plan 03-02) wires #[tauri::command] fns into invoke_handler.
 mod commands;
+mod engine; // Phase 22: run engine (compiles + tests only; runtime wiring in 22-06)
 mod error;
 mod file_ops;
 mod keychain;

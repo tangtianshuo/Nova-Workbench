@@ -296,7 +296,15 @@ pub async fn engine_run(
 /// — the run itself has already ended there.
 #[tauri::command]
 pub async fn engine_cancel(run_id: String, state: State<'_, AppState>) -> Result<(), AppError> {
-    if let Some(token) = state.engine_runs.lock().unwrap().remove(&run_id) {
+    engine_cancel_inner(&state, &run_id)
+}
+
+/// Testable core (24-04): remove the token and fire it. The token reaches BOTH
+/// cancel halves — the running run's loop (23-02 tree-kill unwind) and the
+/// queued run's acquire cancel branch (24-01 immediate dequeue, no slot).
+/// Idempotent: an unknown/already-removed run_id is Ok.
+pub fn engine_cancel_inner(state: &AppState, run_id: &str) -> Result<(), AppError> {
+    if let Some(token) = state.engine_runs.lock().unwrap().remove(run_id) {
         token.cancel();
     }
     Ok(())
@@ -767,6 +775,20 @@ pub fn append_tool_result_inner(
 mod tests {
     use super::*;
     use crate::engine::db::testing::{file_conn, mem_conn};
+
+    // 24-04 SCHED-04: engine_cancel idempotency (unknown + double cancel).
+    #[test]
+    fn engine_cancel_unknown_and_double_cancel_are_ok() {
+        let state = crate::state::AppState::new();
+        // Unknown run_id → Ok (run already ended naturally).
+        engine_cancel_inner(&state, "no-such-run").unwrap();
+        let token = CancellationToken::new();
+        state.engine_runs.lock().unwrap().insert("r1".into(), token.clone());
+        engine_cancel_inner(&state, "r1").unwrap();
+        assert!(token.is_cancelled(), "registered token fired");
+        engine_cancel_inner(&state, "r1").unwrap(); // second cancel: Ok no-op
+        assert!(state.engine_runs.lock().unwrap().is_empty(), "registry entry removed");
+    }
 
     #[test]
     fn append_fresh_id_creates_pairing_tool_call() {

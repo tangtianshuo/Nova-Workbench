@@ -24,10 +24,6 @@ pub const ID_KEYS: &[&str] = &["eventId", "artifactId", "correlationId", "toolCa
 /// Rule 2: recursively replace whitelisted timestamp/ID string values with placeholders.
 /// Rule 5 in action: `modelText` and every other string is left byte-identical.
 pub fn normalize(v: &mut Value) {
-    let _ = v; // RED stub — not yet implemented
-    if true {
-        return;
-    }
     match v {
         Value::Object(map) => {
             for (k, val) in map.iter_mut() {

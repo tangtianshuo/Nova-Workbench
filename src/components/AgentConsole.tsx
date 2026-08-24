@@ -9,6 +9,7 @@ import {
   Hourglass,
   PaperPlaneTilt,
   Sparkle,
+  StopCircle,
   Warning,
   X,
 } from '@phosphor-icons/react';
@@ -78,6 +79,8 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     streamingTrace,
     loading,
     isQueued,
+    activeRunId,
+    activeSessionId,
     restoreComplete,
     pendingConfirmation,
     pendingDestructiveAction,
@@ -97,6 +100,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     forkFromMessage,
     restore,
     submit,
+    cancelRun,
     confirmKnowledgeWrite,
     rejectKnowledgeWrite,
     confirmDestructiveAction,
@@ -235,6 +239,18 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
                   <Hourglass size={13} className="animate-pulse" />
                   <span>排队中 — 正在等待其他任务完成</span>
                 </div>
+              )}
+              {activeRunId && (
+                <button
+                  type="button"
+                  onClick={() => void cancelRun(activeSessionId)}
+                  className="mb-1.5 flex items-center gap-1 text-xs text-danger transition-colors hover:opacity-80"
+                  title="取消本次运行"
+                  aria-label="停止当前运行"
+                >
+                  <StopCircle size={13} weight="fill" />
+                  <span>停止</span>
+                </button>
               )}
               <ToolTrace items={streamingTrace} />
               <span className="whitespace-pre-wrap">

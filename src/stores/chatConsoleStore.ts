@@ -12,6 +12,7 @@ import {
   engineExecConfirmed,
   engineFsApply,
   engineRejectCandidate,
+  engineCancel,
   engineRejectMemory,
   engineRun,
   type EnginePendingCandidate,
@@ -195,6 +196,9 @@ interface ChatConsoleState {
   loading: boolean;
   /** 24-01 SCHED-01: run queued behind the 3-slot cap; flipped by run_status events. */
   isQueued: boolean;
+  /** 24-05 SCHED-04: runId of the in-flight engineRun for the active session
+   * (streaming or queued); cleared on completion/error/cancel. */
+  activeRunId: string | null;
   restoreComplete: boolean;
   pendingConfirmation: KnowledgeWriteCandidate | null;
   pendingDestructiveAction: DestructiveActionCandidate | null;
@@ -223,6 +227,9 @@ interface ChatConsoleState {
   startNewSession: () => { success: boolean; reason?: string };
   switchSession: (sessionId: string) => Promise<{ success: boolean; reason?: string }>;
   submit: (event?: { preventDefault?: () => void }) => Promise<void>;
+  /** 24-05 SCHED-04: cancel the active session's in-flight run (engine_cancel).
+   * cancel fn injectable for tests (defaults to engineCancel). */
+  cancelRun: (sessionId?: string, cancel?: (runId: string) => Promise<void>) => Promise<void>;
   confirmKnowledgeWrite: () => Promise<void>;
   rejectKnowledgeWrite: () => Promise<void>;
   confirmDestructiveAction: () => Promise<void>;
@@ -395,6 +402,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     streamingTrace: [],
     loading: false,
     isQueued: false,
+    activeRunId: null,
     restoreComplete: false,
     pendingConfirmation: null,
     pendingDestructiveAction: null,
@@ -599,8 +607,10 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         } catch {
           sessionTitle = trimmed.slice(0, 24);
         }
+        const runId = crypto.randomUUID();
+        set({ activeRunId: runId });
         const result = await engineRun({
-          runId: crypto.randomUUID(),
+          runId,
           userMessage: trimmed,
           sessionId,
           sessionTitle,
@@ -743,12 +753,31 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           description: error instanceof Error ? error.message : String(error),
         });
       } finally {
-        set({ loading: false, isQueued: false, streamingResponse: '', streamingTrace: [] });
+        set({ loading: false, isQueued: false, activeRunId: null, streamingResponse: '', streamingTrace: [] });
         streamingResponseRef = '';
         streamingTraceRef = [];
         void refreshForkable();
         void get().maybeGenerateTitle(get().activeSessionId);
       }
+    },
+
+    // 24-05 SCHED-04 — user cancel: engine_cancel is idempotent on the Rust
+    // side (unknown/ended runId → Ok). Local reset only; the engine closes the
+    // event stream and engineRun resolves, so submit's finally does the rest
+    // of the projection (no double-projection here).
+    cancelRun: async (sessionId, cancel = engineCancel) => {
+      const state = get();
+      const target = sessionId ?? state.activeSessionId;
+      if (target !== state.activeSessionId || !state.activeRunId) return;
+      const runId = state.activeRunId;
+      try {
+        await cancel(runId);
+      } catch (error) {
+        console.error('[engine] cancel failed', error);
+      }
+      set({ activeRunId: null, loading: false, isQueued: false, streamingResponse: '', streamingTrace: [] });
+      streamingResponseRef = '';
+      streamingTraceRef = [];
     },
 
     confirmDestructiveAction: async () => {

@@ -31,8 +31,8 @@
 ### 迁移收口 (PORT)
 
 - [x] **PORT-01**: 孤儿 exec 第三态协议落地 — 崩溃恢复后未配对的 exec tool_result 呈 unknown/interrupted(非 error);命令幂等分类随 tool_call 落盘;模型对 unknown 先验证再重跑(工具描述/提示词约定)
-- [ ] **PORT-02**: TS toolLoop 与双引擎并存代码删除,全量测试通过;agent 语义回归(对话/工具/HITL/恢复/压缩)无退化
-- [ ] **PORT-03**: ADR-0003 转 Accepted;ARCHITECTURE.md 更新引擎分层;CLAUDE.md 同步
+- [x] **PORT-02**: TS toolLoop 与双引擎并存代码删除,全量测试通过;agent 语义回归(对话/工具/HITL/恢复/压缩)无退化
+- [x] **PORT-03**: ADR-0003 转 Accepted;ARCHITECTURE.md 更新引擎分层;CLAUDE.md 同步
 
 ## v2 Requirements
 
@@ -79,8 +79,8 @@
 | SCHED-02 | Phase 24 | Complete ✓ verified |
 | SCHED-03 | Phase 24 | Complete ✓ verified |
 | SCHED-04 | Phase 24 | Complete ✓ verified |
-| PORT-02 | Phase 25 | Pending |
-| PORT-03 | Phase 25 | Pending |
+| PORT-02 | Phase 25 | Complete ✓ verified |
+| PORT-03 | Phase 25 | Complete ✓ verified |
 
 **Coverage:**
 - v1 requirements: 16 total

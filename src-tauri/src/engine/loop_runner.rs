@@ -75,6 +75,9 @@ pub struct LoopContext<'a> {
     pub product_id: Option<String>,
     pub provider: String,
     pub ollama_model: Option<String>,
+    /// Active workspace root (23-01): webview-supplied folderPath threaded
+    /// webview → engine_run → here → ToolCtx. None = no workspace bound.
+    pub workspace_root: Option<std::path::PathBuf>,
     /// Core business facts (TS buildCoreContext); caller-supplied (22-06 wiring).
     pub core_context: String,
     pub llm: Box<dyn Llm + 'a>,
@@ -300,8 +303,9 @@ pub async fn run_tool_loop(
             let tool_ctx = tools::ToolCtx {
                 session_id: &scope.session_id,
                 product_id: ctx.product_id.as_deref(),
+                workspace_root: ctx.workspace_root.clone(),
             };
-            match tools::execute(ctx.conn, &call.name, &call.arguments, &tool_ctx) {
+            match tools::execute_async(ctx.conn, &call.name, &call.arguments, &tool_ctx, cancel.clone(), on_event.as_ref()).await {
                 tools::ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
                     // WAIT lands as a normal tool_result ({ok:false} semantics)
                     // so tool_call/tool_result pairing stays balanced across the pause.
@@ -454,6 +458,7 @@ mod tests {
             product_id: None,
             provider: "deepseek".into(),
             ollama_model: None,
+            workspace_root: None,
             core_context: "核心事实".into(),
             llm: Box::new(llm),
             summarizer: None,

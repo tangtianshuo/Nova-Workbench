@@ -10,7 +10,9 @@
 
 use rusqlite::Connection;
 use serde_json::{json, Value};
+use tokio_util::sync::CancellationToken;
 
+use crate::engine::channel::EngineEvent;
 use crate::engine::confirmations;
 use crate::engine::context_assembler::search_knowledge_hybrid;
 use crate::engine::fts_tokens::{fts_match_string, fts_tokens};
@@ -147,10 +149,13 @@ pub enum ToolOutcome {
     Failed { message: String, arg_error: bool },
 }
 
-/// Execute context — the session the tool runs for (candidate stamping).
+/// Execute context — the session the tool runs for (candidate stamping) plus
+/// the workspace root (23-01): fs/exec tools resolve paths against it; None
+/// means those tools must return Failed (arg_error=false), never panic.
 pub struct ToolCtx<'a> {
     pub session_id: &'a str,
     pub product_id: Option<&'a str>,
+    pub workspace_root: Option<std::path::PathBuf>,
 }
 
 pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
@@ -163,6 +168,21 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
             arg_error: false,
         },
     }
+}
+
+/// Async dispatch entry (23-01, signature frozen): exec/LLM-backed tools land
+/// here in 23-02+; sync tools route straight through `execute`. cancel/on_event
+/// are consumed when the first async tool arrives — transitional allow until then.
+#[allow(unused_variables)]
+pub async fn execute_async(
+    conn: &Connection,
+    name: &str,
+    args: &Value,
+    ctx: &ToolCtx<'_>,
+    cancel: CancellationToken,
+    on_event: &(dyn Fn(EngineEvent) + Send + Sync),
+) -> ToolOutcome {
+    execute(conn, name, args, ctx)
 }
 
 fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
@@ -319,7 +339,7 @@ mod tests {
     fn knowledge_search_executes_fts() {
         let conn = mem_conn();
         seed_knowledge(&conn);
-        let ctx = ToolCtx { session_id: "s1", product_id: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
         match execute(&conn, "knowledge_search", &json!({"query": "需求"}), &ctx) {
             ToolOutcome::Executed(value) => {
                 assert_eq!(value["retrieval"], "fts5-hybrid");
@@ -333,7 +353,7 @@ mod tests {
     #[test]
     fn knowledge_search_arg_error_is_retryable() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
         match execute(&conn, "knowledge_search", &json!({}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("arg validation failed"));
@@ -346,7 +366,7 @@ mod tests {
     #[test]
     fn knowledge_write_creates_candidate_and_waits() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1") };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
         let args = json!({"productId": "p1", "title": "T", "content": "C"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -365,7 +385,7 @@ mod tests {
     #[test]
     fn memory_write_inserts_memory_candidate_and_waits() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
         match execute(&conn, "memory_write", &json!({"content": "用户喜欢简短回复"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
                 assert_eq!(wait_value, "Explicit confirmation is required before saving memory.");
@@ -387,7 +407,7 @@ mod tests {
     #[test]
     fn unknown_tool_fails_without_arg_error() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
         match execute(&conn, "createTask", &json!({"title": "x"}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert_eq!(message, "Unknown tool: createTask");

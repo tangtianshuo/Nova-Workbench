@@ -184,6 +184,7 @@ pub async fn engine_run(
             product_id,
             provider: provider.to_string(),
             ollama_model,
+            workspace_root: None,
             core_context,
             llm: Box::new(llm_adapter),
             summarizer: Some(&mut summarizer),

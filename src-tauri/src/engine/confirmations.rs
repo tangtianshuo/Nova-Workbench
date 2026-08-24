@@ -298,6 +298,22 @@ pub fn list_pending(conn: &Connection, kind: &str) -> Result<Vec<Candidate>> {
     Ok(rows)
 }
 
+/// Rejected candidates newest-first (context assembler's do-not-repropose list,
+/// confirmationStore listRejected SQL shape).
+pub fn list_rejected(conn: &Connection, kind: &str, limit: usize) -> Result<Vec<Candidate>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {CANDIDATE_COLUMNS} FROM agent_confirmation_candidates
+          WHERE kind = $1
+            AND status = 'rejected'
+          ORDER BY rejected_at DESC
+          LIMIT $2"
+    ))?;
+    let rows = stmt
+        .query_map(params![kind, limit as i64], row_to_candidate)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 /* === memory_candidates writer (memoryStore.ts SQLite branch, INSERT verbatim) === */
 
 pub const MEMORY_CANDIDATE_TTL_MS: i64 = 7 * 24 * 60 * 60 * 1000; // memoryStore default TTL (7d)

@@ -8,6 +8,7 @@ import {
   engineAppendToolResult,
   engineConfirmCandidate,
   engineExecConfirmed,
+  engineFsApply,
   engineRejectCandidate,
   engineRun,
   type EnginePendingCandidate,
@@ -53,6 +54,15 @@ export interface ExecApprovalCandidate {
   confirmationToken: string;
   command: string;
   args: string[];
+  summary: string;
+}
+
+/** fs_write 确认卡(23-03):Rust fs 写候选(write/mkdir/delete/move)→ 两选项卡。 */
+export interface FsWriteCandidate {
+  confirmationToken: string;
+  operation: 'write' | 'mkdir' | 'delete' | 'move';
+  path: string;
+  content?: string;
   summary: string;
 }
 
@@ -179,6 +189,7 @@ interface ChatConsoleState {
   pendingConfirmation: KnowledgeWriteCandidate | null;
   pendingDestructiveAction: DestructiveActionCandidate | null;
   pendingExecApproval: ExecApprovalCandidate | null;
+  pendingFsWrite: FsWriteCandidate | null;
   pendingMemory: MemoryCandidate | null;
   autoRemembered: MemoryCandidate | null;
   memoryBusy: boolean;
@@ -208,6 +219,8 @@ interface ChatConsoleState {
   rejectDestructiveAction: () => Promise<void>;
   confirmExec: (allowPermanently: boolean) => Promise<void>;
   rejectExec: () => Promise<void>;
+  confirmFsWrite: () => Promise<void>;
+  rejectFsWrite: () => Promise<void>;
   confirmMemory: () => Promise<void>;
   rejectMemory: () => Promise<void>;
   rejectDraft: () => Promise<void>;
@@ -337,6 +350,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     pendingConfirmation: null,
     pendingDestructiveAction: null,
     pendingExecApproval: null,
+    pendingFsWrite: null,
     pendingMemory: null,
     autoRemembered: null,
     memoryBusy: false,
@@ -432,6 +446,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         pendingConfirmation: null,
         pendingDestructiveAction: null,
         pendingExecApproval: null,
+        pendingFsWrite: null,
         pendingPrdDraft: null,
         pendingMemory: null,
         forkableIds: new Set<number>(),
@@ -508,6 +523,18 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         let engineKnowledgeCandidate: KnowledgeWriteCandidate | null = null;
         let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
         let engineExecCandidate: ExecApprovalCandidate | null = null;
+        let engineFsCandidate: FsWriteCandidate | null = null;
+        const toFsWriteCandidate = (candidate: EnginePendingCandidate): FsWriteCandidate => ({
+          confirmationToken: candidate.confirmationToken,
+          operation: (['write', 'mkdir', 'delete', 'move'] as const).includes(
+            candidate.args?.operation as FsWriteCandidate['operation'],
+          )
+            ? (candidate.args?.operation as FsWriteCandidate['operation'])
+            : 'write',
+          path: String(candidate.args?.path ?? candidate.args?.src ?? ''),
+          content: typeof candidate.args?.content === 'string' ? candidate.args.content : undefined,
+          summary: String(candidate.summary ?? ''),
+        });
         const result = await engineRun({
           runId: crypto.randomUUID(),
           userMessage: trimmed,
@@ -582,6 +609,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
                   args: Array.isArray(candidate.args?.args) ? (candidate.args?.args as string[]) : [],
                   summary: String(candidate.summary ?? ''),
                 };
+              } else if (candidate.kind === 'fs_write') {
+                engineFsCandidate = toFsWriteCandidate(candidate);
               } else if (candidate.kind === 'memory_write') {
                 void refreshMemoryCards();
               }
@@ -605,6 +634,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
             summary: String(pc.summary ?? ''),
           };
         }
+        if (result.pendingConfirmation?.kind === 'fs_write' && !engineFsCandidate) {
+          engineFsCandidate = toFsWriteCandidate(result.pendingConfirmation);
+        }
 
         const assistantContent = result.content || streamingResponseRef || 'AI 没有返回内容';
         set((current) => ({
@@ -620,6 +652,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           pendingConfirmation: engineKnowledgeCandidate ?? current.pendingConfirmation,
           pendingDestructiveAction: engineDestructiveCandidate ?? current.pendingDestructiveAction,
           pendingExecApproval: engineExecCandidate ?? current.pendingExecApproval,
+          pendingFsWrite: engineFsCandidate ?? current.pendingFsWrite,
         }));
 
         if (result.truncated) {
@@ -745,6 +778,51 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           id: nextId++,
           role: 'assistant' as const,
           content: '已拒绝本次命令执行。',
+        }],
+      }));
+    },
+
+    // 23-03 fs 写确认(确认/拒绝):Rust 侧 confirm+consume+执行+落库,
+    // 前端只收执行结果。无「永久允许」——边界(工作区内)即策略。
+    confirmFsWrite: async () => {
+      const { pendingFsWrite, loading } = get();
+      if (!pendingFsWrite || loading) return;
+      set({ loading: true });
+      try {
+        const candidate = pendingFsWrite;
+        const result = await engineFsApply(get().activeSessionId, candidate.confirmationToken);
+        const ok = result.error === undefined;
+        set((current) => ({
+          messages: [...current.messages, {
+            id: nextId++,
+            role: 'assistant' as const,
+            content: ok
+              ? `${candidate.summary || candidate.path} 已确认执行。`
+              : `执行失败:${String(result.error ?? '')}`,
+          }],
+          pendingFsWrite: null,
+        }));
+      } catch (error) {
+        emitToast({
+          type: 'error',
+          title: '文件操作失败',
+          description: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    rejectFsWrite: async () => {
+      const { pendingFsWrite } = get();
+      if (!pendingFsWrite) return;
+      await engineRejectCandidate(pendingFsWrite.confirmationToken);
+      set((current) => ({
+        pendingFsWrite: null,
+        messages: [...current.messages, {
+          id: nextId++,
+          role: 'assistant' as const,
+          content: '已拒绝本次文件操作。',
         }],
       }));
     },

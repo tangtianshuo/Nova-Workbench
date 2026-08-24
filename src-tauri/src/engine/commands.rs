@@ -16,7 +16,7 @@ use crate::engine::channel::{EngineEvent, EngineRunResult};
 use crate::engine::event_log::{self, EventInput};
 use crate::engine::chat_session::LlmMessage;
 use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmToolCall, LlmTurn, LoopContext, LoopError, TokenSink};
-use crate::engine::{confirmations, exec, tools};
+use crate::engine::{confirmations, exec, fs_ops, tools};
 use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
 use crate::state::AppState;
@@ -403,6 +403,50 @@ pub async fn engine_whitelist_add(command: String, db: State<'_, EngineDb>) -> R
     })
 }
 
+/// Confirm an fs_write candidate, execute the write in Rust (23-03, TOOL-04:
+/// zero webview dependency) and settle via append_tool_result_inner
+/// ([confirmed rerun] pairing). Fully sync — fs ops are std::fs, no awaits,
+/// so no prepare/settle split is needed (unlike engine_exec_confirmed).
+#[tauri::command]
+pub async fn engine_fs_apply(
+    session_id: String,
+    token: String,
+    db: State<'_, EngineDb>,
+) -> Result<Value, AppError> {
+    with_conn(&db, |conn| fs_apply_inner(conn, &session_id, &token))
+}
+
+/// Testable core of engine_fs_apply.
+pub fn fs_apply_inner(conn: &Connection, session_id: &str, token: &str) -> Result<Value, AppError> {
+    let candidate = confirmations::get(conn, token)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
+    if candidate.kind != fs_ops::CANDIDATE_KIND {
+        return Err(AppError::InternalError(format!(
+            "candidate kind {} is not {}",
+            candidate.kind,
+            fs_ops::CANDIDATE_KIND
+        )));
+    }
+    confirmations::confirm(conn, token)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+    let consumed = confirmations::consume(conn, token, None)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+
+    let outcome = fs_ops::apply_operation(&consumed.params);
+    let (ok, payload) = match outcome {
+        tools::ToolOutcome::Executed(v) => (true, v),
+        tools::ToolOutcome::Failed { message, .. } => (false, json!({ "error": message })),
+        tools::ToolOutcome::AwaitConfirmation { .. } => {
+            return Err(AppError::InternalError("fs apply cannot await confirmation".into()))
+        }
+    };
+    let tool_name = format!("fs_{}", consumed.params["operation"].as_str().unwrap_or("write"));
+    append_tool_result_inner(conn, session_id, &uuid::Uuid::new_v4().to_string(), &tool_name, ok, &payload, Some(&consumed.params))
+        .map_err(AppError::InternalError)?;
+    Ok(payload)
+}
+
 /// Testable core of engine_append_tool_result.
 pub fn append_tool_result_inner(
     conn: &Connection,
@@ -624,5 +668,48 @@ mod tests {
             .block_on(exec_confirmed_inner(&conn, "s1", &c.confirmation_token, false))
             .unwrap_err();
         assert!(err.to_string().contains("not exec_approval"));
+    }
+
+    #[test]
+    fn fs_apply_runs_in_rust_and_settles_once() {
+        let conn = mem_conn();
+        let root = std::env::temp_dir().join(format!("nova-fsapply-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        // fs_write tool → fs_write candidate
+        let token = {
+            use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
+            let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: Some(root.clone()) };
+            match execute(&conn, "fs_write", &json!({"path": "out.md", "content": "confirmed"}), &ctx) {
+                ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                    candidate["confirmationToken"].as_str().unwrap().to_string()
+                }
+                other => panic!("expected candidate, got {other:?}"),
+            }
+        };
+
+        let payload = fs_apply_inner(&conn, "s1", &token).unwrap();
+        assert_eq!(payload["written"], true);
+        assert_eq!(std::fs::read_to_string(root.join("out.md")).unwrap(), "confirmed");
+
+        // Events: pairing tool_call ([confirmed rerun]) + tool_result
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        assert_eq!(events.iter().map(|e| e.event_type.as_str()).collect::<Vec<_>>(), vec!["tool_call", "tool_result"]);
+        assert_eq!(events[0].payload["toolName"], "fs_write");
+        assert_eq!(events[0].payload["content"], "[confirmed rerun]");
+        assert_eq!(events[1].payload["ok"], true);
+
+        // Second consume → already_settled
+        confirmations::confirm(&conn, &token).ok();
+        let err = fs_apply_inner(&conn, "s1", &token).unwrap_err();
+        assert!(err.to_string().contains("already_settled") || err.to_string().contains("not_confirmed"));
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn fs_apply_rejects_other_kinds() {
+        let conn = mem_conn();
+        let c = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
+        let err = fs_apply_inner(&conn, "s1", &c.confirmation_token).unwrap_err();
+        assert!(err.to_string().contains("not fs_write"));
     }
 }

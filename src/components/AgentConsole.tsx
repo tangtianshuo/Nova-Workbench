@@ -81,6 +81,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     pendingConfirmation,
     pendingDestructiveAction,
     pendingExecApproval,
+    pendingFsWrite,
     pendingMemory,
     autoRemembered,
     memoryBusy,
@@ -101,6 +102,8 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     rejectDestructiveAction,
     confirmExec,
     rejectExec,
+    confirmFsWrite,
+    rejectFsWrite,
     confirmMemory,
     rejectMemory,
     rejectDraft,
@@ -273,6 +276,25 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
                 仅本次允许
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => void rejectExec()} disabled={loading}>
+                拒绝
+              </Button>
+            </div>
+          </div>
+        )}
+        {pendingFsWrite && (
+          <div className="rounded-[var(--radius-lg)] border border-warning/30 bg-bg-secondary px-3.5 py-3 text-sm text-text-primary">
+            <div className="font-medium">需要确认的文件操作</div>
+            <div className="mt-1 font-mono text-xs text-text-secondary">{pendingFsWrite.summary}</div>
+            {pendingFsWrite.content && (
+              <div className="mt-1 line-clamp-3 whitespace-pre-wrap font-mono text-xs text-text-tertiary">
+                {pendingFsWrite.content.slice(0, 300)}
+              </div>
+            )}
+            <div className="mt-2 flex gap-2">
+              <Button type="button" variant="primary" size="sm" onClick={() => void confirmFsWrite()} disabled={loading}>
+                确认执行
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => void rejectFsWrite()} disabled={loading}>
                 拒绝
               </Button>
             </div>

@@ -124,6 +124,17 @@ export async function engineWhitelistAdd(command: string): Promise<void> {
 }
 
 /**
+ * Confirm an fs_write candidate (23-03): Rust confirms+consumes, executes the
+ * write itself (std::fs, workspace-locked) and settles the [confirmed rerun]
+ * events — no TS executeTool seam. Resolves with the operation payload
+ * ({operation, path, written/created/deleted/moved} or {error}).
+ */
+export async function engineFsApply(sessionId: string, confirmationToken: string): Promise<Record<string, unknown>> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('engine_fs_apply', { sessionId, token: confirmationToken });
+}
+
+/**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the
  * caller has no original tool_call id (Rust appends the pairing tool_call).

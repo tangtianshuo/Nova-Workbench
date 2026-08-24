@@ -38,7 +38,7 @@ Plans:
 - [x] 22-03-PLAN.md — event_log(append/invariants/artifacts/事务)+ confirmations(原子 UPDATE)
 - [x] 22-04-PLAN.md — chat_session 投影 + compaction + fork + 投影 fixture
 - [x] 22-05-PLAN.md — context_assembler + 最小工具集 + loop_runner + EngineEvent
-- [ ] 22-06-PLAN.md — engine_* 接线切换 + restore 崩溃恢复 + runToolLoop 归零
+- [x] 22-06-PLAN.md — engine_* 接线切换 + restore 崩溃恢复 + runToolLoop 归零
 - [ ] 22-07-PLAN.md — parity 永久测试(双侧 fixture + 真实 DB 抽样)
 **Research**: 建议先 `/gsd:research-phase` — toolLoop/compaction/contextAssembler 语义移植跨 Rust/TS 边界,TS 纯函数 + 217 测试为可执行规格,需先精确编码映射
 
@@ -80,7 +80,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. 引擎核心 | 5/7 | In Progress|  |
+| 22. 引擎核心 | 6/7 | In Progress|  |
 | 23. 工具层 + TS 工具桥 | 0/? | Not started | - |
 | 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
 | 25. 迁移收口 | 0/? | Not started | - |
@@ -112,7 +112,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

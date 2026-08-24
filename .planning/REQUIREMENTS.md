@@ -12,7 +12,7 @@
 - [x] **ENG-02**: Rust 引擎是 agent_* 表(agent_events / agent_artifacts / agent_confirmation_candidates / memory_candidates)唯一写者;TS 写路径下线后重启无孤儿事件、无重复写入
 - [x] **ENG-03**: replay parity — Rust 引擎逐位回放 v0.3.x 存量事件日志,ChatSession 投影与 TS 引擎输出一致(fixture 复用,永久测试锁定)
 - [x] **ENG-04**: HITL 跨边界 — 确认候选由 Rust 落库并推送 webview,卡片确认/取消/编辑流语义与现状一致,原子消费保持(并发恰一成功)
-- [ ] **ENG-05**: 崩溃恢复语义保持 — Rust 引擎启动时尾切不完整 turn、孤儿 tool_call 标记 interrupted 且绝不重执行,行为与 v0.3.x 一致
+- [x] **ENG-05**: 崩溃恢复语义保持 — Rust 引擎启动时尾切不完整 turn、孤儿 tool_call 标记 interrupted 且绝不重执行,行为与 v0.3.x 一致
 
 ### 工具层 (TOOL)
 
@@ -69,7 +69,7 @@
 | ENG-02 | Phase 22 | Complete |
 | ENG-03 | Phase 22 | Complete |
 | ENG-04 | Phase 22 | Complete |
-| ENG-05 | Phase 22 | Pending |
+| ENG-05 | Phase 22 | Complete |
 | PORT-01 | Phase 22 | Complete |
 | TOOL-01 | Phase 23 | Pending |
 | TOOL-02 | Phase 23 | Pending |

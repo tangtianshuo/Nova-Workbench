@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
-status: executing
-last_updated: "2026-08-24T02:56:22.621Z"
+status: verifying
+last_updated: "2026-08-24T03:17:50.175Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 ## Current Position
 
 Phase: 22 (loop-replay-parity) — EXECUTING
-Plan: 6 of 7
-Status: Ready to execute
+Plan: 7 of 7
+Status: Phase complete — ready for verification
 Last activity: 2026-08-24
 
 ```
@@ -54,6 +54,8 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 22 P03 | 50m | 2 tasks | 4 files |
 | Phase 22 P04 | 45m | 2 tasks | 6 files |
 | Phase 22 P05 | 55m | 3 tasks | 6 files |
+| Phase 22 P06 | 95m | 2 tasks | 8 files |
+| Phase 22 P06 | 95m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -96,6 +98,7 @@ v0.3.1 roadmap decisions:
 - [Phase 22]: 22-03: rusqlite $N markers are named params (appearance-order binding) — named_params! keeps verbatim TS SQL; modelText JSON key order hand-formatted; upsert_session title write-once
 - [Phase 22]: 22-04: parity 锁定对象=投影而非事件序列;projection-cases.json 由真实 TS 投影生成,双侧单源;serde_json BTreeMap 键序差异仅影响 args token 估算
 - [Phase 22]: 22-05: 系统提示只含 Phase 9 role 块(Phase 10 指南块随 Phase 23 工具桥恢复);turn-end 审计失败即 Err(硬于 TS);Llm trait 注入便于 fake 测试与 22-06 接线
+- [Phase 22]: 22-06: engine_run 以 webview runId 为 cancel key(correlation_id 对 cancel 不可知);append_tool_result 对 fresh id 先补配对 tool_call 避免 DUPLICATE_TOOL_RESULT;memory/deliverable confirm 留 TS(Phase 23 桥迁移)
 
 ### TODOs (pending)
 

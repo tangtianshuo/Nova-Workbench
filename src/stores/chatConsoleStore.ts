@@ -8,9 +8,11 @@ import {
   engineAppendToolResult,
   engineCommitDeliverable,
   engineConfirmCandidate,
+  engineConsumeMemory,
   engineExecConfirmed,
   engineFsApply,
   engineRejectCandidate,
+  engineRejectMemory,
   engineRun,
   type EnginePendingCandidate,
 } from '@/src/ai/api';
@@ -901,11 +903,10 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       if (!pendingMemory || memoryBusy) return;
       set({ memoryBusy: true });
       try {
-        const store = getMemoryStore();
-        await store.confirm(pendingMemory.candidateToken);
-        await store.consumeIntoMemories(pendingMemory.candidateToken);
+        // 23-05 接缝②:confirm + consume + memories 落库一次 invoke 完成,Rust 唯一写者。
+        await engineConsumeMemory(pendingMemory.candidateToken);
         emitToast({ type: 'success', title: '已记住' });
-        const pending = await store.listPending(get().activeSessionId);
+        const pending = await getMemoryStore().listPending(get().activeSessionId);
         set({ pendingMemory: pending[0] ?? null });
       } catch (error) {
         emitToast({
@@ -923,7 +924,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       if (!pendingMemory || memoryBusy) return;
       set({ memoryBusy: true });
       try {
-        await getMemoryStore().reject(pendingMemory.candidateToken);
+        // 23-05 接缝②:reject 同迁 Rust。
+        await engineRejectMemory(pendingMemory.candidateToken);
         // Silent by UI spec — rejected candidates never re-render (MEM-02).
         const pending = await getMemoryStore().listPending(get().activeSessionId);
         set({ pendingMemory: pending[0] ?? null });

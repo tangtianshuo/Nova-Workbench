@@ -59,12 +59,12 @@ test('MEM-02 rejected content is never re-proposed: dedup hit with previously_re
   assert.equal(rejectedList.length, 1);
 });
 
-test('MEM-01 confirm -> consumeIntoMemories lands a memory; repeat consume throws already_settled', async () => {
+test('MEM-01 confirm -> consumeConfirmed lands a memory; repeat consume throws already_settled', async () => {
   resetMemoryMemoryStore();
   const store = getMemoryMemoryStore();
   const p = await store.propose({ content: '上线窗口是每周四', origin: 'model_inferred', scope: 'global' });
   await store.confirm(p.candidateToken);
-  const record = await store.consumeIntoMemories(p.candidateToken);
+  const record = await store.consumeConfirmed(p.candidateToken);
   assert.equal(record.content, '上线窗口是每周四');
   assert.equal(record.sourceCandidateToken, p.candidateToken);
   const active = await store.listActiveMemories();
@@ -72,7 +72,7 @@ test('MEM-01 confirm -> consumeIntoMemories lands a memory; repeat consume throw
   const candidate = await store.get(p.candidateToken);
   assert.equal(candidate?.status, 'consumed');
   await assert.rejects(
-    store.consumeIntoMemories(p.candidateToken),
+    store.consumeConfirmed(p.candidateToken),
     (err: MemoryStoreError) => err instanceof MemoryStoreError && err.code === 'already_settled',
   );
 });
@@ -138,7 +138,7 @@ test('cascade: deleteByProduct soft-deletes product memories, global survives', 
     productId: 'p1',
   });
   await store.confirm(p.candidateToken);
-  await store.consumeIntoMemories(p.candidateToken);
+  await store.consumeConfirmed(p.candidateToken);
   await store.insertMemory({ content: '全局记忆', origin: 'model_inferred', scope: 'global' });
 
   await store.deleteByProduct('p1');

@@ -9,6 +9,10 @@
 // said 记住, so propose runs confirm+consume immediately — they never enter the
 // pending queue; model_inferred stays pending for UI confirmation (first half,
 // unchanged). memories.source_candidate_token keeps the audit chain.
+// 23-05 seam ②: the desktop UI confirm/reject path now goes through
+// engineConsumeMemory / engineRejectMemory (Rust sole writer of those UPDATEs
+// + the memories INSERT); consumeConfirmed/confirm/reject below remain for the
+// user_directed auto-chain and web-dev/Node-test paths.
 import { isTauri } from '@/src/lib/api';
 import { lazySqlite } from '@/src/stores/storage/lazySqlite';
 import { computeParamsHash } from './paramsHash';
@@ -106,7 +110,7 @@ export interface MemoryStore {
   reject(candidateToken: string): Promise<boolean>;
   listPending(sessionId?: string): Promise<MemoryCandidate[]>;
   listRejected(limit?: number): Promise<MemoryCandidate[]>;
-  consumeIntoMemories(candidateToken: string): Promise<MemoryRecord>;
+  consumeConfirmed(candidateToken: string): Promise<MemoryRecord>;
   insertMemory(input: InsertMemoryInput): Promise<MemoryRecord>;
   listActiveMemories(productId?: string): Promise<MemoryRecord[]>;
   listAllMemories(): Promise<MemoryRecord[]>;
@@ -253,7 +257,7 @@ export class MemoryMemoryStore implements MemoryStore {
     };
     if (input.origin === 'user_directed') {
       await this.confirm(row.candidateToken);
-      const record = await this.consumeIntoMemories(row.candidateToken);
+      const record = await this.consumeConfirmed(row.candidateToken);
       return { ...base, autoConfirmed: true, memoryRowid: record.memoryRowid };
     }
     return base;
@@ -309,7 +313,7 @@ export class MemoryMemoryStore implements MemoryStore {
     return rows.map(copyCandidate);
   }
 
-  async consumeIntoMemories(candidateToken: string): Promise<MemoryRecord> {
+  async consumeConfirmed(candidateToken: string): Promise<MemoryRecord> {
     const row = this.candidates.get(candidateToken);
     const preFailure = failureFor(row ?? null, 'confirmed');
     if (preFailure) throw preFailure;
@@ -588,7 +592,7 @@ export class SqliteMemoryStore implements MemoryStore {
     };
     if (input.origin === 'user_directed') {
       await this.confirm(token);
-      const record = await this.consumeIntoMemories(token);
+      const record = await this.consumeConfirmed(token);
       return { ...base, autoConfirmed: true, memoryRowid: record.memoryRowid };
     }
     return base;
@@ -663,7 +667,7 @@ export class SqliteMemoryStore implements MemoryStore {
     return rows.map(mapCandidate);
   }
 
-  async consumeIntoMemories(candidateToken: string): Promise<MemoryRecord> {
+  async consumeConfirmed(candidateToken: string): Promise<MemoryRecord> {
     const db = await lazySqlite();
     const row = await this.get(candidateToken);
     const preFailure = failureFor(row, 'confirmed');

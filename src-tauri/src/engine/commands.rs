@@ -571,6 +571,31 @@ pub fn commit_deliverable_inner(
     event_log::check_event_stream(&events).map_err(AppError::InternalError)
 }
 
+/// Seam ② migration (23-05): confirm + consume a memory candidate and land the
+/// memories row, all in Rust — one user action (the 已记住 click) is one
+/// command. Returns the camelCase MemoryRecord for the TS toast.
+#[tauri::command]
+pub async fn engine_consume_memory(token: String, db: State<'_, EngineDb>) -> Result<Value, AppError> {
+    with_conn(&db, |conn| consume_memory_inner(conn, &token))
+}
+
+/// Testable core of engine_consume_memory.
+pub fn consume_memory_inner(conn: &Connection, token: &str) -> Result<Value, AppError> {
+    confirmations::memory_confirm(conn, token)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+    confirmations::consume_memory(conn, token)
+        .map_err(|f| AppError::InternalError(f.to_string()))
+}
+
+/// Reject a memory candidate (忽略 click). Rust sole writer of the reject path.
+#[tauri::command]
+pub async fn engine_reject_memory(token: String, db: State<'_, EngineDb>) -> Result<(), AppError> {
+    with_conn(&db, |conn| {
+        confirmations::memory_reject(conn, &token);
+        Ok(())
+    })
+}
+
 /// Testable core of engine_append_tool_result.
 pub fn append_tool_result_inner(
     conn: &Connection,
@@ -662,7 +687,7 @@ pub fn append_tool_result_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::db::testing::mem_conn;
+    use crate::engine::db::testing::{file_conn, mem_conn};
 
     #[test]
     fn append_fresh_id_creates_pairing_tool_call() {
@@ -924,5 +949,109 @@ mod tests {
         confirmations::confirm(&conn, &token).unwrap();
         let err = commit_deliverable_inner(&conn, "s1", &token, "prd", "别的标题", "p1", "d", 1, 0, false).unwrap_err();
         assert!(err.to_string().contains("does not match"));
+    }
+
+    /* === 23-05 seam ②: memory consume/reject === */
+
+    fn queue_memory_candidate(conn: &Connection, content: &str) -> String {
+        let hash = crate::engine::params_hash::params_hash(&json!({"content": content, "scope": "global"}));
+        let token = uuid::Uuid::new_v4().to_string();
+        confirmations::insert_memory_candidate(conn, &token, content, &hash, "model_inferred", "global", None, Some("s1")).unwrap();
+        token
+    }
+
+    #[test]
+    fn memory_consume_lands_record_and_exactly_once() {
+        let conn = mem_conn();
+        let token = queue_memory_candidate(&conn, "评审安排在周三");
+        let record = consume_memory_inner(&conn, &token).unwrap();
+        assert_eq!(record["content"], "评审安排在周三");
+        assert_eq!(record["origin"], "model_inferred");
+        assert_eq!(record["scope"], "global");
+        assert_eq!(record["version"], 1);
+        assert_eq!(record["sourceCandidateToken"], token);
+        assert_eq!(record["sourceSessionId"], "s1");
+        assert_eq!(record["sourceType"], "agent_confirmation");
+        assert!(record["memoryId"].is_string());
+
+        // Second consume → already_settled, no second memories row.
+        let err = consume_memory_inner(&conn, &token).unwrap_err();
+        assert!(err.to_string().contains("already_settled"), "{err}");
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+        // Reject after consume is a no-op false (settled).
+        assert!(!confirmations::memory_reject(&conn, &token));
+    }
+
+    #[test]
+    fn memory_reject_blocks_consume() {
+        let conn = mem_conn();
+        let token = queue_memory_candidate(&conn, "别记");
+        assert!(confirmations::memory_reject(&conn, &token));
+        let err = consume_memory_inner(&conn, &token).unwrap_err();
+        assert!(err.to_string().contains("already_settled"), "{err}");
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn memory_concurrent_consume_exactly_one_wins() {
+        // Two threads, two connections to one WAL file DB (23-04 pattern).
+        let path = file_conn("memory_concurrent");
+        let token = queue_memory_candidate(&path, "并发记忆");
+        confirmations::memory_confirm(&path, &token).unwrap();
+        let path_str = std::path::PathBuf::from(path.path().expect("file-backed").to_string());
+        let t1 = std::thread::spawn({
+            let (p, token) = (path_str.clone(), token.clone());
+            move || {
+                let conn = crate::engine::db::testing::open_file(&p);
+                consume_memory_inner(&conn, &token).is_ok()
+            }
+        });
+        let t2 = std::thread::spawn({
+            let (p, token) = (path_str.clone(), token.clone());
+            move || {
+                let conn = crate::engine::db::testing::open_file(&p);
+                consume_memory_inner(&conn, &token).is_ok()
+            }
+        });
+        let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
+        assert!(r1 ^ r2, "exactly one concurrent consume wins (got {r1}, {r2})");
+        let status: String = path
+            .query_row("SELECT status FROM memory_candidates WHERE candidate_token = ?1", rusqlite::params![token], |r| r.get(0))
+            .unwrap();
+        assert_eq!(status, "consumed");
+        let n: i64 = path.query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1, "winner inserted exactly one memories row");
+    }
+
+    #[test]
+    fn memory_supersede_chain() {
+        let conn = mem_conn();
+        let token = queue_memory_candidate(&conn, "周二评审");
+        let v1 = consume_memory_inner(&conn, &token).unwrap();
+        // Same memoryId + supersedesRowid → version 2, v1 superseded (MEM-05).
+        let v2 = confirmations::insert_memory(
+            &conn,
+            Some(v1["memoryId"].as_str().unwrap()),
+            "周三评审",
+            "user_directed",
+            "global",
+            None,
+            None,
+            None,
+            Some(v1["memoryRowid"].as_i64().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(v2["version"], 2);
+        assert_eq!(v2["supersedesRowid"], v1["memoryRowid"]);
+        let superseded_at: Option<String> = conn
+            .query_row(
+                "SELECT superseded_at FROM memories WHERE memory_rowid = ?1",
+                rusqlite::params![v1["memoryRowid"].as_i64().unwrap()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(superseded_at.is_some(), "old row superseded, kept for audit");
     }
 }

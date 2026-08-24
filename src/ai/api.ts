@@ -170,6 +170,22 @@ export async function engineCommitDeliverable(args: {
 }
 
 /**
+ * Seam ② (23-05): confirm + consume a memory candidate and land the memories
+ * row in Rust — one user action (已记住 click) is one invoke. Resolves with
+ * the camelCase MemoryRecord (memoryRowid/memoryId/version/content/...).
+ */
+export async function engineConsumeMemory(confirmationToken: string): Promise<Record<string, unknown>> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('engine_consume_memory', { token: confirmationToken });
+}
+
+/** Reject a memory candidate (忽略 click) — Rust sole writer of the reject path. */
+export async function engineRejectMemory(confirmationToken: string): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('engine_reject_memory', { token: confirmationToken });
+}
+
+/**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the
  * caller has no original tool_call id (Rust appends the pairing tool_call).

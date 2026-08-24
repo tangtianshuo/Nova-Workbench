@@ -9,7 +9,7 @@
 // (exactly one concurrent caller wins) lives in these WHERE clauses.
 
 use rusqlite::{named_params, params, Connection};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::engine::event_log::now_iso;
 use crate::engine::params_hash::params_hash;
@@ -344,6 +344,212 @@ pub fn insert_memory_candidate(
         params![token, content, content_hash, origin, scope, product_id, session_id, now, expires_at],
     )?;
     Ok(())
+}
+
+/* === memory_candidates confirm/consume/reject + memories insert === */
+/* 23-05 seam ②: memoryStore.ts:600-712 SQL port. The three statements are
+   copied VERBATIM from the TS SQLite branch — the exactly-one-winner invariant
+   lives in the same WHERE clauses. */
+
+#[derive(Clone, Debug)]
+pub struct MemoryCandidateRow {
+    pub candidate_token: String,
+    pub content: String,
+    pub origin: String,
+    pub scope: String,
+    pub product_id: Option<String>,
+    pub status: String,
+    pub session_id: Option<String>,
+    pub expires_at: String,
+}
+
+pub fn get_memory_candidate(conn: &Connection, token: &str) -> Result<Option<MemoryCandidateRow>> {
+    let found = conn
+        .query_row(
+            "SELECT candidate_token, content, origin, scope, product_id, status, session_id, expires_at
+               FROM memory_candidates WHERE candidate_token = ?1",
+            params![token],
+            |row| {
+                Ok(MemoryCandidateRow {
+                    candidate_token: row.get(0)?,
+                    content: row.get(1)?,
+                    origin: row.get(2)?,
+                    scope: row.get(3)?,
+                    product_id: row.get(4)?,
+                    status: row.get(5)?,
+                    session_id: row.get(6)?,
+                    expires_at: row.get(7)?,
+                })
+            },
+        )
+        .ok();
+    Ok(found)
+}
+
+/// confirm — memoryStore.ts:609-618, SQL verbatim. Idempotent re-confirm
+/// keeps original confirmed_at (COALESCE).
+pub fn memory_confirm(conn: &Connection, token: &str) -> std::result::Result<(), ConfirmationFailure> {
+    let now = now_iso();
+    let affected = conn
+        .execute(
+            "UPDATE memory_candidates
+                SET status = 'confirmed', confirmed_at = COALESCE(confirmed_at, $2)
+              WHERE candidate_token = $1
+                AND status IN ('pending', 'confirmed')
+                AND consumed_at IS NULL
+                AND rejected_at IS NULL
+                AND expires_at > $2",
+            named_params! {"$1": token, "$2": now},
+        )
+        .map_err(|_| ConfirmationFailure::NotFound)? as i64;
+    if affected != 1 {
+        let row = get_memory_candidate(conn, token).ok().flatten();
+        // TS: throw failureFor(row) ?? already_settled
+        return Err(match row.as_ref() {
+            Some(r) if r.status == "consumed" || r.status == "rejected" => ConfirmationFailure::AlreadySettled,
+            Some(r) if r.expires_at.as_str() <= now_iso().as_str() => ConfirmationFailure::Expired,
+            Some(_) => ConfirmationFailure::AlreadySettled,
+            None => ConfirmationFailure::NotFound,
+        });
+    }
+    Ok(())
+}
+
+/// reject — memoryStore.ts:630-639, SQL verbatim. True iff rowsAffected == 1.
+pub fn memory_reject(conn: &Connection, token: &str) -> bool {
+    let now = now_iso();
+    conn.execute(
+        "UPDATE memory_candidates
+            SET status = 'rejected', rejected_at = $2
+          WHERE candidate_token = $1
+            AND status IN ('pending', 'confirmed')
+            AND consumed_at IS NULL
+            AND expires_at > $2",
+        named_params! {"$1": token, "$2": now},
+    )
+    .map(|n| n == 1)
+    .unwrap_or(false)
+}
+
+/// consume — memoryStore.ts:666-687: precheck → atomic conditional UPDATE →
+/// insert_memory. Exactly one concurrent caller wins (and inserts).
+pub fn consume_memory(conn: &Connection, token: &str) -> std::result::Result<Value, ConfirmationFailure> {
+    let row = get_memory_candidate(conn, token)
+        .map_err(|_| ConfirmationFailure::NotFound)?
+        .ok_or(ConfirmationFailure::NotFound)?;
+    // preFailure = failureFor(row, 'confirmed')
+    if row.status == "consumed" || row.status == "rejected" {
+        return Err(ConfirmationFailure::AlreadySettled);
+    }
+    if row.expires_at.as_str() <= now_iso().as_str() {
+        return Err(ConfirmationFailure::Expired);
+    }
+    if row.status != "confirmed" {
+        return Err(ConfirmationFailure::NotConfirmed);
+    }
+    let now = now_iso();
+    let affected = conn
+        .execute(
+            "UPDATE memory_candidates
+                SET status = 'consumed', consumed_at = $2
+              WHERE candidate_token = $1
+                AND status = 'confirmed'
+                AND consumed_at IS NULL
+                AND rejected_at IS NULL
+                AND expires_at > $2",
+            named_params! {"$1": token, "$2": now},
+        )
+        .map_err(|_| ConfirmationFailure::AlreadySettled)? as i64;
+    if affected != 1 {
+        return Err(ConfirmationFailure::AlreadySettled);
+    }
+    insert_memory(
+        conn,
+        None,
+        &row.content,
+        &row.origin,
+        &row.scope,
+        row.product_id.as_deref(),
+        row.session_id.as_deref(),
+        Some(token),
+        None,
+    )
+    .map_err(|_| ConfirmationFailure::NotFound)
+}
+
+/// insertMemory — memoryStore.ts:689-734: supersede UPDATE + INSERT with
+/// version subselect + SELECT back, mapped to the camelCase MemoryRecord
+/// wire shape the TS toast consumes.
+#[allow(clippy::too_many_arguments)]
+pub fn insert_memory(
+    conn: &Connection,
+    memory_id: Option<&str>,
+    content: &str,
+    origin: &str,
+    scope: &str,
+    product_id: Option<&str>,
+    source_session_id: Option<&str>,
+    source_candidate_token: Option<&str>,
+    supersedes_rowid: Option<i64>,
+) -> Result<Value> {
+    let memory_id = memory_id.map(String::from).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    // Hash input parity with TS: {content, scope, productId} — undefined keys
+    // dropped by canonicalJsonStringify, so omit productId when None.
+    let mut hash_input = json!({"content": content, "scope": scope});
+    if let Some(p) = product_id {
+        hash_input["productId"] = json!(p);
+    }
+    let content_hash = params_hash(&hash_input);
+    let now = now_iso();
+    if let Some(old_rowid) = supersedes_rowid {
+        // Single-statement supersede; old row stays for audit (MEM-05).
+        conn.execute(
+            "UPDATE memories SET superseded_at = $2
+              WHERE memory_rowid = $1 AND superseded_at IS NULL",
+            named_params! {"$1": old_rowid, "$2": now},
+        )?;
+    }
+    conn.execute(
+        "INSERT INTO memories
+           (memory_id, version, content, content_hash, origin, scope, product_id,
+            source_type, source_session_id, source_candidate_token, supersedes_rowid,
+            created_at, confirmed_at)
+         VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM memories WHERE memory_id = $2),
+                 $3, $4, $5, $6, $7, 'agent_confirmation', $8, $9, $10, $11, $11)",
+        named_params! {
+            "$1": memory_id, "$2": memory_id, "$3": content, "$4": content_hash,
+            "$5": origin, "$6": scope, "$7": product_id, "$8": source_session_id,
+            "$9": source_candidate_token, "$10": supersedes_rowid, "$11": now,
+        },
+    )?;
+    let row = conn.query_row(
+        "SELECT memory_rowid, memory_id, version, content, content_hash, origin, scope, product_id,
+                source_type, source_session_id, source_candidate_token, supersedes_rowid,
+                created_at, confirmed_at, superseded_at, deleted_at
+           FROM memories WHERE memory_id = $1 ORDER BY version DESC LIMIT 1",
+        named_params! {"$1": memory_id},
+        |r| {
+            Ok(json!({
+                "memoryRowid": r.get::<_, i64>(0)?,
+                "memoryId": r.get::<_, String>(1)?,
+                "version": r.get::<_, i64>(2)?,
+                "content": r.get::<_, String>(3)?,
+                "contentHash": r.get::<_, String>(4)?,
+                "origin": r.get::<_, String>(5)?,
+                "scope": r.get::<_, String>(6)?,
+                "productId": r.get::<_, Option<String>>(7)?,
+                "sourceType": r.get::<_, String>(8)?,
+                "sourceSessionId": r.get::<_, Option<String>>(9)?,
+                "sourceCandidateToken": r.get::<_, Option<String>>(10)?,
+                "supersedesRowid": r.get::<_, Option<i64>>(11)?,
+                "createdAt": r.get::<_, String>(12)?,
+                "confirmedAt": r.get::<_, String>(13)?,
+                "supersededAt": r.get::<_, Option<String>>(14)?,
+                "deletedAt": r.get::<_, Option<String>>(15)?,
+            }))
+        },
+    )?;
+    Ok(row)
 }
 
 /* === Tests === */

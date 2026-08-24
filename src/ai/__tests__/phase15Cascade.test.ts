@@ -66,7 +66,7 @@ test('deleteProduct cascades: product memories soft-deleted, knowledge docs remo
     productId: 'cascade-p1',
   });
   await store.confirm(candidate.candidateToken);
-  await store.consumeIntoMemories(candidate.candidateToken);
+  await store.consumeConfirmed(candidate.candidateToken);
   assert.ok((await store.listActiveMemories('cascade-p1')).length > 0, 'precondition: product memory exists');
 
   useProductStore.getState().deleteProduct('cascade-p1');

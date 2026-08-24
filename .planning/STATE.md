@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.3.2
-milestone_name: rust-run-engine
-status: in_progress
-last_updated: "2026-08-24T00:00:00.000Z"
+milestone_name: milestone
+status: executing
+last_updated: "2026-08-24T02:05:58.349Z"
 last_activity: 2026-08-24
 progress:
-  total_phases: 4
+  total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 7
+  completed_plans: 1
 ---
 
 # Project State
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.2 Rust Run Engine — roadmap 已建(Phase 22-25),下一步 /gsd:plan-phase 22
+**Current focus:** Phase 22 — loop-replay-parity
 
 ## Current Position
 
-Phase: 22 引擎核心 (Not started)
-Plan: —
-Status: Roadmap created, awaiting plan-phase 22
-Last activity: 2026-08-23 - Milestone v0.3.2 Rust Run Engine started;ADR-0003 草案落稿(docs/adr/ADR-0003-rust-run-engine.md,Proposed)
+Phase: 22 (loop-replay-parity) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
+Last activity: 2026-08-24
 
 ```
 v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/? phases — roadmap 待建)
@@ -49,6 +49,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 21 P01 | 10m | 2 tasks | 4 files |
 | Phase 21 P02 | 12m | 2 tasks | 3 files |
 | Phase 21 P03 | 25min | 4 tasks | 4 files |
+| Phase 22 P01 | 35m | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ v0.3.1 roadmap decisions:
 - [Phase 21]: 21-01: updateTitle write-once (title IS NULL guard), countMessagesBySession single aggregate SQL; formatRelativeTime buckets per spec
 - [Phase 21]: 21-02: maybeGenerateTitle fire-and-forget in submit finally (captured sessionId), llm-injectable for tests; sessionListVersion bump after write-once updateTitle
 - [Phase 21]: 21-03: chatPanelMode pure/scoped gates conditional selector DOM; session Select '__new__' sentinel for +新对话
+- [Phase 22]: PORT-01 定稿: idempotency 随 tool_call 落盘(旧事件=verify_first);孤儿 marker 第三态 unknown(键序 ok,status,interrupted,reason);工具描述追加 verify-before-rerun
+- [Phase 22]: meta 是 kv 表, schema_version 经 key 读取; DB probe 实证 app_config_dir/nova.db 与 plugin 同库(schema 7)
 
 ### TODOs (pending)
 

@@ -87,6 +87,48 @@
 
 ---
 
+## Milestone: v0.3.1 — 多 Session 会话体系
+
+**Shipped:** 2026-08-19(closed 2026-08-24)
+**Phases:** 4 (18-21) | **Plans:** 10 | **Commits:** 107 | **Timeline:** 2026-08-17 → 2026-08-19(2 天,含穿插 quick 任务群)
+
+### What Was Built
+- Session 数据模型底座:migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)+ sessionRepo 双实现 + toolLoop workspaceId stamping + confirmations sessionId 根因修复
+- 多 Session 运行时:restoreSession 参数化(sessions[0] 假设移除)+ activeSessionId/switchSession + streaming 双层守卫 + pending 卡片四类读路径按 session 过滤
+- 引用式 fork:fork.ts 纯函数层(零复制 + seq 归一化 + compaction remap)+ resolveSessionEvents 投影融合(支持 fork-of-fork)+ hover 工具栏与来源徽章
+- Session 列表与自动命名:真实最近列表 + ChatPanel scoped 双 Select + Ctrl+K/Ctrl+Shift+K 分流 + generateSessionTitle(LLM+fallback)fire-and-forget
+- 工作区协同 quick 任务群:真实扫描 / FileTree 拖拽移动 / 知识库↔归档互转 / 会话纪要投影 / 磁贴切换 / workspace switcher
+
+### What Worked
+- 依赖链顺序正确:数据模型(18)→ 运行时(19)→ 分支(20)→ 列表/入口(21),每 phase 站在前一 phase 的真相源上,无返工
+- 纯函数层 TDD(fork.ts 测试先行 11 case):fork 语义(零复制/seq 归一化/compaction remap)全部锁定在纯函数,UI 只是投影薄层
+- 假设移除一次到位:sessions[0] 假设直接参数化删除,不留兼容 shim,靠 190 个测试兜底
+- 系统性读路径清点:pending 卡片「四类读路径」一次清点全部过滤,而非等 bug 报告逐个修
+- Playwright MCP 辅助 UAT:结构快照代替人工点击,无 GEMINI_API_KEY 环境验 fallback 分支 + console error 断言,3 项人工 UAT 半自动化出证据
+
+### What Was Inefficient
+- **收口拖期 5 天且顺序颠倒(本里程碑最大流程失误)**:Phase 21 完成于 08-19,complete-milestone 拖至 08-24,期间已 `/gsd:new-milestone` v0.3.2(ROADMAP/REQUIREMENTS 已被覆盖为 v0.3.2 内容)→ CLI `milestone complete v0.3.1` 归档目标错位不可用,被迫手工收口(MILESTONES/PROJECT/RETROSPECTIVE/tag 全手写)
+- UAT 期望文档过时:Phase 21 验证(08-19)后用户 quick 新增 WorkspaceSwitcherRow(08-19 晚),08-24 跑 UAT-3 时期望文本已不符 — 判定为期望过时而非回归,但暴露 VERIFICATION 文档不随 quick 改动刷新的缺口
+- LLM 成功分支无凭据可验:自动命名的 live LLM 路径只能靠 fallback 代验,真验留待有 key 环境
+
+### Patterns Established
+- 引用式 fork:分支不改写事件历史,parent_run/seq 归一化在投影层融合 — 后续 Rust 引擎 replay parity 的同构基础
+- fire-and-forget 副作用挂 submit finally:自动命名不阻塞对话主流程,sessionListVersion 静默刷新
+- LLM+fallback 链的辅助功能(never throws):主流程对辅助能力零依赖
+- quick 任务群与 phase 并行的节奏:phase 交付主干,quick 吸收用户即时反馈,互不阻塞
+
+### Key Lessons
+1. **complete-milestone 必须在 new-milestone 之前完成** — 否则归档目标错位,CLI 不可用,手工收口成本远高于及时收口
+2. VERIFICATION 期望文本是快照,quick 任务改变行为后需顺带刷新,否则后续 UAT 误判回归
+3. 无凭据环境的 UAT 策略:fallback 分支验证 + 结构快照断言 + 预期 console error 核对,三项组合可覆盖大部分人工验收点
+
+### Cost Observations
+- Timeline: 2 天 4 phase(10 plans),穿插 ~15 个 quick 任务,节奏为三个里程碑最快
+- Tests: 174 → 217(+43),增量全在 session/fork 纯函数层
+- Notable: 本里程碑零 gap-closure、零 UAT 当场修复(全部一次过),质量节奏稳定
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -95,6 +137,7 @@
 |-----------|--------|------------|
 | v0.2.0 | 8 | 引入 milestone audit → gap closure phase 闭环;AI 功能采用 focused/mock + Ollama 双层 UAT |
 | v0.3.0 | 5 | 依赖链拆 phase + 冻结签名重构 + 永久不变量测试;统一延后 UAT + DB 代查双签核;gap 当场修(零 gap-closure phase) |
+| v0.3.1 | 4 | 纯函数层 TDD(fork.ts)+ 系统性读路径清点;Playwright 半自动 UAT(无凭据环境 fallback 代验);收口顺序失误教训(complete-milestone 须先于 new-milestone) |
 
 ### Top Lessons (Verified Across Milestones)
 

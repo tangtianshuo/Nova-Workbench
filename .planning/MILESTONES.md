@@ -1,5 +1,30 @@
 # Milestones
 
+## v0.3.1 多 Session 会话体系 (Shipped: 2026-08-19, closed 2026-08-24)
+
+**Phases completed:** 4 phases (18-21), 10 plans + 穿插 quick 任务群(260818/260819 系列)
+**Timeline:** 2026-08-17 → 2026-08-19 (107 commits, 112 files, +10,018/−1,199 LOC;收口于 2026-08-24)
+**Audit:** 未跑独立 milestone audit — 15/15 需求满足(Phase 18-21 VERIFICATION 全 PASS 回填),17/17 → 217/217 测试;3 项人工 UAT 由 Playwright 结构验证 + 用户接受(2026-08-24)
+
+**Key accomplishments:**
+
+1. **Session 数据模型底座** — migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)、toolLoop workspaceId stamping、confirmations sessionId 根因修复、sessionRepo 双实现(memory/sqlite)+ turn-start upsert;174/174 测试
+2. **多 Session 运行时** — restoreSession(sessionId?) 参数化(sessions[0] 假设移除)、chatConsoleStore activeSessionId/startNewSession/switchSession、streaming 双层守卫(session + 工作区切换)、pending 卡片四类读路径全部按 session 过滤;190/190 测试
+3. **引用式分支(fork)** — fork.ts 纯函数层(buildForkEventStream 零复制 + seq 归一化 + compaction remap,测试先行 11 case)、resolveSessionEvents 投影融合(支持 fork-of-fork)、forkFromMessage 全链路、AgentConsole hover 分支/复制工具栏 + 来源徽章;204/204 测试
+4. **Session 列表与自动命名** — sessionRepo 消息数聚合 + title IS NULL 守卫、generateSessionTitle(LLM ≤20 字 + 首条消息回退,fire-and-forget 于 submit finally)、Agent 页真实最近列表(标题/相对时间/消息数/分支徽章)、ChatPanel scoped 双 Select 联动、Ctrl+K/Ctrl+Shift+K 分流;217/217 测试
+5. **工作区协同 quick 任务群** — 工作区真实扫描(scan_workspace_folder Rust command)、FileTree 递归组件(拖拽移动 + Rust fs_move 路径安全)、知识库↔归档互转、会话纪要自动投影进知识库、磁贴点击切换、workspace switcher + 跨工作区 toast;把 session 体系与工作区视图焊成一体
+6. **收口验证** — Phase 18-21 VERIFICATION 全 PASS;3 项人工 UAT(最近列表视觉/Ctrl+Shift+K 自动标题/Ctrl+K 纯面板)Playwright 结构验证通过,LLM 分支以 fallback 路径代验(无 GEMINI_API_KEY),用户接受收口
+
+### Known Gaps (tech debt)
+
+- UAT-2 自动命名 LLM 成功分支未真验(无 key 环境 fallback 分支已验;titleGenerator.ts:19 console error 为预期日志)
+- 纯视觉项(流式输出中途 dim 态等)未自动验证
+- UAT-3 期望文档已过时:ChatPanel 纯面板模式含 WorkspaceSwitcherRow 为 Phase 21 验证后新增 quick 功能(260819-dxj),非回归 — 21-VERIFICATION.md 期望文本待下次触碰时顺带更新
+- quick 任务群(filetree/agent workspace 等)走 quick 流程验证,无独立 phase VERIFICATION
+- 收口拖期:Phase 21 完成于 08-19,complete-milestone 拖至 08-24 且期间已立项 v0.3.2,导致 CLI 归档不可用、本次手工收口(流程教训已录 RETROSPECTIVE)
+
+---
+
 ## v0.3.0 功能闭环 (Shipped: 2026-08-17)
 
 **Phases completed:** 5 phases (13-17), 19 plans, 57 tasks

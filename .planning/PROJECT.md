@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付 PM 视图框架 + 设计系统 + Rust 原生底座;v0.2.0 交付任务/日程 CRUD、跨模块弱关联、Markdown WYSIWYG、AI 助手全链路;**v0.3.0 功能闭环已 shipped(2026-08-17)**:以「事件日志 + 增强 tool loop + SQLite FTS5」为架构真相源(GraphFlow/Rig/LanceDB 正式出局),agent 成为有记忆(候选确认 + FTS5 检索)、可恢复(崩溃恢复 + 持久化确认)、可追责(全量事件审计)的一等执行者 — 能跑 PRD 生产线(生成→HITL 编辑→版本化落研发中心卡槽),并以工作区/⌘K 携带上下文/晨报/右键动作成为全局入口。
+Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付 PM 视图框架 + 设计系统 + Rust 原生底座;v0.2.0 交付任务/日程 CRUD、跨模块弱关联、Markdown WYSIWYG、AI 助手全链路;v0.3.0 功能闭环(2026-08-17):以「事件日志 + 增强 tool loop + SQLite FTS5」为架构真相源,agent 成为有记忆、可恢复、可追责的一等执行者;**v0.3.1 多 Session 会话体系已 shipped(2026-08-19)**:sessions 数据模型 + 多会话运行时 + 引用式 fork + 真实 session 列表与 LLM 自动命名,agent 对话从「单历史」升级为「按工作区组织的多会话树」。
 
 ## Core Value
 
@@ -29,9 +29,9 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 **Out of scope:** subAgent spawn 工具与编排 agent 模式(留 v0.4+,调度器结构已支持)、IM 入口、MCP client(rmcp)、Skill manifest、业务表 Rust 直写、向量检索 P2、独立守护进程
 
-## Current State (after v0.3.0)
+## Current State (after v0.3.1)
 
-**Shipped 2026-08-17** — 5 phases (13-17), 19 plans, 149 commits, 161/161 tests。审计 tech_debt(无阻断):28/28 需求满足、11/11 集成 seam、4/4 E2E flows;统一人工 UAT 21/21(13-UAT 7 + 16-UAT 8 + 17-UAT 6,含 v0.2.0 遗留 35 步回归闭合)。
+**v0.3.0 功能闭环 shipped 2026-08-17** — 5 phases (13-17), 19 plans, 149 commits, 161/161 tests。审计 tech_debt(无阻断):28/28 需求满足、11/11 集成 seam、4/4 E2E flows;统一人工 UAT 21/21(13-UAT 7 + 16-UAT 8 + 17-UAT 6,含 v0.2.0 遗留 35 步回归闭合)。
 
 - **事件日志底座**(Phase 13):agent 每一步落入 SQLite `agent_events`(seq + correlation_id),tool 配对不变量五种违规码可检测,ChatSession 为投影(toolLoop 双历史消除),>4KB 结果 artifact 化,CJK token 估算修复,永久 replay parity 测试
 - **可恢复执行**(Phase 14):确认候选 SQLite 持久化(paramsHash 去重 + 原子条件 UPDATE 消费),崩溃恢复(尾切完整 turn、孤儿 tool_call interrupted 绝不重执行),≥0.8× 窗口配对边界压缩(事件无损)
@@ -42,13 +42,13 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 **Tech debt(非阻断,完整清单见 `milestones/v0.3.0-MILESTONE-AUDIT.md`):** FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall 决策点、产品 chip × 语义、MarkdownEditor chunk ~297 KB、CSP null、云 provider 凭据 UAT。
 
-**v0.3.1 多 Session 会话体系(2026-08-18/19)—— Phase 18-21 全部完成,VERIFICATION 全 PASS;剩 3 项人工 UAT + complete-milestone 待收口(见 STATE TODOs,Phase 22 执行前完成)。进度明细:**
+**v0.3.1 多 Session 会话体系 shipped 2026-08-19(收口 2026-08-24)** — 4 phases (18-21), 10 plans, 107 commits, 217/217 tests;15/15 需求满足,Phase 18-21 VERIFICATION 全 PASS;3 项人工 UAT Playwright 结构验证 + 用户接受。含穿插 quick 任务群(工作区真实扫描/FileTree 拖拽/知识库↔归档互转/会话纪要投影)。明细:
+- **Session 数据模型与底座**(Phase 18):migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)、toolLoop workspaceId stamping、confirmations sessionId 根因修复、sessionRepo 双实现 + turn-start upsert;174/174 测试
+- **多 Session 运行时**(Phase 19):restoreSession(sessionId?) 参数化(sessions[0] 假设移除)、activeSessionId/startNewSession/switchSession、streaming 双层守卫、pending 卡片四类读路径按 session 过滤;190/190 测试
+- **分支与卡片操作**(Phase 20):fork.ts 纯函数层(引用式 fork 零复制 + seq 归一化 + compaction remap)、resolveSessionEvents 投影融合(支持 fork-of-fork)、hover 分支/复制工具栏 + 来源徽章;204/204 测试
+- **Session 列表与快捷入口 + 自动命名**(Phase 21):真实最近列表(标题/相对时间/消息数/分支徽章)、ChatPanel scoped 双 Select、Ctrl+K/Ctrl+Shift+K 分流、generateSessionTitle(LLM + fallback)fire-and-forget;217/217 测试
 
-**v0.3.1 进度:**
-- **Session 数据模型与底座**(Phase 18,2026-08-18):migration 0007(sessions 表 + 幂等回填 + workspace_id 回填)、toolLoop workspaceId stamping、confirmations sessionId 根因修复、sessionRepo 双实现(memory/sqlite)+ turn-start upsert;fixture-DB 升级测试锁定幂等,174/174 测试通过
-- **多 Session 运行时**(Phase 19,2026-08-18):restoreSession(sessionId?) 参数化(sessions[0] 假设移除)、chatConsoleStore activeSessionId/startNewSession/switchSession、streaming 双层守卫(session + 工作区切换)、pending 卡片四类读路径全部按 session 过滤;190/190 测试通过
-- **分支与卡片操作**(Phase 20,2026-08-18):fork.ts 纯函数层(buildForkEventStream 零复制 + seq 归一化 + compaction remap,测试先行 11 case)、resolveSessionEvents 投影融合(restore/compaction 双接线,支持 fork-of-fork)、forkFromMessage 全链路、AgentConsole hover 分支/复制工具栏 + 来源徽章 + 复制 toast;204/204 测试通过
-- **Session 列表与快捷入口 + 自动命名**(Phase 21,2026-08-19):sessionRepo 消息数聚合 + title IS NULL 守卫三参 updateTitle、formatRelativeTime、generateSessionTitle(LLM ≤20 字 + 首条消息回退)+ submit finally fire-and-forget 触发 + sessionListVersion 静默刷新、Agent 页真实最近列表(标题/相对时间/消息数/分支徽章,点击恢复)、ChatPanel scoped 双 Select 联动、Ctrl+K/Ctrl+Shift+K 分流;217/217 测试通过,VERIFICATION PASS(13/13),3 项人工项留里程碑 UAT
+**v0.3.1 Known gaps:** UAT-2 LLM 成功分支未真验(fallback 已验)、21-VERIFICATION UAT-3 期望文本过时(WorkspaceSwitcherRow 为后续 quick 新增,非回归)、quick 任务群无独立 phase VERIFICATION。
 
 ## Requirements
 
@@ -76,7 +76,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - ✓ PRD 生产线(DELIV-01..04:agent 生成 → HITL 确认编辑 → 版本化落研发中心卡槽 + AI 溯源徽章 + FTS5 立即命中) — **v0.3.0(Phase 16), 16-HUMAN-UAT 8/8**
 - ✓ Agent 一等入口(UX-01..04:双宿主/⌘K carry/晨报/右键动作)+ ARCHITECTURE.md v2.0 + ADR(ARCH-01/02) — **v0.3.0(Phase 17), 17-HUMAN-UAT 6/6**
 - ✓ v0.2.0 遗留 35 步人工回归(发布签核项) — **v0.3.0(17-HUMAN-UAT Test 6, 35/35 pass)**
-- ✓ 多 Session 会话体系(SESS-01..06, LIST-01/02, FORK-01..03, QUICK-01..03, TITLE-01/02) — **v0.3.1(Phase 18-21), 15/15 需求满足,217/217 测试;3 项人工项留里程碑 UAT**
+- ✓ 多 Session 会话体系(SESS-01..06, LIST-01/02, FORK-01..03, QUICK-01..03, TITLE-01/02) — **v0.3.1(Phase 18-21), 15/15 需求满足,217/217 测试;3 项人工 UAT 2026-08-24 收口**
 
 ### Active
 
@@ -189,4 +189,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 21 (2026-08-19)**: Session 列表与快捷入口 + 自动命名 — 真实列表 + 双下拉 ChatPanel + 快捷键分流 + LLM 自动命名。VERIFICATION PASS(13/13,人工项留 UAT)。
 
 ---
-*Last updated: 2026-08-23 — v0.3.2 Rust Run Engine started(ADR-0003 草案同步落稿)*
+*Last updated: 2026-08-24 — v0.3.1 收口(complete-milestone);当前里程碑 v0.3.2 Rust Run Engine 执行中*

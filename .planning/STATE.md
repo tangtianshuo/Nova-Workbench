@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: rust-run-engine
 status: in_progress
-last_updated: "2026-08-23T00:00:00.000Z"
-last_activity: 2026-08-23
+last_updated: "2026-08-24T00:00:00.000Z"
+last_activity: 2026-08-24
 progress:
   total_phases: 4
   completed_phases: 0
@@ -36,7 +36,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 
 | Metric | Value |
 |--------|-------|
-| v0.3.1 phases completed | 4 / 4(Phase 18-21 全部 VERIFICATION PASS;剩 3 项人工 UAT + complete-milestone) |
+| v0.3.1 phases completed | 4 / 4(Phase 18-21 全部 VERIFICATION PASS;3 项人工 UAT 2026-08-24 收口,milestone closed + tag v0.3.1) |
 | v0.3.2 phases | 4 (22-25: 引擎核心 / 工具层+桥 / 多run并行+后台 / 收口) |
 | Historical (v0.3.0) | 5/5 phases, 19/19 plans, 28/28 REQ, 161/161 tests |
 | Phase 18 P01 | 10m | 2 tasks | 4 files |
@@ -88,9 +88,9 @@ v0.3.1 roadmap decisions:
 
 ### TODOs (pending)
 
-- **v0.3.1 收口(Phase 22 执行前完成)**:3 项人工 UAT(Phase 21 VERIFICATION 留档项)+ `/gsd:complete-milestone v0.3.1`(roadmap 已归档至 milestones/v0.3.1-ROADMAP.md)
 - **v0.3.2 协议决策(Phase 22 动手前定稿)**:孤儿 exec 第三态(unknown/interrupted)+ 命令幂等分类随 tool_call 落盘 — 见 ADR-0003「协议决策」节
-- 结转 tech debt(非阻断):FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null
+- 21-VERIFICATION.md UAT-3 期望文本过时(WorkspaceSwitcherRow 为 quick 新增,非回归)— 下次触碰该文件时顺带更新
+- 结转 tech debt(非阻断):FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null、UAT-2 LLM 成功分支真验(有 key 环境)
 
 ### Blockers
 

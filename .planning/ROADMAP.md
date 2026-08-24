@@ -10,7 +10,7 @@
 - ✅ **v0.3.0 功能闭环** — Phases 13-17 (shipped 2026-08-17) — [archive](milestones/v0.3.0-ROADMAP.md)
 - ✅ **v0.2.0 日常管理 CRUD + 弱关联 + AI 驱动** — Phases 5-12 (shipped 2026-08-14) — [archive](milestones/v0.2.0-ROADMAP.md)
 
-**前置说明(非本里程碑 phase):** v0.3.1 收口 —— 3 项人工 UAT(Phase 21 留档)+ `/gsd:complete-milestone v0.3.1` 须在 Phase 22 执行前完成(见 STATE TODOs)。
+**前置说明(非本里程碑 phase):** v0.3.1 已收口(2026-08-24:3 项人工 UAT Playwright 结构验证 + 用户接受,milestone closed + tag v0.3.1)— Phase 22 无阻塞。
 
 ## Phases
 

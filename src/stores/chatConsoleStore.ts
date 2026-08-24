@@ -188,6 +188,8 @@ interface ChatConsoleState {
   streamingResponse: string;
   streamingTrace: ToolTraceItem[];
   loading: boolean;
+  /** 24-01 SCHED-01: run queued behind the 3-slot cap; flipped by run_status events. */
+  isQueued: boolean;
   restoreComplete: boolean;
   pendingConfirmation: KnowledgeWriteCandidate | null;
   pendingDestructiveAction: DestructiveActionCandidate | null;
@@ -349,6 +351,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     streamingResponse: '',
     streamingTrace: [],
     loading: false,
+    isQueued: false,
     restoreComplete: false,
     pendingConfirmation: null,
     pendingDestructiveAction: null,
@@ -513,6 +516,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         messages: [...current.messages, userMessage],
         input: '',
         loading: true,
+        isQueued: false,
         streamingResponse: '',
         streamingTrace: [],
       }));
@@ -552,6 +556,15 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           productId: useUIStore.getState().selectedProductId,
           coreContext: buildCoreContext(),
           onEvent: (msg) => {
+            // 24-01 scheduler lifecycle: queued → (slot frees) → running.
+            if (msg.kind === 'run_status' && msg.data?.status) {
+              if (msg.data.status === 'queued') {
+                set({ isQueued: true });
+              } else if (msg.data.status === 'running') {
+                set({ isQueued: false });
+              }
+              return;
+            }
             if (msg.kind === 'token' && msg.data?.text) {
               streamingResponseRef += msg.data.text;
               set((current) => ({ streamingResponse: current.streamingResponse + msg.data!.text }));
@@ -672,7 +685,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           description: error instanceof Error ? error.message : String(error),
         });
       } finally {
-        set({ loading: false, streamingResponse: '', streamingTrace: [] });
+        set({ loading: false, isQueued: false, streamingResponse: '', streamingTrace: [] });
         streamingResponseRef = '';
         streamingTraceRef = [];
         void refreshForkable();

@@ -29,7 +29,7 @@ export interface EngineRunResult {
 
 /** Seven-variant channel protocol (engine/channel.rs, tag=kind/content=data). */
 export interface EngineEventMsg {
-  kind: 'token' | 'tool_start' | 'tool_end' | 'tool_output' | 'event' | 'confirmation' | 'done' | 'error';
+  kind: 'token' | 'tool_start' | 'tool_end' | 'tool_output' | 'event' | 'confirmation' | 'done' | 'error' | 'run_status';
   data?: {
     text?: string;
     name?: string;
@@ -42,6 +42,9 @@ export interface EngineEventMsg {
     candidate?: EnginePendingCandidate;
     result?: EngineRunResult;
     message?: string;
+    /** run_status (24-01 scheduler): "queued" | "running". */
+    run_id?: string;
+    status?: string;
   };
 }
 

@@ -77,6 +77,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     streamingResponse,
     streamingTrace,
     loading,
+    isQueued,
     restoreComplete,
     pendingConfirmation,
     pendingDestructiveAction,
@@ -229,6 +230,12 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
         {(loading || streamingResponse || streamingTrace.length > 0) && (
           <div className="flex justify-start">
             <div className="max-w-[88%] rounded-[var(--radius-lg)] border border-border-subtle bg-bg-secondary px-3.5 py-2.5 text-sm leading-6 text-text-primary">
+              {isQueued && (
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs text-warning">
+                  <Hourglass size={13} className="animate-pulse" />
+                  <span>排队中 — 正在等待其他任务完成</span>
+                </div>
+              )}
               <ToolTrace items={streamingTrace} />
               <span className="whitespace-pre-wrap">
                 {streamingResponse || 'AI 思考中...'}

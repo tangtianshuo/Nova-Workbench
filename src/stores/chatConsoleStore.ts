@@ -35,6 +35,7 @@ import { getEventStore } from '@/src/ai/events/eventStore';
 import type { AgentEvent } from '@/src/ai/events/types';
 import { useUIStore } from '@/src/stores/uiStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { isTauri } from '@/src/lib/api';
 import type { Provider } from '@/src/lib/api';
 
 export type ToolTraceStatus = 'running' | 'ok' | 'error';
@@ -542,10 +543,19 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           content: typeof candidate.args?.content === 'string' ? candidate.args.content : undefined,
           summary: String(candidate.summary ?? ''),
         });
+        // 24-02 tray run-list title: session title when named, else message prefix.
+        const sessionId = sessionRef.current.sessionId;
+        let sessionTitle: string;
+        try {
+          sessionTitle = (await getSessionRepo().getSession(sessionId))?.title || trimmed.slice(0, 24);
+        } catch {
+          sessionTitle = trimmed.slice(0, 24);
+        }
         const result = await engineRun({
           runId: crypto.randomUUID(),
           userMessage: trimmed,
-          sessionId: sessionRef.current.sessionId,
+          sessionId,
+          sessionTitle,
           provider,
           ollamaModel: provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
           workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
@@ -1045,3 +1055,17 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     maybeGenerateTitle,
   };
 });
+
+/* === 24-02 (SCHED-02) tray jump: menu run item click → Rust shows the window
+ * and emits tray-open-session(sessionId); we switch the tab + session here.
+ * Module-level (not a useEffect) — AgentConsole has two hosts, listener must
+ * exist exactly once. No-op in browser dev (isTauri false). === */
+if (isTauri()) {
+  void (async () => {
+    const { listen } = await import('@tauri-apps/api/event');
+    await listen<string>('tray-open-session', (event) => {
+      useUIStore.getState().setActiveTab('agent');
+      void useChatConsoleStore.getState().switchSession(event.payload);
+    });
+  })();
+}

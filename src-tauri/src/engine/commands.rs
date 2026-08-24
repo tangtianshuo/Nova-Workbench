@@ -141,6 +141,8 @@ pub async fn engine_run(
     // Active workspace folderPath (23-01): fs/exec tool root. Optional —
     // None leaves those tools Failed-safe.
     workspace_root: Option<String>,
+    // 24-02 tray display title (session title or first-message prefix).
+    session_title: Option<String>,
     core_context: String,
     on_event: Channel<EngineEvent>,
     state: State<'_, AppState>,
@@ -159,6 +161,8 @@ pub async fn engine_run(
     let run_id = run_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let cancel = CancellationToken::new();
     state.engine_runs.lock().unwrap().insert(run_id.clone(), cancel.clone());
+    // 24-02 tray metadata: jump target + display title for the run list.
+    state.scheduler.register(&run_id, session_id.clone(), session_title.unwrap_or_default());
 
     // 24-01 scheduler gate: FIFO queue behind MAX_CONCURRENT=3. engine_cancel
     // fires the token — a queued run dequeues from acquire's cancel branch
@@ -181,6 +185,7 @@ pub async fn engine_run(
         Ok(permit) => permit,
         Err(_) => {
             state.engine_runs.lock().unwrap().remove(&run_id);
+            state.scheduler.unregister(&run_id);
             return Err(AppError::Cancelled);
         }
     };
@@ -231,11 +236,13 @@ pub async fn engine_run(
             // Thread panicked — the per-run Connection died with it; the
             // managed slot was never touched. Extremely unlikely.
             state.engine_runs.lock().unwrap().remove(&run_id);
+            state.scheduler.unregister(&run_id);
             return Err(AppError::InternalError(format!("engine thread failed: {e}")));
         }
     };
     drop(_permit);
     state.engine_runs.lock().unwrap().remove(&run_id);
+    state.scheduler.unregister(&run_id);
 
     match result {
         Ok(run_result) => Ok(run_result),

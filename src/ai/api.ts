@@ -59,6 +59,8 @@ export interface EngineRunParams {
   productId?: string | null;
   /** Active workspace folderPath — fs/exec tool root (23-01). */
   workspaceRoot?: string | null;
+  /** 24-02 tray run-list display title (session title or message prefix). */
+  sessionTitle?: string | null;
   /** TS buildCoreContext() output — injected into the Rust system prompt. */
   coreContext: string;
   onEvent: (event: EngineEventMsg) => void;
@@ -78,6 +80,7 @@ export async function engineRun(params: EngineRunParams): Promise<EngineRunResul
     workspaceId: params.workspaceId ?? null,
     productId: params.productId ?? null,
     workspaceRoot: params.workspaceRoot ?? null,
+    sessionTitle: params.sessionTitle ?? null,
     coreContext: params.coreContext,
     onEvent: channel,
   });

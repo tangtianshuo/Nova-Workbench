@@ -11,3 +11,4 @@ pub mod chat_session;
 pub mod compaction;
 pub mod fork;
 pub mod context_assembler;
+pub mod tools;

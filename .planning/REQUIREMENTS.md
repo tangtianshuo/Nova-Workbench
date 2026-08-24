@@ -16,10 +16,10 @@
 
 ### 工具层 (TOOL)
 
-- [x] **TOOL-01**: Rust 工具注册表落地(静态注册 + schema),首批 exec / fs 读写 / knowledge 检索 / deliverable 生成四类工具可被引擎调用
+- [ ] **TOOL-01**: Rust 工具注册表落地(静态注册 + schema),首批 exec / fs 读写 / knowledge 检索 / deliverable 生成四类工具可被引擎调用
 - [x] **TOOL-02**: exec 工具具备进程组清理、超时、取消与 stdout/stderr 流式回传,受命令白名单约束(白名单外命令须 HITL 确认;进程管理模式借 omp 设计)
 - [ ] **TOOL-03**: PM CRUD 工具本里程碑缺席(无桥决策 2026-08-24:业务数据为 kv_store JSON 快照,桥为建即拆的过渡架构)— 模型对 CRUD 能力缺失有明确感知与降级提示;v0.3.3 业务数据关系化后以 Rust 原生工具回归
-- [x] **TOOL-04**: 无头 run(webview 不可用)与有头 run 工具集一致(全 Rust 原生,无桥即无可用性差异);exec/fs 工具不依赖 webview 存活
+- [ ] **TOOL-04**: 无头 run(webview 不可用)与有头 run 工具集一致(全 Rust 原生,无桥即无可用性差异);exec/fs 工具不依赖 webview 存活
 
 ### 多 run 与后台 (SCHED)
 
@@ -71,10 +71,10 @@
 | ENG-04 | Phase 22 | Complete |
 | ENG-05 | Phase 22 | Complete |
 | PORT-01 | Phase 22 | Complete |
-| TOOL-01 | Phase 23 | Complete |
+| TOOL-01 | Phase 23 | Pending |
 | TOOL-02 | Phase 23 | Complete |
 | TOOL-03 | Phase 23 | Pending |
-| TOOL-04 | Phase 23 | Complete |
+| TOOL-04 | Phase 23 | Pending |
 | SCHED-01 | Phase 24 | Pending |
 | SCHED-02 | Phase 24 | Pending |
 | SCHED-03 | Phase 24 | Pending |

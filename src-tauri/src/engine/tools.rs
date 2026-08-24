@@ -541,6 +541,10 @@ mod tests {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));
             assert!(s["parameters"].is_object());
         }
+        // Single registry invariant (TOOL-04): the model-visible schema set IS
+        // the native registry — nothing else can inject or shadow a tool.
+        let reg: Vec<&str> = registry().iter().map(|t| t.name).collect();
+        assert_eq!(names, reg, "schemas must derive 1:1 from the single registry");
         // idempotency classes: reads rerunnable, writes verify_first
         assert_eq!(idempotency("knowledge_search"), "rerunnable");
         assert_eq!(idempotency("knowledge_write"), "verify_first");

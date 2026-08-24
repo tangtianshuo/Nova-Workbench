@@ -452,6 +452,10 @@ mod tests {
     }
 
     fn ctx<'a>(conn: &'a Connection, llm: FakeLlm) -> LoopContext<'a> {
+        ctx_root(conn, llm, None)
+    }
+
+    fn ctx_root<'a>(conn: &'a Connection, llm: FakeLlm, root: Option<std::path::PathBuf>) -> LoopContext<'a> {
         LoopContext {
             conn,
             session_id: "s1".into(),
@@ -460,7 +464,7 @@ mod tests {
             product_id: None,
             provider: "deepseek".into(),
             ollama_model: None,
-            workspace_root: None,
+            workspace_root: root,
             core_context: "核心事实".into(),
             llm: Box::new(llm),
             summarizer: None,
@@ -476,6 +480,15 @@ mod tests {
         llm: FakeLlm,
         cancel: CancellationToken,
     ) -> (Result<EngineRunResult, LoopError>, Vec<Value>) {
+        run_root(conn, llm, cancel, None)
+    }
+
+    fn run_root(
+        conn: &Connection,
+        llm: FakeLlm,
+        cancel: CancellationToken,
+        root: Option<std::path::PathBuf>,
+    ) -> (Result<EngineRunResult, LoopError>, Vec<Value>) {
         // Test-only event capture via serialized wire form.
         let log = Arc::new(Mutex::new(Vec::<Value>::new()));
         let on_event: EventCallback = {
@@ -483,7 +496,7 @@ mod tests {
             Arc::new(move |e: EngineEvent| log.lock().unwrap().push(serde_json::to_value(&e).unwrap()))
         };
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        let result = rt.block_on(run_tool_loop(ctx(conn, llm), cancel, on_event));
+        let result = rt.block_on(run_tool_loop(ctx_root(conn, llm, root), cancel, on_event));
         let wire = log.lock().unwrap().clone();
         (result, wire)
     }
@@ -723,5 +736,94 @@ mod tests {
         assert!(matches!(result.unwrap_err(), LoopError::Cancelled));
         // events up to the cancel point stay consistent (pairing balanced)
         assert!(event_log::check_event_stream(&events_of(&conn)).is_ok());
+    }
+
+    /* === 23-05: TOOL-04 loop-level integration locks (headless == headed) === */
+
+    #[test]
+    fn exec_whitelisted_runs_headless_and_settles() {
+        let conn = mem_conn();
+        let root = std::env::temp_dir().join(format!("nova-loopexec-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        // Learned whitelist entry for the platform echo (headless run, no
+        // webview anywhere on the exec path — TOOL-04).
+        let (command, args): (&str, Vec<String>) = if cfg!(windows) {
+            ("cmd", vec!["/c".into(), "echo loopok".into()])
+        } else {
+            ("echo", vec!["loopok".into()])
+        };
+        crate::engine::exec::add_command_to_whitelist(&conn, command).unwrap();
+        let llm = FakeLlm::new(vec![
+            LlmTurn {
+                content: String::new(),
+                tool_calls: vec![LlmToolCall {
+                    name: "exec".into(),
+                    arguments: json!({"command": command, "args": args}),
+                }],
+            },
+            LlmTurn { content: "跑完了".into(), tool_calls: vec![] },
+        ]);
+        let (result, wire) = run_root(&conn, llm, CancellationToken::new(), Some(root.clone()));
+        let result = result.unwrap();
+        assert_eq!(result.tool_calls_executed, 1);
+        assert!(result.pending_confirmation.is_none());
+
+        // tool_result landed ok with the subprocess's own output + exit code
+        // (spawn_core awaited the child — exit means exited).
+        let tool_result = events_of(&conn)
+            .iter()
+            .find(|e| e.event_type == "tool_result")
+            .unwrap()
+            .payload
+            .clone();
+        assert_eq!(tool_result["ok"], true);
+        assert!(tool_result["modelText"].as_str().unwrap().contains("loopok"), "{}", tool_result["modelText"]);
+        assert!(tool_result["modelText"].as_str().unwrap().contains("\"exitCode\":0"), "{}", tool_result["modelText"]);
+
+        // EngineEvent stream carried tool_output (line-streamed stdout)
+        assert!(
+            wire.iter().any(|e| e["kind"] == "tool_output"),
+            "tool_output missing from channel: {:?}",
+            kinds(&wire)
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn exec_off_whitelist_waits_with_approval_candidate() {
+        let conn = mem_conn();
+        let root = std::env::temp_dir().join(format!("nova-loopwait-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let llm = FakeLlm::new(vec![LlmTurn {
+            content: "我要跑个命令".into(),
+            tool_calls: vec![LlmToolCall {
+                name: "exec".into(),
+                arguments: json!({"command": "definitely_not_a_command_xyz", "args": []}),
+            }],
+        }]);
+        let (result, _) = run_root(&conn, llm, CancellationToken::new(), Some(root.clone()));
+        let result = result.unwrap();
+        assert_eq!(result.tool_calls_executed, 0);
+        let pending = result.pending_confirmation.expect("WAIT candidate");
+        assert_eq!(pending["kind"], "exec_approval");
+        assert!(pending["confirmationToken"].is_string());
+
+        // WAIT tool_result + candidate row persisted; nothing executed.
+        let tool_result = events_of(&conn)
+            .iter()
+            .find(|e| e.event_type == "tool_result")
+            .unwrap()
+            .payload
+            .clone();
+        assert_eq!(tool_result["awaitingConfirmation"], true);
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM agent_confirmation_candidates WHERE kind = 'exec_approval'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1);
+        std::fs::remove_dir_all(&root).ok();
     }
 }

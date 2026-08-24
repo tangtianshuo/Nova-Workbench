@@ -35,7 +35,7 @@
 Plans:
 - [x] 22-01-PLAN.md — PORT-01 协议定稿 + Wave 0 基建(依赖/DB probe/fixture 金样本)
 - [x] 22-02-PLAN.md — 算法基石逐位复刻(tokenEstimate/ftsTokens/paramsHash)
-- [ ] 22-03-PLAN.md — event_log(append/invariants/artifacts/事务)+ confirmations(原子 UPDATE)
+- [x] 22-03-PLAN.md — event_log(append/invariants/artifacts/事务)+ confirmations(原子 UPDATE)
 - [ ] 22-04-PLAN.md — chat_session 投影 + compaction + fork + 投影 fixture
 - [ ] 22-05-PLAN.md — context_assembler + 最小工具集 + loop_runner + EngineEvent
 - [ ] 22-06-PLAN.md — engine_* 接线切换 + restore 崩溃恢复 + runToolLoop 归零
@@ -80,7 +80,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. 引擎核心 | 2/7 | In Progress|  |
+| 22. 引擎核心 | 3/7 | In Progress|  |
 | 23. 工具层 + TS 工具桥 | 0/? | Not started | - |
 | 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
 | 25. 迁移收口 | 0/? | Not started | - |
@@ -112,7 +112,7 @@ Plans:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 2/7 plans executed
+**Plans:** 3/7 plans executed
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

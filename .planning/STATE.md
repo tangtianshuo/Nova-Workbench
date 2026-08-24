@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-24T02:12:55.605Z"
+last_updated: "2026-08-24T02:23:26.022Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 7
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 ## Current Position
 
 Phase: 22 (loop-replay-parity) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-08-24
 
@@ -51,6 +51,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 21 P03 | 25min | 4 tasks | 4 files |
 | Phase 22 P01 | 35m | 2 tasks | 10 files |
 | Phase 22 P02 | 25m | 2 tasks | 4 files |
+| Phase 22 P03 | 50m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ v0.3.1 roadmap decisions:
 - [Phase 22]: PORT-01 定稿: idempotency 随 tool_call 落盘(旧事件=verify_first);孤儿 marker 第三态 unknown(键序 ok,status,interrupted,reason);工具描述追加 verify-before-rerun
 - [Phase 22]: meta 是 kv 表, schema_version 经 key 读取; DB probe 实证 app_config_dir/nova.db 与 plugin 同库(schema 7)
 - [Phase 22]: 22-02: estimate_tokens 按 UTF-16 unit 迭代复刻 TS 实际区间 8C48..=FAFF(surrogate halves 算 CJK,金样本锁定);fts_tokens 词先 CJK 后;params_hash 依赖 serde_json 默认 BTreeMap 键序
+- [Phase 22]: 22-03: rusqlite $N markers are named params (appearance-order binding) — named_params! keeps verbatim TS SQL; modelText JSON key order hand-formatted; upsert_session title write-once
 
 ### TODOs (pending)
 

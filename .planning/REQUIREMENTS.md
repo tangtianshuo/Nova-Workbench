@@ -18,8 +18,8 @@
 
 - [ ] **TOOL-01**: Rust 工具注册表落地(静态注册 + schema),首批 exec / fs 读写 / knowledge 检索 / deliverable 生成四类工具可被引擎调用
 - [ ] **TOOL-02**: exec 工具具备进程组清理、超时、取消与 stdout/stderr 流式回传,受命令白名单约束(白名单外命令须 HITL 确认;进程管理模式借 omp 设计)
-- [ ] **TOOL-03**: PM CRUD 工具(任务/日程/知识写入等)经 TS 工具桥过渡调用,webview 存活时行为与现状一致
-- [ ] **TOOL-04**: 无头 run(webview 不可用)限制工具集为 Rust 原生工具,模型可感知工具可用性(明确降级)
+- [ ] **TOOL-03**: PM CRUD 工具本里程碑缺席(无桥决策 2026-08-24:业务数据为 kv_store JSON 快照,桥为建即拆的过渡架构)— 模型对 CRUD 能力缺失有明确感知与降级提示;v0.3.3 业务数据关系化后以 Rust 原生工具回归
+- [ ] **TOOL-04**: 无头 run(webview 不可用)与有头 run 工具集一致(全 Rust 原生,无桥即无可用性差异);exec/fs 工具不依赖 webview 存活
 
 ### 多 run 与后台 (SCHED)
 
@@ -56,10 +56,10 @@
 |---------|--------|
 | rig-core / rig-agent / GraphFlow 依赖 | ADR-0003 物料决策否决(供给错位 + AgentRun/SqliteSaver 与事件日志双记账 + pre-1.0 风险进心脏) |
 | 独立守护进程 / daemon | 后台 = 托盘常驻(hide-on-close),不做进程间通信 |
-| 业务表(产品/任务/日程)Rust 直写 | 过渡期 TS 写、Rust 只读;同表双写绝对禁止(ADR-0003 双写者规则) |
+| 业务表(产品/任务/日程)Rust 直写 | 过渡期 TS 写、Rust 只读;同表双写绝对禁止(ADR-0003 双写者规则);关系化迁移归 v0.3.3 |
 | subAgent / IM / MCP / Skill 实现 | 留 v0.4+;本里程碑仅由调度器结构与入口层预留扩展位 |
 | 向量检索 P2(embedding/LanceDB/vec) | 维持 ADR-0001 边界:FTS5 先行,向量只作派生索引候选评估 |
-| TS 工具桥长期共存 | 桥是过渡态,不得活过两个版本(ADR-0003) |
+| TS 工具桥 | 整体取消(2026-08-24 用户决策)— 业务数据 kv_store JSON 快照,桥期内无法原生写;不建即拆的过渡架构 |
 
 ## Traceability
 
@@ -89,4 +89,4 @@
 
 ---
 *Requirements defined: 2026-08-23*
-*Last updated: 2026-08-23 — roadmap v0.3.2 created (Phase 22-25), traceability backfilled*
+*Last updated: 2026-08-24 — TOOL-03/04 重定义:TS 工具桥取消(用户决策),PM CRUD 推迟 v0.3.3 原生回归*

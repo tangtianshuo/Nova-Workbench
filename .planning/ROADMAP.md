@@ -15,7 +15,7 @@
 ## Phases
 
 - [x] **Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)** — toolLoop/compaction/contextAssembler 语义移植 Rust,Rust 接管 agent_* 表唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志逐位回放平价;PORT-01 协议最先定稿 (completed 2026-08-24)
-- [ ] **Phase 23: 工具层 + TS 工具桥** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 工具 + PM CRUD TS 工具桥 + 无头 run 工具降级
+- [ ] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归)
 - [ ] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
 - [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
 
@@ -42,18 +42,18 @@ Plans:
 - [x] 22-07-PLAN.md — parity 永久测试(双侧 fixture + 真实 DB 抽样)
 **Research**: 建议先 `/gsd:research-phase` — toolLoop/compaction/contextAssembler 语义移植跨 Rust/TS 边界,TS 纯函数 + 217 测试为可执行规格,需先精确编码映射
 
-### Phase 23: 工具层 + TS 工具桥
-**Goal**: Rust 引擎可调用首批原生工具(exec/fs/knowledge/deliverable),PM CRUD 经 TS 桥过渡,无头 run 明确降级
+### Phase 23: 工具层(原生工具集,无桥)
+**Goal**: Rust 引擎可调用首批原生工具(exec/fs/knowledge/deliverable),全部 Rust 原生执行不依赖 webview;PM CRUD 缺席但模型明确感知降级;两个 carry-in TS 写接缝迁移到 Rust 唯一写者
 **Depends on**: Phase 22(引擎 loop + 事件写者)
 **Requirements**: TOOL-01, TOOL-02, TOOL-03, TOOL-04
 **Success Criteria** (what must be TRUE):
   1. Rust 工具注册表(静态注册 + schema)落地,exec / fs 读写 / knowledge 检索 / deliverable 生成四类工具可被引擎调用(TOOL-01)
   2. exec 工具具备进程组清理、超时、取消、stdout/stderr 流式回传;白名单外命令触发 HITL 确认(TOOL-02)
-  3. PM CRUD 工具(任务/日程/知识写入等)经 TS 工具桥调用,webview 存活时行为与现状一致(TOOL-03)
-  4. webview 不可用的无头 run 只暴露 Rust 原生工具,模型可感知工具可用性差异并明确降级(TOOL-04)
+  3. PM CRUD 工具缺席于模型 schema,系统提示含明确降级说明(模型知道任务/日程 CRUD 归 v0.3.3,引导用户手动操作);无桥(2026-08-24 决策)(TOOL-03)
+  4. 全部工具 Rust 原生,无头 run(Phase 24 后台)与有头 run 工具集一致;exec/fs 不依赖 webview 存活(TOOL-04)
+  5. 两个 carry-in 接缝(deliverable_committed 事件 / consumeIntoMemories)TS 直写路径消灭,改走 Rust command 唯一写者(22-VERIFICATION SC-3 缺口关闭)
 **Plans**: TBD
-**Carry-in(22-VERIFICATION SC-3 缺口,必须在本 phase 迁移,不得再滑)**: ① `chatConsoleStore.ts` appendAuxEvent('deliverable_committed') → TS 直写 agent_events;② `memoryStore.ts` consumeIntoMemories → TS 直写 memory_candidates。两处 HITL 用户动作接缝须改走 Rust 唯一写者
-**Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows)+ TS 工具桥 IPC 回调机制,值得先研究
+**Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows;Windows 无进程组,需 Job Object 或 taskkill /T 等价方案)
 
 ### Phase 24: 多 run 并行 + 后台运行(托盘)
 **Goal**: 用户可以多 session 并行跑 agent、关窗后 run 继续、后台完成有通知 — Rust 常驻引擎的核心收益兑现
@@ -82,7 +82,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 22. 引擎核心 | 7/7 | Complete   | 2026-08-24 |
-| 23. 工具层 + TS 工具桥 | 0/? | Not started | - |
+| 23. 工具层(原生,无桥) | 0/? | Not started | - |
 | 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
 | 25. 迁移收口 | 0/? | Not started | - |
 
@@ -98,7 +98,7 @@ Plans:
 ## Research Flags
 
 - Phase 22: `/gsd:research-phase` 强烈建议 — loop/compaction/assembler 语义移植 + replay parity 方案(TS 测试 = 可执行规格,fixture 复用)
-- Phase 23: `/gsd:research-phase` 建议 — omp exec 模式移植(进程组/超时/取消/流式,Windows 兼容)+ TS 工具桥 IPC 设计
+- Phase 23: `/gsd:research-phase` 建议 — omp exec 模式移植(进程组/超时/取消/流式,Windows 兼容:Job Object / taskkill /T)
 - Phase 24: 标准模式(调度器为自写 tokio,数百行,结构清晰;托盘 Tauri 插件),除非 Phase 22/23 研究发现新风险
 - Phase 25: 标准模式(删除 + 文档收口)
 

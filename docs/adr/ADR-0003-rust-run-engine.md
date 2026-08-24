@@ -47,7 +47,7 @@ TS 运行时的历史任务已经完成:它验证了语义,而语义是可移植
 
 1. **状态归属不变**:事件日志仍是唯一真相源,ChatSession 仍是投影,可重建。迁移是"按同一 schema 重新实现 loop",不是重新设计。
 2. **双写者规则**:Rust 立即接管 `agent_*` 全部表(agent_events / agent_artifacts / agent_confirmation_candidates / memory_candidates);业务表(产品/任务/日程)过渡期 TS 写、Rust 只读(contextAssembly 本来只读);Rust 工具需要写业务数据时走 Rust command 写 SQLite + emit 事件刷新 TS store;**同表双写绝对禁止**。
-3. **工具移植次序**:先搬无头 run 需要的(exec / fs / knowledge 检索 / deliverable);PM CRUD 工具经「TS 工具桥」过渡(Rust loop 经 IPC 回调 TS 工具,仅 webview 存活时可用,无头 run 限制工具集)。桥是过渡态,不得活过两个版本。
+3. **工具移植次序**:先搬无头 run 需要的(exec / fs / knowledge 检索 / deliverable);PM CRUD 工具经「TS 工具桥」过渡(Rust loop 经 IPC 回调 TS 工具,仅 webview 存活时可用,无头 run 限制工具集)。桥是过渡态,不得活过两个版本。**〔修订 2026-08-24:TS 工具桥整体取消(用户决策)——业务数据是 kv_store JSON 快照而非关系表,桥期内 Rust 无法原生写;为免建即拆的过渡架构,PM CRUD 工具保持缺席直至 v0.3.3 业务数据关系化后以 Rust 原生工具直接回归。代价 = v0.3.2 期间 agent 不能建任务/日程,模型对 CRUD 缺席有明确降级提示。〕**
 4. **后台运行 = 托盘常驻**(hide-on-close + tray),不是独立守护进程、不做进程间通信。
 5. **验收标准 = 事件日志回放平价**:Rust 引擎逐位回放 v0.3.x 存量日志,投影与 TS 引擎一致;TS 纯函数(fork.ts / compaction)与 217 个测试是移植的可执行规格,fixture 直接复用。
 6. **HITL 跨边界**:确认队列持久化 + 原子条件 UPDATE 消费的语义原样保留,webview 只是确认 UI 的宿主。
@@ -88,9 +88,9 @@ tool_call 事件 payload 新增字段 `idempotency: 'rerunnable' | 'verify_first
 
 工具 description 生成模板追加一句:「若 tool_result 状态为 unknown,先验证(如查看文件/状态)再决定是否重跑;verify_first 类命令禁止未验证直接重跑」。落在 registry 的 schema 生成处(Phase 22 生效,Phase 23 exec 工具注册 `idempotency` 分类时受益)。
 
-### A.4 Phase 22 工具集边界(orchestrator 裁决)
+### A.4 Phase 22 工具集边界(orchestrator 裁决;2026-08-24 修订)
 
-PM CRUD 工具(createTask/scheduleCrud 等)在 Phase 22 期间从模型 schema 消失(TOOL-04 降级先例:能力降级一个 phase 优于提前引入 TS 工具桥);Phase 23 经 TS 桥恢复。Phase 22 的 Rust 工具注册表只含 Rust 侧可执行的工具(候选类 + knowledge 检索)。
+PM CRUD 工具(createTask/scheduleCrud 等)在 Phase 22 期间从模型 schema 消失(TOOL-04 降级先例:能力降级优于提前引入过渡架构);**原定 Phase 23 经 TS 桥恢复 — 桥已取消(2026-08-24 用户决策,见具体裁定 #3 修订),PM CRUD 推迟至 v0.3.3 业务数据关系化后 Rust 原生回归**。Phase 22 的 Rust 工具注册表只含 Rust 侧可执行的工具(候选类 + knowledge 检索)。
 
 ## Consequences
 

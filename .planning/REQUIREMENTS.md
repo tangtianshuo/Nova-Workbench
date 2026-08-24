@@ -25,7 +25,7 @@
 
 - [ ] **SCHED-01**: 用户可在两个 session 同时发起对话,两个 run 并行流式输出,事件与确认卡片互不串扰
 - [ ] **SCHED-02**: 用户关闭窗口(hide-on-close + 托盘常驻)后 run 继续执行;重新打开窗口时运行中状态与历史投影完整一致
-- [x] **SCHED-03**: 后台 run 完成或等待确认时,用户收到托盘通知/角标,可一键回到对应 session
+- [ ] **SCHED-03**: 后台 run 完成或等待确认时,用户收到托盘通知/角标,可一键回到对应 session
 - [ ] **SCHED-04**: 用户可取消运行中的 run(含后台 run),取消后子进程清理、事件日志状态一致
 
 ### 迁移收口 (PORT)
@@ -77,7 +77,7 @@
 | TOOL-04 | Phase 23 | Complete |
 | SCHED-01 | Phase 24 | Pending |
 | SCHED-02 | Phase 24 | Pending |
-| SCHED-03 | Phase 24 | Complete |
+| SCHED-03 | Phase 24 | Pending |
 | SCHED-04 | Phase 24 | Pending |
 | PORT-02 | Phase 25 | Pending |
 | PORT-03 | Phase 25 | Pending |

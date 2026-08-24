@@ -58,7 +58,7 @@ Plan list:
 - [x] 23-01-PLAN.md — 异步地基:execute_async + ToolOutput 变体 + workspace_root 贯通 (completed 2026-08-24)
 - [x] 23-02-PLAN.md — exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行 (completed 2026-08-24)
 - [x] 23-03-PLAN.md — fs 六工具:读自由/写 HITL/越界拒 + engine_fs_apply (completed 2026-08-24)
-- [ ] 23-04-PLAN.md — deliverable 工具 + CRUD 降级说明 + 接缝① engine_commit_deliverable
+- [x] 23-04-PLAN.md — deliverable 工具 + CRUD 降级说明 + 接缝① engine_commit_deliverable
 - [ ] 23-05-PLAN.md — 接缝② engine_consume_memory + TOOL-04 集成锁定与收口 gates
 **Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows;Windows 无进程组,需 Job Object 或 taskkill /T 等价方案)
 
@@ -89,7 +89,7 @@ Plan list:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 22. 引擎核心 | 7/7 | Complete   | 2026-08-24 |
-| 23. 工具层(原生,无桥) | 2/5 | In Progress|  |
+| 23. 工具层(原生,无桥) | 4/5 | In Progress|  |
 | 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
 | 25. 迁移收口 | 0/? | Not started | - |
 
@@ -120,7 +120,7 @@ Plan list:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

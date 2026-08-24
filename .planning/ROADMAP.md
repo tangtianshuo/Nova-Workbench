@@ -14,7 +14,8 @@
 
 ## Phases
 
-- [x] **Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)** — toolLoop/compaction/contextAssembler 语义移植 Rust,Rust 接管 agent_* 表唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志逐位回放平价;PORT-01 协议最先定稿 (completed 2026-08-24)
+- [x] **Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)** — toolLoop/compaction/contextAssembler 语义移植 Rust,Rust 接管 agent_* 表唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志逐位回放平价;PORT-01 协议最先定稿
+ (completed 2026-08-24)
 - [ ] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归)
 - [ ] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
 - [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
@@ -52,7 +53,13 @@ Plans:
   3. PM CRUD 工具缺席于模型 schema,系统提示含明确降级说明(模型知道任务/日程 CRUD 归 v0.3.3,引导用户手动操作);无桥(2026-08-24 决策)(TOOL-03)
   4. 全部工具 Rust 原生,无头 run(Phase 24 后台)与有头 run 工具集一致;exec/fs 不依赖 webview 存活(TOOL-04)
   5. 两个 carry-in 接缝(deliverable_committed 事件 / consumeIntoMemories)TS 直写路径消灭,改走 Rust command 唯一写者(22-VERIFICATION SC-3 缺口关闭)
-**Plans**: TBD
+**Plans**: 5 plans
+Plan list:
+- [ ] 23-01-PLAN.md — 异步地基:execute_async + ToolOutput 变体 + workspace_root 贯通
+- [ ] 23-02-PLAN.md — exec 工具:进程管理/白名单/HITL 学习/确认后 Rust 重执行
+- [ ] 23-03-PLAN.md — fs 六工具:读自由/写 HITL/越界拒 + engine_fs_apply
+- [ ] 23-04-PLAN.md — deliverable 工具 + CRUD 降级说明 + 接缝① engine_commit_deliverable
+- [ ] 23-05-PLAN.md — 接缝② engine_consume_memory + TOOL-04 集成锁定与收口 gates
 **Research**: 建议先 `/gsd:research-phase` — exec 进程管理模式借 omp 设计(进程组/超时/取消/流式,跨平台含 Windows;Windows 无进程组,需 Job Object 或 taskkill /T 等价方案)
 
 ### Phase 24: 多 run 并行 + 后台运行(托盘)

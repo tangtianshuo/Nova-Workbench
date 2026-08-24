@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-24T03:40:00.000Z"
+last_updated: "2026-08-24T04:28:21.022Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
   completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 12
+  completed_plans: 9
 ---
 
 # Project State
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native, 无桥决策 2026-08-24) — IN PROGRESS
-Plan: 2 of 5 done(23-02 exec 工具:tokio 子进程核心 + 白名单/HITL 学习/确认后 Rust 重执行;TOOL-02 已勾;cargo 131 / npm 241 / tsc clean)
-Status: Next plan 23-03(fs 六工具:读自由/写 HITL/越界拒 + engine_fs_apply)
+Plan: 3 of 5 done(23-03 fs 六工具:内读自由/内写 HITL/越界 arg_error 拒;engine_fs_apply 确认后 Rust 执行;TOOL-01/TOOL-04 已勾;migration 0009;cargo 141 / npm 241 / tsc clean;下一计划 23-04)
+Status: Ready to execute
 Last activity: 2026-08-24
 
 ```
@@ -60,6 +60,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 22 P07 | 12m | 2 tasks | 6 files |
 | Phase 23 P01 | 25m | 2 tasks | 6 files |
 | Phase 23 P02 | 55m | 2 tasks | 10 files |
+| Phase 23 P03 | 45m | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,7 @@ v0.3.1 roadmap decisions:
 - [Phase 23]: 23-01: execute_async 签名定型(cancel+on_event 过渡 allow,23-02 消费);workspace_root 落 ToolCtx+LoopContext 双处(plan 写 tools.rs 的 LoopContext 实际定义在 loop_runner.rs,语义等价);webview 未知 kind 防护零改动(if-chain 天然落穿)
 - [Phase 23]: 23-02: exec 白名单=command+只读子命令二元组(basename 小写去 .exe 归一;堵 git push/裸 git);学习条目仅 command 级落 kv agent.exec.whitelist;确认后 Rust 重执行 settle [confirmed rerun]
 - [Phase 23]: 23-02: migration 0008 重开 candidates CHECK 加 exec_approval(SQLite 无法 ALTER CHECK,复用 0006 copy→drop→rename);tauri command future 须 Send,&Connection 不能跨 await → prepare/await/settle 三段;确认卡不进 sessionRestore(24h TTL 自然清)
+- [Phase 23]: 23-03: migration 0009 CHECK +fs_write(0008 同构);fs_write 候选走 params_hash dedup;fs 路径安全用 resolve_deep(逐级 canonicalize,支持缺失父目录)而非单叶 resolve_in_root
 
 ### TODOs (pending)
 

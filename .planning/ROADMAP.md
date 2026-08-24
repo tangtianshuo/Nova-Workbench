@@ -31,7 +31,15 @@
   3. Rust 是 agent_events/agent_artifacts/agent_confirmation_candidates/memory_candidates 唯一写者;TS 写路径下线后重启,无孤儿事件、无重复写入(ENG-02)
   4. replay parity 永久测试通过:Rust 引擎逐位回放 v0.3.x 存量事件日志(fixture 复用),ChatSession 投影与 TS 引擎输出一致(ENG-03)
   5. HITL 卡片确认/取消/编辑跨边界语义与现状一致,原子条件 UPDATE 消费保持(并发恰一成功);崩溃恢复(尾切 + 孤儿 tool_call interrupted 绝不重执行)行为与 v0.3.x 一致(ENG-04/05)
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+- [ ] 22-01-PLAN.md — PORT-01 协议定稿 + Wave 0 基建(依赖/DB probe/fixture 金样本)
+- [ ] 22-02-PLAN.md — 算法基石逐位复刻(tokenEstimate/ftsTokens/paramsHash)
+- [ ] 22-03-PLAN.md — event_log(append/invariants/artifacts/事务)+ confirmations(原子 UPDATE)
+- [ ] 22-04-PLAN.md — chat_session 投影 + compaction + fork + 投影 fixture
+- [ ] 22-05-PLAN.md — context_assembler + 最小工具集 + loop_runner + EngineEvent
+- [ ] 22-06-PLAN.md — engine_* 接线切换 + restore 崩溃恢复 + runToolLoop 归零
+- [ ] 22-07-PLAN.md — parity 永久测试(双侧 fixture + 真实 DB 抽样)
 **Research**: 建议先 `/gsd:research-phase` — toolLoop/compaction/contextAssembler 语义移植跨 Rust/TS 边界,TS 纯函数 + 217 测试为可执行规格,需先精确编码映射
 
 ### Phase 23: 工具层 + TS 工具桥
@@ -72,7 +80,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. 引擎核心 | 0/? | Not started | - |
+| 22. 引擎核心 | 0/7 | Not started | - |
 | 23. 工具层 + TS 工具桥 | 0/? | Not started | - |
 | 24. 多 run 并行 + 后台运行 | 0/? | Not started | - |
 | 25. 迁移收口 | 0/? | Not started | - |

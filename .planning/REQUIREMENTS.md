@@ -8,7 +8,7 @@
 
 ### 引擎核心 (ENG)
 
-- [ ] **ENG-01**: 用户在现有 ChatPanel 发起对话,由 Rust 引擎完成整轮 agent loop(意图→工具调用→配对落库→回复流式呈现),全程不经 TS toolLoop
+- [x] **ENG-01**: 用户在现有 ChatPanel 发起对话,由 Rust 引擎完成整轮 agent loop(意图→工具调用→配对落库→回复流式呈现),全程不经 TS toolLoop
 - [x] **ENG-02**: Rust 引擎是 agent_* 表(agent_events / agent_artifacts / agent_confirmation_candidates / memory_candidates)唯一写者;TS 写路径下线后重启无孤儿事件、无重复写入
 - [x] **ENG-03**: replay parity — Rust 引擎逐位回放 v0.3.x 存量事件日志,ChatSession 投影与 TS 引擎输出一致(fixture 复用,永久测试锁定)
 - [x] **ENG-04**: HITL 跨边界 — 确认候选由 Rust 落库并推送 webview,卡片确认/取消/编辑流语义与现状一致,原子消费保持(并发恰一成功)
@@ -65,7 +65,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ENG-01 | Phase 22 | Pending |
+| ENG-01 | Phase 22 | Complete |
 | ENG-02 | Phase 22 | Complete |
 | ENG-03 | Phase 22 | Complete |
 | ENG-04 | Phase 22 | Complete |

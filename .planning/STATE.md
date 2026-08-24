@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
 current_plan: 4 of 4
-status: executing
-last_updated: "2026-08-24T08:13:11.317Z"
+status: phase-complete
+last_updated: "2026-08-24T08:20:52.676Z"
 last_activity: 2026-08-24
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 
 Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
-Phase: 24 (multi-run-tray) — IN PROGRESS(24-01 done: scheduler cap3+FIFO + per-run Connection + 排队 UI;24-02 done: 托盘 + hide-on-close + 跳转)
+Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿,待 VERIFICATION)
 Current Plan: 4 of 4
-Status: Ready to execute 24-03 (notifications)
+Status: Phase 24 ready for verifier (/gsd:verify-work 24)
 Last activity: 2026-08-24
 
 ```
@@ -68,6 +68,7 @@ v0.3.2 progress: [░░░░░░░░░░░░░░░░░░░░] 
 | Phase 24 P01 | 45m | 2 tasks | 10 files |
 | Phase 24 P02 | 40m | 2 tasks | 7 files |
 | Phase 24 P03 | 35m | 2 tasks | 10 files |
+| Phase 24 P04 | 25m | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,7 @@ v0.3.1 roadmap decisions:
 - [Phase 24]: 24-01: EngineDb 扩 path 字段,per-run db::open;managed 单连接留 with_conn 系命令;take+restore 双删,engine busy 路径清除;event_log seq 注释改写(per-session 单写者=TS guard)
 - [Phase 24]: 24-02: scheduler on_change 回调(非 AppHandle 耦合)驱动托盘重建;Windows 左键=显示窗口(show_menu_on_left_click false);tray-open-session(session_id) 跳转;engine_run 加 session_title 参数
 - [Phase 24]: 24-03: 通知点击 focus-gated fallback(Windows toast 回调受限);exec/fs 确认卡 restore 走既有 listPending*/refresh 管线;notify 三点=Done/Error/Confirmation,cancel 不通知
+- [Phase 24]: engine_cancel 提取 engine_cancel_inner 可测核心,SCHED-04 三条全链路集成测试锁定取消语义(running 树杀+无孤儿+兄弟隔离、queued 立即出队、幂等)
 
 ### TODOs (pending)
 

@@ -105,13 +105,14 @@
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
 **Plans:** 3/3 plans complete
+**归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
 
 **Goal:** [Captured for future planning] 把 PM 领域工作流(竞品分析、PRD 生成、需求评审等)打包为可复用 skill:manifest(名称/描述/触发条件) + prompt 模板 + 允许调用的工具集 + 产出物卡槽。系统 prompt 只放 skill 描述,agent 按需经 FTS5 检索加载全文(同构 Claude Code skill 加载机制)。产出走 Phase 16 交付物管线(生成→HITL 确认→编辑→版本化落卡槽)。附带"从对话沉淀为 skill"入口 — 用户用得好的工作流沉淀为 skill,即第二大脑的活知识。
 **核心判断:** 不需要新架构 — 是 Phase 15(知识文档 + FTS5)与 Phase 16(交付物管线)的自然组装,增量仅为 skill manifest 类型 + 加载器。v0.2.0 的 `runProductSkill` mock 概念由此转正。
 **依赖:** Phase 15, 16 — 已全部落地;v0.3.2 后 Skill 可作为 Rust 引擎新入口直接接入
-**建议排期:** v0.4.0 候选(成本低、PM 价值直接)
+**建议排期:** v0.4.0 候选(成本低、PM 价值直接)— **归位确认 v0.4.0**(2026-08-24,与 999.4 协同)
 **Requirements:** TBD
 **Plans:** 0 plans
 
@@ -124,7 +125,7 @@
 2. 审批分级 — MCP 工具为外部代码,默认"外部写入一律 HITL 确认",内置工具才可按风险白名单
 3. Rust 工具注册表落地(v0.3.2 Phase 23)— **本里程碑交付**
 **依赖:** Phase 23(v0.3.2)
-**建议排期:** v0.4.0+(REQUIREMENTS v2 ENTRY-02)
+**建议排期:** v0.4.0+(REQUIREMENTS v2 ENTRY-02)— **归位推迟 v0.5+**(2026-08-24)
 **Requirements:** TBD
 **Plans:** 0 plans
 
@@ -134,6 +135,6 @@
 **核心判断:** 不泛化产品 — v1 垂类聚焦(PM)是护城河。只做"留门不盖房"的隔离:换垂类时只需换一份配置 + view 文案,Agent 骨架不动。
 **与 skill 系统(999.2)的关系:** pipeline 模板数据化后,skill manifest 可直接引用同一套模板格式,二者应协同设计避免两套模板 DSL。
 **预估成本:** 隔离动作本身约一两天。
-**建议排期:** v0.4.0 前后的技术投资,或与 999.2 同期
+**建议排期:** v0.4.0 前后的技术投资,或与 999.2 同期 — **归位确认与 999.2 同期 v0.4.0**(2026-08-24)
 **Requirements:** TBD
 **Plans:** 0 plans

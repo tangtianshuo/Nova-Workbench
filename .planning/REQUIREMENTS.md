@@ -38,17 +38,17 @@
 
 ### 多 Agent 编排 (SUBAGENT)
 
-- **SUB-01**: 编排 agent 经 spawn 工具创建子 agent run(父子 correlation_id + 父 loop await 子结果 + 取消传播)
+- **SUB-01**: 编排 agent 经 spawn 工具创建子 agent run(父子 correlation_id + 父 loop await 子结果 + 取消传播)— **v0.4.0**(ADR-0004)
 
 ### 新入口/新工具源 (ENTRY)
 
-- **ENTRY-01**: IM 入口 — 外部 IM 消息触发 run 并回复(无头)
-- **ENTRY-02**: MCP client(rmcp)— 第三方工具动态注册进 Rust 工具注册表,外部写入默认 HITL
-- **ENTRY-03**: Skill manifest — prompt 模板 + 允许工具集 + 产出卡槽,FTS5 按需加载
+- **ENTRY-01**: IM 入口 — 外部 IM 消息触发 run 并回复(无头)— **v0.5+**(2026-08-24 归位)
+- **ENTRY-02**: MCP client(rmcp)— 第三方工具动态注册进 Rust 工具注册表,外部写入默认 HITL — **v0.5+**(2026-08-24 归位)
+- **ENTRY-03**: Skill manifest — prompt 模板 + 允许工具集 + 产出卡槽,FTS5 按需加载 — **v0.4.0**(与 999.4 数据化协同)
 
 ### Pipeline (PIPE)
 
-- **PIPE-01**: 多步全自动 pipeline(DELIV-06)— 事件日志检查点语义评估,编排 run 依次 spawn 阶段 run + 确认队列当门
+- **PIPE-01**: 多步全自动 pipeline(DELIV-06)— 事件日志检查点语义评估,编排 run 依次 spawn 阶段 run + 确认队列当门 — **v0.4.0**(门 = 默认带 + 会话级跳过开关)
 
 ## Out of Scope
 

@@ -10,6 +10,7 @@ mod file_ops;
 mod keychain;
 mod llm;
 mod state;
+mod tray;
 mod workspace_scan;
 
 use state::AppState;
@@ -149,12 +150,26 @@ pub fn run() {
             engine::commands::engine_consume_memory,
             engine::commands::engine_reject_memory,
         ])
+        // 24-02 hide-on-close (SCHED-02): closing the window hides it — runs
+        // keep going; real exit is tray 「退出」 only.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .setup(|app| {
             // Set minimum window size
             #[cfg(desktop)]
             {
                 let window = app.get_webview_window("main").unwrap();
                 let _ = window.set_min_size(Some(tauri::LogicalSize::new(1200, 760)));
+                // 24-02 tray: resident icon + scheduler on_change → menu rebuild.
+                tray::init(app.handle())?;
+                let handle = app.handle().clone();
+                app.state::<AppState>()
+                    .scheduler
+                    .set_on_change(Box::new(move |runs| tray::rebuild(&handle, runs)));
             }
             // Phase 22 (22-06) engine wiring: manage the sole-writer DB slot
             // synchronously (commands can resolve the state immediately), then

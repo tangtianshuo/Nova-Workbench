@@ -72,6 +72,7 @@ Plan list:
   3. 后台 run 完成或等待确认时,用户收到托盘通知/角标,可一键回到对应 session(SCHED-03)
   4. 用户可取消运行中的 run(含后台 run),取消后子进程清理、事件日志状态一致(SCHED-04)
 **Plans**: TBD
+**Carry-in(23-VERIFICATION note,低危择机)**: exec/fs 确认卡 sessionRestore 不恢复(候选在 DB,24h TTL)— 后台 run 场景窗口重开需确认卡重现;顺手项,不阻塞 SC
 **UI hint**: yes(托盘/角标/通知为前端可见交互)
 
 ### Phase 25: 迁移收口

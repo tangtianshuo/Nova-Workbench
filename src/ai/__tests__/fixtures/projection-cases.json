@@ -1,0 +1,1621 @@
+[
+  {
+    "name": "basic-conversation",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-1",
+        "sessionId": "c1",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "帮我查任务"
+        }
+      },
+      {
+        "eventId": "ev-2",
+        "sessionId": "c1",
+        "seq": 2,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "没有任务"
+        }
+      },
+      {
+        "eventId": "ev-3",
+        "sessionId": "c1",
+        "seq": 3,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "帮我查任务"
+      },
+      {
+        "role": "assistant",
+        "content": "没有任务"
+      }
+    ]
+  },
+  {
+    "name": "tool-pairing-parallel",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-4",
+        "sessionId": "c2",
+        "seq": 1,
+        "eventType": "session_created",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "tokenBudget": 8000
+        }
+      },
+      {
+        "eventId": "ev-5",
+        "sessionId": "c2",
+        "seq": 2,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "查两个工具"
+        }
+      },
+      {
+        "eventId": "ev-6",
+        "sessionId": "c2",
+        "seq": 3,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "listTasks",
+          "args": {
+            "status": "open"
+          },
+          "content": "thinking"
+        }
+      },
+      {
+        "eventId": "ev-7",
+        "sessionId": "c2",
+        "seq": 4,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t2",
+          "toolName": "listProducts",
+          "args": {},
+          "content": "thinking"
+        }
+      },
+      {
+        "eventId": "ev-8",
+        "sessionId": "c2",
+        "seq": 5,
+        "eventType": "tool_result",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "listTasks",
+          "modelText": "[tool_result listTasks] {\"ok\":true,\"data\":[]}"
+        }
+      },
+      {
+        "eventId": "ev-9",
+        "sessionId": "c2",
+        "seq": 6,
+        "eventType": "tool_result",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t2",
+          "toolName": "listProducts",
+          "modelText": "[tool_result listProducts] {\"ok\":true,\"data\":[]}"
+        }
+      },
+      {
+        "eventId": "ev-10",
+        "sessionId": "c2",
+        "seq": 7,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "都查完了"
+        }
+      },
+      {
+        "eventId": "ev-11",
+        "sessionId": "c2",
+        "seq": 8,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "查两个工具"
+      },
+      {
+        "role": "assistant",
+        "content": "thinking"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result listTasks] {\"ok\":true,\"data\":[]}"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result listProducts] {\"ok\":true,\"data\":[]}"
+      },
+      {
+        "role": "assistant",
+        "content": "都查完了"
+      }
+    ]
+  },
+  {
+    "name": "hitl-pending-orphan-tool-call",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-12",
+        "sessionId": "c3",
+        "seq": 1,
+        "eventType": "session_created",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {}
+      },
+      {
+        "eventId": "ev-13",
+        "sessionId": "c3",
+        "seq": 2,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "删除这个任务"
+        }
+      },
+      {
+        "eventId": "ev-14",
+        "sessionId": "c3",
+        "seq": 3,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "需要确认后删除"
+        }
+      },
+      {
+        "eventId": "ev-15",
+        "sessionId": "c3",
+        "seq": 4,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "hitl_wait"
+        }
+      },
+      {
+        "eventId": "ev-16",
+        "sessionId": "c3",
+        "seq": 5,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "继续执行"
+        }
+      },
+      {
+        "eventId": "ev-17",
+        "sessionId": "c3",
+        "seq": 6,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t9",
+          "toolName": "deleteTask",
+          "args": {
+            "taskId": "x"
+          },
+          "content": ""
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "删除这个任务"
+      },
+      {
+        "role": "assistant",
+        "content": "需要确认后删除"
+      },
+      {
+        "role": "user",
+        "content": "继续执行"
+      },
+      {
+        "role": "assistant",
+        "content": ""
+      }
+    ]
+  },
+  {
+    "name": "compaction-summary-prepended",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-18",
+        "sessionId": "c4",
+        "seq": 1,
+        "eventType": "session_created",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {}
+      },
+      {
+        "eventId": "ev-19",
+        "sessionId": "c4",
+        "seq": 2,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "旧问题一"
+        }
+      },
+      {
+        "eventId": "ev-20",
+        "sessionId": "c4",
+        "seq": 3,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "旧回答一"
+        }
+      },
+      {
+        "eventId": "ev-21",
+        "sessionId": "c4",
+        "seq": 4,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-22",
+        "sessionId": "c4",
+        "seq": 5,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "旧问题二"
+        }
+      },
+      {
+        "eventId": "ev-23",
+        "sessionId": "c4",
+        "seq": 6,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "旧回答二"
+        }
+      },
+      {
+        "eventId": "ev-24",
+        "sessionId": "c4",
+        "seq": 7,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-25",
+        "sessionId": "c4",
+        "seq": 8,
+        "eventType": "compaction_completed",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "coveredSeqStart": 1,
+          "coveredSeqEnd": 7,
+          "summaryText": "早期历史摘要正文",
+          "model": "deepseek",
+          "generatedAt": "2026-08-18T01:00:00.000Z",
+          "coveredEventCount": 7
+        }
+      },
+      {
+        "eventId": "ev-26",
+        "sessionId": "c4",
+        "seq": 9,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "压缩后的问题"
+        }
+      },
+      {
+        "eventId": "ev-27",
+        "sessionId": "c4",
+        "seq": 10,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "压缩后的回答"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "[历史压缩摘要 | 覆盖事件 seq 1-7 | 生成于 2026-08-18T01:00:00.000Z | 模型 deepseek]\n早期历史摘要正文"
+      },
+      {
+        "role": "user",
+        "content": "压缩后的问题"
+      },
+      {
+        "role": "assistant",
+        "content": "压缩后的回答"
+      }
+    ]
+  },
+  {
+    "name": "fork-basic",
+    "fork": {
+      "parentSessionId": "p5",
+      "cutSeq": 5
+    },
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-28",
+        "sessionId": "p5",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "父代问题"
+        }
+      },
+      {
+        "eventId": "ev-29",
+        "sessionId": "p5",
+        "seq": 2,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "listTasks",
+          "args": {
+            "q": 1
+          },
+          "content": "查询中"
+        }
+      },
+      {
+        "eventId": "ev-30",
+        "sessionId": "p5",
+        "seq": 3,
+        "eventType": "tool_result",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "listTasks",
+          "modelText": "[tool_result listTasks] {\"ok\":true}"
+        }
+      },
+      {
+        "eventId": "ev-31",
+        "sessionId": "p5",
+        "seq": 4,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "父代回答"
+        }
+      },
+      {
+        "eventId": "ev-32",
+        "sessionId": "p5",
+        "seq": 5,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-33",
+        "sessionId": "c5",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "子代新话题"
+        }
+      },
+      {
+        "eventId": "ev-34",
+        "sessionId": "c5",
+        "seq": 2,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "子代回答"
+        }
+      },
+      {
+        "eventId": "ev-35",
+        "sessionId": "c5",
+        "seq": 3,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "父代问题"
+      },
+      {
+        "role": "assistant",
+        "content": "查询中"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result listTasks] {\"ok\":true}"
+      },
+      {
+        "role": "assistant",
+        "content": "父代回答"
+      },
+      {
+        "role": "user",
+        "content": "子代新话题"
+      },
+      {
+        "role": "assistant",
+        "content": "子代回答"
+      }
+    ]
+  },
+  {
+    "name": "fork-compaction-child-space-remap",
+    "fork": {
+      "parentSessionId": "p6",
+      "cutSeq": 3
+    },
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-36",
+        "sessionId": "p6",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "父代背景"
+        }
+      },
+      {
+        "eventId": "ev-37",
+        "sessionId": "p6",
+        "seq": 2,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "父代结论"
+        }
+      },
+      {
+        "eventId": "ev-38",
+        "sessionId": "p6",
+        "seq": 3,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-39",
+        "sessionId": "c6",
+        "seq": 1,
+        "eventType": "session_forked",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "parentSessionId": "p6",
+          "parentCutSeq": 3
+        }
+      },
+      {
+        "eventId": "ev-40",
+        "sessionId": "c6",
+        "seq": 2,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "子代旧问题"
+        }
+      },
+      {
+        "eventId": "ev-41",
+        "sessionId": "c6",
+        "seq": 3,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "子代旧回答"
+        }
+      },
+      {
+        "eventId": "ev-42",
+        "sessionId": "c6",
+        "seq": 4,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-43",
+        "sessionId": "c6",
+        "seq": 5,
+        "eventType": "compaction_started",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "reason": "token_pressure",
+          "splitSeq": 4
+        }
+      },
+      {
+        "eventId": "ev-44",
+        "sessionId": "c6",
+        "seq": 6,
+        "eventType": "compaction_completed",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "coveredSeqStart": 1,
+          "coveredSeqEnd": 4,
+          "summaryText": "子代压缩摘要",
+          "model": "deepseek",
+          "generatedAt": "2026-08-18T02:00:00.000Z"
+        }
+      },
+      {
+        "eventId": "ev-45",
+        "sessionId": "c6",
+        "seq": 7,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "压缩后的子代问题"
+        }
+      },
+      {
+        "eventId": "ev-46",
+        "sessionId": "c6",
+        "seq": 8,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "压缩后的子代回答"
+        }
+      },
+      {
+        "eventId": "ev-47",
+        "sessionId": "c6",
+        "seq": 9,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "[历史压缩摘要 | 覆盖事件 seq 4-7 | 生成于 2026-08-18T02:00:00.000Z | 模型 deepseek]\n子代压缩摘要"
+      },
+      {
+        "role": "user",
+        "content": "压缩后的子代问题"
+      },
+      {
+        "role": "assistant",
+        "content": "压缩后的子代回答"
+      }
+    ]
+  },
+  {
+    "name": "restore-unknown-marker",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-48",
+        "sessionId": "c7",
+        "seq": 1,
+        "eventType": "session_created",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {}
+      },
+      {
+        "eventId": "ev-49",
+        "sessionId": "c7",
+        "seq": 2,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "执行部署"
+        }
+      },
+      {
+        "eventId": "ev-50",
+        "sessionId": "c7",
+        "seq": 3,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "exec",
+          "args": {
+            "cmd": "deploy"
+          },
+          "content": "执行中"
+        }
+      },
+      {
+        "eventId": "ev-51",
+        "sessionId": "c7",
+        "seq": 4,
+        "eventType": "tool_result",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "exec",
+          "modelText": "[tool_result exec] {\"ok\":false,\"error\":\"interrupted: process killed during restore\"}",
+          "status": "unknown",
+          "interrupted": true,
+          "reason": "orphan_exec_settled_by_restore"
+        }
+      },
+      {
+        "eventId": "ev-52",
+        "sessionId": "c7",
+        "seq": 5,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed",
+          "toolCallsExecuted": 1
+        }
+      },
+      {
+        "eventId": "ev-53",
+        "sessionId": "c7",
+        "seq": 6,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "现在呢"
+        }
+      },
+      {
+        "eventId": "ev-54",
+        "sessionId": "c7",
+        "seq": 7,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "上次执行状态未知"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "执行部署"
+      },
+      {
+        "role": "assistant",
+        "content": "执行中"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result exec] {\"ok\":false,\"error\":\"interrupted: process killed during restore\"}"
+      },
+      {
+        "role": "user",
+        "content": "现在呢"
+      },
+      {
+        "role": "assistant",
+        "content": "上次执行状态未知"
+      }
+    ]
+  },
+  {
+    "name": "idempotency-payload-classification",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-55",
+        "sessionId": "c8",
+        "seq": 1,
+        "eventType": "session_created",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {}
+      },
+      {
+        "eventId": "ev-56",
+        "sessionId": "c8",
+        "seq": 2,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "再跑一次同样的查询"
+        }
+      },
+      {
+        "eventId": "ev-57",
+        "sessionId": "c8",
+        "seq": 3,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "listTasks",
+          "args": {
+            "status": "open"
+          },
+          "content": "查询",
+          "idempotency": "safe_rerun",
+          "verifyBeforeRerun": false
+        }
+      },
+      {
+        "eventId": "ev-58",
+        "sessionId": "c8",
+        "seq": 4,
+        "eventType": "tool_result",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t1",
+          "toolName": "listTasks",
+          "modelText": "[tool_result listTasks] {\"ok\":true,\"data\":[]}",
+          "idempotency": "safe_rerun"
+        }
+      },
+      {
+        "eventId": "ev-59",
+        "sessionId": "c8",
+        "seq": 5,
+        "eventType": "tool_call",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t2",
+          "toolName": "deleteTask",
+          "args": {
+            "taskId": "x"
+          },
+          "content": "删除前先验证",
+          "idempotency": "verify_first",
+          "verifyBeforeRerun": true
+        }
+      },
+      {
+        "eventId": "ev-60",
+        "sessionId": "c8",
+        "seq": 6,
+        "eventType": "tool_result",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "t2",
+          "toolName": "deleteTask",
+          "modelText": "[tool_result deleteTask] {\"ok\":true}",
+          "idempotency": "verify_first"
+        }
+      },
+      {
+        "eventId": "ev-61",
+        "sessionId": "c8",
+        "seq": 7,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "两次操作都完成了"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "再跑一次同样的查询"
+      },
+      {
+        "role": "assistant",
+        "content": "查询"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result listTasks] {\"ok\":true,\"data\":[]}"
+      },
+      {
+        "role": "assistant",
+        "content": "删除前先验证"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result deleteTask] {\"ok\":true}"
+      },
+      {
+        "role": "assistant",
+        "content": "两次操作都完成了"
+      }
+    ]
+  },
+  {
+    "name": "max-turns-window-ten-turns",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-62",
+        "sessionId": "c9",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题1"
+        }
+      },
+      {
+        "eventId": "ev-63",
+        "sessionId": "c9",
+        "seq": 2,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答1"
+        }
+      },
+      {
+        "eventId": "ev-64",
+        "sessionId": "c9",
+        "seq": 3,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-65",
+        "sessionId": "c9",
+        "seq": 4,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题2"
+        }
+      },
+      {
+        "eventId": "ev-66",
+        "sessionId": "c9",
+        "seq": 5,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答2"
+        }
+      },
+      {
+        "eventId": "ev-67",
+        "sessionId": "c9",
+        "seq": 6,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-68",
+        "sessionId": "c9",
+        "seq": 7,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题3"
+        }
+      },
+      {
+        "eventId": "ev-69",
+        "sessionId": "c9",
+        "seq": 8,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答3"
+        }
+      },
+      {
+        "eventId": "ev-70",
+        "sessionId": "c9",
+        "seq": 9,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-71",
+        "sessionId": "c9",
+        "seq": 10,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题4"
+        }
+      },
+      {
+        "eventId": "ev-72",
+        "sessionId": "c9",
+        "seq": 11,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答4"
+        }
+      },
+      {
+        "eventId": "ev-73",
+        "sessionId": "c9",
+        "seq": 12,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-74",
+        "sessionId": "c9",
+        "seq": 13,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题5"
+        }
+      },
+      {
+        "eventId": "ev-75",
+        "sessionId": "c9",
+        "seq": 14,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答5"
+        }
+      },
+      {
+        "eventId": "ev-76",
+        "sessionId": "c9",
+        "seq": 15,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-77",
+        "sessionId": "c9",
+        "seq": 16,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题6"
+        }
+      },
+      {
+        "eventId": "ev-78",
+        "sessionId": "c9",
+        "seq": 17,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答6"
+        }
+      },
+      {
+        "eventId": "ev-79",
+        "sessionId": "c9",
+        "seq": 18,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-80",
+        "sessionId": "c9",
+        "seq": 19,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题7"
+        }
+      },
+      {
+        "eventId": "ev-81",
+        "sessionId": "c9",
+        "seq": 20,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答7"
+        }
+      },
+      {
+        "eventId": "ev-82",
+        "sessionId": "c9",
+        "seq": 21,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-83",
+        "sessionId": "c9",
+        "seq": 22,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题8"
+        }
+      },
+      {
+        "eventId": "ev-84",
+        "sessionId": "c9",
+        "seq": 23,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答8"
+        }
+      },
+      {
+        "eventId": "ev-85",
+        "sessionId": "c9",
+        "seq": 24,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-86",
+        "sessionId": "c9",
+        "seq": 25,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题9"
+        }
+      },
+      {
+        "eventId": "ev-87",
+        "sessionId": "c9",
+        "seq": 26,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答9"
+        }
+      },
+      {
+        "eventId": "ev-88",
+        "sessionId": "c9",
+        "seq": 27,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      },
+      {
+        "eventId": "ev-89",
+        "sessionId": "c9",
+        "seq": 28,
+        "eventType": "user_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "问题10"
+        }
+      },
+      {
+        "eventId": "ev-90",
+        "sessionId": "c9",
+        "seq": 29,
+        "eventType": "assistant_message",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "回答10"
+        }
+      },
+      {
+        "eventId": "ev-91",
+        "sessionId": "c9",
+        "seq": 30,
+        "eventType": "turn_ended",
+        "createdAt": "2026-08-18T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "问题3"
+      },
+      {
+        "role": "assistant",
+        "content": "回答3"
+      },
+      {
+        "role": "user",
+        "content": "问题4"
+      },
+      {
+        "role": "assistant",
+        "content": "回答4"
+      },
+      {
+        "role": "user",
+        "content": "问题5"
+      },
+      {
+        "role": "assistant",
+        "content": "回答5"
+      },
+      {
+        "role": "user",
+        "content": "问题6"
+      },
+      {
+        "role": "assistant",
+        "content": "回答6"
+      },
+      {
+        "role": "user",
+        "content": "问题7"
+      },
+      {
+        "role": "assistant",
+        "content": "回答7"
+      },
+      {
+        "role": "user",
+        "content": "问题8"
+      },
+      {
+        "role": "assistant",
+        "content": "回答8"
+      },
+      {
+        "role": "user",
+        "content": "问题9"
+      },
+      {
+        "role": "assistant",
+        "content": "回答9"
+      },
+      {
+        "role": "user",
+        "content": "问题10"
+      },
+      {
+        "role": "assistant",
+        "content": "回答10"
+      }
+    ]
+  }
+]

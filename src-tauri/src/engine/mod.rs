@@ -8,3 +8,5 @@ pub mod token_estimate;
 pub mod event_log;
 pub mod confirmations;
 pub mod chat_session;
+pub mod compaction;
+pub mod fork;

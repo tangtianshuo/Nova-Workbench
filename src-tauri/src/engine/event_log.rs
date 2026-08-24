@@ -351,6 +351,11 @@ pub fn event_stream_issues(events: &[AgentEvent]) -> Vec<EventStreamIssue> {
     issues
 }
 
+/// Boolean convenience (TS `checkEventStream(events).length === 0`).
+pub fn check_event_stream_issues_free(events: &[AgentEvent]) -> bool {
+    event_stream_issues(events).is_empty()
+}
+
 /// Throws-equivalent: Err carries the exact TS assert format
 /// `[event-log] invariant violation: CODE@seqN[:toolCallId]; ...`
 pub fn check_event_stream(events: &[AgentEvent]) -> std::result::Result<(), String> {

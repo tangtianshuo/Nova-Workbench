@@ -125,6 +125,11 @@ pub fn run() {
             file_ops::fs_create_file,
             file_ops::fs_rename,
             file_ops::fs_move,
+            engine::commands::engine_run,
+            engine::commands::engine_cancel,
+            engine::commands::engine_confirm_candidate,
+            engine::commands::engine_reject_candidate,
+            engine::commands::engine_append_tool_result,
         ])
         .setup(|app| {
             // Set minimum window size
@@ -133,6 +138,36 @@ pub fn run() {
                 let window = app.get_webview_window("main").unwrap();
                 let _ = window.set_min_size(Some(tauri::LogicalSize::new(1200, 760)));
             }
+            // Phase 22 (22-06) engine wiring: manage the sole-writer DB slot
+            // synchronously (commands can resolve the state immediately), then
+            // open + assert + crash-restore the latest session off the UI path.
+            // tauri-plugin-sql migrations (0001-0007) already ran during plugin
+            // init — before this setup hook (22-RESEARCH §风险#2 order check).
+            use std::sync::Mutex;
+            app.manage(engine::commands::EngineDb(Mutex::new(None)));
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let path = engine::db::db_path(&handle);
+                let opened = match engine::db::open(&path) {
+                    Ok(conn) => engine::db::assert_schema(&conn).map(|_| conn),
+                    Err(e) => Err(e.to_string()),
+                };
+                match opened {
+                    Ok(conn) => {
+                        match engine::restore::restore_latest_session(&conn) {
+                            Ok(Some(report)) if !report.interrupted_tool_call_ids.is_empty() => eprintln!(
+                                "[engine] restored session {} (interrupted tool_calls: {:?})",
+                                report.session_id, report.interrupted_tool_call_ids
+                            ),
+                            Ok(_) => {}
+                            Err(e) => eprintln!("[engine] startup restore failed: {e}"),
+                        }
+                        let db = handle.state::<engine::commands::EngineDb>();
+                        *db.0.lock().unwrap() = Some(conn);
+                    }
+                    Err(e) => eprintln!("[engine] DB open/assert failed, engine commands disabled: {e}"),
+                }
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

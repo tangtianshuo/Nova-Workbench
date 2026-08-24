@@ -14,6 +14,10 @@ pub struct AppState {
     /// start, removed at request end (success OR error). `cancel_generate_project`
     /// looks up by request_id and fires `cancel()`.
     pub cancellations: Mutex<HashMap<String, tokio_util::sync::CancellationToken>>,
+    /// Phase 22 (22-06) run registry: run_id → CancellationToken for `engine_run`.
+    /// Same insert/remove lifecycle as `cancellations`; `engine_cancel` fires it.
+    /// Idempotent: cancelling an already-removed run_id is Ok (run ended).
+    pub engine_runs: Mutex<HashMap<String, tokio_util::sync::CancellationToken>>,
     /// Provider selected by Settings. API keys are intentionally not cached here.
     pub active_provider: Mutex<Provider>,
 }
@@ -22,6 +26,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             cancellations: Mutex::new(HashMap::new()),
+            engine_runs: Mutex::new(HashMap::new()),
             active_provider: Mutex::new(Provider::DeepSeek),
         }
     }

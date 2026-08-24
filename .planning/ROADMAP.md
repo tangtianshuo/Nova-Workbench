@@ -16,7 +16,8 @@
 
 - [x] **Phase 22: 引擎核心(loop 语义移植 + 事件唯一写者 + replay parity)** — toolLoop/compaction/contextAssembler 语义移植 Rust,Rust 接管 agent_* 表唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志逐位回放平价;PORT-01 协议最先定稿
  (completed 2026-08-24)
-- [x] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归) (completed 2026-08-24)
+- [x] **Phase 23: 工具层(原生工具集,无桥)** — Rust 工具注册表 + 首批 exec/fs/knowledge/deliverable 原生工具 + PM CRUD 缺席降级(无桥决策 2026-08-24,CRUD 归 v0.3.3 原生回归)
+ (completed 2026-08-24)
 - [ ] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
 - [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
 
@@ -71,7 +72,12 @@ Plan list:
   2. 用户关闭窗口(hide-on-close + 托盘常驻)后 run 继续执行;重开窗口时运行中状态与历史投影完整一致(SCHED-02)
   3. 后台 run 完成或等待确认时,用户收到托盘通知/角标,可一键回到对应 session(SCHED-03)
   4. 用户可取消运行中的 run(含后台 run),取消后子进程清理、事件日志状态一致(SCHED-04)
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 24-01-PLAN.md — 调度器核心:per-run Connection(除单 slot busy)+ FIFO cap 3 + queued 状态事件 + SCHED-01 并行集成测试
+- [ ] 24-02-PLAN.md — 托盘常驻 + hide-on-close + 动态 run 列表菜单 + 点击跳 session(SCHED-02)
+- [ ] 24-03-PLAN.md — 后台门控通知(完成/待确认)+ carry-in 确认卡 sessionRestore 恢复(SCHED-03)
+- [ ] 24-04-PLAN.md — SCHED-04 取消全链路集成测试 + 收口 gates
 **Carry-in(23-VERIFICATION note,低危择机)**: exec/fs 确认卡 sessionRestore 不恢复(候选在 DB,24h TTL)— 后台 run 场景窗口重开需确认卡重现;顺手项,不阻塞 SC
 **UI hint**: yes(托盘/角标/通知为前端可见交互)
 

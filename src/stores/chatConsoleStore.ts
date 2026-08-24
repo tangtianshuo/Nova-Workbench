@@ -3,14 +3,15 @@
 // Drawer host and the agent-tab page host share ONE conversation.
 // Transient store (never written to disk — same class as uiStore modal flags).
 import { create } from 'zustand';
+import { executeTool } from '@/src/ai';
 import {
-  confirmDestructiveAction,
-  confirmKnowledgeWrite,
-  executeTool,
-  rejectDestructiveAction,
-  rejectKnowledgeWrite,
-  runToolLoop,
-} from '@/src/ai';
+  engineAppendToolResult,
+  engineConfirmCandidate,
+  engineRejectCandidate,
+  engineRun,
+  type EnginePendingCandidate,
+} from '@/src/ai/api';
+import { buildCoreContext } from '@/src/ai/context';
 import {
   confirmDeliverableDraft,
   listPendingDeliverableDrafts,
@@ -56,6 +57,33 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
 
 export function formatMemoryTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/* === Phase 22 (22-06) engine candidate mapping === */
+
+/** Rust knowledge_write candidate ({kind, confirmationToken, summary, args})
+ * → TS KnowledgeWriteCandidate card shape. */
+function toKnowledgeWriteCandidate(
+  candidate: EnginePendingCandidate,
+  sessionId: string,
+): KnowledgeWriteCandidate {
+  return {
+    ...(candidate.args ?? {}),
+    confirmationToken: candidate.confirmationToken,
+    sessionId,
+  } as KnowledgeWriteCandidate;
+}
+
+/** Rust destructive_action candidate → TS DestructiveActionCandidate card. */
+function toDestructiveCandidate(
+  candidate: EnginePendingCandidate,
+): DestructiveActionCandidate {
+  return {
+    confirmationToken: candidate.confirmationToken,
+    toolName: String(candidate.args?.toolName ?? ''),
+    args: (candidate.args?.args as Record<string, unknown>) ?? {},
+    summary: candidate.summary ?? '',
+  } as DestructiveActionCandidate;
 }
 
 /* === Toast bridge (component binds useToast; store stays React-free) === */
@@ -453,39 +481,70 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       streamingTraceRef = [];
 
       try {
-        const result = await runToolLoop({
+        // Phase 22 (22-06): the whole agent turn runs in the Rust engine
+        // (engine_run + Channel<EngineEvent>). The TS runToolLoop is retired as
+        // a runtime caller — its source stays as the porting spec (Phase 25).
+        let engineKnowledgeCandidate: KnowledgeWriteCandidate | null = null;
+        let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
+        const result = await engineRun({
+          runId: crypto.randomUUID(),
           userMessage: trimmed,
+          sessionId: sessionRef.current.sessionId,
           provider,
-          session: sessionRef.current,
-          callbacks: {
-            onToken: (token) => {
-              streamingResponseRef += token;
-              set((current) => ({ streamingResponse: current.streamingResponse + token }));
-            },
-            onToolStart: (name) => {
+          ollamaModel: provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
+          workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+          productId: useUIStore.getState().selectedProductId,
+          coreContext: buildCoreContext(),
+          onEvent: (msg) => {
+            if (msg.kind === 'token' && msg.data?.text) {
+              streamingResponseRef += msg.data.text;
+              set((current) => ({ streamingResponse: current.streamingResponse + msg.data!.text }));
+              return;
+            }
+            if (msg.kind === 'tool_start' && msg.data?.name) {
+              const name = msg.data.name;
               updateTrace((current) => [
                 ...current,
                 { id: nextId++, name, status: 'running' },
               ]);
-            },
-            onToolEnd: (name, _result, error) => {
+              return;
+            }
+            if (msg.kind === 'tool_end' && msg.data?.name) {
+              const name = msg.data.name;
+              const failed = msg.data.ok === false;
               updateTrace((current) => {
                 const next = [...current];
                 for (let index = next.length - 1; index >= 0; index -= 1) {
                   if (next[index].name === name && next[index].status === 'running') {
-                    next[index] = { ...next[index], status: error ? 'error' : 'ok' };
+                    next[index] = { ...next[index], status: failed ? 'error' : 'ok' };
                     break;
                   }
                 }
                 return next;
               });
-              if (name === 'proposeMemory') void refreshMemoryCards();
-              if (name === 'generateDeliverable') void refreshPrdCard();
-            },
-            onDestructiveConfirmationRequired: (candidate) =>
-              set({ pendingDestructiveAction: candidate }),
+              if (name === 'memory_write') void refreshMemoryCards();
+              return;
+            }
+            if (msg.kind === 'confirmation' && msg.data?.candidate) {
+              const candidate = msg.data.candidate;
+              if (candidate.kind === 'knowledge_write') {
+                engineKnowledgeCandidate = toKnowledgeWriteCandidate(candidate, get().activeSessionId);
+              } else if (candidate.kind === 'destructive_action') {
+                engineDestructiveCandidate = toDestructiveCandidate(candidate);
+              } else if (candidate.kind === 'memory_write') {
+                void refreshMemoryCards();
+              }
+              return;
+            }
+            if (msg.kind === 'error' && msg.data?.message) {
+              console.error('[engine] stream error:', msg.data.message);
+            }
           },
         });
+
+        if (result.pendingConfirmation?.kind === 'knowledge_write' && !engineKnowledgeCandidate) {
+          engineKnowledgeCandidate = toKnowledgeWriteCandidate(result.pendingConfirmation, get().activeSessionId);
+        }
 
         const assistantContent = result.content || streamingResponseRef || 'AI 没有返回内容';
         set((current) => ({
@@ -498,8 +557,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
               toolTrace: streamingTraceRef.length > 0 ? streamingTraceRef : undefined,
             },
           ],
-          pendingConfirmation: result.pendingConfirmation ?? current.pendingConfirmation,
-          pendingDestructiveAction: result.pendingDestructiveConfirmation ?? current.pendingDestructiveAction,
+          pendingConfirmation: engineKnowledgeCandidate ?? current.pendingConfirmation,
+          pendingDestructiveAction: engineDestructiveCandidate ?? current.pendingDestructiveAction,
         }));
 
         if (result.truncated) {
@@ -529,11 +588,21 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       if (!pendingDestructiveAction || loading) return;
       set({ loading: true });
       try {
-        const candidate = await confirmDestructiveAction(pendingDestructiveAction.confirmationToken);
+        const candidate = pendingDestructiveAction;
+        // 22-06 确认接缝:confirm(Rust) → executeTool(TS) → 落库(Rust)
+        await engineConfirmCandidate(candidate.confirmationToken);
         const result = await executeTool(candidate.toolName, {
           ...candidate.args,
           confirmed: true,
           confirmationToken: candidate.confirmationToken,
+        });
+        await engineAppendToolResult({
+          sessionId: get().activeSessionId,
+          toolCallId: crypto.randomUUID(),
+          toolName: candidate.toolName,
+          ok: true,
+          payloadJson: result ?? {},
+          args: { toolName: candidate.toolName, args: candidate.args },
         });
         set((current) => ({
           messages: [...current.messages, {
@@ -557,7 +626,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     rejectDestructiveAction: async () => {
       const { pendingDestructiveAction } = get();
       if (!pendingDestructiveAction) return;
-      await rejectDestructiveAction(pendingDestructiveAction.confirmationToken);
+      await engineRejectCandidate(pendingDestructiveAction.confirmationToken);
       set((current) => ({
         pendingDestructiveAction: null,
         messages: [...current.messages, {
@@ -573,7 +642,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       if (!pendingConfirmation || loading) return;
       set({ loading: true });
       try {
-        const candidate = await confirmKnowledgeWrite(pendingConfirmation.confirmationToken);
+        const candidate = pendingConfirmation;
+        // 22-06 确认接缝:confirm(Rust) → executeTool(TS) → 落库(Rust)
+        await engineConfirmCandidate(candidate.confirmationToken);
         const result = await executeTool('writeKnowledgeArticle', {
           productId: candidate.productId,
           itemId: candidate.itemId,
@@ -585,6 +656,21 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           author: candidate.author,
           readTime: candidate.readTime,
           confirmationToken: candidate.confirmationToken,
+        });
+        await engineAppendToolResult({
+          sessionId: get().activeSessionId,
+          toolCallId: crypto.randomUUID(),
+          toolName: 'knowledge_write',
+          ok: true,
+          payloadJson: result ?? {},
+          args: {
+            productId: candidate.productId,
+            title: candidate.title,
+            category: candidate.category,
+            tags: candidate.tags,
+            content: candidate.content,
+            summary: candidate.summary,
+          },
         });
         set((current) => ({
           messages: [...current.messages, {
@@ -608,7 +694,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     rejectKnowledgeWrite: async () => {
       const { pendingConfirmation } = get();
       if (!pendingConfirmation) return;
-      await rejectKnowledgeWrite(pendingConfirmation.confirmationToken);
+      await engineRejectCandidate(pendingConfirmation.confirmationToken);
       set((current) => ({
         pendingConfirmation: null,
         messages: [...current.messages, {

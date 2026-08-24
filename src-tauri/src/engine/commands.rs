@@ -124,6 +124,7 @@ fn summarizer_bridge(
 /// CancellationToken in AppState.engine_runs for `engine_cancel`.
 #[tauri::command]
 pub async fn engine_run(
+    run_id: Option<String>,
     user_message: String,
     session_id: String,
     provider: String,
@@ -152,7 +153,9 @@ pub async fn engine_run(
         .take()
         .ok_or_else(|| AppError::InternalError("engine busy: another run holds the DB".into()))?;
 
-    let run_id = uuid::Uuid::new_v4().to_string();
+    // Webview-supplied run_id (cancel key, chat/cancel_chat requestId pattern);
+    // minted here when absent so raw invoke callers still work.
+    let run_id = run_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let cancel = CancellationToken::new();
     state.engine_runs.lock().unwrap().insert(run_id.clone(), cancel.clone());
 

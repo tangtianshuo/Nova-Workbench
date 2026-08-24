@@ -9,9 +9,11 @@ import {
   Warning,
   X,
 } from '@phosphor-icons/react';
-import { runToolLoop } from '@/src/ai/toolLoop';
+import { engineRun } from '@/src/ai/api';
+import { buildCoreContext } from '@/src/ai/context';
 import { executeTool, listToolNames, toolRegistry } from '@/src/ai';
 import { useUIStore } from '@/src/stores/uiStore';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { Button } from '@/src/components/ui/Button';
 import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { useToast } from '@/src/components/ui/Toast';
@@ -66,27 +68,44 @@ export function CmdKPalette() {
     setResponse('');
     setTrace([]);
     try {
-      const result = await runToolLoop({
+      // Phase 22 (22-06): CmdK chat runs on the Rust engine. Each palette chat
+      // is its own throwaway session (same as the retired TS no-session path).
+      const result = await engineRun({
+        runId: crypto.randomUUID(),
         userMessage: message,
+        sessionId: crypto.randomUUID(),
         provider,
-        callbacks: {
-          onToken: (token) => setResponse((current) => current + token),
-          onToolStart: (name) => setTrace((items) => [
-            ...items,
-            { id: Date.now() + items.length, name, status: 'running' },
-          ]),
-          onToolEnd: (name, _result, error) => setTrace((items) => {
-            const next = [...items];
-            let index = -1;
-            for (let cursor = next.length - 1; cursor >= 0; cursor -= 1) {
-              if (next[cursor].name === name && next[cursor].status === 'running') {
-                index = cursor;
-                break;
+        ollamaModel: provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
+        workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+        productId: useUIStore.getState().selectedProductId,
+        coreContext: buildCoreContext(),
+        onEvent: (msg) => {
+          if (msg.kind === 'token' && msg.data?.text) {
+            setResponse((current) => current + msg.data!.text!);
+          } else if (msg.kind === 'tool_start' && msg.data?.name) {
+            const name = msg.data.name;
+            setTrace((items) => [
+              ...items,
+              { id: Date.now() + items.length, name, status: 'running' },
+            ]);
+          } else if (msg.kind === 'tool_end' && msg.data?.name) {
+            const name = msg.data.name;
+            const failed = msg.data.ok === false;
+            setTrace((items) => {
+              const next = [...items];
+              let index = -1;
+              for (let cursor = next.length - 1; cursor >= 0; cursor -= 1) {
+                if (next[cursor].name === name && next[cursor].status === 'running') {
+                  index = cursor;
+                  break;
+                }
               }
-            }
-            if (index >= 0) next[index] = { ...next[index], status: error ? 'error' : 'ok' };
-            return next;
-          }),
+              if (index >= 0) next[index] = { ...next[index], status: failed ? 'error' : 'ok' };
+              return next;
+            });
+          } else if (msg.kind === 'error' && msg.data?.message) {
+            console.error('[engine] CmdK stream error:', msg.data.message);
+          }
         },
       });
       if (!response && result.content) setResponse(result.content);

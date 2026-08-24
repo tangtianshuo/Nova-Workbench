@@ -20,7 +20,7 @@
  (completed 2026-08-24)
 - [x] **Phase 24: 多 run 并行 + 后台运行(托盘)** — 调度器(spawn/await/cancel/并发上限)+ hide-on-close 托盘常驻 + 后台角标与通知
  (completed 2026-08-24)
-- [ ] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步
+- [x] **Phase 25: 迁移收口** — TS toolLoop 下线、双引擎代码删除、ADR-0003 转 Accepted、ARCHITECTURE.md/CLAUDE.md 同步 (completed 2026-08-24)
 
 ## Phase Details
 
@@ -92,7 +92,7 @@ Plans:
   3. 里程碑级人工 UAT:多 run 并行 + 后台托盘 + HITL 跨边界 + 崩溃恢复全链路通过
 **Plans**: 1 plan
 Plan list:
-- [ ] 25-01-PLAN.md — TS toolLoop/算法副本删除 + ADR-0003 Accepted + ARCHITECTURE/CLAUDE.md 同步(PORT-02/03;UAT defer milestone)
+- [x] 25-01-PLAN.md — TS toolLoop/算法副本删除 + ADR-0003 Accepted + ARCHITECTURE/CLAUDE.md 同步(PORT-02/03;UAT defer milestone)
 
 ## Progress
 
@@ -101,7 +101,7 @@ Plan list:
 | 22. 引擎核心 | 7/7 | Complete   | 2026-08-24 |
 | 23. 工具层(原生,无桥) | 5/5 | Complete   | 2026-08-24 |
 | 24. 多 run 并行 + 后台运行 | 4/4 | Complete   | 2026-08-24 |
-| 25. 迁移收口 | 0/1 | In progress | - |
+| 25. 迁移收口 | 1/1 | Complete   | 2026-08-24 |
 
 ## Coverage
 
@@ -130,7 +130,7 @@ Plan list:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 4/4 plans complete
+**Plans:** 1/1 plans complete
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

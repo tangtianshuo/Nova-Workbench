@@ -16,3 +16,4 @@ pub mod channel;
 pub mod loop_runner;
 pub mod restore;
 pub mod commands;
+pub mod parity;

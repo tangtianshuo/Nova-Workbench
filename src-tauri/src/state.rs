@@ -25,6 +25,9 @@ pub struct AppState {
     /// Shared handle (Arc inside) — engine_run acquires, engine_cancel's token
     /// dequeues via acquire's cancel branch.
     pub scheduler: Scheduler,
+    /// 24-03 (SCHED-03): session id of the last background-notified run.
+    /// Consumed by lib.rs on window focus → tray-open-session (click fallback).
+    pub last_notified_session: Mutex<Option<String>>,
 }
 
 impl AppState {
@@ -34,6 +37,7 @@ impl AppState {
             engine_runs: Mutex::new(HashMap::new()),
             active_provider: Mutex::new(Provider::DeepSeek),
             scheduler: Scheduler::new(),
+            last_notified_session: Mutex::new(None),
         }
     }
 }

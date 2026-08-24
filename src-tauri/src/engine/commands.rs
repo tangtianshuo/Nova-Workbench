@@ -21,6 +21,7 @@ use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmTool
 use crate::engine::{confirmations, exec, fs_ops, tools};
 use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
+use crate::notify;
 use crate::state::AppState;
 
 /// Managed DB state, filled in lib.rs setup. `conn` is the shared managed
@@ -145,6 +146,7 @@ pub async fn engine_run(
     session_title: Option<String>,
     core_context: String,
     on_event: Channel<EngineEvent>,
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     db: State<'_, EngineDb>,
 ) -> Result<EngineRunResult, AppError> {
@@ -162,7 +164,10 @@ pub async fn engine_run(
     let cancel = CancellationToken::new();
     state.engine_runs.lock().unwrap().insert(run_id.clone(), cancel.clone());
     // 24-02 tray metadata: jump target + display title for the run list.
-    state.scheduler.register(&run_id, session_id.clone(), session_title.unwrap_or_default());
+    // 24-03: title/session clones also feed the background notification gate.
+    let notify_title = session_title.unwrap_or_default();
+    state.scheduler.register(&run_id, session_id.clone(), notify_title.clone());
+    let notify_session = session_id.clone();
 
     // 24-01 scheduler gate: FIFO queue behind MAX_CONCURRENT=3. engine_cancel
     // fires the token — a queued run dequeues from acquire's cancel branch
@@ -197,6 +202,11 @@ pub async fn engine_run(
     let _permit = permit; // hold the slot for the whole run
 
     let err_channel = on_event.clone();
+    // Clones taken BEFORE the move closure so the originals stay usable by the
+    // completion/error notifications below.
+    let notify_app = app_handle.clone();
+    let notify_title_cb = notify_title.clone();
+    let notify_session_cb = notify_session.clone();
     let handle = tauri::async_runtime::spawn_blocking(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -204,6 +214,16 @@ pub async fn engine_run(
             .expect("engine runtime");
         let event_channel = on_event.clone();
         let on_event_cb: EventCallback = Arc::new(move |e: EngineEvent| {
+            // 24-03 SCHED-03: HITL wait → background notification (only when
+            // the window is hidden; the gate is inside notify_if_background).
+            if let EngineEvent::Confirmation { .. } = &e {
+                notify::notify_if_background(
+                    &notify_app,
+                    "Nova",
+                    &format!("等待确认: {notify_title_cb}"),
+                    &notify_session_cb,
+                );
+            }
             let _ = event_channel.send(e);
         });
         let llm_adapter = EngineLlm {
@@ -245,9 +265,25 @@ pub async fn engine_run(
     state.scheduler.unregister(&run_id);
 
     match result {
-        Ok(run_result) => Ok(run_result),
+        Ok(run_result) => {
+            // 24-03 SCHED-03: background notification on run completion.
+            // Cancel does NOT notify (the user clicked cancel themselves).
+            notify::notify_if_background(
+                &app_handle,
+                "Nova",
+                &format!("run 完成: {notify_title}"),
+                &notify_session,
+            );
+            Ok(run_result)
+        }
         Err(LoopError::Cancelled) => Err(AppError::Cancelled),
         Err(e) => {
+            notify::notify_if_background(
+                &app_handle,
+                "Nova",
+                &format!("run 失败: {notify_title}"),
+                &notify_session,
+            );
             let _ = err_channel.send(EngineEvent::Error { message: e.to_string() });
             Err(AppError::InternalError(e.to_string()))
         }

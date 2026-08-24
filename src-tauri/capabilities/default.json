@@ -13,6 +13,7 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-resizable",
     "shell:allow-open",
-    "dialog:default"
+    "dialog:default",
+    "notification:default"
   ]
 }

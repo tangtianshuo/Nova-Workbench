@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 // Phase 3 modules. Wave 1 ships the substrate (error/keychain/state/llm + commands
@@ -8,6 +8,7 @@ mod engine; // Phase 22: run engine (compiles + tests only; runtime wiring in 22
 mod error;
 mod file_ops;
 mod keychain;
+mod notify;
 mod llm;
 mod state;
 mod tray;
@@ -113,6 +114,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             get_gnome_color_scheme,
@@ -152,11 +154,27 @@ pub fn run() {
         ])
         // 24-02 hide-on-close (SCHED-02): closing the window hides it — runs
         // keep going; real exit is tray 「退出」 only.
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 let _ = window.hide();
             }
+            // 24-03 notification click fallback: the user came back (tray /
+            // toast click) — jump to the last background-notified session via
+            // the same tray-open-session path the tray list uses.
+            tauri::WindowEvent::Focused(true) => {
+                let target = window
+                    .app_handle()
+                    .state::<AppState>()
+                    .last_notified_session
+                    .lock()
+                    .unwrap()
+                    .take();
+                if let Some(session_id) = target {
+                    let _ = window.emit("tray-open-session", session_id);
+                }
+            }
+            _ => {}
         })
         .setup(|app| {
             // Set minimum window size

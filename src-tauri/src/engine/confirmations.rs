@@ -159,6 +159,7 @@ pub fn insert_candidate_raw(conn: &Connection, new: &NewCandidate) -> Result<Str
 /// - destructive_action: dedup by params_hash over active rows
 /// - deliverable_draft: dedup by (code, productId, title, draft) — eventId is
 ///   excluded from the dedup key so re-generation dedups to the original
+/// - exec_approval (23-02): dedup by params_hash over active rows
 /// - knowledge_write: no dedup (TS createKnowledgeWriteCandidate never dedups)
 pub fn create_candidate(
     conn: &Connection,
@@ -167,7 +168,7 @@ pub fn create_candidate(
     summary: Option<&str>,
     session_id: Option<&str>,
 ) -> Result<Candidate> {
-    if kind == "destructive_action" || kind == "deliverable_draft" {
+    if kind == "destructive_action" || kind == "deliverable_draft" || kind == "exec_approval" {
         let hash = params_hash(params);
         for row in list_pending(conn, kind)? {
             let dup = if kind == "destructive_action" {

@@ -62,6 +62,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0007_sessions.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "confirmation kind exec_approval",
+            sql: include_str!("../migrations/0008_confirmation_kind_exec.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

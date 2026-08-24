@@ -15,6 +15,7 @@ use tokio_util::sync::CancellationToken;
 use crate::engine::channel::EngineEvent;
 use crate::engine::confirmations;
 use crate::engine::context_assembler::search_knowledge_hybrid;
+use crate::engine::exec;
 use crate::engine::fts_tokens::{fts_match_string, fts_tokens};
 use crate::engine::params_hash::params_hash;
 
@@ -27,6 +28,7 @@ pub const PORT_01_SUFFIX: &str = " 若 tool_result 状态为 unknown,先验证(�
 const KNOWLEDGE_SEARCH_DESCRIPTION: &str = "Search product knowledge via FTS5 hybrid retrieval (keyword MATCH, current doc versions only, source metadata included). Chinese queries are per-char tokenized. No vector, embedding, semantic, or filesystem retrieval is performed.";
 const KNOWLEDGE_WRITE_DESCRIPTION: &str = "Stage a product knowledge article for user confirmation. The first call returns a candidate and requires explicit confirmation; only a confirmed matching token can write.";
 const MEMORY_WRITE_DESCRIPTION: &str = "Propose a long-term memory about the user. The first call returns a pending candidate that the user must confirm before it is stored.";
+const EXEC_DESCRIPTION: &str = "Run a read-only shell command in the workspace root. Takes an argv array (command + args) — no shell interpolation. Requires an active workspace; default timeout 120s. Whitelisted read-only commands (e.g. git status/diff/log/show/branch, ls, cat, rg) run directly; anything else returns a confirmation candidate the user must approve.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
 const CONFIRMATION_REQUIRED_MEMORY: &str = "Explicit confirmation is required before saving memory.";
@@ -39,6 +41,7 @@ pub enum ToolKind {
     Readonly,
     KnowledgeWrite,
     MemoryWrite,
+    Exec,
 }
 
 pub struct ToolSpec {
@@ -102,6 +105,23 @@ pub fn registry() -> Vec<ToolSpec> {
                 "additionalProperties": false
             }),
             kind: ToolKind::MemoryWrite,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "exec",
+            description: EXEC_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "command": { "type": "string", "minLength": 1 },
+                    "args": { "type": "array", "items": { "type": "string" }, "default": [] },
+                    "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 600000 }
+                },
+                "required": ["command"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Exec,
+            // Commands with side effects must not be blind-rerun (PORT-01).
             idempotency: "verify_first",
         },
         // ORCHESTRATOR RULING (22-05 plan / ADR-0003): PM CRUD tools
@@ -170,10 +190,8 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
     }
 }
 
-/// Async dispatch entry (23-01, signature frozen): exec/LLM-backed tools land
-/// here in 23-02+; sync tools route straight through `execute`. cancel/on_event
-/// are consumed when the first async tool arrives — transitional allow until then.
-#[allow(unused_variables)]
+/// Async dispatch entry (23-01, signature frozen): exec lands here (23-02),
+/// sync tools route straight through `execute`.
 pub async fn execute_async(
     conn: &Connection,
     name: &str,
@@ -182,7 +200,10 @@ pub async fn execute_async(
     cancel: CancellationToken,
     on_event: &(dyn Fn(EngineEvent) + Send + Sync),
 ) -> ToolOutcome {
-    execute(conn, name, args, ctx)
+    match name {
+        "exec" => exec::run(conn, args, ctx, cancel, on_event).await,
+        _ => execute(conn, name, args, ctx),
+    }
 }
 
 fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
@@ -323,15 +344,16 @@ mod tests {
     fn schemas_three_tools_with_port01_suffix() {
         let schemas = schemas();
         let names: Vec<&str> = schemas.iter().map(|s| s["name"].as_str().unwrap()).collect();
-        assert_eq!(names, vec!["knowledge_search", "knowledge_write", "memory_write"]);
+        assert_eq!(names, vec!["knowledge_search", "knowledge_write", "memory_write", "exec"]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));
             assert!(s["parameters"].is_object());
         }
-        // idempotency classes: 1 rerunnable + 2 verify_first
+        // idempotency classes: 1 rerunnable + 3 verify_first
         assert_eq!(idempotency("knowledge_search"), "rerunnable");
         assert_eq!(idempotency("knowledge_write"), "verify_first");
         assert_eq!(idempotency("memory_write"), "verify_first");
+        assert_eq!(idempotency("exec"), "verify_first");
         assert_eq!(idempotency("createTask"), "verify_first"); // old-event default
     }
 

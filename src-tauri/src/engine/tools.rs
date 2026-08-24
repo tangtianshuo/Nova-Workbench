@@ -36,9 +36,18 @@ const FS_WRITE_DESCRIPTION: &str = "Write content to a workspace file (workspace
 const FS_MKDIR_DESCRIPTION: &str = "Create a directory (with parents) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_DELETE_DESCRIPTION: &str = "Delete a file or directory (recursive) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_MOVE_DESCRIPTION: &str = "Move/rename within the workspace; src and dest are workspace-root-relative. Returns a confirmation candidate requiring user approval.";
+const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft (currently PRD only) for the currently selected product. You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
 const CONFIRMATION_REQUIRED_MEMORY: &str = "Explicit confirmation is required before saving memory.";
+const CONFIRMATION_REQUIRED_DELIVERABLE: &str = "Explicit confirmation is required before committing the deliverable.";
+
+/// deliverable code → R&D slot (generateDeliverable.ts SLOT_BY_CODE parity).
+const SLOT_BY_CODE: &[(&str, &str)] = &[("prd", "DEL-REQ-01")];
+
+pub fn slot_by_code(code: &str) -> Option<&'static str> {
+    SLOT_BY_CODE.iter().find(|(c, _)| *c == code).map(|(_, s)| *s)
+}
 
 pub type Error = Box<dyn std::error::Error>;
 type Result<T> = std::result::Result<T, Error>;
@@ -50,6 +59,7 @@ pub enum ToolKind {
     MemoryWrite,
     Exec,
     Fs,
+    Deliverable,
 }
 
 pub struct ToolSpec {
@@ -209,9 +219,29 @@ pub fn registry() -> Vec<ToolSpec> {
             kind: ToolKind::Fs,
             idempotency: "verify_first",
         },
+        ToolSpec {
+            name: "generate_deliverable",
+            description: GENERATE_DELIVERABLE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "code": { "type": "string", "enum": ["prd"] },
+                    "title": { "type": "string", "minLength": 1 },
+                    "draft": { "type": "string", "minLength": 1 },
+                    "confirmationToken": { "type": "string", "minLength": 1 }
+                },
+                "required": ["code", "title", "draft"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Deliverable,
+            // Pure candidate enqueue — but committing the confirmed draft is a
+            // user action (webview), never a model retry (PORT-01).
+            idempotency: "verify_first",
+        },
         // ORCHESTRATOR RULING (22-05 plan / ADR-0003): PM CRUD tools
-        // (createTask / updateTask / schedule CRUD / ...) are NOT registered in
-        // Phase 22 — no TS bridge yet. Phase 23 restores them via the bridge.
+        // (createTask / updateTask / schedule CRUD / ...) are NOT registered —
+        // no bridge in v0.3.2 (ruling 2026-08-24); Rust-native return in v0.3.3
+        // after business-data relationalization.
     ]
 }
 
@@ -274,6 +304,7 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "fs_mkdir" => fs_ops::fs_mkdir(conn, args, ctx),
         "fs_delete" => fs_ops::fs_delete(conn, args, ctx),
         "fs_move" => fs_ops::fs_move(conn, args, ctx),
+        "generate_deliverable" => execute_generate_deliverable(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -408,6 +439,72 @@ fn execute_memory_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> T
     }
 }
 
+/// generate_deliverable — pure candidate enqueue (23-04, TS generateDeliverable.ts
+/// :81-84 parity): the MODEL writes the full draft in `draft`; this tool makes
+/// ZERO LLM calls. Committing the confirmed draft is a webview user action
+/// (engine_commit_deliverable), so a model call carrying confirmationToken is
+/// an arg_error steering it away from self-committing.
+fn execute_generate_deliverable(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if args.get("confirmationToken").is_some() {
+        return ToolOutcome::Failed {
+            message: "Tool \"generate_deliverable\" arg validation failed: committing is a user action; call once without confirmationToken to queue the draft".into(),
+            arg_error: true,
+        };
+    }
+    let Some(code) = str_arg(args, "code") else {
+        return ToolOutcome::Failed {
+            message: "Tool \"generate_deliverable\" arg validation failed: code must be a non-empty string".into(),
+            arg_error: true,
+        };
+    };
+    if slot_by_code(code).is_none() {
+        return ToolOutcome::Failed {
+            message: "Tool \"generate_deliverable\" arg validation failed: code must be one of \"prd\"".into(),
+            arg_error: true,
+        };
+    }
+    for key in ["title", "draft"] {
+        if str_arg(args, key).is_none() {
+            return ToolOutcome::Failed {
+                message: format!("Tool \"generate_deliverable\" arg validation failed: {key} must be a non-empty string"),
+                arg_error: true,
+            };
+        }
+    }
+    let Some(product_id) = ctx.product_id else {
+        return ToolOutcome::Failed {
+            message: "Select a product before generating a deliverable.".into(),
+            arg_error: false,
+        };
+    };
+    // Params shape mirrors TS deliverableParams (confirmations.ts:336-342);
+    // the four-key dedup (code/productId/title/draft) lives in create_candidate.
+    let params = json!({
+        "code": code,
+        "productId": product_id,
+        "title": args["title"],
+        "draft": args["draft"],
+        "sessionId": ctx.session_id,
+        "eventId": Value::Null,
+    });
+    let title = str_arg(args, "title").unwrap_or_default();
+    match confirmations::create_candidate(conn, "deliverable_draft", &params, Some(title), Some(ctx.session_id)) {
+        Ok(candidate) => ToolOutcome::AwaitConfirmation {
+            candidate: json!({
+                "kind": "deliverable_draft",
+                "confirmationToken": candidate.confirmation_token,
+                "code": code,
+                "title": title,
+                "draft": args["draft"],
+                "productId": product_id,
+            }),
+            wait_key: "error",
+            wait_value: CONFIRMATION_REQUIRED_DELIVERABLE.into(),
+        },
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
 /* === Tests === */
 
 #[cfg(test)]
@@ -437,7 +534,8 @@ mod tests {
         let names: Vec<&str> = schemas.iter().map(|s| s["name"].as_str().unwrap()).collect();
         assert_eq!(names, vec![
             "knowledge_search", "knowledge_write", "memory_write", "exec",
-            "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move"
+            "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
+            "generate_deliverable"
         ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));
@@ -453,7 +551,73 @@ mod tests {
         for t in ["fs_write", "fs_mkdir", "fs_delete", "fs_move"] {
             assert_eq!(idempotency(t), "verify_first");
         }
+        assert_eq!(idempotency("generate_deliverable"), "verify_first");
         assert_eq!(idempotency("createTask"), "verify_first"); // old-event default
+    }
+
+    #[test]
+    fn generate_deliverable_queues_candidate_and_dedups() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let args = json!({"code": "prd", "title": "PRD v1", "draft": "# 草稿"});
+        let token = match execute(&conn, "generate_deliverable", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
+                assert_eq!(wait_key, "error");
+                assert_eq!(wait_value, "Explicit confirmation is required before committing the deliverable.");
+                assert_eq!(candidate["kind"], "deliverable_draft");
+                assert_eq!(candidate["code"], "prd");
+                assert_eq!(candidate["title"], "PRD v1");
+                candidate["confirmationToken"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        };
+        // Stored row: kind + four-key dedup params.
+        let stored = confirmations::get(&conn, &token).unwrap().expect("row");
+        assert_eq!(stored.kind, "deliverable_draft");
+        assert_eq!(stored.params["productId"], "p1");
+        assert_eq!(stored.params["draft"], "# 草稿");
+        // Same draft again → same token (dedup), no new row.
+        let again = match execute(&conn, "generate_deliverable", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                candidate["confirmationToken"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        };
+        assert_eq!(token, again);
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_confirmation_candidates WHERE kind = 'deliverable_draft'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+        // Edited draft → different dedup key → new candidate.
+        match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v1", "draft": "# 新稿"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_ne!(candidate["confirmationToken"].as_str().unwrap(), token);
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn generate_deliverable_arg_errors_and_no_product() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        for (args, why) in [
+            (json!({}), "no fields"),
+            (json!({"code": "prd"}), "missing title/draft"),
+            (json!({"code": "roadmap", "title": "T", "draft": "D"}), "bad code enum"),
+            (json!({"code": "prd", "title": "T", "draft": "D", "confirmationToken": "tok"}), "self-commit"),
+        ] {
+            match execute(&conn, "generate_deliverable", &args, &ctx) {
+                ToolOutcome::Failed { arg_error: true, .. } => {}
+                other => panic!("{why}: expected arg_error Failed, got {other:?}"),
+            }
+        }
+        // No product selected → non-arg failure (precondition, retry can't fix).
+        let no_product = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "T", "draft": "D"}), &no_product) {
+            ToolOutcome::Failed { arg_error: false, .. } => {}
+            other => panic!("expected precondition Failed, got {other:?}"),
+        }
     }
 
     #[test]

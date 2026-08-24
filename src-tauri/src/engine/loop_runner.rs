@@ -85,11 +85,13 @@ pub struct LoopContext<'a> {
     pub summarizer: Option<&'a mut dyn FnMut(&str) -> Result<String, String>>,
 }
 
-// prompts.ts PHASE_9_ROLE_AND_TOOL_RULES verbatim. The Phase 10 task/schedule
-// guideline block is NOT included: those PM tools are unregistered in Phase 22
-// (orchestrator ruling) — Phase 23 re-adds tools and this prompt together.
-// Date context is likewise a 22-06 wiring concern.
-const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.";
+// Phase 23 (23-04) adapted guideline block: lists the ACTUAL native tool set
+// (exec/fs/knowledge/deliverable) + the PM CRUD degradation note (no-bridge
+// ruling: task/schedule CRUD return as Rust-native tools in v0.3.3; until then
+// the model guides the user to act manually). NOT the original Phase 10 PM
+// guideline text — that returns together with the tools in v0.3.3.
+// Date context is a 22-06 wiring concern.
+const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), and generate_deliverable (queue a PRD draft for user confirmation — you write the full draft content yourself in the draft parameter).\nTask and schedule CRUD tools are not available in this version; guide the user to create them manually in the Tasks/Schedule views. They return in a later release.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.";
 
 pub fn build_system_prompt(core_context: &str) -> String {
     format!("{ROLE_AND_TOOL_RULES}\n\n## Phase 9 Current Workspace Context\n\n{core_context}")
@@ -489,6 +491,31 @@ mod tests {
     // EngineEvent deserialization isn't derived; compare wire JSON instead.
     fn kinds(events: &[Value]) -> Vec<&str> {
         events.iter().map(|e| e["kind"].as_str().unwrap()).collect()
+    }
+
+    // 23-04: adapted tool guideline + PM CRUD degradation (TOOL-03).
+    #[test]
+    fn system_prompt_has_degradation_note_and_no_crud_tools() {
+        let prompt = build_system_prompt("核心事实");
+        // Degradation wording present...
+        assert!(prompt.contains("manually"), "{prompt}");
+        assert!(prompt.contains("not available in this version"));
+        // ...describing every native tool...
+        for name in [
+            "knowledge_search", "knowledge_write", "memory_write", "exec",
+            "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
+            "generate_deliverable",
+        ] {
+            assert!(prompt.contains(name), "prompt missing {name}");
+        }
+        assert!(prompt.ends_with("核心事实"));
+        // ...and the model schema carries NO PM CRUD tool (TOOL-03 lock).
+        let schemas = tools::schemas();
+        let names: Vec<&str> = schemas.iter().map(|s| s["name"].as_str().unwrap()).collect();
+        for absent in ["createTask", "updateTask", "deleteTask", "createSchedule", "updateSchedule", "createProject"] {
+            assert!(!names.contains(&absent), "schema must not contain {absent}");
+        }
+        assert_eq!(schemas.len(), 11);
     }
 
     #[test]

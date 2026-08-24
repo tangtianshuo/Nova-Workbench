@@ -49,6 +49,51 @@ pub fn assert_schema(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Test-only connections with the full shared migration suite applied.
+/// Single source: the same src-tauri/migrations/ directory tauri-plugin-sql runs.
+#[cfg(test)]
+pub mod testing {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    fn run_migrations(conn: &Connection) {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/migrations");
+        let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.extension().map_or(false, |e| e == "sql"))
+            .collect();
+        files.sort();
+        for f in files {
+            let sql = std::fs::read_to_string(&f).unwrap();
+            conn.execute_batch(&sql)
+                .unwrap_or_else(|e| panic!("migration {} failed: {e}", f.display()));
+        }
+    }
+
+    /// In-memory DB with all migrations applied (per-connection; not shareable).
+    pub fn mem_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        run_migrations(&conn);
+        conn
+    }
+
+    /// File-backed DB in the temp dir (WAL, shareable across threads/connections).
+    /// Returns the migrated connection; the path is derivable via `conn.path()`.
+    pub fn file_conn(name: &str) -> Connection {
+        let path = std::env::temp_dir().join(format!("nova-engine-test-{name}-{}.db", uuid::Uuid::new_v4()));
+        let conn = open(&path).expect("open temp file DB");
+        run_migrations(&conn);
+        conn
+    }
+
+    /// Open a second connection to an existing file DB (WAL + busy_timeout).
+    pub fn open_file(path: &Path) -> Connection {
+        open(path).expect("reopen temp file DB")
+    }
+}
+
 /// UAT probe (ignored by default — needs the real dev DB):
 /// `NOVA_DB=/abs/path/nova.db cargo test probe_db_path -- --ignored`
 #[test]

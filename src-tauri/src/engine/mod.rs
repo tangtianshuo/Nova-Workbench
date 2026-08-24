@@ -5,3 +5,4 @@ pub mod db;
 pub mod params_hash;
 pub mod fts_tokens;
 pub mod token_estimate;
+pub mod event_log;

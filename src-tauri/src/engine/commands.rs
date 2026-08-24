@@ -188,14 +188,7 @@ pub async fn engine_run(
 
     // Per-run Connection (24-01): the managed slot stays untouched for
     // non-run commands; WAL + busy_timeout keep concurrent writers safe.
-    let db_path = db
-        .1
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or_else(|| AppError::InternalError("engine DB not ready".into()))?;
-    let conn = crate::engine::db::open(&db_path)
-        .map_err(|e| AppError::InternalError(format!("open engine DB: {e}")))?;
+    let conn = open_run_conn(&db)?;
     let _permit = permit; // hold the slot for the whole run
 
     let err_channel = on_event.clone();
@@ -319,6 +312,18 @@ fn with_conn<T>(db: &State<'_, EngineDb>, f: impl FnOnce(&Connection) -> Result<
     f(conn)
 }
 
+/// Per-run Connection from the stored DB path (24-01). The managed slot
+/// stays with the quick non-await commands via `with_conn`.
+fn open_run_conn(db: &State<'_, EngineDb>) -> Result<Connection, AppError> {
+    let path = db
+        .1
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| AppError::InternalError("engine DB not ready".into()))?;
+    crate::engine::db::open(&path).map_err(|e| AppError::InternalError(format!("open engine DB: {e}")))
+}
+
 /// Confirm an exec_approval candidate, optionally learn the command into the
 /// whitelist, then RE-EXECUTE in Rust (23-02: no TS executeTool seam for exec)
 /// and settle via append_tool_result_inner ([confirmed rerun] pairing).
@@ -330,12 +335,9 @@ pub async fn engine_exec_confirmed(
     allow_permanently: bool,
     db: State<'_, EngineDb>,
 ) -> Result<Value, AppError> {
-    let conn = db
-        .0
-        .lock()
-        .unwrap()
-        .take()
-        .ok_or_else(|| AppError::InternalError("engine busy: another run holds the DB".into()))?;
+    // 24-01: per-run Connection from the stored path (the managed slot is no
+    // longer taken — runs don't contend with confirm commands anymore).
+    let conn = open_run_conn(&db)?;
     // Sync prelude/settle around the await: &Connection is !Send, so it must
     // not live across the subprocess await.
     let prepared = exec_confirmed_prepare(&conn, &token, allow_permanently);
@@ -346,7 +348,6 @@ pub async fn engine_exec_confirmed(
         }
         Err(e) => Err(e),
     };
-    *db.0.lock().unwrap() = Some(conn);
     result
 }
 

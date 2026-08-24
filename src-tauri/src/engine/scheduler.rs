@@ -104,8 +104,15 @@ impl Scheduler {
         on_queued: impl FnOnce(),
     ) -> Result<Permit, Cancelled> {
         let (tx, rx) = oneshot::channel();
-        let _ = (tx, rx);
-        todo!("acquire — RED");
+        {
+            let mut state = self.0.state.lock().unwrap();
+            if state.active.len() < MAX_CONCURRENT {
+                state.active.push(run_id.to_string());
+                return Ok(Permit { inner: self.0.clone(), run_id: run_id.to_string() });
+            }
+            on_queued();
+            state.queue.push_back(Waiter { run_id: run_id.to_string(), tx });
+        }
         tokio::select! {
             _ = cancel.cancelled() => {
                 let mut state = self.0.state.lock().unwrap();
@@ -151,8 +158,7 @@ mod tests {
     #[test]
     fn cap_three_then_fifo_promotion() {
         let sched = Scheduler::new();
-        let rt = rt();
-        tokio::task::LocalSet::new().block_on(&rt, async {
+        rt().block_on(async {
             let p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
             let _p2 = sched.acquire("r2", CancellationToken::new(), || {}).await.unwrap();
             let _p3 = sched.acquire("r3", CancellationToken::new(), || {}).await.unwrap();
@@ -160,9 +166,9 @@ mod tests {
             // 4th run queues (Test 1).
             let queued = Arc::new(AtomicBool::new(false));
             let flag = queued.clone();
-            let handle = tokio::task::spawn_local({
+            let handle = tokio::spawn({
                 let sched = sched.clone();
-                async move { sched.acquire("r4", CancellationToken::new(), move || flag.store(true, Ordering::SeqCst)).await.is_ok() }
+                async move { sched.acquire("r4", CancellationToken::new(), move || flag.store(true, Ordering::SeqCst)).await }
             });
             while !queued.load(Ordering::SeqCst) {
                 tokio::task::yield_now().await;
@@ -178,7 +184,7 @@ mod tests {
             );
 
             drop(p1); // FIFO: r4 promoted (Test 1).
-            assert!(handle.await.unwrap());
+            let p4 = handle.await.unwrap().expect("r4 promoted");
             assert_eq!(
                 sched.snapshot(),
                 vec![
@@ -187,31 +193,41 @@ mod tests {
                     ("r4".into(), RunStatus::Running),
                 ]
             );
+            drop(p4);
         });
     }
 
     #[test]
     fn cancel_queued_dequeues_without_consuming_slot() {
         let sched = Scheduler::new();
-        let rt = rt();
-        tokio::task::LocalSet::new().block_on(&rt, async {
-            let _p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
+        rt().block_on(async {
+            let p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
             let _p2 = sched.acquire("r2", CancellationToken::new(), || {}).await.unwrap();
             let _p3 = sched.acquire("r3", CancellationToken::new(), || {}).await.unwrap();
 
             let cancel4 = CancellationToken::new();
-            let handle = tokio::task::spawn_local({
+            let handle = tokio::spawn({
                 let sched = sched.clone();
                 let cancel = cancel4.clone();
                 async move { sched.acquire("r4", cancel, || {}).await.is_err() }
             });
-            tokio::task::yield_now().await;
+            // Wait until r4 is parked in the queue, then cancel it.
+            while sched.snapshot().iter().all(|(id, _)| id != "r4") {
+                tokio::task::yield_now().await;
+            }
             cancel4.cancel();
             assert!(handle.await.unwrap(), "queued run cancels immediately");
             assert!(sched.snapshot().iter().all(|(id, _)| id != "r4"), "dequeued");
 
-            // Slot not consumed: next run starts immediately (Test 3).
+            // Cancel consumed no slot: after one permit drops, r5 starts
+            // immediately (no phantom active entry, no stale queue head).
+            drop(p1);
             let p5 = sched.acquire("r5", CancellationToken::new(), || {}).await.unwrap();
+            assert_eq!(sched.snapshot(), vec![
+                ("r2".into(), RunStatus::Running),
+                ("r3".into(), RunStatus::Running),
+                ("r5".into(), RunStatus::Running),
+            ]);
             drop(p5);
         });
     }
@@ -219,8 +235,7 @@ mod tests {
     #[test]
     fn cancel_running_releases_slot_via_permit_drop() {
         let sched = Scheduler::new();
-        let rt = rt();
-        tokio::task::LocalSet::new().block_on(&rt, async {
+        rt().block_on(async {
             let cancel = CancellationToken::new();
             let p1 = sched.acquire("r1", cancel.clone(), || {}).await.unwrap();
             cancel.cancel(); // engine_cancel semantics: token fires

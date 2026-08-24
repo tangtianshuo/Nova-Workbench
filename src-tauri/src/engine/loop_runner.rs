@@ -826,4 +826,53 @@ mod tests {
         assert_eq!(n, 1);
         std::fs::remove_dir_all(&root).ok();
     }
+
+    /* === 24-01 SCHED-01: two runs, two per-run connections, one WAL file DB === */
+
+    #[test]
+    fn two_runs_parallel_file_db_streams_isolated() {
+        use crate::engine::db::testing::{file_conn, open_file};
+        let conn = file_conn("sched_parallel");
+        let path = std::path::PathBuf::from(conn.path().expect("file-backed").to_string());
+
+        // Each thread opens its own Connection (24-01 engine_run shape) and
+        // runs a full fake-LLM turn against its own session.
+        let run_turn = |path: std::path::PathBuf, session: String| {
+            std::thread::spawn(move || {
+                let conn = open_file(&path);
+                let llm = FakeLlm::new(vec![LlmTurn { content: format!("done-{session}"), tool_calls: vec![] }]);
+                let ctx = LoopContext {
+                    conn: &conn,
+                    session_id: session,
+                    user_message: "并行run".into(),
+                    workspace_id: None,
+                    product_id: None,
+                    provider: "deepseek".into(),
+                    ollama_model: None,
+                    workspace_root: None,
+                    core_context: "核心事实".into(),
+                    llm: Box::new(llm),
+                    summarizer: None,
+                };
+                let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+                rt.block_on(run_tool_loop(ctx, CancellationToken::new(), Arc::new(|_| {}))).is_ok()
+            })
+        };
+        let t1 = run_turn(path.clone(), "s1".into());
+        let t2 = run_turn(path, "s2".into());
+        assert!(t1.join().unwrap(), "run s1 ok");
+        assert!(t2.join().unwrap(), "run s2 ok");
+
+        // Each session's events are contiguous 1..=n with no cross-talk —
+        // the seq invariant holds under concurrent multi-connection writes.
+        for session in ["s1", "s2"] {
+            let events = event_log::list_events(&conn, session).unwrap();
+            assert!(events.len() >= 2, "{session} has user+assistant events");
+            assert_eq!(
+                events.iter().map(|e| e.seq).collect::<Vec<_>>(),
+                (1..=events.len() as i64).collect::<Vec<_>>(),
+                "{session} seq contiguous"
+            );
+        }
+    }
 }

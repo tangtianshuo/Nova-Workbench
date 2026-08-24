@@ -97,7 +97,11 @@ pub fn append(conn: &Connection, input: &EventInput) -> Result<i64> {
             payload_json
         ],
     )?;
-    // Authoritative seq from the row (single-connection Mutex makes this race-free).
+    // Authoritative seq from the row. Seq uniqueness per session does NOT
+    // rely on a single connection anymore (24-01 per-run connections): the
+    // per-session single writer is the TS streaming guard (v0.3.1 SESS-04),
+    // cross-run writes to different sessions serialize via WAL + busy_timeout,
+    // and the MAX(seq)+1 subquery is race-free within one session's writer.
     let seq: i64 = conn.query_row(
         "SELECT seq FROM agent_events WHERE event_id = ?1",
         params![event_id],

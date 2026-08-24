@@ -40,6 +40,10 @@ pub enum EngineEvent {
     EventCommitted { seq: i64, event_type: String },
     #[serde(rename = "confirmation")]
     Confirmation { candidate: Value },
+    /// Run lifecycle (24-01 scheduler): queued → running. `status` is
+    /// "queued" | "running"; the webview flips its run-state UI on it.
+    #[serde(rename = "run_status")]
+    RunStatusChange { run_id: String, status: String },
     #[serde(rename = "done")]
     Done { result: EngineRunResult },
     #[serde(rename = "error")]
@@ -76,6 +80,15 @@ mod tests {
         assert_eq!(wire["data"]["name"], "exec");
         assert_eq!(wire["data"]["stream"], "hello\n");
         assert_eq!(wire["data"]["is_stderr"], false);
+    }
+
+    #[test]
+    fn run_status_serializes_with_own_kind() {
+        let event = EngineEvent::RunStatusChange { run_id: "r1".into(), status: "queued".into() };
+        let wire: Value = serde_json::to_value(&event).unwrap();
+        assert_eq!(wire["kind"], "run_status");
+        assert_eq!(wire["data"]["run_id"], "r1");
+        assert_eq!(wire["data"]["status"], "queued");
     }
 
     #[test]

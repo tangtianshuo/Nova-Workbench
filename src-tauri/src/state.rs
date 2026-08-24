@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use crate::engine::scheduler::Scheduler;
 use crate::llm::Provider;
 
 pub struct AppState {
@@ -20,6 +21,10 @@ pub struct AppState {
     pub engine_runs: Mutex<HashMap<String, tokio_util::sync::CancellationToken>>,
     /// Provider selected by Settings. API keys are intentionally not cached here.
     pub active_provider: Mutex<Provider>,
+    /// Phase 24 (24-01) run scheduler: MAX_CONCURRENT=3 + FIFO queue.
+    /// Shared handle (Arc inside) — engine_run acquires, engine_cancel's token
+    /// dequeues via acquire's cancel branch.
+    pub scheduler: Scheduler,
 }
 
 impl AppState {
@@ -28,6 +33,7 @@ impl AppState {
             cancellations: Mutex::new(HashMap::new()),
             engine_runs: Mutex::new(HashMap::new()),
             active_provider: Mutex::new(Provider::DeepSeek),
+            scheduler: Scheduler::new(),
         }
     }
 }

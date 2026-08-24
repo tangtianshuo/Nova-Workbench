@@ -1,8 +1,10 @@
 // src-tauri/src/engine/commands.rs
-// Phase 22 (22-06) — the five engine_* Tauri commands + run registry wiring.
-// `engine_run` moves the sole-writer Connection onto a blocking thread with a
-// current-thread tokio runtime (std MutexGuards cannot cross await points, and
-// rusqlite Connection is !Sync) — same shape the loop_runner tests use.
+// Phase 22 (22-06) — the engine_* Tauri commands + run registry wiring.
+// Phase 24 (24-01): engine_run queues through the Scheduler (cap 3 + FIFO)
+// and opens a per-run Connection (the managed slot stays with non-run
+// commands). `engine_run` runs its Connection on a blocking thread with a
+// current-thread tokio runtime (std MutexGuards cannot cross await points,
+// and rusqlite Connection is !Sync) — same shape the loop_runner tests use.
 
 use std::sync::{Arc, Mutex};
 
@@ -21,9 +23,14 @@ use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
 use crate::state::AppState;
 
-/// Sole-writer DB handle, managed in lib.rs setup. `None` until the async
-/// open+assert completes (or forever if open fails — commands then error).
-pub struct EngineDb(pub Mutex<Option<Connection>>);
+/// Managed DB state, filled in lib.rs setup. `conn` is the shared managed
+/// connection for non-run commands (confirm/append/etc.); `path` lets
+/// `engine_run` open a per-run Connection (24-01: no single-slot "engine
+/// busy" — WAL + busy_timeout serialize cross-connection writes).
+pub struct EngineDb(
+    pub Mutex<Option<Connection>>,
+    pub Mutex<Option<std::path::PathBuf>>,
+);
 
 /* === Production Llm adapter over llm::chat_with_tools (22-05 trait seam) === */
 
@@ -147,20 +154,49 @@ pub async fn engine_run(
         String::new()
     };
 
-    // Sole-writer checkout: one engine run at a time (Mutex<Connection> guard
-    // cannot cross an await; move the Connection onto a blocking thread instead).
-    let conn = db
-        .0
-        .lock()
-        .unwrap()
-        .take()
-        .ok_or_else(|| AppError::InternalError("engine busy: another run holds the DB".into()))?;
-
     // Webview-supplied run_id (cancel key, chat/cancel_chat requestId pattern);
     // minted here when absent so raw invoke callers still work.
     let run_id = run_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let cancel = CancellationToken::new();
     state.engine_runs.lock().unwrap().insert(run_id.clone(), cancel.clone());
+
+    // 24-01 scheduler gate: FIFO queue behind MAX_CONCURRENT=3. engine_cancel
+    // fires the token — a queued run dequeues from acquire's cancel branch
+    // without consuming a slot; a running run unwinds as before (23-02).
+    let queue_channel = on_event.clone();
+    let permit = match state
+        .scheduler
+        .acquire(
+            &run_id,
+            cancel.clone(),
+            || {
+                let _ = queue_channel.send(EngineEvent::RunStatusChange {
+                    run_id: run_id.clone(),
+                    status: "queued".into(),
+                });
+            },
+        )
+        .await
+    {
+        Ok(permit) => permit,
+        Err(_) => {
+            state.engine_runs.lock().unwrap().remove(&run_id);
+            return Err(AppError::Cancelled);
+        }
+    };
+    let _ = on_event.send(EngineEvent::RunStatusChange { run_id: run_id.clone(), status: "running".into() });
+
+    // Per-run Connection (24-01): the managed slot stays untouched for
+    // non-run commands; WAL + busy_timeout keep concurrent writers safe.
+    let db_path = db
+        .1
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| AppError::InternalError("engine DB not ready".into()))?;
+    let conn = crate::engine::db::open(&db_path)
+        .map_err(|e| AppError::InternalError(format!("open engine DB: {e}")))?;
+    let _permit = permit; // hold the slot for the whole run
 
     let err_channel = on_event.clone();
     let handle = tauri::async_runtime::spawn_blocking(move || {
@@ -193,20 +229,19 @@ pub async fn engine_run(
             summarizer: Some(&mut summarizer),
         };
         let result = rt.block_on(loop_runner::run_tool_loop(ctx, cancel, on_event_cb));
-        (conn, result)
+        result
     });
 
-    let (conn, result) = match handle.await {
+    let result = match handle.await {
         Ok(joined) => joined,
         Err(e) => {
-            // Thread panicked before returning the conn — reopen path is the
-            // setup task's job; report and leave the slot empty (next app run
-            // restores it). Extremely unlikely.
+            // Thread panicked — the per-run Connection died with it; the
+            // managed slot was never touched. Extremely unlikely.
             state.engine_runs.lock().unwrap().remove(&run_id);
             return Err(AppError::InternalError(format!("engine thread failed: {e}")));
         }
     };
-    *db.0.lock().unwrap() = Some(conn);
+    drop(_permit);
     state.engine_runs.lock().unwrap().remove(&run_id);
 
     match result {

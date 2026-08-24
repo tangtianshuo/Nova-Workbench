@@ -162,10 +162,13 @@ pub fn run() {
             // tauri-plugin-sql migrations (0001-0007) already ran during plugin
             // init — before this setup hook (22-RESEARCH §风险#2 order check).
             use std::sync::Mutex;
-            app.manage(engine::commands::EngineDb(Mutex::new(None)));
+            let db_path = engine::db::db_path(app.handle());
+            // 24-01: the path is stored up-front so engine_run can open a
+            // per-run Connection even before the shared conn finishes opening.
+            app.manage(engine::commands::EngineDb(Mutex::new(None), Mutex::new(Some(db_path.clone()))));
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let path = engine::db::db_path(&handle);
+                let path = db_path;
                 let opened = match engine::db::open(&path) {
                     Ok(conn) => engine::db::assert_schema(&conn).map(|_| conn),
                     Err(e) => Err(e.to_string()),

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
-current_plan: 1
+current_plan: 9
 status: executing
-last_updated: "2026-08-30T09:38:50.513Z"
+last_updated: "2026-08-30T17:58:00.000Z"
 last_activity: 2026-08-30
 progress:
   total_phases: 8
@@ -20,21 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 22 — loop-replay-parity
+**Current focus:** v0.3.2 milestone 收口(全部 phase 完成,待人工 UAT 抽查 + complete-milestone)
 
 ## Current Position
 
-Phase: 22 (loop-replay-parity) — EXECUTING
-Plan: 2 of 9
+Phase: 22 (loop-replay-parity) — COMPLETE(UAT 3+2 gaps 由 22-08/22-09 关闭;re-verification passed 2026-08-30,6/6 must-haves;cargo 172/0/2 + TS node:test 175/175 + tsc 全绿;2 项人工复测非阻塞,见 22-VERIFICATION.md human_verification)
+Plan: 9 of 9
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
-Current Plan: 1
-Status: Ready to execute
+Current Plan: 无(9/9 完成)
+Status: Milestone v0.3.2 — 8/8 phases complete,待人工 UAT 抽查(Test 5 卡片→确认→落库 / Test 4 llama1b 可选)后 /gsd:complete-milestone
 Last activity: 2026-08-30
 
 ```
-v0.3.2 progress: [██████████] 100% (4/4 phases, 18/18 plans)
+v0.3.2 progress: [██████████] 100% (4/4 phases, 20/20 plans 含 22-08/22-09 gap closure)
 ```
 
 ## Performance Metrics

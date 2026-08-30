@@ -3,7 +3,7 @@ status: complete
 phase: 22-loop-replay-parity
 source: [22-05-SUMMARY.md, 22-06-SUMMARY.md, 22-VERIFICATION.md]
 started: 2026-08-28T00:00:00Z
-updated: 2026-08-30T09:00:00Z
+updated: 2026-08-30T17:55:00Z
 ---
 
 ## Current Test
@@ -55,7 +55,7 @@ blocked: 0
 ## Gaps
 
 - truth: "knowledge_write 确认后重放成功落库:卡片出现 → 确认 → 结果写入"
-  status: failed
+  status: resolved
   reason: "User reported: 写入知识库失败 Tool \"writeKnowledgeArticle\" arg validation failed: [{code:invalid_value, path:[category], message:Invalid option: expected one of 架构设计|领域字典|技术协议|FAQ与排障|最佳实践|经验沉淀|业务规则|架构约束|踩坑指南}]"
   severity: major
   test: 5
@@ -69,15 +69,17 @@ blocked: 0
     - "Rust knowledge_write schema 的 category 加 enum: [\"架构设计\",\"领域字典\",\"技术协议\",\"FAQ与排障\",\"最佳实践\",\"经验沉淀\",\"业务规则\",\"架构约束\",\"踩坑指南\"](与 knowledgeWrite.ts knowledgeCategories 单源对齐 — 注意 Rust 侧需硬编码或从共享常量同步,目前无跨语言单源机制)"
     - "execute_knowledge_write 在 create_candidate 前校验 category ∈ 枚举,非法值 arg_error(模型在卡片出现前就知道错,而非确认后失败)"
     - "回归测试:非法 category → Failed{arg_error:true} 无 candidate;合法 category → 卡片 → 确认 → 重放全链路"
+  resolved_note: "2026-08-30 22-09 gap closure:tools.rs KNOWLEDGE_CATEGORIES 9 值枚举(schema :101 + 常量 :333)+ 候选创建前 arg_error 校验(:404)+ tags 默认注入(:431);TS zod 未动(仅 PAIRED 同步注释)。3 个新测试锁定;人工复测非阻塞(见 22-VERIFICATION.md human_verification)"
 
 - truth: "knowledge_search 只读检索在弱本地模型(llama3.2 1b)下也应受预算约束优雅完成"
-  status: failed
+  status: resolved
   reason: "User reported: 似乎是使用llama3.2 1b 模型导致的问题。当使用deepseek的时候 没出现这个问题"
   severity: minor
   test: 4
   artifacts: []
   missing: []
   note: 修复后复测新发现 — DeepSeek 下通过;1B 小模型疑似无法遵循 prompt 级检索预算规则(模型能力限制,非引擎缺陷候选)。诊断要点:① llama3.2 1b 那次 run 的终态(outcome/truncated/收尾文案 — 结构兜底 MAX=8+中文收尾是否生效);② 若兜底生效仅多余检索 → 判定 non-code(capability limit),记录为已知限制;若仍异常终止 → 引擎缺陷
+  resolved_note: "2026-08-30 22-09 gap closure:终态核实 = known capability limitation(non-code)—— DB 证据 session fc154236(1b,4 次过度检索)以 outcome=completed 正常结束;结构兜底(max_iterations_forces_wrapup_turn)断言完整零代码改动;结论记录于 STATE.md:134"
 
 - truth: "ChatPanel 普通消息 run 正常完成:流式输出、消息持久化、session 内容不丢"
   status: resolved

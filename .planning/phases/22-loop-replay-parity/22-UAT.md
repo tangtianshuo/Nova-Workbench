@@ -1,21 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 22-loop-replay-parity
 source: [22-05-SUMMARY.md, 22-06-SUMMARY.md, 22-VERIFICATION.md]
 started: 2026-08-28T00:00:00Z
-updated: 2026-08-30T08:30:00Z
+updated: 2026-08-30T09:00:00Z
 ---
 
 ## Current Test
 
-number: 2
-name: ChatPanel 对话走 Rust 引擎(修复后复测)
-expected: |
-  22-08 修复后:在 ChatPanel 发一条普通消息(如"帮我总结一下当前产品"),
-  流式响应逐字出现;run 正常完成 — 无 "[tool loop reached the ... limit]" 英文 marker;
-  即使打满工具预算(MAX_ITERATIONS=8)也以中文收尾句完成,非异常终止。
-  run 完成后消息持久化,切走再切回 session 内容不丢。
-awaiting: user response
+[testing complete]
 
 ## Tests
 
@@ -25,7 +18,8 @@ result: pass
 
 ### 2. ChatPanel 对话走 Rust 引擎(修复后复测)
 expected: 在 ChatPanel 发一条普通消息(如"帮我总结一下当前产品"),流式响应逐字出现;run 正常完成 — 无英文 "[tool loop reached...]" marker;打满预算时以中文收尾句完成。run 完成后消息持久化,切走再切回 session 内容不丢。
-result: [pending]
+result: pass
+note: 修复后复测通过(2026-08-30;此前 blocker:knowledge_write 空参数循环 + 5 轮终死)
 
 ### 3. CmdK 发起对话走引擎
 expected: CmdK palette 发起一个 run,行为与 ChatPanel 一致:流式输出、正常完成、session 中可见。
@@ -33,11 +27,17 @@ result: pass
 
 ### 4. knowledge_search 只读检索(修复后复测)
 expected: 让 agent 检索知识库(如"搜一下知识库里关于竞品的文章"),agent 1-2 次 knowledge_search 后停止检索并总结作答(prompt 新增检索预算规则);run 正常完成,无确认卡片打断,无英文 marker 异常终止。
-result: [pending]
+result: issue
+reported: "似乎是使用llama3.2 1b 模型导致的问题。当使用deepseek的时候 没出现这个问题"
+severity: minor
+note: DeepSeek(主供应商)下通过;llama3.2 1b(Ollama 本地小模型)仍过度检索 — 疑似模型能力限制(prompt 预算规则对 1B 模型无效),待确认结构兜底是否生效(是否以中文收尾正常完成而非异常终止)
 
 ### 5. knowledge_write / memory_write HITL 确认(修复后复测)
 expected: 触发需确认的写入工具(如让 agent 把某条内容写入知识库,不必提供 productId — 引擎已用 ctx 兜底),出现带「确认/拒绝」按钮的 HITL 确认卡片;点「确认」→ 工具重新执行且结果落库;点「拒绝」→ 走取消路径,无孤儿事件。
-result: [pending]
+result: issue
+reported: "写入知识库失败 Tool \"writeKnowledgeArticle\" arg validation failed: [{\"code\":\"invalid_value\",\"values\":[\"架构设计\",\"领域字典\",\"技术协议\",\"FAQ与排障\",\"最佳实践\",\"经验沉淀\",\"业务规则\",\"架构约束\",\"踩坑指南\"],\"path\":[\"category\"],\"message\":\"Invalid option: expected one of ...\"}]"
+severity: major
+note: 原根因(productId 无 ctx 兜底 → 卡片不出现)已修复 — 卡片正常出现且确认后进入重放;断点后移:确认重放走 TS writeKnowledgeArticle zod 严格枚举,而 Rust schema(tools.rs:101)category 为裸 string 无枚举 — 跨边界校验不对称
 
 ### 6. 中断恢复(重启后 session 恢复)
 expected: 在一个 run 进行中(或工具待确认时)强杀 app,重启后该 session 恢复;被中断的 tool_call 显示为 unknown/中断状态,不重复执行,可在 UI 正常续跑或取消。
@@ -46,16 +46,41 @@ result: pass
 ## Summary
 
 total: 6
-passed: 3
-issues: 0
-pending: 3
+passed: 4
+issues: 2
+pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-- truth: "ChatPanel 普通消息 run 正常完成:流式输出、消息持久化、session 内容不丢"
+- truth: "knowledge_write 确认后重放成功落库:卡片出现 → 确认 → 结果写入"
   status: failed
+  reason: "User reported: 写入知识库失败 Tool \"writeKnowledgeArticle\" arg validation failed: [{code:invalid_value, path:[category], message:Invalid option: expected one of 架构设计|领域字典|技术协议|FAQ与排障|最佳实践|经验沉淀|业务规则|架构约束|踩坑指南}]"
+  severity: major
+  test: 5
+  root_cause: "跨边界校验不对称(与原 productId 缺兜底同类):①Rust knowledge_write schema(tools.rs:101)category 为 {\"type\":\"string\"} 无枚举,execute_knowledge_write 也不校验 category 合法性 → 模型按宽松 schema 选值(如"介绍"类自由文本)→ 候选创建成功、卡片正常出现;②确认后重放走 TS registry executeTool('writeKnowledgeArticle')(CLAUDE.md:TS registry 服务 post-confirmation replay),knowledgeWrite.ts:28 z.enum(9 个固定 category)严格校验 → invalid_value 拒绝 → 写入失败。原 22-08 修复(productId ctx 兜底)本身工作正常,断点后移到 category 字段"
+  artifacts:
+    - path: "src-tauri/src/engine/tools.rs"
+      issue: "knowledge_write schema(:101)category 无 enum;execute_knowledge_write 候选创建前无 category 合法性校验 — 模型可见约束与重放约束不一致"
+    - path: "src/ai/tools/knowledgeWrite.ts"
+      issue: "writeKnowledgeArticleSchema(:21-33)category z.enum(9 值)严格;productId z.string().min(1)(与 Rust effective_args 注入兼容)"
+  missing:
+    - "Rust knowledge_write schema 的 category 加 enum: [\"架构设计\",\"领域字典\",\"技术协议\",\"FAQ与排障\",\"最佳实践\",\"经验沉淀\",\"业务规则\",\"架构约束\",\"踩坑指南\"](与 knowledgeWrite.ts knowledgeCategories 单源对齐 — 注意 Rust 侧需硬编码或从共享常量同步,目前无跨语言单源机制)"
+    - "execute_knowledge_write 在 create_candidate 前校验 category ∈ 枚举,非法值 arg_error(模型在卡片出现前就知道错,而非确认后失败)"
+    - "回归测试:非法 category → Failed{arg_error:true} 无 candidate;合法 category → 卡片 → 确认 → 重放全链路"
+
+- truth: "knowledge_search 只读检索在弱本地模型(llama3.2 1b)下也应受预算约束优雅完成"
+  status: failed
+  reason: "User reported: 似乎是使用llama3.2 1b 模型导致的问题。当使用deepseek的时候 没出现这个问题"
+  severity: minor
+  test: 4
+  artifacts: []
+  missing: []
+  note: 修复后复测新发现 — DeepSeek 下通过;1B 小模型疑似无法遵循 prompt 级检索预算规则(模型能力限制,非引擎缺陷候选)。诊断要点:① llama3.2 1b 那次 run 的终态(outcome/truncated/收尾文案 — 结构兜底 MAX=8+中文收尾是否生效);② 若兜底生效仅多余检索 → 判定 non-code(capability limit),记录为已知限制;若仍异常终止 → 引擎缺陷
+
+- truth: "ChatPanel 普通消息 run 正常完成:流式输出、消息持久化、session 内容不丢"
+  status: resolved
   reason: "User reported: knowledge_search 失败 → 重试已完成 ×2 → knowledge_write 失败 ×2 → [tool loop reached the 5-iteration limit],run 未正常完成"
   severity: blocker
   test: 2
@@ -73,7 +98,7 @@ blocked: 0
   debug_session: .planning/debug/chat-run-tool-loop.md
 
 - truth: "knowledge_search 只读检索直接返回结果,run 正常完成,无确认卡片打断"
-  status: failed
+  status: resolved
   reason: "User reported: agent 输出『继续用更多关键词搜索,确保覆盖全部文章。』随后 [tool loop reached the 5-iteration limit],run 异常终止"
   severity: major
   test: 4
@@ -90,7 +115,7 @@ blocked: 0
   debug_session: .planning/debug/knowledge-search-loop.md
 
 - truth: "HITL 确认卡片带「确认/拒绝」按钮;确认→重执行落库,拒绝→取消路径无孤儿事件"
-  status: failed
+  status: resolved
   reason: "User reported: 卡片无确认或拒绝按钮,也无选项按钮。只是提到了需要确认,输入数字键进行选择。"
   severity: major
   test: 5

@@ -73,3 +73,9 @@ None — plan executed exactly as written. (Tasks 2 and 3 share one commit since
 ## Known Stubs
 
 None.
+
+## Self-Check: PASSED
+
+- Commits 28595e4, 85716cc, a722c24 present on master.
+- Modified files exist: tools.rs, loop_runner.rs, commands.rs, scheduler.rs (all covered by 169/169 cargo tests).
+- SUMMARY created at expected path; STATE/ROADMAP updated via gsd-tools.

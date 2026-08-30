@@ -683,6 +683,54 @@ mod tests {
         }
     }
 
+    /* === 22-09 gap closure: knowledge_write category enum parity with TS replay === */
+
+    #[test]
+    fn knowledge_write_invalid_category_rejected_pre_candidate() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let args = json!({"productId": "p1", "title": "T", "content": "C", "category": "介绍"});
+        match execute(&conn, "knowledge_write", &args, &ctx) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("category must be one of"), "{message}");
+                for c in ["架构设计", "领域字典", "技术协议", "FAQ与排障", "最佳实践", "经验沉淀", "业务规则", "架构约束", "踩坑指南"] {
+                    assert!(message.contains(c), "missing enum value {c} in: {message}");
+                }
+                assert!(arg_error);
+            }
+            other => panic!("expected Failed, got {other:?}"),
+        }
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_confirmation_candidates", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn knowledge_write_valid_category_creates_candidate() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(&conn, "knowledge_write", &json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["kind"], "knowledge_write");
+                assert_eq!(candidate["args"]["category"], "最佳实践");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn knowledge_write_defaults_tags_to_empty_array() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(&conn, "knowledge_write", &json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["args"]["tags"], json!([]));
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
     /* === 22-08 gap closure: knowledge_write productId ctx fallback === */
 
     #[test]

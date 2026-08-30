@@ -348,6 +348,9 @@ mod tests {
             let turn = self.0.lock().unwrap().pop_front().expect("scripted turn");
             Box::pin(async move { Ok(turn) })
         }
+        fn chat_no_tools(&mut self, m: Vec<LlmMessage>, s: String, t: loop_runner::TokenSink) -> BoxLlmFuture {
+            self.chat(m, s, t)
+        }
     }
 
     /// engine_run's blocking-thread half: per-run Connection + current-thread

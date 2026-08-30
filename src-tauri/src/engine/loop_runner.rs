@@ -2,7 +2,7 @@
 // Phase 22 (22-05) — port of src/ai/toolLoop.ts (Phase 13 Plan 03).
 // Single-history event-driven loop: NO second messages array — every LLM
 // request re-derives messages from the ChatSession projection over the event
-// log. MAX_ITERATIONS=5; four tool_result payload shapes are field-for-field
+// log. MAX_ITERATIONS=8 (22-08); four tool_result payload shapes are field-for-field
 // from toolLoop.ts (WAIT / error / success + tool_call); turn-end audit runs
 // check_event_stream and fails the run on violations (plan-mandated hardening
 // over the TS console.error).
@@ -23,7 +23,7 @@ use crate::engine::channel::{EngineEvent, EngineRunResult};
 use crate::engine::chat_session::{ChatRole, ChatSession, LlmMessage, DEFAULT_TOKEN_BUDGET};
 use crate::engine::{compaction, context_assembler, event_log, tools};
 
-pub const MAX_ITERATIONS: u32 = 5;
+pub const MAX_ITERATIONS: u32 = 8;
 
 // toolLoop.ts:47
 pub type EventCallback = Arc<dyn Fn(EngineEvent) + Send + Sync>;
@@ -45,6 +45,9 @@ pub struct LlmTurn {
 /// Scriptable LLM boundary (production adapter wraps llm::chat_with_tools).
 pub trait Llm: Send {
     fn chat(&mut self, messages: Vec<LlmMessage>, system_prompt: String, on_token: TokenSink) -> BoxLlmFuture;
+    /// No-tools call for the budget-exhaustion wrap-up turn (22-08): the model
+    /// cannot emit tool calls, forcing a direct answer.
+    fn chat_no_tools(&mut self, messages: Vec<LlmMessage>, system_prompt: String, on_token: TokenSink) -> BoxLlmFuture;
 }
 
 #[derive(Debug)]
@@ -91,7 +94,7 @@ pub struct LoopContext<'a> {
 // the model guides the user to act manually). NOT the original Phase 10 PM
 // guideline text — that returns together with the tools in v0.3.3.
 // Date context is a 22-06 wiring concern.
-const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), and generate_deliverable (queue a PRD draft for user confirmation — you write the full draft content yourself in the draft parameter).\nTask and schedule CRUD tools are not available in this version; guide the user to create them manually in the Tasks/Schedule views. They return in a later release.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.";
+const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), and generate_deliverable (queue a PRD draft for user confirmation — you write the full draft content yourself in the draft parameter).\nTask and schedule CRUD tools are not available in this version; guide the user to create them manually in the Tasks/Schedule views. They return in a later release.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.\nKnowledge search is budgeted: perform at most 1-2 knowledge_search calls per question, then STOP searching and answer directly from the results you already have. Never enumerate the whole knowledge base.\nIf a tool call fails, read the error message, fix the arguments ONCE, and move on; if it fails again, tell the user what failed and what you need (e.g. select a product) instead of retrying. Never invent confirmation prompts or numbered-choice menus.";
 
 pub fn build_system_prompt(core_context: &str) -> String {
     format!("{ROLE_AND_TOOL_RULES}\n\n## Phase 9 Current Workspace Context\n\n{core_context}")
@@ -395,25 +398,39 @@ pub async fn run_tool_loop(
         }
     }
 
-    let limited_content = format!(
-        "{}{}[tool loop reached the {MAX_ITERATIONS}-iteration limit]",
-        content,
-        if content.is_empty() { "" } else { "\n\n" }
-    );
-    append_event(
-        ctx.conn,
-        &scope,
-        "assistant_message",
-        json!({"content": limited_content}),
-        &on_event,
-    )?;
+    // Budget exhausted — force a no-tools wrap-up turn instead of dying with
+    // an English limit marker (22-08 gap closure: Test 2/Test 4).
+    let wrap_prompt = format!("{system_prompt}\n\nTool call budget is now exhausted. Using the tool results above, answer the user directly in Chinese. Do NOT mention tools, limits, or call any more tools.");
+    let events = event_log::list_events(ctx.conn, &scope.session_id).map_err(|e| LoopError::Db(e.to_string()))?;
+    let session = ChatSession::from_events(&events, Some(scope.session_id.clone()), None);
+    let messages: Vec<LlmMessage> = session
+        .get_messages_for_llm_default()
+        .into_iter()
+        .map(|m| LlmMessage {
+            role: if m.role == ChatRole::Tool { ChatRole::User } else { m.role },
+            content: m.content,
+        })
+        .collect();
+    if cancel.is_cancelled() {
+        return Err(LoopError::Cancelled);
+    }
+    let token_sink: TokenSink = {
+        let on_event = on_event.clone();
+        Arc::new(move |text| on_event(EngineEvent::Token { text }))
+    };
+    let final_turn = ctx
+        .llm
+        .chat_no_tools(messages, wrap_prompt, token_sink)
+        .await
+        .map_err(LoopError::Llm)?;
+    append_event(ctx.conn, &scope, "assistant_message", json!({"content": final_turn.content}), &on_event)?;
     end_turn(ctx.conn, &scope, "tool_limit", MAX_ITERATIONS, tool_calls_executed, &on_event)?;
     finish(
         EngineRunResult {
-            content: limited_content,
-            iterations: MAX_ITERATIONS,
+            content: final_turn.content,
+            iterations: MAX_ITERATIONS + 1,
             tool_calls_executed,
-            truncated: true,
+            truncated: false,
             pending_confirmation: None,
         },
         &on_event,
@@ -448,6 +465,10 @@ mod tests {
                 on_token("流".into());
                 turn
             })
+        }
+
+        fn chat_no_tools(&mut self, messages: Vec<LlmMessage>, system_prompt: String, on_token: TokenSink) -> BoxLlmFuture {
+            self.chat(messages, system_prompt, on_token)
         }
     }
 
@@ -522,6 +543,9 @@ mod tests {
             assert!(prompt.contains(name), "prompt missing {name}");
         }
         assert!(prompt.ends_with("核心事实"));
+        // 22-08 gap closure: search budget + failure recovery rules locked.
+        assert!(prompt.contains("at most 1-2 knowledge_search calls"));
+        assert!(prompt.contains("Never invent confirmation prompts"));
         // ...and the model schema carries NO PM CRUD tool (TOOL-03 lock).
         let schemas = tools::schemas();
         let names: Vec<&str> = schemas.iter().map(|s| s["name"].as_str().unwrap()).collect();
@@ -683,22 +707,61 @@ mod tests {
         );
     }
 
+    // 22-08: budget exhaustion forces a no-tools wrap-up turn (was: English
+    // limit marker + truncated=true).
     #[test]
-    fn max_iterations_truncates() {
+    fn max_iterations_forces_wrapup_turn() {
         let conn = mem_conn();
         let tool_turn = || LlmTurn {
             content: "继续".into(),
             tool_calls: vec![LlmToolCall { name: "knowledge_search".into(), arguments: json!({"query": "x"}) }],
         };
-        let llm = FakeLlm::new(vec![tool_turn(); 5]);
+        let mut turns: Vec<_> = (0..MAX_ITERATIONS).map(|_| tool_turn()).collect();
+        turns.push(LlmTurn { content: "根据以上检索结果，结论如下。".into(), tool_calls: vec![] });
+        let llm = FakeLlm::new(turns);
         let (result, _) = run(&conn, llm, CancellationToken::new());
         let result = result.unwrap();
-        assert!(result.truncated);
-        assert_eq!(result.iterations, 5);
-        assert_eq!(result.tool_calls_executed, 5);
-        assert!(result.content.ends_with("[tool loop reached the 5-iteration limit]"));
-        let turn = events_of(&conn).iter().find(|e| e.event_type == "turn_ended").unwrap().payload.clone();
+        assert!(!result.truncated);
+        assert_eq!(result.iterations, MAX_ITERATIONS + 1);
+        assert_eq!(result.tool_calls_executed, MAX_ITERATIONS);
+        assert_eq!(result.content, "根据以上检索结果，结论如下。");
+        let events = events_of(&conn);
+        let turn = events.iter().find(|e| e.event_type == "turn_ended").unwrap().payload.clone();
         assert_eq!(turn["outcome"], "tool_limit");
+        // English limit marker must be gone from every event payload.
+        assert!(
+            !events.iter().any(|e| e.payload.to_string().contains("iteration limit")),
+            "no event payload may contain the old limit marker"
+        );
+        // Final assistant_message carries the scripted wrap-up text verbatim.
+        let last_assistant = events.iter().rev().find(|e| e.event_type == "assistant_message").unwrap().payload.clone();
+        assert_eq!(last_assistant["content"], "根据以上检索结果，结论如下。");
+    }
+
+    // 22-08 gap closure (Test 5 exact failure shape): model omits productId,
+    // ctx has a product selected → HITL card appears instead of arg_error
+    // retries + fabricated confirmation text.
+    #[test]
+    fn knowledge_write_missing_product_id_uses_ctx() {
+        let conn = mem_conn();
+        let llm = FakeLlm::new(vec![LlmTurn {
+            content: "我来写入知识库".into(),
+            tool_calls: vec![LlmToolCall {
+                name: "knowledge_write".into(),
+                arguments: json!({"title": "T", "content": "C"}),
+            }],
+        }]);
+        let mut context = ctx_root(&conn, llm, None);
+        context.product_id = Some("p1".into());
+        let on_event: EventCallback = Arc::new(|_| {});
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let result = rt.block_on(run_tool_loop(context, CancellationToken::new(), on_event)).unwrap();
+        assert_eq!(result.tool_calls_executed, 0);
+        let pending = result.pending_confirmation.expect("pending candidate");
+        assert_eq!(pending["kind"], "knowledge_write");
+        assert_eq!(pending["args"]["productId"], "p1");
+        let turn = events_of(&conn).iter().find(|e| e.event_type == "turn_ended").unwrap().payload.clone();
+        assert_eq!(turn["outcome"], "awaiting_confirmation");
     }
 
     #[test]

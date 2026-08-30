@@ -90,6 +90,47 @@ impl Llm for EngineLlm {
             })
         })
     }
+
+    /// 22-08 wrap-up turn: same path, but NO tool schemas — the provider gets
+    /// an empty tools array so it cannot emit tool calls.
+    fn chat_no_tools(&mut self, messages: Vec<LlmMessage>, system_prompt: String, on_token: TokenSink) -> BoxLlmFuture {
+        let provider = self.provider;
+        let api_key = self.api_key.clone();
+        let ollama_model = self.ollama_model.clone();
+        let cancel = self.cancel.clone();
+        Box::pin(async move {
+            let chat_messages: Vec<ChatMessage> = messages
+                .into_iter()
+                .map(|m| ChatMessage { role: m.role.as_str().to_string(), content: m.content })
+                .collect();
+            let sink = on_token.clone();
+            let channel: Channel<crate::commands::StreamChunk> = Channel::new(move |body| {
+                if let tauri::ipc::InvokeResponseBody::Json(raw) = body {
+                    if let Ok(v) = serde_json::from_str::<Value>(&raw) {
+                        if v["kind"] == "token" {
+                            if let Some(text) = v["data"]["text"].as_str() {
+                                sink(text.to_string());
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            });
+            let result = llm::chat_with_tools(
+                provider,
+                &api_key,
+                ollama_model,
+                chat_messages,
+                vec![],
+                system_prompt,
+                &channel,
+                &cancel,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+            Ok(LlmTurn { content: result.content, tool_calls: Vec::new() })
+        })
+    }
 }
 
 /// Sync compaction summarizer bridged onto a worker thread (CompactionSummarizer

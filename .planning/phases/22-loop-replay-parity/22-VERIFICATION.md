@@ -1,12 +1,15 @@
 ---
 phase: 22-loop-replay-parity
-verified: 2026-08-24T00:00:00Z
+verified: 2026-08-30T00:00:00Z
 status: passed
 verdict: PASS_WITH_NOTES
 score: 4.5/5 must-haves verified (SC-3 partial, bounded deviation)
 notes:
   - "SC-3 literal '唯一写者' has two bounded TS runtime write seams remaining, both documented in 22-06 and deferred to Phase 23: (a) deliverable commit appendAuxEvent -> eventStore.append -> INSERT INTO agent_events (chatConsoleStore.ts:786); (b) memory confirm confirm()/consumeIntoMemories() -> UPDATE memory_candidates (chatConsoleStore.ts:713-715, memoryStore.ts:675). Both touch agent_* tables, NOT only business tables. These are user-action seams (PRD 落槽卡片 / 记忆确认卡片), not loop writes; runToolLoop runtime callers are zero, so no duplicate/orphan events on the engine path. Phase 23 tool bridge must migrate both before Phase 25 deletion."
-human_verification: []
+human_verification:
+  - { test: UAT-2 ChatPanel run completes (HITL card + no loop-limit marker), why_human: needs real LLM in built app }
+  - { test: UAT-4 knowledge_search budgeted stop + graceful wrap-up, why_human: model behavior }
+  - { test: UAT-5 knowledge_write HITL confirm/reject end-to-end, why_human: cross-boundary confirmation flow }
 ---
 
 # Phase 22: 引擎核心 Verification Report
@@ -59,4 +62,57 @@ human_verification: []
 ---
 
 _Verified: 2026-08-24_
+_Verifier: Claude (gsd-verifier)_
+---
+
+# Gap Closure Re-verification (Plan 22-08, 2026-08-30)
+
+**Trigger:** UAT found 3 issues (Test 2/4/5) post-initial PASS_WITH_NOTES; root causes diagnosed in 22-UAT.md; Plan 22-08 executed (commits 28595e4, 85716cc, a722c24).
+
+## Code-Level Verification of the 3 UAT Gaps
+
+| UAT Gap | Root Cause Fix | Status | Evidence |
+|---|---|---|---|
+| Test 2 (blocker): ChatPanel run 终死于 5-iteration limit | knowledge_write productId ctx fallback + search-budget prompt rules + MAX_ITERATIONS=8 + no-tools wrap-up turn | ✓ FIXED (code) | tools.rs:397 `str_arg(args, "productId").or(ctx.product_id)`; loop_runner.rs:26 `MAX_ITERATIONS: u32 = 8`; loop_runner.rs:423 `.chat_no_tools(...)` wrap-up path → `assistant_message` + `turn_ended{outcome:"tool_limit"}` + `truncated: false`; English marker `[tool loop reached the ...]` deleted — `grep "tool loop reached the" src-tauri/src/` returns **0 hits** |
+| Test 4 (major): knowledge_search 无限检索直至截断 | prompt rule: "at most 1-2 knowledge_search calls per question, then STOP searching and answer directly ... Never enumerate the whole knowledge base" + budget raised to 8 + graceful wrap-up | ✓ FIXED (code) | loop_runner.rs:97 ROLE_AND_TOOL_RULES; locked by test assertion `prompt.contains("at most 1-2 knowledge_search calls")` (loop_runner.rs:547) |
+| Test 5 (major): HITL 卡片无按钮(从未发出) | productId arg_error 在 create_candidate 之前拒绝 → 无 candidate → 无卡片。现在 ctx 兜底后 effective_args 带具体 productId 进入 create_candidate;另加 "Never invent confirmation prompts or numbered-choice menus" 防模型编造确认话术 | ✓ FIXED (code) | tools.rs:397-411 fallback + `effective_args["productId"] = json!(product_id)` 流入 candidate; loop 级测试 `knowledge_write_missing_product_id_uses_ctx` (loop_runner.rs:745) 锁定 pending_confirmation kind=knowledge_write + args.productId + outcome=awaiting_confirmation |
+
+## Regression Suite (re-run)
+
+- `cargo test`: **169 passed / 0 failed / 2 ignored** (matches executor report; 2 ignores = pre-existing Ollama probes)
+- `npm run lint` (tsc --noEmit): clean
+- Key regression tests present and passing: `knowledge_write_uses_ctx_product_id_when_model_omits_it` (tools.rs:689), `max_iterations_forces_wrapup_turn` (loop_runner.rs:713), `knowledge_write_missing_product_id_uses_ctx` (loop_runner.rs:745), prompt-rule assertions (loop_runner.rs:547-548)
+- Parity-locked surfaces untouched: Tool→User projection and `[requesting tools]` placeholder per 22-08 SUMMARY; `single_readonly_tool_turn` green in suite
+
+## Requirements Coverage (delta)
+
+All 6 IDs (ENG-01..05, PORT-01) remain accounted for; 22-08 strengthens:
+- **ENG-02** (loop 由 Rust 完成): wrap-up turn eliminates abnormal termination; marker string removed
+- **ENG-03** (行为一致/正常完成): graceful tool_limit outcome with truncated=false
+- **ENG-04** (HITL): knowledge_write candidate now always created when product selected → confirmation card reachable
+
+## Verdict
+
+**Status: passed (code-level).** All 3 diagnosed root causes verified fixed at code level with regression locks. The 3 UAT scenarios require manual re-test in a built app to confirm end-to-end behavior — listed below, non-blocking.
+
+## Human Verification (manual UAT re-test required)
+
+### 1. ChatPanel 对话正常完成
+**Test:** 在 ChatPanel 发普通消息(涉及知识库写入,如"把这段总结写入知识库")
+**Expected:** HITL 确认卡片出现且带「确认/拒绝」按钮;run 正常完成,无 "[tool loop reached the ...]" 英文 marker,消息持久化
+**Why human:** 需真实 LLM + built app 交互,行为取决于模型对 prompt rules 的服从
+
+### 2. knowledge_search 有预算地终止
+**Test:** 让 agent"搜一下知识库里关于竞品的文章"
+**Expected:** 1-2 次 knowledge_search 后停止并作答;即便打满预算,以中文收尾轮正常结束(outcome=tool_limit, truncated=false),非异常终止
+**Why human:** 真实模型的检索行为无法用脚本验证
+
+### 3. knowledge_write HITL 全链路
+**Test:** 选中某产品后让 agent 写知识库,点「确认」→ 落库;点「拒绝」→ 取消路径
+**Expected:** 卡片出现(candidate args 带具体 productId);确认后 knowledge 行落库;拒绝无孤儿事件
+**Why human:** 跨 webview/Rust 确认流需真实交互
+
+---
+
+_Re-verified: 2026-08-30_
 _Verifier: Claude (gsd-verifier)_

@@ -4,13 +4,13 @@ milestone: v0.3.2
 milestone_name: milestone
 current_plan: 1
 status: executing
-last_updated: "2026-08-30T09:32:13.161Z"
-last_activity: 2026-08-30 -- Phase 22 execution started
+last_updated: "2026-08-30T09:38:50.513Z"
+last_activity: 2026-08-30
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 20
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-08-23)
 ## Current Position
 
 Phase: 22 (loop-replay-parity) — EXECUTING
-Plan: 1 of 9
+Plan: 2 of 9
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
 Current Plan: 1
-Status: Executing Phase 22
-Last activity: 2026-08-30 -- Phase 22 execution started
+Status: Ready to execute
+Last activity: 2026-08-30
 
 ```
 v0.3.2 progress: [██████████] 100% (4/4 phases, 18/18 plans)
@@ -73,6 +73,7 @@ v0.3.2 progress: [██████████] 100% (4/4 phases, 18/18 plans)
 | Phase 24 P04 | 25m | 1 tasks | 2 files |
 | Phase 25 P01 | 35m | 2 tasks | 12 files |
 | Phase 22 P08 | 25m | 3 tasks | 4 files |
+| Phase 22 P09 | 30m | 3 tasks | 4 files |
 
 ## Accumulated Context
 

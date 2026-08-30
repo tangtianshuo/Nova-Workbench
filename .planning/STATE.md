@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
-current_plan: Not started
-status: verifying
-last_updated: "2026-08-30T08:06:37.142Z"
-last_activity: 2026-08-30
+current_plan: 1
+status: executing
+last_updated: "2026-08-30T09:32:13.161Z"
+last_activity: 2026-08-30 -- Phase 22 execution started
 progress:
   total_phases: 8
-  completed_phases: 4
-  total_plans: 19
+  completed_phases: 3
+  total_plans: 20
   completed_plans: 19
 ---
 
@@ -20,17 +20,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.2 收口 — Phase 22-25 全部完成,待 22-UAT 3 项人工复测 → /gsd:complete-milestone
+**Current focus:** Phase 22 — loop-replay-parity
 
 ## Current Position
 
-Phase: 22 (loop-replay-parity) — COMPLETE incl. 22-08 gap closure(8/8 plans;UAT 3 根因代码级修复,VERIFICATION re-verified 2026-08-30;169 cargo + tsc 全绿;待人工 UAT 复测 3 项)
+Phase: 22 (loop-replay-parity) — EXECUTING
+Plan: 1 of 9
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
-Current Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-30
+Current Plan: 1
+Status: Executing Phase 22
+Last activity: 2026-08-30 -- Phase 22 execution started
 
 ```
 v0.3.2 progress: [██████████] 100% (4/4 phases, 18/18 plans)
@@ -129,6 +130,7 @@ v0.3.1 roadmap decisions:
 - [Phase 24]: 24-03: 通知点击 focus-gated fallback(Windows toast 回调受限);exec/fs 确认卡 restore 走既有 listPending*/refresh 管线;notify 三点=Done/Error/Confirmation,cancel 不通知
 - [Phase 24]: engine_cancel 提取 engine_cancel_inner 可测核心,SCHED-04 三条全链路集成测试锁定取消语义(running 树杀+无孤儿+兄弟隔离、queued 立即出队、幂等)
 - [Phase 22]: 22-08: knowledge_write productId=model arg > ctx fallback > arg_error; budget exhaustion = no-tools wrap-up turn (chat_no_tools, empty tools vec), outcome=tool_limit truncated=false, English marker deleted
+- [2026-08-30 / 22-09 Gap 2 分类]: llama3.2 1b 过度检索 = **known capability limitation (non-code)** — 本地 DB 证据:22-08 后所有 Ollama 1b run 均优雅终态(session fc154236 4 次过度检索+arg_error 轮,终态 outcome=completed iterations=6;无 truncated/异常终止 session);结构兜底由 max_iterations_forces_wrapup_turn 锁定(truncated=false + outcome=tool_limit + 中文收尾 + 无英文 marker)。1B 模型无法遵循 prompt 级预算规则,不做 prompt-engineering,MAX_ITERATIONS=8 结构边界即为引擎保证
 
 ### TODOs (pending)
 

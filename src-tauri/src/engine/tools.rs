@@ -96,14 +96,14 @@ pub fn registry() -> Vec<ToolSpec> {
             parameters: json!({
                 "type": "object",
                 "properties": {
-                    "productId": { "type": "string" },
+                    "productId": { "type": "string", "description": "Optional when a product is selected in the workspace; omit it then." },
                     "title": { "type": "string", "minLength": 1 },
                     "category": { "type": "string" },
                     "tags": { "type": "array", "items": { "type": "string" } },
                     "content": { "type": "string", "minLength": 1 },
                     "summary": { "type": "string" }
                 },
-                "required": ["productId", "title", "content"],
+                "required": ["title", "content"],
                 "additionalProperties": false
             }),
             kind: ToolKind::KnowledgeWrite,
@@ -383,7 +383,7 @@ fn execute_knowledge_search(conn: &Connection, args: &Value) -> ToolOutcome {
 }
 
 fn execute_knowledge_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
-    for key in ["productId", "title", "content"] {
+    for key in ["title", "content"] {
         if str_arg(args, key).is_none() {
             return ToolOutcome::Failed {
                 message: format!("Tool \"knowledge_write\" arg validation failed: {key} must be a non-empty string"),
@@ -391,17 +391,29 @@ fn execute_knowledge_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -
             };
         }
     }
+    // 22-08: ctx.product_id fallback mirrors memory_write — with a product
+    // selected the model may omit productId; candidate always carries a
+    // concrete id (the webview confirm path reads candidate args).
+    let product_id = str_arg(args, "productId").or(ctx.product_id);
+    let Some(product_id) = product_id else {
+        return ToolOutcome::Failed {
+            message: "Tool \"knowledge_write\" arg validation failed: productId must be a non-empty string (no product selected in the current context)".into(),
+            arg_error: true,
+        };
+    };
     let summary = str_arg(args, "summary")
         .map(|s| s.to_string())
         .or_else(|| str_arg(args, "title").map(|s| s.to_string()))
         .unwrap_or_default();
-    match confirmations::create_candidate(conn, "knowledge_write", args, Some(&summary), Some(ctx.session_id)) {
+    let mut effective_args = args.clone();
+    effective_args["productId"] = json!(product_id);
+    match confirmations::create_candidate(conn, "knowledge_write", &effective_args, Some(&summary), Some(ctx.session_id)) {
         Ok(candidate) => ToolOutcome::AwaitConfirmation {
             candidate: json!({
                 "kind": "knowledge_write",
                 "confirmationToken": candidate.confirmation_token,
                 "summary": candidate.summary,
-                "args": args,
+                "args": effective_args,
             }),
             wait_key: "error",
             wait_value: CONFIRMATION_REQUIRED_KNOWLEDGE.into(),
@@ -666,6 +678,52 @@ mod tests {
                 let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
                 assert_eq!(stored.kind, "knowledge_write");
                 assert_eq!(stored.params, args);
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    /* === 22-08 gap closure: knowledge_write productId ctx fallback === */
+
+    #[test]
+    fn knowledge_write_uses_ctx_product_id_when_model_omits_it() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["args"]["productId"], "p1");
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
+                assert_eq!(stored.params["productId"], "p1");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_confirmation_candidates WHERE kind = 'knowledge_write'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn knowledge_write_without_product_id_and_no_ctx_arg_errors() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C"}), &ctx) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("no product selected"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("expected Failed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn knowledge_write_explicit_product_id_wins_over_ctx() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(&conn, "knowledge_write", &json!({"productId": "p9", "title": "T", "content": "C"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["args"]["productId"], "p9");
             }
             other => panic!("expected AwaitConfirmation, got {other:?}"),
         }

@@ -9,6 +9,7 @@ import {
   type KnowledgeWriteDraft,
 } from '../confirmations';
 
+// PAIRED with KNOWLEDGE_CATEGORIES in src-tauri/src/engine/tools.rs — keep both in sync.
 const knowledgeCategories = [
   '架构设计',
   '领域字典',

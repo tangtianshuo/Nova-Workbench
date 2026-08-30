@@ -98,7 +98,7 @@ pub fn registry() -> Vec<ToolSpec> {
                 "properties": {
                     "productId": { "type": "string", "description": "Optional when a product is selected in the workspace; omit it then." },
                     "title": { "type": "string", "minLength": 1 },
-                    "category": { "type": "string" },
+                    "category": { "type": "string", "enum": KNOWLEDGE_CATEGORIES.to_vec(), "description": "Category must be exactly one of the enum values" },
                     "tags": { "type": "array", "items": { "type": "string" } },
                     "content": { "type": "string", "minLength": 1 },
                     "summary": { "type": "string" }
@@ -328,6 +328,13 @@ pub async fn execute_async(
     }
 }
 
+/// PAIRED with knowledgeCategories in src/ai/tools/knowledgeWrite.ts:12-22.
+/// Keep both lists in sync — post-confirmation replay validates against the TS zod enum.
+const KNOWLEDGE_CATEGORIES: [&str; 9] = [
+    "架构设计", "领域字典", "技术协议", "FAQ与排障", "最佳实践",
+    "经验沉淀", "业务规则", "架构约束", "踩坑指南",
+];
+
 fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
     args.get(key).and_then(|v| v.as_str()).filter(|s| !s.is_empty())
 }
@@ -391,6 +398,18 @@ fn execute_knowledge_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -
             };
         }
     }
+    // 22-09: category enum parity with TS replay (zod rejects free text AFTER
+    // confirm — fail here instead so the model can fix it before the card).
+    let category = str_arg(args, "category").unwrap_or("");
+    if !KNOWLEDGE_CATEGORIES.contains(&category) {
+        return ToolOutcome::Failed {
+            message: format!(
+                "Tool \"knowledge_write\" arg validation failed: category must be one of [{}]",
+                KNOWLEDGE_CATEGORIES.join(", ")
+            ),
+            arg_error: true,
+        };
+    }
     // 22-08: ctx.product_id fallback mirrors memory_write — with a product
     // selected the model may omit productId; candidate always carries a
     // concrete id (the webview confirm path reads candidate args).
@@ -407,6 +426,10 @@ fn execute_knowledge_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -
         .unwrap_or_default();
     let mut effective_args = args.clone();
     effective_args["productId"] = json!(product_id);
+    effective_args["category"] = json!(category);
+    if effective_args.get("tags").and_then(|t| t.as_array()).is_none() {
+        effective_args["tags"] = json!([]); // TS zod requires tags; default to empty
+    }
     match confirmations::create_candidate(conn, "knowledge_write", &effective_args, Some(&summary), Some(ctx.session_id)) {
         Ok(candidate) => ToolOutcome::AwaitConfirmation {
             candidate: json!({
@@ -668,7 +691,7 @@ mod tests {
     fn knowledge_write_creates_candidate_and_waits() {
         let conn = mem_conn();
         let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
-        let args = json!({"productId": "p1", "title": "T", "content": "C"});
+        let args = json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
                 assert_eq!(wait_key, "error");
@@ -677,7 +700,9 @@ mod tests {
                 let token = candidate["confirmationToken"].as_str().unwrap();
                 let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
                 assert_eq!(stored.kind, "knowledge_write");
-                assert_eq!(stored.params, args);
+                let mut expect = args.clone();
+                expect["tags"] = json!([]); // 22-09: execute defaults tags before persisting
+                assert_eq!(stored.params, expect);
             }
             other => panic!("expected AwaitConfirmation, got {other:?}"),
         }
@@ -737,7 +762,7 @@ mod tests {
     fn knowledge_write_uses_ctx_product_id_when_model_omits_it() {
         let conn = mem_conn();
         let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
-        match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C"}), &ctx) {
+        match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["productId"], "p1");
                 let token = candidate["confirmationToken"].as_str().unwrap();
@@ -756,7 +781,7 @@ mod tests {
     fn knowledge_write_without_product_id_and_no_ctx_arg_errors() {
         let conn = mem_conn();
         let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
-        match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C"}), &ctx) {
+        match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("no product selected"), "{message}");
                 assert!(arg_error);
@@ -769,7 +794,7 @@ mod tests {
     fn knowledge_write_explicit_product_id_wins_over_ctx() {
         let conn = mem_conn();
         let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
-        match execute(&conn, "knowledge_write", &json!({"productId": "p9", "title": "T", "content": "C"}), &ctx) {
+        match execute(&conn, "knowledge_write", &json!({"productId": "p9", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["productId"], "p9");
             }

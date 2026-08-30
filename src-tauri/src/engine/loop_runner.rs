@@ -635,7 +635,7 @@ mod tests {
             content: "我来写入知识库".into(),
             tool_calls: vec![LlmToolCall {
                 name: "knowledge_write".into(),
-                arguments: json!({"productId": "p1", "title": "T", "content": "C"}),
+                arguments: json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}),
             }],
         }]);
         let (result, wire) = run(&conn, llm, CancellationToken::new());
@@ -748,7 +748,7 @@ mod tests {
             content: "我来写入知识库".into(),
             tool_calls: vec![LlmToolCall {
                 name: "knowledge_write".into(),
-                arguments: json!({"title": "T", "content": "C"}),
+                arguments: json!({"title": "T", "content": "C", "category": "最佳实践"}),
             }],
         }]);
         let mut context = ctx_root(&conn, llm, None);

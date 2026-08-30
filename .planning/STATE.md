@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
-current_plan: 4 of 4
-status: verifying
-last_updated: "2026-08-24T08:39:44.029Z"
-last_activity: 2026-08-24
+current_plan: 1
+status: executing
+last_updated: "2026-08-30T08:03:30.082Z"
+last_activity: 2026-08-30
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 19
+  completed_plans: 19
 ---
 
 # Project State
@@ -20,17 +20,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 25 — migration-closeout(v0.3.2 最后一个 phase,milestone ready)
+**Current focus:** Phase 22 — loop-replay-parity
 
 ## Current Position
 
-Phase: 22 (loop-replay-parity) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;7/7 plans,118 cargo + 241 TS 全绿)
+Phase: 22 (loop-replay-parity) — EXECUTING
+Plan: 2 of 8
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
-Current Plan: 1 of 1
-Status: v0.3.2 全 4 phase 完成 — 就绪 /gsd:complete-milestone(SC-3 里程碑 UAT 输入 = 24-VERIFICATION deferred 清单 4 项)
-Last activity: 2026-08-24
+Current Plan: 1
+Status: Ready to execute
+Last activity: 2026-08-30
 
 ```
 v0.3.2 progress: [██████████] 100% (4/4 phases, 17/17 plans)
@@ -71,6 +72,7 @@ v0.3.2 progress: [██████████] 100% (4/4 phases, 17/17 plans)
 | Phase 24 P03 | 35m | 2 tasks | 10 files |
 | Phase 24 P04 | 25m | 1 tasks | 2 files |
 | Phase 25 P01 | 35m | 2 tasks | 12 files |
+| Phase 22 P08 | 25m | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -127,6 +129,7 @@ v0.3.1 roadmap decisions:
 - [Phase 24]: 24-02: scheduler on_change 回调(非 AppHandle 耦合)驱动托盘重建;Windows 左键=显示窗口(show_menu_on_left_click false);tray-open-session(session_id) 跳转;engine_run 加 session_title 参数
 - [Phase 24]: 24-03: 通知点击 focus-gated fallback(Windows toast 回调受限);exec/fs 确认卡 restore 走既有 listPending*/refresh 管线;notify 三点=Done/Error/Confirmation,cancel 不通知
 - [Phase 24]: engine_cancel 提取 engine_cancel_inner 可测核心,SCHED-04 三条全链路集成测试锁定取消语义(running 树杀+无孤儿+兄弟隔离、queued 立即出队、幂等)
+- [Phase 22]: 22-08: knowledge_write productId=model arg > ctx fallback > arg_error; budget exhaustion = no-tools wrap-up turn (chat_no_tools, empty tools vec), outcome=tool_limit truncated=false, English marker deleted
 
 ### TODOs (pending)
 

@@ -12,9 +12,12 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
 import { Tooltip } from '@/src/components/ui/Tooltip';
+import { useToast } from '@/src/components/ui/Toast';
+import { PrdDraftDialog } from '@/src/components/PrdDraftDialog';
 import { cn } from '@/src/lib/utils';
-import { useTabRunStore, ACTIVE, type TabRunRecord } from '@/src/stores/tabRunStore';
+import { useTabRunStore, ACTIVE, type TabRunRecord, type TabDeliverableCandidate } from '@/src/stores/tabRunStore';
 import { useUIStore } from '@/src/stores/uiStore';
+import { useProductStore } from '@/src/stores/productStore';
 
 interface Props {
   tabId: string;
@@ -83,6 +86,18 @@ export function TabRunPanel({ tabId, className }: Props) {
   const runs = useTabRunStore((s) => s.runs);
   const cancelTabRun = useTabRunStore((s) => s.cancelTabRun);
   const startTabRun = useTabRunStore((s) => s.startTabRun);
+  const pendingDeliverables = useTabRunStore((s) => s.pendingDeliverables);
+  const commitTabDeliverable = useTabRunStore((s) => s.commitTabDeliverable);
+  const rejectTabDeliverable = useTabRunStore((s) => s.rejectTabDeliverable);
+  const products = useProductStore((s) => s.products);
+  const { toast } = useToast();
+
+  // Queue head for THIS tab — the run's session never becomes the console's
+  // activeSession (TAB-05), so the confirmation surface lives here.
+  const candidate = pendingDeliverables.find((c) => c.tabId === tabId) ?? null;
+  // Dialog snapshot: frozen when opened so dequeueing doesn't mutate the editor.
+  const [dialogSnapshot, setDialogSnapshot] = useState<TabDeliverableCandidate | null>(null);
+  const [commitBusy, setCommitBusy] = useState(false);
 
   // runsByTab drops the entry when the run settles; fall back to the latest
   // record for this tab so the collapsed summary row survives until cleared.
@@ -116,6 +131,21 @@ export function TabRunPanel({ tabId, className }: Props) {
   }, [run?.status, run?.runId]);
 
   if (!run) return null;
+
+  const pendingCount = pendingDeliverables.filter((c) => c.tabId === tabId).length;
+
+  const handleCommit = async (editedDraft: string) => {
+    if (!dialogSnapshot) return;
+    setCommitBusy(true);
+    const ok = await commitTabDeliverable(editedDraft, dialogSnapshot.confirmationToken);
+    setCommitBusy(false);
+    if (ok) {
+      toast({ type: 'success', title: '已落槽', description: `${dialogSnapshot.title} 已写入研发中心` });
+      setDialogSnapshot(null);
+    } else {
+      toast({ type: 'error', title: '落槽失败', description: '请重试；草稿已保留在对话框中' });
+    }
+  };
 
   const handleRetry = () => {
     startTabRun({
@@ -189,6 +219,49 @@ export function TabRunPanel({ tabId, className }: Props) {
         </button>
       </div>
 
+      {/* Deliverable candidate queue head — tab-run HITL surface (TAB-05) */}
+      <AnimatePresence initial={false}>
+        {candidate && (
+          <motion.div
+            key={candidate.confirmationToken}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={SPRING}
+            className="overflow-hidden"
+          >
+            <div className="rounded-[var(--radius-md)] border border-accent/30 bg-accent-subtle px-3.5 py-3 text-sm text-text-primary">
+              <div className="font-medium">待确认的产物草稿 — {candidate.title}</div>
+              <div className="mt-1 text-xs text-text-secondary">
+                产品: {products.find((p) => p.id === candidate.productId)?.name ?? candidate.productId}
+                {pendingCount > 1 && ` · 后续还有 ${pendingCount - 1} 份`}
+              </div>
+              <div className="mt-1 text-xs text-text-secondary line-clamp-3 whitespace-pre-wrap">{candidate.draft}</div>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={commitBusy}
+                  onClick={() => setDialogSnapshot(candidate)}
+                >
+                  确认并编辑
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={commitBusy}
+                  onClick={() => void rejectTabDeliverable(candidate.confirmationToken)}
+                >
+                  忽略
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Indeterminate progress while running */}
       {run.status === 'running' && <ProgressBar value={0} indeterminate variant="accent" />}
 
@@ -226,6 +299,20 @@ export function TabRunPanel({ tabId, className }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {dialogSnapshot && (
+        <PrdDraftDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setDialogSnapshot(null);
+          }}
+          title={dialogSnapshot.title || '产物草稿'}
+          description={`${products.find((p) => p.id === dialogSnapshot.productId)?.name ?? ''} · 编辑后落槽至研发中心，并同步知识库索引`}
+          initialDraft={dialogSnapshot.draft}
+          busy={commitBusy}
+          onCommit={(draft) => void handleCommit(draft)}
+        />
+      )}
     </Card>
   );
 }

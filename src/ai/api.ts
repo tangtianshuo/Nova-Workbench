@@ -16,6 +16,10 @@ export interface EnginePendingCandidate {
   content?: string;
   scope?: string;
   productId?: string | null;
+  /** deliverable_draft flat fields (engine tools.rs generate_deliverable payload). */
+  code?: string;
+  title?: string;
+  draft?: string;
 }
 
 /** ToolLoopResult 同形 (engine/channel.rs EngineRunResult, camelCase wire). */

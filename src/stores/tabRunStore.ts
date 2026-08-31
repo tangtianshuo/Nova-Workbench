@@ -5,9 +5,12 @@
 // Runs are transient (never persisted); rehydrateTabRuns rebuilds from the
 // event log by sessionId when run records survive a webview reload.
 import { create } from 'zustand';
-import { engineCancel, engineRun } from '@/src/ai/api';
+import { engineCancel, engineCommitDeliverable, engineRun } from '@/src/ai/api';
+import { confirmDeliverableDraft, rejectDeliverableDraft } from '@/src/ai/confirmations';
+import { executeTool } from '@/src/ai/registry';
 import { routeEngineCandidateToConsole } from '@/src/stores/chatConsoleStore';
 import { resolveSessionEvents } from '@/src/ai/fork';
+import { useRndStore } from '@/src/stores/rndStore';
 import { useUIStore } from '@/src/stores/uiStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 
@@ -64,13 +67,34 @@ export interface StartTabRunParams {
   workspaceRoot?: string | null;
 }
 
+/**
+ * Deliverable candidate queued by a tab run. Confirmed in the tab surface
+ * (TabRunPanel card + PrdDraftDialog): the run's dedicated session never
+ * becomes the console's activeSession (TAB-05), so the console's PRD card
+ * would be unreachable for tab-originated drafts.
+ */
+export interface TabDeliverableCandidate {
+  tabId: string;
+  sessionId: string;
+  confirmationToken: string;
+  code: string;
+  title: string;
+  draft: string;
+  productId: string;
+}
+
 interface TabRunState {
   /** key = runId */
   runs: Record<string, TabRunRecord>;
   /** tabId → active (queued/running/waiting) runId — 1-run-per-tab guard. */
   runsByTab: Record<string, string>;
+  /** Queue head renders first; commit/reject dequeues the next candidate. */
+  pendingDeliverables: TabDeliverableCandidate[];
+  tabDeliverableBusy: boolean;
   startTabRun: (params: StartTabRunParams) => string;
   cancelTabRun: (runId: string) => Promise<void>;
+  rejectTabDeliverable: (confirmationToken: string) => Promise<void>;
+  commitTabDeliverable: (editedDraft: string, confirmationToken: string) => Promise<boolean>;
   rehydrateTabRuns: () => Promise<void>;
   clearRun: (runId: string) => void;
 }
@@ -96,6 +120,8 @@ function patchRun(set: (fn: (s: TabRunState) => Partial<TabRunState>) => void, r
 export const useTabRunStore = create<TabRunState>()((set, get) => ({
   runs: {},
   runsByTab: {},
+  pendingDeliverables: [],
+  tabDeliverableBusy: false,
 
   startTabRun: (params) => {
     const existingId = get().runsByTab[params.tabId];
@@ -158,8 +184,23 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
               return;
             }
             if (msg.kind === 'confirmation' && msg.data?.candidate) {
-              // D-05: HITL cards only go through the global confirmation queue.
-              routeEngineCandidateToConsole(msg.data.candidate, sessionId);
+              const cand = msg.data.candidate;
+              if (cand.kind === 'deliverable_draft') {
+                set((state) => ({
+                  pendingDeliverables: [...state.pendingDeliverables, {
+                    tabId: params.tabId,
+                    sessionId,
+                    confirmationToken: String(cand.confirmationToken ?? ''),
+                    code: String(cand.code ?? ''),
+                    title: String(cand.title ?? ''),
+                    draft: String(cand.draft ?? ''),
+                    productId: String(cand.productId ?? params.productId),
+                  }],
+                }));
+              } else {
+                // D-05: non-deliverable HITL kinds go through the global confirmation queue.
+                routeEngineCandidateToConsole(cand, sessionId);
+              }
               patchRun(set, runId, (run) => ({
                 ...appendEvent(run, { ts: Date.now(), kind: 'confirmation', name: msg.data!.candidate!.kind }),
                 status: 'waiting-for-confirmation',
@@ -221,6 +262,54 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
       const entries = Object.entries(state.runsByTab).filter(([, id]) => id !== runId);
       return { runsByTab: Object.fromEntries(entries) };
     });
+  },
+
+  // Phase 26 落槽链 (16-DELIV-02 同构): confirm → executeTool consume → Rust
+  // deliverable_committed 审计 (sessionId = tab run 自己的) → 投影刷新。
+  commitTabDeliverable: async (editedDraft, confirmationToken) => {
+    const head = get().pendingDeliverables.find((c) => c.confirmationToken === confirmationToken);
+    if (!head || get().tabDeliverableBusy) return false;
+    set({ tabDeliverableBusy: true });
+    try {
+      await confirmDeliverableDraft(head.confirmationToken);
+      const result = await executeTool('generateDeliverable', {
+        code: head.code,
+        title: head.title,
+        draft: editedDraft,
+        confirmationToken: head.confirmationToken,
+      }) as { docId: string; version: number; ftsHitCount: number; ftsImmediateHit: boolean };
+      await engineCommitDeliverable({
+        sessionId: head.sessionId,
+        token: head.confirmationToken,
+        code: head.code,
+        title: head.title,
+        editedDraft,
+        productId: head.productId,
+        docId: result.docId,
+        version: result.version,
+        ftsHitCount: result.ftsHitCount,
+        ftsImmediateHit: result.ftsImmediateHit,
+      });
+      set((state) => ({ pendingDeliverables: state.pendingDeliverables.filter((c) => c.confirmationToken !== confirmationToken) }));
+      await useRndStore.getState().hydrateDeliverableSlots();
+      return true;
+    } catch (error) {
+      console.error('[tabRunStore] deliverable commit failed', error);
+      return false;
+    } finally {
+      set({ tabDeliverableBusy: false });
+    }
+  },
+
+  rejectTabDeliverable: async (confirmationToken) => {
+    const head = get().pendingDeliverables.find((c) => c.confirmationToken === confirmationToken);
+    if (!head) return;
+    try {
+      await rejectDeliverableDraft(confirmationToken);
+    } catch (error) {
+      console.error('[tabRunStore] deliverable reject failed', error);
+    }
+    set((state) => ({ pendingDeliverables: state.pendingDeliverables.filter((c) => c.confirmationToken !== confirmationToken) }));
   },
 
   // Webview-reload recovery: one-shot event pull by sessionId (no polling).

@@ -3,8 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
 current_plan: Not started
-status: executing
-last_updated: "2026-08-31T01:27:13.449Z"
+status: milestone_complete
+stopped_at: "v0.3.2 shipped + archived + tagged (2026-08-31); next: /gsd:new-milestone"
+last_updated: "2026-08-31T01:44:58.962Z"
 last_activity: 2026-08-31
 progress:
   total_phases: 8
@@ -20,20 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.2 里程碑收口 — 22-UAT Test 7 人工复测 → complete-milestone
+**Current focus:** 下一里程碑待立项(/gsd:new-milestone;候选 v0.3.3 RND-ROLLOUT)
 
 ## Current Position
 
-v0.3.2 全部 phases 完成(见下方 Phase 明细);Roadmap 剩余 999.x 为 BACKLOG,不属本里程碑
+v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
+Phase 22 (loop-replay-parity) — COMPLETE(10/10 plans 含三轮 gap closure;VERIFICATION passed 2026-08-31;22-UAT Test 7 人工复测留真实 LLM 环境补验,代码级常量互锁已闭)
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
 Current Plan: Not started
-Status: Milestone 收口中(22-UAT Test 7 人工复测待办,代码级全绿)
+Status: Milestone v0.3.2 complete — awaiting next milestone (/gsd:new-milestone)
 Last activity: 2026-08-31
 
 ```
-v0.3.2 progress: [██████████] 100% (4/4 phases, 21/21 plans 含 22-08/09/10 三轮 gap closure)
+milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31);当前无活动里程碑
 ```
 
 ## Performance Metrics
@@ -150,14 +152,14 @@ See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest
 ## Session Continuity
 
 Last session: 2026-08-31
-Stopped at: v0.3.2 全部 phases + 3 轮 gap closure 完成;待 22-UAT Test 7 人工复测(knowledge_write 卡片确认落库,需真实 LLM)→ `/gsd:complete-milestone v0.3.2`
+Stopped at: v0.3.2 shipped + archived(milestones/v0.3.2-*)+ tagged;22-UAT Test 7 人工复测留真实 LLM 环境补验(非阻塞,代码级常量互锁已闭)
 Resume file: None
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.2 phases(全部 complete;999.x 为 BACKLOG)
-2. Read `.planning/PROJECT.md` Current Milestone — key decisions + out of scope
-3. Read `docs/adr/ADR-0003-rust-run-engine.md` — 本里程碑架构决策(引擎分层/物料决策/协议决策)
-4. Next action: 人工复测 22-UAT Test 7 → `/gsd:complete-milestone v0.3.2`
+1. Read `.planning/ROADMAP.md` — 历史里程碑全归档;999.x 为 BACKLOG
+2. Read `.planning/PROJECT.md` Current Milestone — 无(待立项);候选路线见 research/RND-ROLLOUT-V0.3-V0.4.md
+3. Read `docs/adr/ADR-0003-rust-run-engine.md` — v0.3.2 架构决策(引擎分层/物料决策/协议决策)
+4. Next action: `/gsd:new-milestone`
 
 Key files: `src/ai/toolLoop.ts` + `src/ai/compaction.ts` + `src/ai/fork.ts`(移植规格源), `src-tauri/src/llm.rs`(保留的 LLM 层), `src-tauri/migrations/0002..0007`(事件日志 schema), `docs/ARCHITECTURE.md` v2.0 + ADR-0001/0002/0003

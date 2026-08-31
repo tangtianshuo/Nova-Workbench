@@ -1,5 +1,28 @@
 # Milestones
 
+## v0.3.2 Rust Run Engine (Shipped: 2026-08-31)
+
+**Phases completed:** 4 phases (22-25), 21 plans (含 22-08/09/10 三轮 UAT gap closure), 42 tasks
+**Timeline:** 2026-08-24 → 2026-08-31 (8 days, 114 commits, 127 files, +25,827/−1,586 LOC)
+**Audit:** v0.3.2-MILESTONE-AUDIT **passed**(16/16 需求、4/4 phases、6/6 integration、6/6 E2E flows;SCHED-04 取消链路经 24-05 gap closure 关闭)
+
+**Key accomplishments:**
+
+1. **Rust 常驻 run engine** — toolLoop/compaction/contextAssembler 语义移植(loop_runner 主循环 + ≥0.8× 配对边界压缩 + 五段上下文注入 Rust 化),agent_* 表 Rust 唯一写者,`engine_run` 经 Channel 成为唯一 agent 运行时;webview 退化为投影 + HITL UI(ADR-0003)
+2. **Replay parity 逐位锁定** — 双侧共享 fixture(算法金样本/投影用例/真实 v0.3.x 存量日志 264+42 events 端到端回放),parity harness canonical 化 + 时间戳白名单,永久测试;TS 217 测试 = 可执行规格的使命完成
+3. **TS 运行时删除** — toolLoop/compaction/contextAssembler 共 -1371 行 grep 零命中;ADR-0003 转 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步
+4. **原生工具层(无桥)** — exec(命令白名单二元组 + HITL 确认后 Rust 重执行)/fs 读写(resolve_deep 逐级路径安全)/knowledge 检索/deliverable 四类工具全 Rust 原生;TS 工具桥整体取消(用户决策:业务数据 kv JSON 快照,建桥即拆)
+5. **多 run 并行 + 托盘常驻** — 调度器 VecDeque FIFO cap 3、hide-on-close 后台 run 不中断、系统通知三点(Done/Error/Confirmation)+ 托盘一键跳回 session、engine_cancel 取消全链路(SCHED-04 三条集成测试锁定)
+6. **三轮 UAT gap closure** — 22-08(productId ctx 兜底 + 检索预算 prompt 规则 + MAX_ITERATIONS=8 结构边界与中文无工具收尾轮)、22-09(category 9 值枚举预卡校验 + tags 默认)、22-10(knowledge_write params_hash 跨边界平价:Rust 规整为 TS knowledgeParams 同构 10 字段形状,TS 预计算 SHA-256 常量双侧互锁);收口时 cargo 176 + npm 222 + tsc 全绿
+
+### Known Gaps (tech debt)
+
+- 22-UAT Test 7 人工复测未执行(代码级已锁:22-10 常量互锁测试 + VERIFICATION passed;真实 LLM 下 knowledge_write 卡片确认落库为最终人工门)
+- update-path params_hash 已知边界:operation 由 Rust SQLite 与 webview rndStore 两源计算,不一致则 hash 漂移(create-path 已常量锁定;升级路径 = 知识表单一真相源)
+- 结转 tech debt:FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall 决策点、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null(完整清单见 PROJECT.md)
+- PM CRUD 工具缺席(TOOL-03 重定义):模型有降级感知,v0.3.3 业务数据关系化后以 Rust 原生工具回归
+---
+
 ## v0.3.1 多 Session 会话体系 (Shipped: 2026-08-19, closed 2026-08-24)
 
 **Phases completed:** 4 phases (18-21), 10 plans + 穿插 quick 任务群(260818/260819 系列)

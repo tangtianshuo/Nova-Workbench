@@ -2,36 +2,19 @@
 
 ## What This Is
 
-Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付 PM 视图框架 + 设计系统 + Rust 原生底座;v0.2.0 交付任务/日程 CRUD、跨模块弱关联、Markdown WYSIWYG、AI 助手全链路;v0.3.0 功能闭环(2026-08-17):以「事件日志 + 增强 tool loop + SQLite FTS5」为架构真相源,agent 成为有记忆、可恢复、可追责的一等执行者;**v0.3.1 多 Session 会话体系已 shipped(2026-08-19)**:sessions 数据模型 + 多会话运行时 + 引用式 fork + 真实 session 列表与 LLM 自动命名,agent 对话从「单历史」升级为「按工作区组织的多会话树」。
+Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付 PM 视图框架 + 设计系统 + Rust 原生底座;v0.2.0 交付任务/日程 CRUD、跨模块弱关联、Markdown WYSIWYG、AI 助手全链路;v0.3.0 功能闭环(2026-08-17):以「事件日志 + 增强 tool loop + SQLite FTS5」为架构真相源,agent 成为有记忆、可恢复、可追责的一等执行者;v0.3.1 多 Session 会话体系(2026-08-19):sessions 数据模型 + 多会话运行时 + 引用式 fork + 真实 session 列表与 LLM 自动命名;**v0.3.2 Rust Run Engine 已 shipped(2026-08-31)**:agent 运行时整体迁入 Rust 常驻引擎(多 run 并行 + 托盘后台 + 事件唯一写者 + replay parity 逐位锁定),webview 退化为投影 + HITL UI,为 IM/MCP/Skill 多入口铺平道路。
 
 ## Core Value
 
 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 
-## Current Milestone: v0.3.2 Rust Run Engine(agent 核心迁 Rust)
+## Current Milestone: 无(待立项)
 
-**Goal:** 把 agent 运行时从 TS webview 迁入 Rust 常驻 run engine——多 run 并行调度、后台持续运行、事件日志 Rust 唯一写者;webview 退化为投影 + HITL UI;为 IM / MCP / Skill 三类入口铺平道路。
-
-**Target features:**
-- ADR-0003 草案:显式取代 ADR-0001「agent 运行时驻留 TS 侧」条款(其余不变)
-- 引擎核心:toolLoop / compaction / contextAssembler 语义移植,agent_* 表迁 Rust 唯一写者,单 run 打通现有 ChatPanel,验收 = 事件日志回放平价
-- 工具层:Rust 工具注册表 + 首批工具(exec 借 omp 模式 / fs / knowledge 检索 / deliverable),PM CRUD 工具走 TS 工具桥过渡
-- 多 run 并行 + 后台:调度器(spawn / await / cancel 传播 / 并发上限)、hide-on-close + 托盘常驻、后台 run 角标与通知
-- 收口:TS loop 下线、ADR-0003 转 Accepted、孤儿 exec 第三态协议定稿
-
-**Key decisions(2026-08-23 用户锁定,详见 ADR-0003):**
-- 三驱动:后台长跑 / 多 session 并行 / IM-MCP-Skill 丝滑接入;TS 运行时定性为语义验证(已完成使命)
-- 不采用 rig-core/rig-agent(供给错位 + AgentRun 与事件日志双记账 + pre-1.0 风险进心脏);不采用 GraphFlow 调度(动态拓扑 vs 静态图相克,自写调度器 ≈ 数百行 tokio)
-- llm.rs 原地保留;omp 借模式不引依赖(MIT + ADR-0002 先例)
-- 双写者规则:Rust 立即接管 agent_* 表;业务表过渡期 TS 写、Rust 只读;同表双写禁止
-- 后台运行 = 托盘常驻(hide-on-close),不是守护进程
-- 验收 = Rust 引擎逐位回放 v0.3.x 事件日志,投影一致(TS 纯函数 + 217 测试 = 可执行规格)
-
-**Out of scope:** subAgent spawn 工具与编排 agent 模式(留 v0.4+,调度器结构已支持)、IM 入口、MCP client(rmcp)、Skill manifest、业务表 Rust 直写、向量检索 P2、独立守护进程
+**v0.3.2 Rust Run Engine 已 shipped(2026-08-31)并归档** — 见 `milestones/v0.3.2-ROADMAP.md` / `MILESTONES.md`。下一里程碑经 `/gsd:new-milestone` 立项;候选路线见 `research/RND-ROLLOUT-V0.3-V0.4.md`(v0.3.3 业务数据关系化 + PM CRUD 原生回归 → v0.4.0 coding agent + subagent + pipeline + Skill → v0.5+ MCP/IM)。
 
 ## Current State (after v0.3.2)
 
-**v0.3.2 Rust Run Engine 执行完毕 2026-08-31(待人工 UAT 复测收口)** — 4 phases (22-25), 18 plans + 3 gap closure plans (22-08/09/10), ADR-0003 Accepted。TS toolLoop/compaction/contextAssembler 已删除(-1371 行),`engine_run` 经 Channel 是唯一 agent 运行时;调度器多 run 并行(cap 3 + FIFO)+ 托盘常驻(hide-on-close,后台 run 不中断)+ 系统通知;双侧 replay parity 永久测试(真实 v0.3.x 存量日志 fixture 端到端)。三轮 gap closure:22-08(knowledge_write productId ctx 兜底、检索预算 prompt 规则 + MAX_ITERATIONS=8、chat_no_tools 收尾轮)、22-09(category enum 预校验 + tags 默认)、22-10(knowledge_write effective_args 规整为 TS knowledgeParams 同构 10 字段形状,params_hash 跨边界平价双向常量测试锁定,`params_mismatch` 结构性闭合)。cargo 176 + npm 222 + tsc 全绿。待办:22-UAT Test 7 人工复测(knowledge_write 卡片确认落库)→ complete-milestone。
+**v0.3.2 Rust Run Engine shipped 2026-08-31** — 4 phases (22-25), 21 plans(含 22-08/09/10 三轮 UAT gap closure), 114 commits, 16/16 需求, milestone audit passed(16/16 需求、6/6 集成、6/6 E2E)。TS toolLoop/compaction/contextAssembler 已删除(-1371 行),`engine_run` 经 Channel 是唯一 agent 运行时;调度器多 run 并行(cap 3 + FIFO)+ 托盘常驻(hide-on-close,后台 run 不中断)+ 系统通知;双侧 replay parity 永久测试(真实 v0.3.x 存量日志 fixture 端到端);exec/fs/knowledge/deliverable 四类工具全 Rust 原生(TS 工具桥取消,PM CRUD 归 v0.3.3);三轮 gap closure 闭合 knowledge_write HITL 跨边界链(productId 兜底 → category 枚举 → params_hash 域对齐)。收口 gates:cargo 176 + npm 222 + tsc 全绿。
 
 **v0.3.0 功能闭环 shipped 2026-08-17** — 5 phases (13-17), 19 plans, 149 commits, 161/161 tests。审计 tech_debt(无阻断):28/28 需求满足、11/11 集成 seam、4/4 E2E flows;统一人工 UAT 21/21(13-UAT 7 + 16-UAT 8 + 17-UAT 6,含 v0.2.0 遗留 35 步回归闭合)。
 
@@ -79,6 +62,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 - ✓ Agent 一等入口(UX-01..04:双宿主/⌘K carry/晨报/右键动作)+ ARCHITECTURE.md v2.0 + ADR(ARCH-01/02) — **v0.3.0(Phase 17), 17-HUMAN-UAT 6/6**
 - ✓ v0.2.0 遗留 35 步人工回归(发布签核项) — **v0.3.0(17-HUMAN-UAT Test 6, 35/35 pass)**
 - ✓ 多 Session 会话体系(SESS-01..06, LIST-01/02, FORK-01..03, QUICK-01..03, TITLE-01/02) — **v0.3.1(Phase 18-21), 15/15 需求满足,217/217 测试;3 项人工 UAT 2026-08-24 收口**
+- ✓ Rust Run Engine(ENG-01..05, TOOL-01..04, SCHED-01..04, PORT-01..03) — **v0.3.2(Phase 22-25), 16/16 需求满足,milestone audit passed;收口 gates cargo 176 + npm 222 + tsc;22-UAT Test 7 人工复测留待真实 LLM 环境补验**
 
 ### Active
 
@@ -156,8 +140,9 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 | [v0.3.0] consume-at-落槽(卡片确认 ≠ 消费,Dialog 落槽是唯一消费点) | 取消无损;stable docId 使重复落槽 supersede 为新版本 | ✓ Good — 16-UAT 取消无损/版本链验证 |
 | [v0.3.0] chatConsoleStore 唯一归属 + AgentConsole 双宿主 | Drawer 与工作区同一场对话,同构由结构保证而非测试 | ✓ Good — 17-UAT 流式中途切换验证 |
 | [v0.3.0] harness 复用 = 设计思想 + 纯函数算法,不引入框架 | dsh 是 Node 运行时违反零 sidecar;MIT 归属入 ADR-0002 | ✓ Good |
-| [v0.3.2] Agent 核心迁 Rust run engine,webview 退化为投影 + HITL UI | 三驱动:后台长跑 / 多 session 并行 / IM-MCP-Skill 多入口;TS 运行时已完成语义验证;事件日志 schema 即迁移契约 | ◐ Proposed — ADR-0003 草案,Phase 25 转 Accepted |
-| [v0.3.2] 不采用 Rig / GraphFlow,自写调度器,omp 借模式不引依赖 | Rig 只供 loop 骨架+provider(最廉价部分)且 AgentRun 与事件日志双记账;GraphFlow 静态图 vs subAgent 动态拓扑相克;调度器 ≈ 数百行 tokio | ◐ Proposed — ADR-0003 物料决策表 |
+| [v0.3.2] Agent 核心迁 Rust run engine,webview 退化为投影 + HITL UI | 三驱动:后台长跑 / 多 session 并行 / IM-MCP-Skill 多入口;TS 运行时已完成语义验证;事件日志 schema 即迁移契约 | ✓ Validated in v0.3.2 — ADR-0003 Accepted,replay parity 逐位锁定 |
+| [v0.3.2] 不采用 Rig / GraphFlow,自写调度器,omp 借模式不引依赖 | Rig 只供 loop 骨架+provider(最廉价部分)且 AgentRun 与事件日志双记账;GraphFlow 静态图 vs subAgent 动态拓扑相克;调度器 ≈ 数百行 tokio | ✓ Validated in v0.3.2 — 调度器 VecDeque FIFO + per-run Connection 按期落地 |
+| [v0.3.2] TS 工具桥整体取消,PM CRUD 缺席降级 | 业务数据为 kv_store JSON 快照,桥为建即拆的过渡架构;v0.3.3 关系化后原生回归 | ✓ Validated in v0.3.2 — 无头/有头工具集一致(TOOL-04) |
 
 ## Evolution
 
@@ -192,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 22 (2026-08-31)**: Loop Replay Parity + 三轮 UAT gap closure(22-08/09/10)— knowledge_write params_hash 跨边界平价闭合,Rust/TS 双侧 SHA-256 常量测试锁定。VERIFICATION PASS(2/2,Test 7 人工复测待办)。
 
 ---
-*Last updated: 2026-08-31 — v0.3.2 Rust Run Engine 4/4 phases + 3 轮 gap closure 收口;待 22-UAT Test 7 人工复测后 complete-milestone*
+*Last updated: 2026-08-31 after v0.3.2 milestone(archived → milestones/v0.3.2-*,tag v0.3.2)*

@@ -129,6 +129,47 @@
 
 ---
 
+## Milestone: v0.3.2 — Rust Run Engine
+
+**Shipped:** 2026-08-31
+**Phases:** 4 (22-25) | **Plans:** 21(含 22-08/09/10 三轮 UAT gap closure)| **Commits:** 114 | **Timeline:** 2026-08-24 → 2026-08-31(8 天)
+
+### What Was Built
+- Rust 常驻 run engine:toolLoop/compaction/contextAssembler 语义移植,agent_* 表 Rust 唯一写者,`engine_run` 经 Channel 成为唯一 agent 运行时
+- Replay parity 逐位锁定:算法金样本 + 投影用例 + 真实 v0.3.x 存量日志(264+42 events)三层 fixture 单源双侧,永久测试
+- TS 运行时删除(-1371 行):ADR-0003 Accepted,ARCHITECTURE v3.0 引擎分层
+- 原生工具层(无桥):exec(白名单 + HITL 重执行)/fs/knowledge/deliverable 四类工具全 Rust 原生
+- 多 run 并行 + 托盘常驻:VecDeque FIFO cap 3、hide-on-close 后台不中断、系统通知 + 一键跳回、取消全链路
+- 三轮 UAT gap closure:productId 兜底 → category 枚举 → params_hash 域对齐,knowledge_write HITL 链闭合
+
+### What Worked
+- **replay parity 先行**:TS 217 测试定性为「可执行规格」,迁移验收 = 逐位回放存量日志,而非重新定义行为 — 全程零语义漂移争议
+- **协议最先定稿(PORT-01)**:引擎搬家前锁孤儿 exec 第三态协议,避免了迁移中最贵的协议返工
+- **无桥决策及时**:发现业务数据为 kv JSON 快照后立即取消 TS 工具桥,避免建即拆的过渡架构(TOOL-03/04 重定义,零沉没成本)
+- **双写者规则清晰**:agent_* 表 Rust 立即接管、业务表过渡期 TS 写 Rust 只读,边界无争议
+
+### What Was Inefficient
+- **knowledge_write 跨边界 bug 三轮才闭合**(productId → category enum → params shape):同一 bug 类(「两侧独立计算同一 hash/校验域」)反复出现,前两轮修症状、第三轮才识别结构根因;若 round 1 就建立「TS 预计算常量在 Rust 断言」的互锁测试,可省两轮 gap closure
+- **UAT 轮次偏多(3 轮)**:每轮各出一个 gap closure plan;跨边界工具链(knowledge_write)缺少一次性全字段对照审查
+- 22-UAT Test 7 人工复测最终未在收口前完成(代码级已锁,留真实 LLM 环境补验)
+
+### Patterns Established
+- **常量互锁测试**:跨语言不变量用 TS 侧预计算常量在双侧断言(memory 先例 → knowledge_write 推广),结构上杜绝域漂移
+- **hash 域 = 规整后对象**:候选 params_hash 计算对象必须是重放侧再规整的不动点(fixed point),而非原始模型 args
+- fixture 单源双侧(glob 拥有全部回放测试):跨语言语义对齐的唯一可信机制
+
+### Key Lessons
+1. 跨边界不变量(哈希/校验/协议)不能各侧各自测试 — 必须双侧互锁(常量或共享 fixture),否则接缝处必漂移
+2. 语义迁移的验收基准是「回放旧世界的真实数据」,不是「新世界自洽」— 真实存量日志 fixture 应尽早采样
+3. 同类 bug 第二次出现时就该找结构根因,而不是继续逐字段打补丁
+
+### Cost Observations
+- Timeline: 8 天 4 phases + 3 gap closure plans(引擎移植主体 4 天完成,gap closure 占后 3 天)
+- Tests: cargo ~60 → 176,npm 217 → 222(净增主要在 Rust 侧;TS 侧删除运行时同时保留规格测试)
+- Notable: 22-10 一轮内 2 task/2 files 即闭合 major gap — 常量互锁测试让修复面收敛到单点
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -138,6 +179,7 @@
 | v0.2.0 | 8 | 引入 milestone audit → gap closure phase 闭环;AI 功能采用 focused/mock + Ollama 双层 UAT |
 | v0.3.0 | 5 | 依赖链拆 phase + 冻结签名重构 + 永久不变量测试;统一延后 UAT + DB 代查双签核;gap 当场修(零 gap-closure phase) |
 | v0.3.1 | 4 | 纯函数层 TDD(fork.ts)+ 系统性读路径清点;Playwright 半自动 UAT(无凭据环境 fallback 代验);收口顺序失误教训(complete-milestone 须先于 new-milestone) |
+| v0.3.2 | 4+3gap | 跨语言迁移 = fixture 单源双侧 + 逐位回放验收;跨边界不变量双侧互锁测试(常量互锁模式);TS 测试定性为可执行规格 |
 
 ### Top Lessons (Verified Across Milestones)
 

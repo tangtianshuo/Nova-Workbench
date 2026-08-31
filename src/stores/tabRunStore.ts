@@ -268,7 +268,12 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        patchRun(set, runId, (run) => ({ ...run, status: 'error', error: message, currentStep: '出错' }));
+        // engine_cancel rejects the run with "llm: cancelled" — a user cancel
+        // races this catch, so never overwrite the cancelled status with error.
+        patchRun(set, runId, (run) =>
+          run.status === 'cancelled'
+            ? run
+            : { ...run, status: 'error', error: message, currentStep: '出错' });
       } finally {
         set((state) => (state.runsByTab[params.tabId] === runId
           ? { runsByTab: Object.fromEntries(Object.entries(state.runsByTab).filter(([tab, id]) => !(tab === params.tabId && id === runId))) }

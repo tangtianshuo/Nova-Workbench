@@ -121,6 +121,46 @@ function toDestructiveCandidate(
   } as DestructiveActionCandidate;
 }
 
+/**
+ * Phase 26 (26-01): route a tab-run engine candidate into the global
+ * confirmation queue (D-05 — HITL cards only render via this store's pending
+ * fields). Same mapping submit() uses inline; sessionId comes from the tab run
+ * (embedded in the candidate so confirm/consume stay token+session correct).
+ */
+export function routeEngineCandidateToConsole(candidate: EnginePendingCandidate, sessionId: string): void {
+  if (candidate.kind === 'knowledge_write') {
+    useChatConsoleStore.setState({ pendingConfirmation: toKnowledgeWriteCandidate(candidate, sessionId) });
+  } else if (candidate.kind === 'destructive_action') {
+    useChatConsoleStore.setState({ pendingDestructiveAction: toDestructiveCandidate(candidate) });
+  } else if (candidate.kind === 'exec_approval') {
+    useChatConsoleStore.setState({
+      pendingExecApproval: {
+        confirmationToken: candidate.confirmationToken,
+        command: String(candidate.args?.command ?? ''),
+        args: Array.isArray(candidate.args?.args) ? (candidate.args?.args as string[]) : [],
+        summary: String(candidate.summary ?? ''),
+      },
+    });
+  } else if (candidate.kind === 'fs_write') {
+    const operation = (['write', 'mkdir', 'delete', 'move'] as const).includes(
+      candidate.args?.operation as FsWriteCandidate['operation'],
+    )
+      ? (candidate.args?.operation as FsWriteCandidate['operation'])
+      : 'write';
+    useChatConsoleStore.setState({
+      pendingFsWrite: {
+        confirmationToken: candidate.confirmationToken,
+        operation,
+        path: String(candidate.args?.path ?? candidate.args?.src ?? ''),
+        content: typeof candidate.args?.content === 'string' ? candidate.args.content : undefined,
+        summary: String(candidate.summary ?? ''),
+      },
+    });
+  }
+  // memory_write candidates surface via the memory card store's own refresh
+  // path — nothing to enqueue here.
+}
+
 /* === Toast bridge (component binds useToast; store stays React-free) === */
 
 export interface ConsoleToast {

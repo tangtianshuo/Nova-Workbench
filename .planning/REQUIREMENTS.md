@@ -10,11 +10,11 @@ Requirements for v0.3.3. Each maps to roadmap phases (26+, numbering continues).
 
 ### Tab 真实化(Mock 全清)
 
-- [ ] **TAB-01**: 用户在产研中心任一 tab 点击 AI 生成按钮(需求/原型/代码脚手架/测试用例/竞品分析/一键交付物)触发真实 `engine_run`,携带 tab 上下文,不再返回 mock 数据
+- [x] **TAB-01**: 用户在产研中心任一 tab 点击 AI 生成按钮(需求/原型/代码脚手架/测试用例/竞品分析/一键交付物)触发真实 `engine_run`,携带 tab 上下文,不再返回 mock 数据
 - [ ] **TAB-02**: 用户在 tab 内看到流式进度与事件投影(事件日志可审计),并可取消
 - [ ] **TAB-03**: 每类生成统一走候选→HITL 确认卡→版本化落槽(knowledge_docs 卡槽 + AI 溯源徽章),与 PRD 生产线同构
 - [ ] **TAB-04**: 用户在产品页运行 product skill 时走真实 run;`runProductSkill` 及 rndStore 六个 `generate*AI` mock/fabricate 代码全部删除,UI 无死路径
-- [ ] **TAB-05**: tab 触发的 run 使用独立 sessionId,不污染聊天会话列表与会话投影
+- [x] **TAB-05**: tab 触发的 run 使用独立 sessionId,不污染聊天会话列表与会话投影
 - [ ] **TAB-06**: 用户在批量生成运行期间发起聊天,交互 run 优先于批量 run(不被 cap-3 队列饿死);一键十八份交付物为单 run 多步而非 18 个 run
 
 ### 工作区文档摄取(999.1)
@@ -71,11 +71,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TAB-01 | Phase 26 | Pending |
+| TAB-01 | Phase 26 | Complete |
 | TAB-02 | Phase 26 | Pending |
 | TAB-03 | Phase 26 | Pending |
 | TAB-04 | Phase 26 | Pending |
-| TAB-05 | Phase 26 | Pending |
+| TAB-05 | Phase 26 | Complete |
 | TAB-06 | Phase 26 | Pending |
 | ING-01 | Phase 27 | Pending |
 | ING-02 | Phase 27 | Pending |

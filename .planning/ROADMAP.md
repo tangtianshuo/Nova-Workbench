@@ -32,7 +32,7 @@
   5. 批量生成运行期间用户发起聊天,交互 run 优先于批量 run(不被 cap-3 队列饿死);一键十八份交付物为单 run 多步而非 18 个 run
 **Plans**: 4 plans
 Plans:
-- [ ] 26-01-PLAN.md — tabRunStore 基础设施 + deliverables 投影化(knowledge_docs 唯一真相源裁定)
+- [x] 26-01-PLAN.md — tabRunStore 基础设施 + deliverables 投影化(knowledge_docs 唯一真相源裁定)
 - [ ] 26-02-PLAN.md — Rust 调度器双队列优先级 + engine_run priority 字段
 - [ ] 26-03-PLAN.md — TabRunPanel 共享组件 + 需求 tab 试点端到端
 - [ ] 26-04-PLAN.md — 其余 tab + 一键单 run 多步 + mock 全清 + 人工验证
@@ -64,7 +64,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 26. Mock 全清 — tab 接引擎 | 0/4 | Not started | - |
+| 26. Mock 全清 — tab 接引擎 | 1/4 | In Progress|  |
 | 27. 工作区文档摄取 | 0/? | Not started | - |
 | 28. 反向创建产品 + 收口 | 0/? | Not started | - |
 

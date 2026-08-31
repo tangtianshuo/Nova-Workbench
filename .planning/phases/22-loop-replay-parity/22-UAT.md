@@ -3,7 +3,7 @@ status: complete
 phase: 22-loop-replay-parity
 source: [22-05-SUMMARY.md, 22-06-SUMMARY.md, 22-VERIFICATION.md]
 started: 2026-08-28T00:00:00Z
-updated: 2026-08-30T17:55:00Z
+updated: 2026-08-31T01:09:30Z
 ---
 
 ## Current Test
@@ -43,16 +43,50 @@ note: 原根因(productId 无 ctx 兜底 → 卡片不出现)已修复 — 卡�
 expected: 在一个 run 进行中(或工具待确认时)强杀 app,重启后该 session 恢复;被中断的 tool_call 显示为 unknown/中断状态,不重复执行,可在 UI 正常续跑或取消。
 result: pass
 
+### 7. Test 5 复测:knowledge_write HITL 确认全链路(22-09 修复后)
+expected: 选定产品后让 agent 写知识文章;category 非法时卡片出现前 arg_error(模型自纠);卡片 → 确认 → 落库成功(无 zod invalid_value);拒绝 → 无孤儿事件。
+result: issue
+reported: "写入依旧失败 点击确认后，出现toast: 写入知识库失败 Knowledge write arguments do not match the confirmed candidate."
+severity: major
+note: 22-09 的 category 枚举修复生效(zod 不再报 invalid_value);断点再次后移:Rust 候选 params_hash 域(effective_args=原始模型args+productId/category/tags 注入)≠ TS consume 重算域(knowledgeParams(resolveDraft)=10字段规整 draft,含 operation/summary/author/readTime 默认填充)— 结构性必然 params_mismatch,详见 Gaps
+
+### 8. Test 4 复测:knowledge_search 弱模型优雅收尾(llama3.2 1b,可选)
+expected: llama3.2 1b 下让 agent 检索知识库;允许过度检索,但 run 必须以中文优雅收尾(outcome=completed/tool_limit,无英文 marker 异常终止)。
+result: skipped
+reason: 用户决定延后修复(2026-08-31;22-09 已定性为 known capability limitation — DB 证据 outcome=completed,结构兜底生效,仅多余检索;转 todo 跟踪)
+
 ## Summary
 
-total: 6
+total: 8
 passed: 4
-issues: 2
+issues: 3
 pending: 0
-skipped: 0
+skipped: 1
 blocked: 0
 
 ## Gaps
+
+- truth: "knowledge_write 确认后重放成功落库:卡片出现 → 确认 → 结果写入(22-09 后复测)"
+  status: failed
+  reason: "User reported: 写入依旧失败 点击确认后，出现toast: 写入知识库失败 Knowledge write arguments do not match the confirmed candidate."
+  severity: major
+  test: 7
+  root_cause: "确认链 hash 域跨边界不对称(与 productId 缺兜底、category 枚举缺失同类的第三处):①Rust execute_knowledge_write(tools.rs:427-433)create_candidate 的 params_json = effective_args = 原始模型 args 克隆 + 仅注入 productId/category/tags — 通常缺 operation/summary/author/readTime 字段;params_hash = params_hash(effective_args)。②确认后 TS 重放(chatConsoleStore.ts:941 executeTool → knowledgeWrite.ts:128 resolveDraft → confirmations.ts:189 consumeKnowledgeWriteConfirmation)重算 hash = computeParamsHash(knowledgeParams(resolveDraft(args)))(confirmations.ts:65-78)= 恒定 10 字段规整 draft:operation 按 itemId 重算('created')、summary=args.summary??content.slice(0,100)、author=args.author??'AI 助手'、readTime=args.readTime??'待阅读'。③两侧哈希对象键集与值域结构性不相交 → 每次确认必 params_mismatch(confirmations.ts:131),非时序/数据问题。旧 TS 引擎时代候选创建与消费同在 TS、hash 域同构,故从未暴露;22-06 把创建移到 Rust 后接缝两侧从未对齐 params 形状"
+  artifacts:
+    - path: "src-tauri/src/engine/tools.rs"
+      issue: "execute_knowledge_write(:427-432)effective_args 仅注入 productId/category/tags,未规整为 TS knowledgeParams 的 10 字段 draft 形状(operation/summary/author/readTime 默认值缺失)→ 候选 params_hash 域与 TS consume 重算域不一致"
+    - path: "src/ai/tools/knowledgeWrite.ts"
+      issue: "resolveDraft(:48-78)在 consume 侧补默认值(content.slice(0,100)/'AI 助手'/'待阅读')+ 重算 operation — 这些默认值不参与 Rust 侧 hash"
+    - path: "src/ai/confirmations.ts"
+      issue: "consumeKnowledgeWriteConfirmation(:185-199)以 TS 侧重算 draft 的 hash 调 store.consume(token, hash) 与 Rust 存的 params_hash 比对(:131 报 params_mismatch)"
+    - path: "src/stores/chatConsoleStore.ts"
+      issue: "confirmKnowledgeWrite(:933-985)确认后重放只传 pendingConfirmation 投影字段;若投影缺 summary/author/readTime 默认值,resolveDraft 会再补一轮与 Rust 不同的默认"
+  missing:
+    - "Rust execute_knowledge_write 把 effective_args 规整为与 TS knowledgeParams(resolveDraft) 逐字段同构的 10 字段形状:productId、itemId(仅模型提供时)、operation(按 Rust 侧知识表存在性:有则 updated 无则 created)、title、category、tags(默认 [])、content、summary(args.summary ?? content 前 100 字)、author(args.author ?? 'AI 助手')、readTime(args.readTime ?? '待阅读');create_candidate 的 params_hash 与卡片 candidate.args 同源此对象(operation 字段不进 zod 重放参数 — chatConsoleStore.ts:941 只挑选已知字段,不受 .strict() 影响)"
+    - "跨边界 hash 平价测试:Rust 单测断言 params_hash(规整后 effective_args) == TS computeParamsHash(knowledgeParams(resolveDraft(同输入))) 的已知常量(参照 commands.rs:1099 memory 先例),锁 create-path;update-path(itemId 存在)若 webview rndStore 与 Rust 表不一致仍可能漂移,列为已知边界记录于测试注释"
+    - "JS slice(0,100) 是 UTF-16 单位、Rust chars().take(100) 是 Unicode 标量 — BMP(中文)一致,emoji 代理对有差异;截断逻辑加 ponytail 注释标明天花板"
+  artifacts_pending_verify: []
+  debug_session: null
 
 - truth: "knowledge_write 确认后重放成功落库:卡片出现 → 确认 → 结果写入"
   status: resolved

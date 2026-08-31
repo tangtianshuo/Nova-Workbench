@@ -54,9 +54,11 @@ const EMPTY_COMPETITOR: CompetitorAnalysisData = {
   differentiationStrategy: '', gapAnalysis: [],
 };
 
-// Helper
+// Helper — Phase 26 (26-01): explicit empty slots only. The catalog drives
+// metadata (id/phase/code/title/...); content readiness is projected from
+// knowledge_docs (hydrateDeliverableSlots). No fabricated seed content.
 export function buildInitialDeliverables(product: Product): FullLifecycleDeliverable[] {
-  return FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((cat, idx) => ({
+  return FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((cat) => ({
     id: `del-${product.id}-${cat.code}`,
     productId: product.id,
     phase: cat.phase,
@@ -67,11 +69,11 @@ export function buildInitialDeliverables(product: Product): FullLifecycleDeliver
     format: cat.format,
     icon: cat.icon,
     summary: cat.summary,
-    status: idx < 6 ? 'ready' as const : 'draft' as const,
-    generatedAt: idx < 6 ? '2025-06-01 15:30' : '待生成',
-    wordCount: idx < 6 ? `${Math.floor(2500 + Math.random() * 2000)} 字` : '0 字',
+    status: 'draft' as const,
+    generatedAt: '待生成',
+    wordCount: '0 字',
     tags: [cat.phaseName, cat.format.toUpperCase()],
-    content: cat.defaultContent(product),
+    content: '',
   }));
 }
 
@@ -106,6 +108,9 @@ interface RndState {
   deleteKnowledgeItem: (productId: string, itemId: string) => void;
   polishKnowledgeArticleAI: (productId: string, itemId: string, action: string) => Promise<string>;
   hydrateKnowledgeFromRepo: () => Promise<void>;
+
+  // ── Deliverables projection (26-01: knowledge_docs is the sole truth source)
+  hydrateDeliverableSlots: () => Promise<void>;
 
   // ── Code Scaffolds ────────────────────────────────────────────────────────
   getCodeScaffoldsForProduct: (productId: string) => CodeScaffoldItem[];
@@ -407,6 +412,34 @@ export const useRndStore = create<RndState>()(
     set({ knowledgeBase: base });
   },
 
+  // Phase 26 (26-01, PITFALLS #5 adjudication): deliverables is a PROJECTION of
+  // knowledge_docs. Slot key = the stable docId convention from the Phase 16
+  // commit path (generateDeliverable.ts): `deliverable-${productId}-${slotCode}`.
+  // Docs without a matching catalog slot are skipped.
+  hydrateDeliverableSlots: async () => {
+    const { getKnowledgeRepo } = await import('@/src/ai/knowledgeRepo');
+    const docs = await getKnowledgeRepo().getCurrentDocs();
+    const deliverableDocs = docs.filter((doc) => doc.category === 'deliverable');
+    if (deliverableDocs.length === 0) return;
+    set((state) => {
+      const deliverables: Record<string, FullLifecycleDeliverable[]> = {};
+      for (const [productId, list] of Object.entries(state.deliverables)) {
+        deliverables[productId] = list.map((slot) => {
+          const doc = deliverableDocs.find((d) => d.docId === `deliverable-${productId}-${slot.code}`);
+          if (!doc) return slot;
+          return {
+            ...slot,
+            status: 'ready' as const,
+            content: doc.content,
+            generatedAt: doc.updatedAt,
+            wordCount: `${doc.content.length} 字`,
+          };
+        });
+      }
+      return { deliverables };
+    });
+  },
+
   // ── Code Scaffolds ──────────────────────────────────────────────────────
   getCodeScaffoldsForProduct: (productId) => {
     const { codeScaffolds } = get();
@@ -650,7 +683,7 @@ export const useRndStore = create<RndState>()(
     }),
     {
       name: 'nova-rnd',
-      version: 2,
+      version: 3,
       storage: sqliteStorage,
       partialize: (s) => ({
         requirements: s.requirements,
@@ -665,6 +698,22 @@ export const useRndStore = create<RndState>()(
         // Phase 15: knowledgeBase is a repo projection — strip it from old
         // persisted buckets so stale kv data can never shadow SQLite.
         delete state.knowledgeBase;
+        // Phase 26 (26-01, v3): mock 全清 — persisted slots that are 'ready'
+        // WITHOUT a Phase 16 commit provenance (aiSource) were fabricated seed
+        // data; reset them to explicit empty slots. Real committed slots
+        // (commitDeliverableDraft always stamps aiSource) survive, and
+        // hydrateDeliverableSlots re-projects knowledge_docs at boot.
+        if (state.deliverables) {
+          const reset: typeof state.deliverables = {};
+          for (const [productId, list] of Object.entries(state.deliverables)) {
+            reset[productId] = (list ?? []).map((slot) =>
+              slot.status !== 'ready' || slot.aiSource
+                ? slot
+                : { ...slot, status: 'draft' as const, generatedAt: '待生成', wordCount: '0 字', content: '' },
+            );
+          }
+          state.deliverables = reset;
+        }
         return state;
       },
       onRehydrateStorage: () => (state) => {

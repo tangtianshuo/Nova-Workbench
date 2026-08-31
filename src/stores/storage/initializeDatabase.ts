@@ -78,6 +78,9 @@ export async function initializeDatabase(): Promise<void> {
   // knowledgeBase is a repo projection now — rebuild it from SQLite every boot.
   const { useRndStore } = await import('../rndStore');
   await useRndStore.getState().hydrateKnowledgeFromRepo();
+  // Phase 26 (26-01): deliverable slots project from knowledge_docs too —
+  // committed content survives restarts, uncommitted slots stay explicit-empty.
+  await useRndStore.getState().hydrateDeliverableSlots();
 }
 
 async function migrateKnowledgeIntoSqlite(db: Awaited<ReturnType<typeof lazySqlite>>): Promise<void> {

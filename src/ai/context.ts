@@ -51,7 +51,14 @@ export function refreshAgentCarry(): void {
   useUIStore.getState().setAgentContextCarry(items);
 }
 
-export function buildCoreContext(): string {
+/** Phase 26 (26-01): optional tab-run payload — kind matches TabRunKind in
+ * tabRunStore.ts. All existing call sites (no arg) are unchanged. */
+export interface TabContextPayload {
+  kind: string;
+  instruction: string;
+}
+
+export function buildCoreContext(tabPayload?: TabContextPayload): string {
   const ui = useUIStore.getState() as ContextUIState;
   const product = useProductStore.getState().products.find(
     (item) => item.id === ui.selectedProductId,
@@ -115,6 +122,15 @@ export function buildCoreContext(): string {
   }
   if (carryLines.length > 0) {
     lines.push('## Carried Context', ...carryLines);
+  }
+
+  if (tabPayload) {
+    lines.push(
+      '## Tab Task Context',
+      `- Tab Kind: ${tabPayload.kind}`,
+      '- Instruction:',
+      tabPayload.instruction,
+    );
   }
 
   lines.push('## User Preferences', `- Theme: ${ui.theme}`);

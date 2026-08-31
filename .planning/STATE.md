@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3.2
 milestone_name: milestone
-current_plan: 9
+current_plan: 1
 status: executing
-last_updated: "2026-08-30T17:58:00.000Z"
-last_activity: 2026-08-30
+last_updated: "2026-08-31T01:24:40.407Z"
+last_activity: 2026-08-31
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 21
+  completed_plans: 21
 ---
 
 # Project State
@@ -20,18 +20,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-23)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.2 milestone 收口(全部 phase 完成,待人工 UAT 抽查 + complete-milestone)
+**Current focus:** Phase 22 — loop-replay-parity
 
 ## Current Position
 
-Phase: 22 (loop-replay-parity) — COMPLETE(UAT 3+2 gaps 由 22-08/22-09 关闭;re-verification passed 2026-08-30,6/6 must-haves;cargo 172/0/2 + TS node:test 175/175 + tsc 全绿;2 项人工复测非阻塞,见 22-VERIFICATION.md human_verification)
-Plan: 9 of 9
+Phase: 22 (loop-replay-parity) — EXECUTING
+Plan: 2 of 10
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
-Current Plan: 无(9/9 完成)
-Status: Milestone v0.3.2 — 8/8 phases complete,待人工 UAT 抽查(Test 5 卡片→确认→落库 / Test 4 llama1b 可选)后 /gsd:complete-milestone
-Last activity: 2026-08-30
+Current Plan: 1
+Status: Ready to execute
+Last activity: 2026-08-31
 
 ```
 v0.3.2 progress: [██████████] 100% (4/4 phases, 20/20 plans 含 22-08/22-09 gap closure)
@@ -74,6 +74,7 @@ v0.3.2 progress: [██████████] 100% (4/4 phases, 20/20 plans 
 | Phase 25 P01 | 35m | 2 tasks | 12 files |
 | Phase 22 P08 | 25m | 3 tasks | 4 files |
 | Phase 22 P09 | 30m | 3 tasks | 4 files |
+| Phase 22 P10 | 25m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,7 @@ v0.3.1 roadmap decisions:
 - [Phase 24]: engine_cancel 提取 engine_cancel_inner 可测核心,SCHED-04 三条全链路集成测试锁定取消语义(running 树杀+无孤儿+兄弟隔离、queued 立即出队、幂等)
 - [Phase 22]: 22-08: knowledge_write productId=model arg > ctx fallback > arg_error; budget exhaustion = no-tools wrap-up turn (chat_no_tools, empty tools vec), outcome=tool_limit truncated=false, English marker deleted
 - [2026-08-30 / 22-09 Gap 2 分类]: llama3.2 1b 过度检索 = **known capability limitation (non-code)** — 本地 DB 证据:22-08 后所有 Ollama 1b run 均优雅终态(session fc154236 4 次过度检索+arg_error 轮,终态 outcome=completed iterations=6;无 truncated/异常终止 session);结构兜底由 max_iterations_forces_wrapup_turn 锁定(truncated=false + outcome=tool_limit + 中文收尾 + 无英文 marker)。1B 模型无法遵循 prompt 级预算规则,不做 prompt-engineering,MAX_ITERATIONS=8 结构边界即为引擎保证
+- [Phase 22]: 22-10: knowledge_write 候选 params 在 Rust 侧规整为 TS knowledgeParams(resolveDraft) 同构 10 字段形状( itemId 缺省省键/summary=content 前100字/operation 查 knowledge_docs),params_hash 双侧同域,TS 常数测试+Rust 常数测试互锁;tags 预卡 zod 镜像校验(min1+max20)
 
 ### TODOs (pending)
 

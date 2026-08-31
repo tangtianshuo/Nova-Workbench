@@ -98,7 +98,7 @@ Plan list:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. 引擎核心 | 9/9 | Complete   | 2026-08-30 |
+| 22. 引擎核心 | 10/10 | Complete   | 2026-08-31 |
 | 23. 工具层(原生,无桥) | 5/5 | Complete   | 2026-08-24 |
 | 24. 多 run 并行 + 后台运行 | 4/4 | Complete   | 2026-08-24 |
 | 25. 迁移收口 | 1/1 | Complete   | 2026-08-24 |
@@ -130,7 +130,7 @@ Plan list:
 2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline(执行器 `ai/tools/` 的 task/schedule/knowledgeWrite 已就绪)
 3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
 **Requirements:** TBD
-**Plans:** 9/9 plans complete
+**Plans:** 10/10 plans complete
 **归位(2026-08-24):** v0.3.3 — plans 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)

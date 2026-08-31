@@ -35,6 +35,12 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { Textarea } from '@/src/components/ui/Input';
 import { Separator } from '@/src/components/ui/Separator';
+import { Tooltip } from '@/src/components/ui/Tooltip';
+import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
+import { useRndStore } from '@/src/stores/rndStore';
+import { buildCoreContext } from '@/src/ai/context';
+import { isTauri } from '@/src/lib/api';
 
 interface Props {
   product: Product;
@@ -43,15 +49,24 @@ interface Props {
 const springTransition = { type: 'spring' as const, stiffness: 300, damping: 25 };
 
 export function AIRequirementsTab({ product }: Props) {
-  const { getRequirementForProduct, updateRequirement, generateRequirementAI, syncDeliverableToDocs, addTask } = useApp();
+  const { getRequirementForProduct, updateRequirement, syncDeliverableToDocs, addTask } = useApp();
   const reqData = getRequirementForProduct(product.id);
 
   const [activeSubTab, setActiveSubTab] = useState<'prd' | 'stories' | 'usecases' | 'boundary' | 'flowchart'>('prd');
   const [promptInput, setPromptInput] = useState('');
   const [selectedScenario, setSelectedScenario] = useState('新功能 MVP 规划');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Phase 26 (26-03): real engine run replaces the old mock generate flow.
+  const runActive = useTabRunStore((s) => {
+    const id = s.runsByTab['requirement'];
+    return id ? ACTIVE.includes(s.runs[id]?.status) : false;
+  });
+  // 26-01 mock 全清: no fabricated seed — PRD content only via committed deliverable slot.
+  const prdSlot = useRndStore((s) => (s.deliverables[product.id] ?? []).find((d) => d.code === 'prd'));
+  const hasData = !!prdSlot?.content;
+  const prdMarkdown = prdSlot?.content ?? '';
 
   const scenarioTemplates = [
     { label: '新功能 MVP 规划', desc: '快速提炼核心用例与 P0 验收条件' },
@@ -66,16 +81,18 @@ export function AIRequirementsTab({ product }: Props) {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    try {
-      await generateRequirementAI(product.id, promptInput, selectedScenario);
-      showToast('✨ AI 需求工程推导完成！已生成全套规格书与用户故事');
-    } catch (e) {
-      showToast('❌ 生成失败，请重试');
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleGenerate = () => {
+    useTabRunStore.getState().startTabRun({
+      tabId: 'requirement',
+      kind: 'requirement',
+      productId: product.id,
+      userMessage: `生成需求文档。${promptInput || ''}`,
+      coreContext: buildCoreContext({
+        kind: 'requirement',
+        instruction: `为产品生成需求规格文档(PRD Markdown)。产物须经 generateDeliverable 工具产出候选(code=prd 或需求类目 code),等待用户确认落槽。${selectedScenario ? `场景模板:${selectedScenario}` : ''}`,
+      }),
+      sessionTitle: `${product.name} · 需求文档生成`,
+    });
   };
 
   const handleCopy = (text: string) => {
@@ -86,7 +103,7 @@ export function AIRequirementsTab({ product }: Props) {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([reqData.prdMarkdown], { type: 'text/markdown;charset=utf-8;' });
+    const blob = new Blob([prdMarkdown], { type: 'text/markdown;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -138,6 +155,9 @@ export function AIRequirementsTab({ product }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Phase 26 (26-03): per-tab engine run panel */}
+      <TabRunPanel tabId="requirement" />
 
       {/* AI Requirement Generator Input Box */}
       <Card variant="dark" className="p-6 space-y-5">
@@ -206,29 +226,57 @@ export function AIRequirementsTab({ product }: Props) {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/25 transition-all disabled:opacity-50"
-              >
-                {isGenerating ? (
-                  <>
-                    <PhRefreshCw size={16} weight="duotone" className="animate-spin" />
-                    <span>AI 深度推导中...</span>
-                  </>
+              {(() => {
+                const webMode = !isTauri();
+                const disabled = webMode || runActive;
+                const tooltip = webMode
+                  ? '此功能需要桌面引擎，请使用桌面版 Nova。'
+                  : runActive
+                    ? '本 tab 已有生成任务进行中'
+                    : null;
+                const btn = (
+                  <button
+                    onClick={handleGenerate}
+                    disabled={disabled}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {runActive ? (
+                      <>
+                        <PhRefreshCw size={16} weight="duotone" className="animate-spin" />
+                        <span>正在生成…</span>
+                      </>
+                    ) : (
+                      <>
+                        <PhSparkle size={16} weight="duotone" />
+                        <span>生成需求文档</span>
+                      </>
+                    )}
+                  </button>
+                );
+                return tooltip ? (
+                  <Tooltip content={tooltip}>
+                    <span className="inline-flex">{btn}</span>
+                  </Tooltip>
                 ) : (
-                  <>
-                    <PhSparkle size={16} weight="duotone" />
-                    <span>AI 全自动推导需求方案</span>
-                  </>
-                )}
-              </button>
+                  btn
+                );
+              })()}
             </div>
           </div>
         </div>
       </Card>
 
+      {!hasData && (
+        <Card className="p-10 flex flex-col items-center justify-center gap-3 text-center">
+          <PhFileText size={40} weight="duotone" className="text-text-tertiary" />
+          <p className="text-sm text-text-secondary">
+            还没有需求文档。点击上方生成按钮，AI 将生成候选供你确认。
+          </p>
+        </Card>
+      )}
+
       {/* Sub Tab Navigation */}
+      {hasData && (
       <Card className="p-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -260,7 +308,7 @@ export function AIRequirementsTab({ product }: Props) {
               </Button>
             )}
 
-            <Button variant="secondary" size="sm" onClick={() => handleCopy(reqData.prdMarkdown)}>
+            <Button variant="secondary" size="sm" onClick={() => handleCopy(prdMarkdown)}>
               {copied ? <PhCheck size={13} weight="duotone" className="text-success" /> : <PhCopy size={13} weight="duotone" />}
               <span>复制 Markdown</span>
             </Button>
@@ -272,8 +320,10 @@ export function AIRequirementsTab({ product }: Props) {
           </div>
         </div>
       </Card>
+      )}
 
       {/* Tab Content Display */}
+      {hasData && (<>
       {activeSubTab === 'prd' && (
         <motion.div
           className="grid grid-cols-1 lg:grid-cols-12 gap-6"
@@ -291,7 +341,7 @@ export function AIRequirementsTab({ product }: Props) {
             </div>
 
             <div className="prose prose-slate prose-sm max-w-none text-text-secondary leading-relaxed font-sans">
-              <MarkdownRenderer>{reqData.prdMarkdown}</MarkdownRenderer>
+              <MarkdownRenderer>{prdMarkdown}</MarkdownRenderer>
             </div>
           </Card>
 
@@ -516,6 +566,7 @@ export function AIRequirementsTab({ product }: Props) {
           </Card>
         </motion.div>
       )}
+      </>)}
     </div>
   );
 }

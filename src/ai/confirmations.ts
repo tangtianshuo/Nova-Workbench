@@ -326,14 +326,16 @@ type DeliverableParams = {
   eventId: string | null;
 };
 
-// eventId rides in params so provenance survives restart, but is excluded from
-// the dedup key: a later turn re-generating the same draft still dedups to the
-// original candidate.
+// eventId/sessionId ride in params so provenance survives restart, but are
+// excluded from the dedup key: a later turn re-generating the same draft still
+// dedups to the original candidate. sessionId MUST stay in the canonical set —
+// engine tools.rs writes it, and consume-side rehash must match key-for-key.
 function deliverableParams(input: {
   code: DeliverableCode;
   productId: string;
   title: string;
   draft: string;
+  sessionId: string | null;
   eventId: string | null;
 }): Record<string, unknown> {
   return {
@@ -341,6 +343,7 @@ function deliverableParams(input: {
     productId: input.productId,
     title: input.title,
     draft: input.draft,
+    sessionId: input.sessionId,
     eventId: input.eventId,
   };
 }

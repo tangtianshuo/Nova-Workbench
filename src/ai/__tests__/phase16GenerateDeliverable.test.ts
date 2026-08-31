@@ -11,7 +11,7 @@ import {
   confirmDeliverableDraft,
   listPendingDeliverableDrafts,
 } from '../confirmations';
-import { resetMemoryConfirmationStore } from '../confirmationStore';
+import { resetMemoryConfirmationStore, getConfirmationStore } from '../confirmationStore';
 import { getMemoryKnowledgeRepo, resetMemoryKnowledgeRepo } from '../knowledgeRepo';
 import { useUIStore } from '../../stores/uiStore';
 import { useRndStore, buildInitialDeliverables } from '../../stores/rndStore';
@@ -172,6 +172,35 @@ test('consume call with mismatched title → 确认的草稿与候选不一致,�
     callGen({ code: 'prd', title: '被篡改的标题', draft: 'D', confirmationToken: queued.confirmationToken }),
     (error: unknown) => error instanceof Error && error.message === '确认的草稿与候选不一致,请重新生成。',
   );
+});
+
+// 2026-08-31 UAT regression: engine tools.rs writes deliverable params with a
+// sessionId key inside (6 keys); consume-side rehash must match key-for-key
+// or the atomic consume throws params_mismatch and 落槽 fails.
+test('engine-written candidate (params include sessionId) consumes cleanly', async () => {
+  resetAll();
+  const row = await getConfirmationStore().create({
+    kind: 'deliverable_draft',
+    params: {
+      code: 'prd',
+      productId: 'p1',
+      title: '智能助手 PRD',
+      draft: '# PRD\n正文',
+      sessionId: 'engine-session',
+      eventId: null,
+    },
+    summary: '智能助手 PRD',
+    sessionId: 'engine-session',
+  });
+  await confirmDeliverableDraft(row.confirmationToken);
+  const result = await callGen({
+    code: 'prd',
+    title: '智能助手 PRD',
+    draft: '# PRD\nEDITED 正文',
+    confirmationToken: row.confirmationToken,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.slotCode, 'DEL-REQ-01');
 });
 
 console.log('OK: Phase 16 Plan 01 generateDeliverable tool passed');

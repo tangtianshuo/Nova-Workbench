@@ -67,7 +67,7 @@ blocked: 0
 ## Gaps
 
 - truth: "knowledge_write 确认后重放成功落库:卡片出现 → 确认 → 结果写入(22-09 后复测)"
-  status: failed
+  status: resolved
   reason: "User reported: 写入依旧失败 点击确认后，出现toast: 写入知识库失败 Knowledge write arguments do not match the confirmed candidate."
   severity: major
   test: 7
@@ -87,6 +87,7 @@ blocked: 0
     - "JS slice(0,100) 是 UTF-16 单位、Rust chars().take(100) 是 Unicode 标量 — BMP(中文)一致,emoji 代理对有差异;截断逻辑加 ponytail 注释标明天花板"
   artifacts_pending_verify: []
   debug_session: null
+  resolved_note: "2026-08-31 22-10 gap closure:tools.rs execute_knowledge_write(:457-472)将 effective_args 规整为 TS knowledgeParams(resolveDraft) 同构 10 字段形状(`// 22-10: TS parity boundary`),create_candidate 的 params_hash 与卡片 args 同源此对象;params_hash 跨边界平价由 TS 预计算 SHA-256 常量双侧互锁测试锁定(Rust tools.rs:871 + TS phase14Confirmations.test.ts:34);tags 预卡 zod 镜像校验(min1+max20)。cargo 176 + npm 222 + tsc 全绿;22-VERIFICATION passed(2/2)。人工复测非阻塞(见 VERIFICATION human_verification)"
 
 - truth: "knowledge_write 确认后重放成功落库:卡片出现 → 确认 → 结果写入"
   status: resolved

@@ -17,24 +17,23 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-23)
+See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 22 — loop-replay-parity
+**Current focus:** v0.3.2 里程碑收口 — 22-UAT Test 7 人工复测 → complete-milestone
 
 ## Current Position
 
-Phase: 23
-Plan: 2 of 10
+v0.3.2 全部 phases 完成(见下方 Phase 明细);Roadmap 剩余 999.x 为 BACKLOG,不属本里程碑
 Phase: 23 (tools-native) — COMPLETE(VERIFICATION PASS_WITH_NOTES 2026-08-24;5/5 plans,153 cargo + 241 TS 全绿,SC-3 缺口关闭)
 Phase: 24 (multi-run-tray) — COMPLETE(24-01..04 done: scheduler cap3+FIFO、托盘+hide-on-close+跳转、后台通知+HITL 卡 restore、取消全链路集成锁;165 cargo + 243 TS + tsc 全绿;VERIFICATION PASS_WITH_NOTES 2026-08-24)
 Phase: 25 (migration-closeout) — COMPLETE(25-01 done: TS toolLoop/compaction/contextAssembler 删除(-1371 行,grep 零命中)、ADR-0003 Accepted、ARCHITECTURE v3.0 引擎分层、CLAUDE.md/README 同步;npm 217/217(死测试 -26)、cargo 165/0/2、tsc clean;c14cedb + 1c43fca)
 Current Plan: Not started
-Status: Ready to execute
+Status: Milestone 收口中(22-UAT Test 7 人工复测待办,代码级全绿)
 Last activity: 2026-08-31
 
 ```
-v0.3.2 progress: [██████████] 100% (4/4 phases, 20/20 plans 含 22-08/22-09 gap closure)
+v0.3.2 progress: [██████████] 100% (4/4 phases, 21/21 plans 含 22-08/09/10 三轮 gap closure)
 ```
 
 ## Performance Metrics
@@ -137,7 +136,6 @@ v0.3.1 roadmap decisions:
 
 ### TODOs (pending)
 
-- **v0.3.2 协议决策(Phase 22 动手前定稿)**:孤儿 exec 第三态(unknown/interrupted)+ 命令幂等分类随 tool_call 落盘 — 见 ADR-0003「协议决策」节
 - 21-VERIFICATION.md UAT-3 期望文本过时(WorkspaceSwitcherRow 为 quick 新增,非回归)— 下次触碰该文件时顺带更新
 - 结转 tech debt(非阻断):FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null、UAT-2 LLM 成功分支真验(有 key 环境)
 
@@ -151,11 +149,15 @@ See git history / prior STATE (12 quick tasks logged through 260818-swm). Latest
 
 ## Session Continuity
 
+Last session: 2026-08-31
+Stopped at: v0.3.2 全部 phases + 3 轮 gap closure 完成;待 22-UAT Test 7 人工复测(knowledge_write 卡片确认落库,需真实 LLM)→ `/gsd:complete-milestone v0.3.2`
+Resume file: None
+
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.2 phases(current phase marked)
+1. Read `.planning/ROADMAP.md` — v0.3.2 phases(全部 complete;999.x 为 BACKLOG)
 2. Read `.planning/PROJECT.md` Current Milestone — key decisions + out of scope
 3. Read `docs/adr/ADR-0003-rust-run-engine.md` — 本里程碑架构决策(引擎分层/物料决策/协议决策)
-4. Next action: `/gsd:plan-phase 22`
+4. Next action: 人工复测 22-UAT Test 7 → `/gsd:complete-milestone v0.3.2`
 
 Key files: `src/ai/toolLoop.ts` + `src/ai/compaction.ts` + `src/ai/fork.ts`(移植规格源), `src-tauri/src/llm.rs`(保留的 LLM 层), `src-tauri/migrations/0002..0007`(事件日志 schema), `docs/ARCHITECTURE.md` v2.0 + ADR-0001/0002/0003

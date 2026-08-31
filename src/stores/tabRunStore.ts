@@ -117,6 +117,27 @@ function patchRun(set: (fn: (s: TabRunState) => Partial<TabRunState>) => void, r
   });
 }
 
+/** Channel delivery races the invoke resolution — late events must never
+ *  regress a settled run back to waiting/running. */
+function guardTerminal(run: TabRunRecord, status: TabRunStatus): TabRunStatus {
+  return ACTIVE.includes(run.status) ? status : run.status;
+}
+
+/** After the tab's last candidate is resolved, settle any run still parked in
+ *  waiting-for-confirmation (the settled stream can no longer flip it). */
+function settleTabRunIfDrained(set: (fn: (s: TabRunState) => Partial<TabRunState>) => void, tabId: string) {
+  set((state) => {
+    if (state.pendingDeliverables.some((c) => c.tabId === tabId)) return {};
+    const runs = { ...state.runs };
+    for (const [rid, r] of Object.entries(runs)) {
+      if (r.tabId === tabId && ACTIVE.includes(r.status)) {
+        runs[rid] = { ...r, status: 'done', currentStep: '完成' };
+      }
+    }
+    return { runs };
+  });
+}
+
 export const useTabRunStore = create<TabRunState>()((set, get) => ({
   runs: {},
   runsByTab: {},
@@ -178,8 +199,8 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
             if (msg.kind === 'run_status' && (msg.data?.status === 'queued' || msg.data?.status === 'running')) {
               patchRun(set, runId, (run) => ({
                 ...run,
-                status: msg.data!.status as TabRunStatus,
-                currentStep: msg.data!.status === 'queued' ? '排队中…' : '运行中…',
+                status: guardTerminal(run, msg.data!.status as TabRunStatus),
+                currentStep: ACTIVE.includes(run.status) ? (msg.data!.status === 'queued' ? '排队中…' : '运行中…') : run.currentStep,
               }));
               return;
             }
@@ -203,9 +224,9 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
               }
               patchRun(set, runId, (run) => ({
                 ...appendEvent(run, { ts: Date.now(), kind: 'confirmation', name: msg.data!.candidate!.kind }),
-                status: 'waiting-for-confirmation',
+                status: guardTerminal(run, 'waiting-for-confirmation'),
                 candidateCount: run.candidateCount + 1,
-                currentStep: '等待确认…',
+                currentStep: ACTIVE.includes(run.status) ? '等待确认…' : run.currentStep,
               }));
               return;
             }
@@ -232,7 +253,10 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
             }
             if (msg.kind === 'error' && msg.data?.message) {
               const message = msg.data.message;
-              patchRun(set, runId, (run) => ({ ...run, status: 'error', error: message, currentStep: '出错' }));
+              patchRun(set, runId, (run) =>
+                ACTIVE.includes(run.status)
+                  ? { ...run, status: 'error', error: message, currentStep: '出错' }
+                  : run);
             }
           },
         });
@@ -291,6 +315,7 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
         ftsImmediateHit: result.ftsImmediateHit,
       });
       set((state) => ({ pendingDeliverables: state.pendingDeliverables.filter((c) => c.confirmationToken !== confirmationToken) }));
+      settleTabRunIfDrained(set, head.tabId);
       await useRndStore.getState().hydrateDeliverableSlots();
       return true;
     } catch (error) {
@@ -310,6 +335,7 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
       console.error('[tabRunStore] deliverable reject failed', error);
     }
     set((state) => ({ pendingDeliverables: state.pendingDeliverables.filter((c) => c.confirmationToken !== confirmationToken) }));
+    settleTabRunIfDrained(set, head.tabId);
   },
 
   // Webview-reload recovery: one-shot event pull by sessionId (no polling).

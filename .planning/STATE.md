@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 26-01-PLAN.md
-last_updated: "2026-08-31T04:03:55.505Z"
+stopped_at: Completed 26-02-PLAN.md
+last_updated: "2026-08-31T04:08:09.510Z"
 last_activity: 2026-08-31
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 26 (Mock 全清 — tab 接引擎) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-31
 
@@ -58,6 +58,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 
 (完整历史见 git history;上表保留近期校准数据)
 | Phase 26 P01 | 20m | 2 tasks | 5 files |
+| Phase 26 P02 | 15m | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 (历史 v0.3.0/v0.3.1/v0.3.2 phase-level decisions 见 git history / PROJECT.md Key Decisions)
 
 - [Phase 26]: tab-run candidates route to global confirmation queue via routeEngineCandidateToConsole (D-05); deliverable slot projection keyed by stable docId deliverable-${productId}-${slotCode}; persist v3 wipes fabricated ready slots
+- [Phase 26]: [26-02] 调度双队列:interactive 严格优先 batch,队内各自 FIFO 不加权;priority 在 registry insert 前校验
 
 ### TODOs (pending)
 
@@ -92,8 +94,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-31T04:03:55.500Z
-Stopped at: Completed 26-01-PLAN.md
+Last session: 2026-08-31T04:08:09.505Z
+Stopped at: Completed 26-02-PLAN.md
 Resume file: None
 
 If resuming after context loss:

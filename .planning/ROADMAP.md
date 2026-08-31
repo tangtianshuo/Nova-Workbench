@@ -124,6 +124,18 @@ Plans:
 ### Phase 999.5: 双 Agent 架构 — 日常助手 + 产研 coding Agent (BACKLOG)
 
 **Goal:** [Captured for future planning] Agent Loop 与 harness 演进:评估借鉴 Oh my pi 的相关设计,设计两块 Agent — ① 日常 AI 助手(日程分发、任务管理、轻量级日常工作处理);② 产研中心 coding Agent(偏向真实代码工作)。与 ADR-0004(subagent-as-tool)及现有 Rust run engine(src-tauri/src/engine/)的关系待讨论裁定。
+**讨论已完成 2026-08-31**:裁定 D-01..D-14 见 `.planning/phases/999.5-dual-agent-architecture/999.5-CONTEXT.md` — 双入口 persona + spawn 互通;sidecar 否决(语义移植 + crates 评估);助手②档自主性(触发→本地零-LLM 检查→条件升级);三档 HITL 风险档案;omp 借鉴清单全盘确认。归位 v0.4 系,promote 时随 v0.4 立项带入(另带入:omp crates vendoring 评估 research 任务)。
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.6: PM CRUD 工具原生化 — 助手写路径前置 (BACKLOG)
+
+**Goal:** [Captured for future planning] 把 task/schedule 的 CRUD 操作原生化为引擎工具(task_create/update/complete、schedule_create/update 等),每工具带三档风险标注(读免确认/可逆轻写免确认/删除+批量+外发确认,999.5 D-12),使日常助手 persona 具备写任务/日程能力。999.5 D-11 裁定:单独立项为 v0.4 硬前置,不并入双 agent phase。业务数据关系化(task/schedule 自 Zustand-persist 种子迁 SQLite 关系表)是否同期,立项时讨论。
+**依赖:** Phase 23 引擎工具注册表(已就绪);999.5 D-11
+**建议排期:** v0.3.3 收口后、v0.4 助手/coding 场景前(v0.4 首批 phase)
 **Requirements:** TBD
 **Plans:** 0 plans
 

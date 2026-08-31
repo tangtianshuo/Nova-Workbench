@@ -186,6 +186,9 @@ pub async fn engine_run(
     // 24-02 tray display title (session title or first-message prefix).
     session_title: Option<String>,
     core_context: String,
+    // 26-02 TAB-06: optional scheduling priority. None/"interactive" = chat
+    // semantics (unchanged); "batch" = tab generation runs queue behind chat.
+    priority: Option<String>,
     on_event: Channel<EngineEvent>,
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
@@ -202,6 +205,12 @@ pub async fn engine_run(
     // Webview-supplied run_id (cancel key, chat/cancel_chat requestId pattern);
     // minted here when absent so raw invoke callers still work.
     let run_id = run_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    // 26-02 TAB-06 scheduling priority — validated before any registry insert.
+    let priority = match priority.as_deref() {
+        None | Some("interactive") => crate::engine::scheduler::Priority::Interactive,
+        Some("batch") => crate::engine::scheduler::Priority::Batch,
+        Some(other) => return Err(AppError::ParseError(format!("unknown priority: {other}"))),
+    };
     let cancel = CancellationToken::new();
     state.engine_runs.lock().unwrap().insert(run_id.clone(), cancel.clone());
     // 24-02 tray metadata: jump target + display title for the run list.
@@ -213,12 +222,14 @@ pub async fn engine_run(
     // 24-01 scheduler gate: FIFO queue behind MAX_CONCURRENT=3. engine_cancel
     // fires the token — a queued run dequeues from acquire's cancel branch
     // without consuming a slot; a running run unwinds as before (23-02).
+    // 26-02: dual-queue — interactive dequeues ahead of batch.
     let queue_channel = on_event.clone();
     let permit = match state
         .scheduler
         .acquire(
             &run_id,
             cancel.clone(),
+            priority,
             || {
                 let _ = queue_channel.send(EngineEvent::RunStatusChange {
                     run_id: run_id.clone(),

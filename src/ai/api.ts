@@ -63,6 +63,8 @@ export interface EngineRunParams {
   sessionTitle?: string | null;
   /** TS buildCoreContext() output — injected into the Rust system prompt. */
   coreContext: string;
+  /** 26-02 TAB-06: 'interactive' (default, chat) dequeues ahead of 'batch' (tab runs). */
+  priority?: 'interactive' | 'batch';
   onEvent: (event: EngineEventMsg) => void;
 }
 
@@ -82,6 +84,7 @@ export async function engineRun(params: EngineRunParams): Promise<EngineRunResul
     workspaceRoot: params.workspaceRoot ?? null,
     sessionTitle: params.sessionTitle ?? null,
     coreContext: params.coreContext,
+    priority: params.priority ?? null,
     onEvent: channel,
   });
 }

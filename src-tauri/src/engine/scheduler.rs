@@ -42,6 +42,14 @@ impl RunStatus {
 #[derive(Debug)]
 pub struct Cancelled;
 
+/// 26-02 TAB-06: interactive runs (chat/⌘K — user is waiting) dequeue ahead
+/// of batch runs (tab generation) so a full batch queue cannot starve chat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Priority {
+    Interactive,
+    Batch,
+}
+
 struct Waiter {
     run_id: String,
     tx: oneshot::Sender<()>,
@@ -50,7 +58,8 @@ struct Waiter {
 #[derive(Default)]
 struct SchedState {
     active: Vec<String>,
-    queue: VecDeque<Waiter>,
+    queue_interactive: VecDeque<Waiter>,
+    queue_batch: VecDeque<Waiter>,
 }
 
 struct Inner {
@@ -72,17 +81,34 @@ pub struct Permit {
     run_id: String,
 }
 
-/// Promote queue heads while capacity allows; skips waiters whose receiver is
-/// already gone (cancel raced the promotion — their acquire task cleans up).
+/// Promote queue heads while capacity allows; interactive queue first, batch
+// second (ponytail: each queue stays FIFO, no weighting — add weights if needed).
+/// Skips waiters whose receiver is already gone (cancel raced the promotion —
+/// their acquire task cleans up).
 fn promote(state: &mut SchedState) {
     while state.active.len() < MAX_CONCURRENT {
-        let Some(waiter) = state.queue.pop_front() else { break };
+        let waiter = match state.queue_interactive.pop_front() {
+            Some(w) => w,
+            None => match state.queue_batch.pop_front() {
+                Some(w) => w,
+                None => break,
+            },
+        };
         state.active.push(waiter.run_id.clone());
         if waiter.tx.send(()).is_ok() {
             break;
         }
         state.active.pop();
     }
+}
+
+/// Remove a run from both queues (cancel cleanup).
+fn dequeue(state: &mut SchedState, run_id: &str) -> bool {
+    let mut was_queued = state.queue_interactive.iter().any(|w| w.run_id == run_id);
+    state.queue_interactive.retain(|w| w.run_id != run_id);
+    was_queued |= state.queue_batch.iter().any(|w| w.run_id == run_id);
+    state.queue_batch.retain(|w| w.run_id != run_id);
+    was_queued
 }
 
 /// Remove a run from active (slot released) and promote the queue.
@@ -107,7 +133,8 @@ impl Scheduler {
             .active
             .iter()
             .map(|id| (id.clone(), RunStatus::Running))
-            .chain(state.queue.iter().map(|w| (w.run_id.clone(), RunStatus::Queued)))
+            .chain(state.queue_interactive.iter().map(|w| (w.run_id.clone(), RunStatus::Queued)))
+            .chain(state.queue_batch.iter().map(|w| (w.run_id.clone(), RunStatus::Queued)))
             .collect()
     }
 
@@ -149,6 +176,7 @@ impl Scheduler {
         &self,
         run_id: &str,
         cancel: CancellationToken,
+        priority: Priority,
         on_queued: impl FnOnce(),
     ) -> Result<Permit, Cancelled> {
         let (tx, rx) = oneshot::channel();
@@ -161,15 +189,18 @@ impl Scheduler {
                 return Ok(Permit { inner: self.0.clone(), run_id: run_id.to_string() });
             }
             on_queued();
-            state.queue.push_back(Waiter { run_id: run_id.to_string(), tx });
+            let waiter = Waiter { run_id: run_id.to_string(), tx };
+            match priority {
+                Priority::Interactive => state.queue_interactive.push_back(waiter),
+                Priority::Batch => state.queue_batch.push_back(waiter),
+            }
         }
         self.notify();
         tokio::select! {
             _ = cancel.cancelled() => {
                 {
                     let mut state = self.0.state.lock().unwrap();
-                    let was_queued = state.queue.iter().any(|w| w.run_id == run_id);
-                    state.queue.retain(|w| w.run_id != run_id);
+                    let was_queued = dequeue(&mut state, run_id);
                     if !was_queued {
                         // Promotion raced the cancel — the permit leaked into
                         // active; release it so the slot is not stranded.
@@ -199,7 +230,8 @@ impl Inner {
             .active
             .iter()
             .map(|id| row(id, RunStatus::Running))
-            .chain(state.queue.iter().map(|w| row(&w.run_id, RunStatus::Queued)))
+            .chain(state.queue_interactive.iter().map(|w| row(&w.run_id, RunStatus::Queued)))
+            .chain(state.queue_batch.iter().map(|w| row(&w.run_id, RunStatus::Queued)))
             .collect()
     }
 
@@ -240,16 +272,16 @@ mod tests {
     fn cap_three_then_fifo_promotion() {
         let sched = Scheduler::new();
         rt().block_on(async {
-            let p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
-            let _p2 = sched.acquire("r2", CancellationToken::new(), || {}).await.unwrap();
-            let _p3 = sched.acquire("r3", CancellationToken::new(), || {}).await.unwrap();
+            let p1 = sched.acquire("r1", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p2 = sched.acquire("r2", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p3 = sched.acquire("r3", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
 
             // 4th run queues (Test 1).
             let queued = Arc::new(AtomicBool::new(false));
             let flag = queued.clone();
             let handle = tokio::spawn({
                 let sched = sched.clone();
-                async move { sched.acquire("r4", CancellationToken::new(), move || flag.store(true, Ordering::SeqCst)).await }
+                async move { sched.acquire("r4", CancellationToken::new(), Priority::Interactive, move || flag.store(true, Ordering::SeqCst)).await }
             });
             while !queued.load(Ordering::SeqCst) {
                 tokio::task::yield_now().await;
@@ -282,15 +314,15 @@ mod tests {
     fn cancel_queued_dequeues_without_consuming_slot() {
         let sched = Scheduler::new();
         rt().block_on(async {
-            let p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
-            let _p2 = sched.acquire("r2", CancellationToken::new(), || {}).await.unwrap();
-            let _p3 = sched.acquire("r3", CancellationToken::new(), || {}).await.unwrap();
+            let p1 = sched.acquire("r1", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p2 = sched.acquire("r2", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p3 = sched.acquire("r3", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
 
             let cancel4 = CancellationToken::new();
             let handle = tokio::spawn({
                 let sched = sched.clone();
                 let cancel = cancel4.clone();
-                async move { sched.acquire("r4", cancel, || {}).await.is_err() }
+                async move { sched.acquire("r4", cancel, Priority::Interactive, || {}).await.is_err() }
             });
             // Wait until r4 is parked in the queue, then cancel it.
             while sched.snapshot().iter().all(|(id, _)| id != "r4") {
@@ -303,7 +335,7 @@ mod tests {
             // Cancel consumed no slot: after one permit drops, r5 starts
             // immediately (no phantom active entry, no stale queue head).
             drop(p1);
-            let p5 = sched.acquire("r5", CancellationToken::new(), || {}).await.unwrap();
+            let p5 = sched.acquire("r5", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
             assert_eq!(sched.snapshot(), vec![
                 ("r2".into(), RunStatus::Running),
                 ("r3".into(), RunStatus::Running),
@@ -318,7 +350,7 @@ mod tests {
         let sched = Scheduler::new();
         rt().block_on(async {
             let cancel = CancellationToken::new();
-            let p1 = sched.acquire("r1", cancel.clone(), || {}).await.unwrap();
+            let p1 = sched.acquire("r1", cancel.clone(), Priority::Interactive, || {}).await.unwrap();
             cancel.cancel(); // engine_cancel semantics: token fires
             drop(p1); // permit drop releases the slot (cancel itself doesn't)
             assert!(sched.snapshot().is_empty());
@@ -409,14 +441,14 @@ mod tests {
             let cancel_a = CancellationToken::new();
             state.engine_runs.lock().unwrap().insert("runA".into(), cancel_a.clone());
             sched.register("runA", "sA".into(), "A".into());
-            let permit_a = sched.acquire("runA", cancel_a.clone(), || {}).await.unwrap();
+            let permit_a = sched.acquire("runA", cancel_a.clone(), Priority::Interactive, || {}).await.unwrap();
             // runB (running, pure reply turn) — must be unaffected by A's cancel.
             let cancel_b = CancellationToken::new();
             state.engine_runs.lock().unwrap().insert("runB".into(), cancel_b.clone());
             sched.register("runB", "sB".into(), "B".into());
-            let permit_b = sched.acquire("runB", cancel_b.clone(), || {}).await.unwrap();
+            let permit_b = sched.acquire("runB", cancel_b.clone(), Priority::Interactive, || {}).await.unwrap();
             // filler takes the 3rd slot so runC genuinely queues.
-            let permit_f = sched.acquire("filler", CancellationToken::new(), || {}).await.unwrap();
+            let permit_f = sched.acquire("filler", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
             // runC queued.
             let cancel_c = CancellationToken::new();
             state.engine_runs.lock().unwrap().insert("runC".into(), cancel_c.clone());
@@ -424,7 +456,7 @@ mod tests {
             let c_handle = tokio::spawn({
                 let sched = sched.clone();
                 let cancel = cancel_c.clone();
-                async move { sched.acquire("runC", cancel, || {}).await }
+                async move { sched.acquire("runC", cancel, Priority::Interactive, || {}).await }
             });
             while sched.snapshot().iter().all(|(id, _)| id != "runC") {
                 tokio::task::yield_now().await;
@@ -497,16 +529,16 @@ mod tests {
         let state = AppState::new();
         let sched = Scheduler::new();
         rt().block_on(async move {
-            let _p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
-            let _p2 = sched.acquire("r2", CancellationToken::new(), || {}).await.unwrap();
-            let _p3 = sched.acquire("r3", CancellationToken::new(), || {}).await.unwrap();
+            let _p1 = sched.acquire("r1", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p2 = sched.acquire("r2", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p3 = sched.acquire("r3", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
             let cancel_c = CancellationToken::new();
             state.engine_runs.lock().unwrap().insert("runC".into(), cancel_c.clone());
             sched.register("runC", "sC".into(), "C".into());
             let handle = tokio::spawn({
                 let sched = sched.clone();
                 let cancel = cancel_c.clone();
-                async move { sched.acquire("runC", cancel, || {}).await }
+                async move { sched.acquire("runC", cancel, Priority::Interactive, || {}).await }
             });
             while sched.snapshot().iter().all(|(id, _)| id != "runC") {
                 tokio::task::yield_now().await;
@@ -538,13 +570,13 @@ mod tests {
         }));
         rt().block_on(async {
             sched.register("r1", "s1".into(), "写周报".into());
-            let _p1 = sched.acquire("r1", CancellationToken::new(), || {}).await.unwrap();
+            let _p1 = sched.acquire("r1", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
             // Fill the cap, then r4 enqueues.
-            let _p2 = sched.acquire("r2", CancellationToken::new(), || {}).await.unwrap();
-            let _p3 = sched.acquire("r3", CancellationToken::new(), || {}).await.unwrap();
+            let _p2 = sched.acquire("r2", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p3 = sched.acquire("r3", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
             let handle = tokio::spawn({
                 let sched = sched.clone();
-                async move { sched.acquire("r4", CancellationToken::new(), || {}).await }
+                async move { sched.acquire("r4", CancellationToken::new(), Priority::Interactive, || {}).await }
             });
             while sched.snapshot().iter().all(|(id, _)| id != "r4") {
                 tokio::task::yield_now().await;
@@ -565,5 +597,65 @@ mod tests {
         assert!(fired.len() >= 4, "lifecycle changes fired the tray hook");
         assert!(fired.iter().any(|runs| runs.len() == 4 && runs[3].status == RunStatus::Queued));
         assert!(fired.last().unwrap().is_empty(), "final state empty");
+    }
+
+    /* === 26-02 TAB-06: dual-queue priority === */
+
+    #[test]
+    fn interactive_jumps_batch_queue() {
+        let sched = Scheduler::new();
+        rt().block_on(async {
+            let p1 = sched.acquire("b1", CancellationToken::new(), Priority::Batch, || {}).await.unwrap();
+            let _p2 = sched.acquire("b2", CancellationToken::new(), Priority::Batch, || {}).await.unwrap();
+            let _p3 = sched.acquire("b3", CancellationToken::new(), Priority::Batch, || {}).await.unwrap();
+
+            // Two batch runs queue; then an interactive run arrives behind them.
+            let batch4 = tokio::spawn({
+                let sched = sched.clone();
+                async move { sched.acquire("b4", CancellationToken::new(), Priority::Batch, || {}).await }
+            });
+            let interactive = tokio::spawn({
+                let sched = sched.clone();
+                async move { sched.acquire("i1", CancellationToken::new(), Priority::Interactive, || {}).await }
+            });
+            while sched.snapshot().iter().all(|(id, _)| id != "b4" && id != "i1") {
+                tokio::task::yield_now().await;
+            }
+            // Tray snapshot shows interactive queued ahead of batch.
+            let snap = sched.snapshot();
+            let pos = |id: &str| snap.iter().position(|(i, _)| i == id).unwrap();
+            assert!(pos("i1") < pos("b4"), "interactive listed before batch: {snap:?}");
+
+            drop(p1); // one slot frees — i1 (not b4) is promoted.
+            let permit_i = interactive.await.unwrap().expect("i1 promoted first");
+            assert_eq!(sched.snapshot().iter().find(|(id, _)| id == "i1").unwrap().1, RunStatus::Running);
+            assert_eq!(sched.snapshot().iter().find(|(id, _)| id == "b4").unwrap().1, RunStatus::Queued);
+            drop(permit_i);
+            let permit_b = batch4.await.unwrap().expect("b4 promoted next");
+            drop(permit_b);
+        });
+    }
+
+    #[test]
+    fn cancel_removes_batch_queued_run_from_batch_queue() {
+        let sched = Scheduler::new();
+        rt().block_on(async {
+            let _p1 = sched.acquire("r1", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p2 = sched.acquire("r2", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+            let _p3 = sched.acquire("r3", CancellationToken::new(), Priority::Interactive, || {}).await.unwrap();
+
+            let cancel_b = CancellationToken::new();
+            let handle = tokio::spawn({
+                let sched = sched.clone();
+                let cancel = cancel_b.clone();
+                async move { sched.acquire("b1", cancel, Priority::Batch, || {}).await.is_err() }
+            });
+            while sched.snapshot().iter().all(|(id, _)| id != "b1") {
+                tokio::task::yield_now().await;
+            }
+            cancel_b.cancel();
+            assert!(handle.await.unwrap(), "queued batch run cancels immediately");
+            assert!(sched.snapshot().iter().all(|(id, _)| id != "b1"), "dequeued from batch queue");
+        });
     }
 }

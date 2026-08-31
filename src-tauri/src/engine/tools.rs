@@ -420,23 +420,70 @@ fn execute_knowledge_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -
             arg_error: true,
         };
     };
-    let summary = str_arg(args, "summary")
-        .map(|s| s.to_string())
-        .or_else(|| str_arg(args, "title").map(|s| s.to_string()))
-        .unwrap_or_default();
-    let mut effective_args = args.clone();
-    effective_args["productId"] = json!(product_id);
-    effective_args["category"] = json!(category);
-    if effective_args.get("tags").and_then(|t| t.as_array()).is_none() {
-        effective_args["tags"] = json!([]); // TS zod requires tags; default to empty
+    let content = str_arg(args, "content").expect("validated above").to_string();
+    let title = str_arg(args, "title").expect("validated above").to_string();
+    let item_id = str_arg(args, "itemId").map(str::to_string);
+    // ponytail: update-path operation is computed from Rust SQLite here and from webview
+    // rndStore on TS replay — if the two stores disagree the hashes drift; known edge,
+    // create-path (no itemId) is parity-locked by the constant test below.
+    // Upgrade path: single source of truth for knowledge tables.
+    let operation = match &item_id {
+        Some(id) => conn
+            .query_row("SELECT COUNT(*) FROM knowledge_docs WHERE doc_id = ?1", [id], |r| r.get::<_, i64>(0))
+            .map(|n| if n > 0 { "updated" } else { "created" })
+            .unwrap_or("created"),
+        None => "created",
+    };
+    // tags: zod array(z.string().min(1)).max(20) would reject AFTER confirm —
+    // fail pre-card so the model can fix it before the card.
+    let tags = match args.get("tags") {
+        Some(Value::Array(list)) => {
+            if list.len() > 20 {
+                return ToolOutcome::Failed {
+                    message: "Tool \"knowledge_write\" arg validation failed: tags must contain at most 20 items".into(),
+                    arg_error: true,
+                };
+            }
+            if list.iter().any(|t| t.as_str().map(str::is_empty).unwrap_or(true)) {
+                return ToolOutcome::Failed {
+                    message: "Tool \"knowledge_write\" arg validation failed: every tag must be a non-empty string".into(),
+                    arg_error: true,
+                };
+            }
+            Value::Array(list.clone())
+        }
+        _ => json!([]), // 22-09: TS zod requires tags; default to empty
+    };
+    // 22-10: TS parity boundary — must stay field-identical to
+    // knowledgeParams(resolveDraft(...)) in src/ai/confirmations.ts:65-78.
+    let mut normalized = json!({
+        "productId": product_id,
+        "operation": operation,
+        "title": title,
+        "category": category,
+        "tags": tags,
+        "content": content,
+        "summary": str_arg(args, "summary").map(str::to_string)
+            .unwrap_or_else(|| str_arg(args, "content").expect("validated above").chars().take(100).collect()),
+        // ponytail: JS content.slice(0,100) counts UTF-16 units; chars().take(100) counts
+        // Unicode scalars. Identical for BMP (all Chinese); diverges for astral chars (emoji).
+        // Upgrade path: UTF-16-aware truncate if emoji-prefixed summaries ever matter.
+        "author": str_arg(args, "author").unwrap_or("AI 助手"),
+        "readTime": str_arg(args, "readTime").unwrap_or("待阅读"),
+    });
+    // TS knowledgeParams includes itemId but canonical JSON drops undefined —
+    // omit the key entirely when the model did not provide one.
+    if let Some(id) = &item_id {
+        normalized["itemId"] = json!(id);
     }
-    match confirmations::create_candidate(conn, "knowledge_write", &effective_args, Some(&summary), Some(ctx.session_id)) {
+    let summary = normalized["summary"].as_str().unwrap_or_default().to_string();
+    match confirmations::create_candidate(conn, "knowledge_write", &normalized, Some(&summary), Some(ctx.session_id)) {
         Ok(candidate) => ToolOutcome::AwaitConfirmation {
             candidate: json!({
                 "kind": "knowledge_write",
                 "confirmationToken": candidate.confirmation_token,
                 "summary": candidate.summary,
-                "args": effective_args,
+                "args": normalized,
             }),
             wait_key: "error",
             wait_value: CONFIRMATION_REQUIRED_KNOWLEDGE.into(),
@@ -700,9 +747,14 @@ mod tests {
                 let token = candidate["confirmationToken"].as_str().unwrap();
                 let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
                 assert_eq!(stored.kind, "knowledge_write");
-                let mut expect = args.clone();
-                expect["tags"] = json!([]); // 22-09: execute defaults tags before persisting
-                assert_eq!(stored.params, expect);
+                // 22-10: candidate params are the TS knowledgeParams(resolveDraft)
+                // shape — content "C" < 100 chars so summary == content.
+                assert_eq!(stored.params, json!({
+                    "productId": "p1", "operation": "created", "title": "T",
+                    "category": "最佳实践", "tags": [], "content": "C",
+                    "summary": "C", "author": "AI 助手", "readTime": "待阅读",
+                }));
+                assert_eq!(candidate["args"], stored.params);
             }
             other => panic!("expected AwaitConfirmation, got {other:?}"),
         }
@@ -800,6 +852,105 @@ mod tests {
             }
             other => panic!("expected AwaitConfirmation, got {other:?}"),
         }
+    }
+
+    /* === 22-10 gap closure: knowledge_write params_hash TS parity === */
+
+    #[test]
+    fn knowledge_write_params_hash_matches_ts_create_path_constant() {
+        // Constant computed by the REAL TS code path (computeParamsHash over
+        // knowledgeParams(resolveDraft(...))-equivalent object) via npx tsx.
+        // Memory-parity precedent: commands.rs:1099.
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let args = json!({"productId": "p1", "title": "T", "content": "C".repeat(120), "category": "最佳实践"});
+        match execute(&conn, "knowledge_write", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
+                assert_eq!(stored.params_hash, "292fee04f1f110cf2c58fd244a2e1c4435582b9085bb4f6d8b986f1fc792eb4e");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn knowledge_write_normalizes_to_exact_ts_shape() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let args = json!({"productId": "p1", "title": "T", "content": "X".repeat(150), "category": "最佳实践", "unknownExtra": "junk"});
+        match execute(&conn, "knowledge_write", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
+                // Exactly the canonical fields — no leftovers from raw model args
+                // (itemId absent → key omitted entirely, canonical JSON drops undefined).
+                assert_eq!(stored.params.as_object().unwrap().len(), 9);
+                assert!(stored.params.get("itemId").is_none());
+                assert_eq!(stored.params["operation"], "created");
+                assert_eq!(stored.params["summary"], "X".repeat(100));
+                assert_eq!(stored.params["author"], "AI 助手");
+                assert_eq!(stored.params["readTime"], "待阅读");
+                assert_eq!(stored.params["tags"], json!([]));
+                assert!(stored.params.get("unknownExtra").is_none());
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn knowledge_write_preserves_explicit_fields_and_computes_update_operation() {
+        let conn = mem_conn();
+        seed_knowledge(&conn); // doc_id "d1" exists in knowledge_docs
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let args = json!({"productId": "p1", "itemId": "d1", "title": "T", "content": "C", "category": "最佳实践",
+            "tags": ["a", "b"], "summary": "S", "author": "Me", "readTime": "5 min"});
+        match execute(&conn, "knowledge_write", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("candidate row");
+                assert_eq!(stored.params["itemId"], "d1");
+                assert_eq!(stored.params["operation"], "updated");
+                assert_eq!(stored.params["tags"], json!(["a", "b"]));
+                assert_eq!(stored.params["summary"], "S");
+                assert_eq!(stored.params["author"], "Me");
+                assert_eq!(stored.params["readTime"], "5 min");
+                // unknown itemId → created
+                let args2 = json!({"productId": "p1", "itemId": "nope", "title": "T", "content": "C", "category": "最佳实践"});
+                match execute(&conn, "knowledge_write", &args2, &ctx) {
+                    ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                        let t2 = candidate["confirmationToken"].as_str().unwrap();
+                        let s2 = confirmations::get(&conn, t2).unwrap().unwrap();
+                        assert_eq!(s2.params["operation"], "created");
+                    }
+                    other => panic!("expected AwaitConfirmation, got {other:?}"),
+                }
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn knowledge_write_rejects_bad_tags_pre_card() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        for (args, why) in [
+            (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": ["ok", ""]}), "empty string tag"),
+            (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": ["ok", 3]}), "non-string tag"),
+            (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": (1..=21).map(|i| i.to_string()).collect::<Vec<_>>()}), "21 tags"),
+        ] {
+            match execute(&conn, "knowledge_write", &args, &ctx) {
+                ToolOutcome::Failed { message, arg_error } => {
+                    assert!(arg_error, "{why}");
+                    assert!(message.contains("tag"), "{why}: {message}");
+                }
+                other => panic!("{why}: expected Failed, got {other:?}"),
+            }
+        }
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_confirmation_candidates", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
     }
 
     #[test]

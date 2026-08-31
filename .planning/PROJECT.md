@@ -8,9 +8,17 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 
-## Current Milestone: 无(待立项)
+## Current Milestone: v0.3.3 产研半落地 + 工作区入驻(RND-ROLLOUT ①层)
 
-**v0.3.2 Rust Run Engine 已 shipped(2026-08-31)并归档** — 见 `milestones/v0.3.2-ROADMAP.md` / `MILESTONES.md`。下一里程碑经 `/gsd:new-milestone` 立项;候选路线见 `research/RND-ROLLOUT-V0.3-V0.4.md`(v0.3.3 业务数据关系化 + PM CRUD 原生回归 → v0.4.0 coding agent + subagent + pipeline + Skill → v0.5+ MCP/IM)。
+**Goal:** 把产研中心从 mock 演示转正为真实 AI 驱动 —— mock 全清接 Rust 引擎(接线只做一遍)、各 tab AI 按钮触发带上下文的真实 run、用户以工作区文档为起点入驻产品。
+
+**Target features:**
+- mock 全清:rndStore 六个 `generate*AI` + `FullDeliverablesTab` 一键生成 + `productStore.runProductSkill` 残留 mock,统一接 Rust 引擎 run
+- 候选→HITL 确认→落槽模式统一(复用 Phase 16 PRD 生产线模式 + knowledge_docs 版本化卡槽)
+- tab 接 run:各产研 tab AI 按钮触发带 tab 上下文 run,tab 内嵌进度/事件流投影;tab 不废弃(D-05)
+- 999.1 工作区入驻:文档摄取(docx/pdf→文本,Rust 零 sidecar)+ 摄取编排(扫描→分类→抽取草稿→批量 HITL)+ 从工作区反向创建产品;plans 按 Rust 引擎校准后执行(D-06)
+
+**边界:** 原型/代码/测试 tab = 文档级生成,不写真文件(v0.4.0 coding 工具的事);不做 subagent/pipeline/Skill/MCP。路线来源:`research/RND-ROLLOUT-V0.3-V0.4.md`(2026-08-24 discuss-phase 预决策)。
 
 ## Current State (after v0.3.2)
 
@@ -177,4 +185,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 22 (2026-08-31)**: Loop Replay Parity + 三轮 UAT gap closure(22-08/09/10)— knowledge_write params_hash 跨边界平价闭合,Rust/TS 双侧 SHA-256 常量测试锁定。VERIFICATION PASS(2/2,Test 7 人工复测待办)。
 
 ---
-*Last updated: 2026-08-31 after v0.3.2 milestone(archived → milestones/v0.3.2-*,tag v0.3.2)*
+*Last updated: 2026-08-31 — milestone v0.3.3 started(产研半落地 + 工作区入驻)*

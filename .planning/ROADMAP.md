@@ -121,6 +121,15 @@ Plans:
 **建议排期:** v0.4.0 前后的技术投资,或与 999.2 同期 — **归位确认与 999.2 同期 v0.4.0**(2026-08-24)
 **Requirements:** TBD
 
+### Phase 999.5: 双 Agent 架构 — 日常助手 + 产研 coding Agent (BACKLOG)
+
+**Goal:** [Captured for future planning] Agent Loop 与 harness 演进:评估借鉴 Oh my pi 的相关设计,设计两块 Agent — ① 日常 AI 助手(日程分发、任务管理、轻量级日常工作处理);② 产研中心 coding Agent(偏向真实代码工作)。与 ADR-0004(subagent-as-tool)及现有 Rust run engine(src-tauri/src/engine/)的关系待讨论裁定。
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
 ---
 
 *999.1 工作区先行的产品入驻已于 2026-08-31 移入 v0.3.3 正式 scope(Phase 27 文档摄取 + Phase 28 反向创建产品,需求 ING-01..06 / REV-01..02),backlog 条目移除。*

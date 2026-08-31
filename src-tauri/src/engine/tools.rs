@@ -36,14 +36,34 @@ const FS_WRITE_DESCRIPTION: &str = "Write content to a workspace file (workspace
 const FS_MKDIR_DESCRIPTION: &str = "Create a directory (with parents) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_DELETE_DESCRIPTION: &str = "Delete a file or directory (recursive) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_MOVE_DESCRIPTION: &str = "Move/rename within the workspace; src and dest are workspace-root-relative. Returns a confirmation candidate requiring user approval.";
-const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft (currently PRD only) for the currently selected product. You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
+const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft for the currently selected product. `code` is either \"prd\" or a catalog slot code (DEL-REQ-01 … DEL-REL-04). You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
 const CONFIRMATION_REQUIRED_MEMORY: &str = "Explicit confirmation is required before saving memory.";
 const CONFIRMATION_REQUIRED_DELIVERABLE: &str = "Explicit confirmation is required before committing the deliverable.";
 
 /// deliverable code → R&D slot (generateDeliverable.ts SLOT_BY_CODE parity).
-const SLOT_BY_CODE: &[(&str, &str)] = &[("prd", "DEL-REQ-01")];
+/// Phase 26 (26-04, DELIV-05 rollout): 'prd' alias + all 18 catalog slots
+/// (each catalog code maps to itself).
+const SLOT_BY_CODE: &[(&str, &str)] = &[
+    ("prd", "DEL-REQ-01"),
+    ("DEL-REQ-01", "DEL-REQ-01"),
+    ("DEL-REQ-02", "DEL-REQ-02"),
+    ("DEL-REQ-03", "DEL-REQ-03"),
+    ("DEL-REQ-04", "DEL-REQ-04"),
+    ("DEL-DES-01", "DEL-DES-01"),
+    ("DEL-DES-02", "DEL-DES-02"),
+    ("DEL-DEV-01", "DEL-DEV-01"),
+    ("DEL-DEV-02", "DEL-DEV-02"),
+    ("DEL-DEV-03", "DEL-DEV-03"),
+    ("DEL-TST-01", "DEL-TST-01"),
+    ("DEL-TST-02", "DEL-TST-02"),
+    ("DEL-TST-03", "DEL-TST-03"),
+    ("DEL-REL-01", "DEL-REL-01"),
+    ("DEL-REL-02", "DEL-REL-02"),
+    ("DEL-REL-03", "DEL-REL-03"),
+    ("DEL-REL-04", "DEL-REL-04"),
+];
 
 pub fn slot_by_code(code: &str) -> Option<&'static str> {
     SLOT_BY_CODE.iter().find(|(c, _)| *c == code).map(|(_, s)| *s)
@@ -225,7 +245,7 @@ pub fn registry() -> Vec<ToolSpec> {
             parameters: json!({
                 "type": "object",
                 "properties": {
-                    "code": { "type": "string", "enum": ["prd"] },
+                    "code": { "type": "string", "enum": SLOT_BY_CODE.iter().map(|(c, _)| *c).collect::<Vec<_>>() },
                     "title": { "type": "string", "minLength": 1 },
                     "draft": { "type": "string", "minLength": 1 },
                     "confirmationToken": { "type": "string", "minLength": 1 }
@@ -541,7 +561,7 @@ fn execute_generate_deliverable(conn: &Connection, args: &Value, ctx: &ToolCtx<'
     };
     if slot_by_code(code).is_none() {
         return ToolOutcome::Failed {
-            message: "Tool \"generate_deliverable\" arg validation failed: code must be one of \"prd\"".into(),
+            message: "Tool \"generate_deliverable\" arg validation failed: code must be \"prd\" or a DEL-* catalog slot code".into(),
             arg_error: true,
         };
     }

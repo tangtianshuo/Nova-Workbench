@@ -14,6 +14,7 @@ import { useRndStore } from '@/src/stores/rndStore';
 import { registerTool } from '../registry';
 import { getKnowledgeRepo } from '../knowledgeRepo';
 import { getActiveAgentScope } from '../agentScope';
+import { FULL_LIFECYCLE_DELIVERABLES_CATALOG } from '../../data/mockRndData';
 import {
   confirmDeliverableDraft,
   consumeDeliverableDraftConfirmation,
@@ -22,11 +23,14 @@ import {
   type DeliverableCode,
 } from '../confirmations';
 
-// 本期只验证 PRD 路径(DELIV-01 锁定决策);DELIV-05 推广时在此表加行即可。
-const SLOT_BY_CODE: Record<DeliverableCode, string> = { prd: 'DEL-REQ-01' };
+// Phase 26 (26-04, DELIV-05 rollout): 'prd' alias + every catalog slot code.
+const SLOT_BY_CODE: Record<string, string> = {
+  prd: 'DEL-REQ-01',
+  ...Object.fromEntries(FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((c) => [c.code, c.code])),
+};
 
 const generateDeliverableSchema = z.object({
-  code: z.enum(['prd']),
+  code: z.enum(['prd', ...FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((c) => c.code)] as [string, ...string[]]),
   title: z.string().min(1),
   draft: z.string().min(1),
   confirmationToken: z.string().min(1).optional(),
@@ -59,7 +63,7 @@ async function commitConfirmedDraft(
     productId: candidate.productId,
     title: candidate.title,
     category: 'deliverable',
-    tags: ['prd'], // CONTEXT locked: category 'deliverable' + tag 'prd'
+    tags: [candidate.code], // CONTEXT locked: category 'deliverable' + code tag
     summary: args.draft.slice(0, 100),
     content: args.draft, // user-edited final draft
     author: 'AI 助手',
@@ -81,7 +85,7 @@ async function commitConfirmedDraft(
 registerTool({
   name: 'generateDeliverable',
   description:
-    'Generate a deliverable draft (currently PRD only) for the currently selected product. You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.',
+    'Generate a deliverable draft for the currently selected product. `code` is either "prd" or a catalog slot code (DEL-REQ-01 … DEL-REL-04). You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.',
   schema: generateDeliverableSchema,
   execute: async (args) => {
     if (args.confirmationToken) {
@@ -107,7 +111,7 @@ registerTool({
       confirmationToken: candidate.confirmationToken,
       code: args.code,
       title: args.title,
-      note: 'PRD 草稿已进入待确认队列;用户将在对话面板中确认并编辑,不要重复生成同一份草稿。',
+      note: '交付物草稿已进入待确认队列;用户将在对话面板中确认并编辑,不要重复生成同一份草稿。',
     };
   },
 });

@@ -1,125 +1,59 @@
 # Project Research Summary
 
-**Project:** Nova-PM-Workspace (v0.3.1 Multi-Session Chat)
-**Domain:** Desktop AI agent (Tauri v2 + React 19) - event-sourced multi-session conversations
-**Researched:** 2026-08-18
-**Confidence:** HIGH
+**Project:** Nova — v0.3.3 产研半落地 + 工作区入驻
+**Domain:** AI-native PM desktop workbench (Tauri v2 + React 19), extending the shipped v0.3.2 Rust run engine
+**Researched:** 2026-08-31
+**Confidence:** HIGH overall (architecture/pitfalls from direct code reads; one uncertain piece: PDF extraction crate)
 
 ## Executive Summary
 
-Nova v0.3.1 adds multi-session chat to an existing event-sourced agent runtime: per-workspace session lists, on-demand restore, reference-based fork (zero event copy), LLM auto-titling, hover copy/branch actions, and Ctrl+Shift+K workspace+session pickers. The research consensus is that **the event log is the truth source and the DB never changes shape for forks** - a forked child is a normal session plus metadata (parent_session_id, fork_cut_seq) in one new thin table (migration 0007). Prefix concatenation is a pure projection-time function, never inside fromEvents.
+v0.3.3 adds three capabilities on top of the locked v0.3.2 engine: (1) mock 全清 — all six rndStore `generate*AI` + FullDeliverablesTab + `runProductSkill` wired to real `engine_run` with in-tab progress, (2) a zero-sidecar document ingestion pipeline (docx/pdf → text → classify → extract drafts → batch HITL), and (3) "从工作区创建产品". The single most important architecture finding: **the engine protocol needs zero changes.** `engine_run` already accepts run/session/product/workspace ids, free-form `core_context`, and a Channel. All new capability is frontend orchestration (a new `tabRunStore`), two deterministic Rust extraction commands, and reuse of the Phase 16 候选→HITL→落槽 seam. Do not touch the channel protocol, scheduler loop, or loop_runner.
 
-**Zero new dependencies.** Migration pattern (0002-0006), fork primitives (ChatSession.fromEvents + resumeEventEmission already exist), clipboard (8 in-repo navigator.clipboard precedents), relative time (Intl.RelativeTimeFormat), and LLM titling (existing llm.rs IPC + conditional-UPDATE pattern) are all covered by existing code. The build order is strict: data model, multi-session runtime, fork (pure function + tests first), UI surfaces + titling.
+The stack is unusually lean: only 2-3 pure-Rust crates (`pdf_oxide` exact-pinned for CJK, `zip` + `quick-xml` for a ~100-LOC docx walker), zero new npm packages, zero sidecars. Everything UI-facing already exists (Channel events, Radix primitives, confirmation queue). The industry norm across all comparables (Notion AI, Windsurf, enterprise IDP) is uniform: candidate → review → commit, never silent writes — exactly Nova's existing HITL pattern, so the work is largely generalization, not invention.
 
-Top risks: (1) migration 0007 backfill missing legacy sessions/workspace_id causing "migration ate my history" on upgrade; (2) module-level singleton sessionRef racing activeSessionId causing cross-session message bleed (worst user-visible bug class); (3) fork cut mid-turn creating dangling tool_calls that corrupt the child at birth. All three have concrete, code-traced preventions.
+Top risks are self-inflicted, not technical: (a) kv_store JSON vs knowledge_docs becoming dual sources of truth for deliverables (adjudicate before wiring), (b) cap-3 FIFO starvation of interactive chat runs once tab entries multiply run sources (priority fix ships with tab wiring, not after), (c) scanned/no-text-layer PDFs failing silently (three-state `extraction_status` from day one), (d) new event kinds eroding replay-parity discipline (bilateral fixtures mandatory per new kind).
 
 ## Key Findings
 
-### Recommended Stack
+### Recommended Stack (STACK.md)
+- `pdf_oxide` (`=0.3.x` pin, `cjk-form-fonts`) — CJK quality is the deciding criterion; fallback `unpdf` 0.6.4, one-file swap behind `ingest/pdf.rs`
+- `zip` + `quick-xml` — hand-rolled docx walker (~100 LOC); docx-crate ecosystem weak
+- Everything else: nothing new. Rejected: sidecars, `pdf-extract` (weak CJK), docx crates, Tika/poppler, OCR, embedding libs
 
-Everything exists. See STACK.md for full rationale.
+### Expected Features (FEATURES.md)
+- **Must have:** all AI buttons real via one shared tab-run helper; in-tab streaming progress; candidate→HITL→落槽 on every tab; docx/pdf extraction + classification + draft extraction; batch confirmation (per-document aggregate cards, opt-in); "从工作区创建产品" (build last); mock/fabricate removal with no dead UI
+- **Differentiators:** event-log-audited generation visible in tabs (free byproduct); tray-resident background tab runs; provenance badges extended to all deliverable types; FTS5 immediate recall
+- **Defer:** OCR, real file writes from prototype/code tabs (v0.4), batch progress beyond single tab projection
 
-- migrations/0007_sessions.sql - thin metadata table (title, workspace_id, parent_session_id, fork_cut_seq, title_source) + backfill from agent_events; schema_version to 7
-- src/ai/sessionRepo.ts (~80 LOC, NEW) - dual SQLite/memory impl mirroring eventStore pattern
-- ChatSession.fromEvents + resumeEventEmission - fork primitives already present in chatSession.ts
-- navigator.clipboard.writeText - copy; no clipboard plugin (but see conflict note in Gaps)
-- Intl.RelativeTimeFormat('zh') - ~15-line helper, no date lib
-- Existing Rust llm.rs one-shot call - auto-title with guarded conditional UPDATE (WHERE title IS NULL)
+### Architecture (ARCHITECTURE.md)
+1. `tabRunStore` (NEW) — runId→origin registry, owns Channels, **dedicated sessionId per tab run** (never share chat sessions)
+2. `TabRunPanel` (NEW, shared) — status + layered event summary + cancel; HITL stays in global queue (D-05)
+3. Rust ingest module (NEW) — deterministic extraction commands, NOT LLM runs
+4. `entity_draft` candidate kind + TS applier → zustand write + `engine_append_tool_result` audit
+5. UNCHANGED: scheduler, loop_runner, channel protocol, `engine_run` signature
 
-### Expected Features
-
-**Must have (table stakes):** session list (title + relative time + count), workspace-filtered reverse-chron ordering, click-to-restore full projection, auto-title with first-message fallback, hover copy, fork-then-navigate-to-new-session, new-session-on-entry, branch badge, streaming switch-lock.
-
-**Should have (differentiators):** reference fork (O(1), audit-preserving), Ctrl+Shift+K dual dropdowns, session-scoped pending HITL cards, branch-from-any-assistant-message hover.
-
-**Defer (out of scope):** rename/delete/pin, edit-message-to-fork, branch tree visualization, cross-workspace memory isolation, background streaming into non-active sessions.
-
-### Architecture Approach
-
-Append-only agent_events unchanged; new sessions table is metadata-only; fork = pure projection via new buildForkEventStream helper that re-seqs the combined stream 1..N AND remaps compaction_completed payload values so fromEvents, crash-tail, and orphan logic stay untouched. Fork cut enforced at turn_ended boundaries only.
-
-**Major components:**
-1. migration 0007 + sessionRepo.ts - sessions metadata, workspace scope provider, sessionId on all candidate call sites
-2. chatConsoleStore changes - activeSessionId, switchSession() (loading-guarded, per-session reset of messages/pending, global memory cards), restoreSession(sessionId?) replacing restoreLatestSession()
-3. buildForkEventStream (pure, tested first) + fork UI (hover icon, sessions INSERT, switchSession)
-4. UI surfaces - ChatPanel selects, recent-sessions panel, LLM auto-title fire-and-forget
-
-### Critical Pitfalls
-
-1. **Fork cut mid-turn creates dangling tool_call** - cut only at turn_ended (reuse findCrashTailCutSeq semantics); test fork inside a tool-heavy turn
-2. **sessions[0] restore assumption** - restore must read persisted activeSessionId, never "latest row"; most load-bearing Phase 2 refactor
-3. **Global singleton vs activeSessionId race** - capture sessionId at submit start, bail in callbacks if changed, hard lock switch while loading; keyed sessionRef
-4. **Migration backfill miss makes legacy history invisible** - backfill workspace_id + legacy sessions row IN migration 0007; test against real v0.3.0 DB fixture
-5. **Title race + fat metadata divergence** - title task carries its own sessionId, guarded conditional UPDATE; keep sessions table thin, derive counts from events
+### Critical Pitfalls (PITFALLS.md)
+1. Dual truth source kv vs knowledge_docs — adjudicate first, field-mapping table, no parallel read-write
+2. Chat starvation under cap-3 FIFO — interactive priority or merge 十八份 into one run; same plan as wiring
+3. Silent no-text-layer PDFs — three-state status + char threshold, day one
+4. Ingestion idempotency — content-addressed docId, rescan = diff
+5. Parity erosion — every new event kind needs bilateral fixture in same plan; fail-loud projections
 
 ## Implications for Roadmap
 
-Suggested 4 phases (matches ARCHITECTURE.md build order A-B-C-D; Phases 3/4 partially parallel after Phase 2):
+1. **Phase 1: Mock 全清 — tab 接引擎 + 数据落点裁定.** tabRunStore + TabRunPanel + 需求-tab pilot, then bulk wiring of remaining tabs/skills; scheduler priority fix; event-kind rules. Avoids pitfalls 4/5/6/12/13. Research flag: NO (in-repo patterns).
+2. **Phase 2: 文档摄取 — Rust 提取 + 编排 + 批量 HITL.** ingest modules, scan→classify→extract runs with `ingest_minimal` context profile, aggregate HITL cards + `entity_draft` appliers, three-state status, content-addressed ids. Avoids pitfalls 1/2/3/7/8/11. Research flag: **YES** — pdf_oxide PoC on real Chinese PDFs, batch card UX, context-window budget.
+3. **Phase 3: 反向创建产品 + 收口.** Pure composition; parity close-out gate (bilateral fixtures per new kind); UAT incl. ≥20-doc batch + tray background. Research flag: NO.
 
-### Phase 1: Data Model & Foundation
-**Rationale:** Everything depends on it; nothing user-visible.
-**Delivers:** Migration 0007 (thin table + backfill), sessionRepo.ts, workspace scope provider, sessionId stamped on ALL candidate call sites, orphan-workspace sentinel policy.
-**Avoids:** Pitfalls 4, 6, 7, 8 (schema-level decisions locked here).
+Ordering follows the dependency chain in FEATURES/ARCHITECTURE: infra → bulk wiring → extraction (parallelizable) → orchestration → composition. Adjudication-first in Phase 1's first plan is the cheapest debt avoidance in the milestone.
 
-### Phase 2: Multi-Session Runtime
-**Rationale:** Hard dependency on Phase 1; runtime must be session-aware before any UI.
-**Delivers:** activeSessionId, switchSession() lifecycle (loading guard, per-session reset, composite message keys, switching skeleton state), restoreSession(sessionId?), new-session-on-entry, session-scoped pending cards.
-**Avoids:** Pitfalls 2, 3, 6b, 9, 10, 13.
-
-### Phase 3: Fork & Hover Actions
-**Rationale:** Highest-risk logic isolated as a pure function before UI; depends on Phases 1+2.
-**Delivers:** buildForkEventStream + tests FIRST (pairing invariants, compaction remap, replay parity, idempotency, mid-turn cut), then hover fork/copy UI + branch badge + child-first metadata (session_created).
-**Avoids:** Pitfalls 1, 12, 15.
-
-### Phase 4: UI Surfaces & Titling
-**Rationale:** Depends on Phase 2 (selects) and Phase 3 (badge); can start partially in parallel after Phase 2.
-**Delivers:** ChatPanel workspace/session selects (Ctrl+Shift+K only, conditional render), recent-sessions panel, LLM auto-title with truncation fallback and guarded write.
-**Avoids:** Pitfalls 5, 11, 14, 16.
-
-### Phase Ordering Rationale
-
-- Phase 1 to 2 is a hard dependency (runtime needs the table); Phase 3 needs 1+2 (fork writes metadata + switches sessions); Phase 4 needs 2 minimum
-- Grouping follows architecture seams: pure logic (fork projection) separated from UI so 161 existing tests + replay parity extend naturally
-- Every pitfall is assigned to exactly one phase spec - see PITFALLS.md phase table
-
-### Research Flags
-
-Needs /gsd:research-phase:
-- **Phase 3 (Fork):** seq-space normalization + compaction remap is the trickiest pure logic; spec must encode the re-seq/remap rule and the turn_ended cut rule precisely
-- **Phase 1 (Migration):** verify migration atomicity on tauri-plugin-sql + fixture-DB upgrade test plan
-
-Standard patterns (skip research):
-- **Phase 2:** all patterns traced to existing code (sessionRestore, chatConsoleStore)
-- **Phase 4:** existing Select primitives, existing llm.rs path, ~15-line time formatter
-
-## Confidence Assessment
+## Confidence
 
 | Area | Confidence | Notes |
-|--------|------------|-------|
-| Stack | HIGH | Direct code reads; zero-dep claim verified against 6 migrations + chatSession.ts |
-| Features | HIGH | Claude/ChatGPT/Cursor behaviors from official docs; locked decisions honored |
-| Architecture | HIGH | Direct reads of all touched files; invariants verified against existing tests |
-| Pitfalls | HIGH | All codebase-traced, except clipboard specifics (MEDIUM) |
+|------|------------|-------|
+| Stack | MEDIUM | Web-search only; re-verify versions at add time; pdf_oxide pre-1.0 |
+| Features | MEDIUM | Codebase HIGH; comparables MEDIUM (training data) |
+| Architecture | HIGH | Direct code reads + ADR-0003 |
+| Pitfalls | HIGH | Repo audits; crate pitfalls MEDIUM |
 
-**Overall confidence:** HIGH
-
-### Gaps to Address
-
-- **Clipboard conflict (resolve in Phase 3/4 planning):** STACK.md says navigator.clipboard suffices (8 in-repo precedents, no plugin); PITFALLS.md #11 says packaged Tauri builds may lack clipboard capability and recommends @tauri-apps/plugin-clipboard-manager + capability entry. Recommendation: try navigator.clipboard first, verify in Windows packaged-build UAT, add plugin only if it fails. Either way: toast on failure, never silent.
-- **StrictMode title dedupe:** key promise cache on sessionId (Pitfall 14) - must be in Phase 4 spec.
-- **Pending-candidate fork inheritance:** v1 decision is strict session_id == X scoping (destructive candidates never inherit) - confirm in Phase 1 spec.
-
-## Sources
-
-### Primary (HIGH confidence)
-- Direct reads: src/ai/events/eventStore.ts, src/ai/chatSession.ts, src/ai/sessionRestore.ts, src/stores/chatConsoleStore.ts, src/ai/confirmations.ts, src-tauri/migrations/0002_agent_events.sql, .planning/PROJECT.md
-- Claude Code sessions docs (https://code.claude.com/docs/en/sessions) - title fallback chain, list metadata
-
-### Secondary (MEDIUM confidence)
-- Cursor fork forum thread (https://forum.cursor.com/t/fork-chat-support-for-cursor-agents-new-ui/158692)
-- Raycast AI behavior (training data, unverified)
-- Tauri v2 clipboard capability specifics in packaged builds
-
----
-*Research completed: 2026-08-18*
-*Ready for roadmap: yes*
+**Gaps:** pdf_oxide feature-flag/CJK PoC; batch HITL card design decision; 999.1 plan calibration vs Rust tool registry (D-06, plan-review); crate version pins.

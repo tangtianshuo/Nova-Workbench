@@ -1,110 +1,103 @@
-# Architecture Patterns — v0.3.1 Multi-Session Integration
+# Architecture: v0.3.3 产研半落地 + 工作区入驻 Integration
 
-**Domain:** Multi-session agent conversations on the existing event-sourced runtime
-**Researched:** 2026-08-18
-**Confidence:** HIGH — based on direct read of `eventStore.ts`, `chatSession.ts`, `sessionRestore.ts`, `chatConsoleStore.ts`, `confirmations.ts`
-**Supersedes:** v0.3.0 research (event log foundation — shipped; that architecture is the base being extended, not re-researched)
+**Researched:** 2026-08-31
+**Question:** How do the new features integrate with the existing Rust run engine (v0.3.2)?
+**Confidence:** HIGH — based on shipped code (`src-tauri/src/engine/commands.rs`, `src/ai/api.ts`, `src/stores/rndStore.ts`), ADR-0003, ARCHITECTURE.md v3.0. No new external tech surveyed; this is internal-integration research.
+**Supersedes:** v0.3.1 multi-session architecture research (shipped; that base is extended, not re-researched).
 
-## Core Design Principle
+## Core Finding
 
-**The DB never changes shape for forks.** `agent_events` stays one append-only table keyed `(session_id, seq)`. A forked child is a normal session (own seq 1..N) plus metadata in the new `sessions` table (`parent_session_id`, `fork_cut_seq`). Concatenation is a **pure projection-time function** — no event copying, no seq rewriting in the DB. Append-only truth and the per-session write chain are untouched.
+**The engine protocol needs zero changes.** `engine_run` already accepts everything the new features require: `run_id` (frontend-minted), `session_id`, `product_id`, `workspace_id`/`workspace_root`, `session_title`, and free-form `core_context` — plus a `Channel<EngineEvent>` for streaming. All new capability is (1) frontend orchestration state, (2) two new deterministic Rust commands for document extraction, (3) reuse of the Phase 16 "候选→HITL→落槽" seam pattern for anything that must write business data. Do not touch the channel protocol or the scheduler.
 
-## Recommended Architecture
+## (a) Tab AI buttons → engine_run
 
-### New / Modified Components
+**Command surface: no change.** Tabs call the existing `engineRun()` from `src/ai/api.ts`.
 
-| Component | Status | Responsibility |
-|-----------|--------|---------------|
-| `migration 0007` (Rust migrations array) | NEW | `sessions` table: `session_id PK, workspace_id, title, parent_session_id NULL, fork_cut_seq NULL, created_at, last_active_at` |
-| `src/ai/events/types.ts` — `EventScope` | MODIFY | `workspaceId` already resolved in `eventStore.ts:38-44` — register a real workspace provider (alongside productId) in toolLoop |
-| `src/ai/sessionRepo.ts` | NEW (~80 LOC) | `upsertSession(meta)`, `listSessions(workspaceId?)`, `getSession(sessionId)`. Dual impl (Sqlite + Memory) mirroring the EventStore pattern |
-| `src/ai/forkProjection.ts` | NEW (~60 LOC) | `buildForkEventStream(parentEvents, childEvents, forkCutSeq): AgentEvent[]` — the ONLY place prefix concatenation lives |
-| `src/ai/chatSession.ts` | UNCHANGED | `fromEvents` takes a pre-ordered event array; no fork awareness leaks in |
-| `src/ai/sessionRestore.ts` | MODIFY | `restoreLatestSession()` → `restoreSession(sessionId?)`; fork-aware event loading |
-| `src/stores/chatConsoleStore.ts` | MODIFY | `activeSessionId`, `switchSession()`, `newSession()`, sessions upsert on turn end |
-| ChatPanel / AgentWorkspaceView / recent-sessions panel | MODIFY/NEW | Selects, branch/copy affordances, session list |
+**Tab context payload:** assemble via the existing `coreContext` string (already "TS buildCoreContext() output injected into the Rust system prompt"). Each tab button builds a context containing: active productId, the deliverable code / tab kind (requirement/prototype/code/test/competitor), and the current draft/prompt inputs. No new `engine_run` parameter, no new EngineEvent variant.
 
-### Tension Resolutions
-
-**(1) Where prefix concatenation lives → new helper `buildForkProjection.buildForkEventStream`, never inside `fromEvents`.**
-
-`fromEvents` sorts by `seq` (`chatSession.ts:295`). Parent and child both have seq 1..N — naive concatenation passed to `fromEvents` interleaves the streams wrongly. The helper produces a **normalized stream**:
+**Correlation to originating tab:** the webview already mints `runId`. Keep the runId → origin mapping **entirely in the frontend** in a new store:
 
 ```
-buildForkEventStream(parent, child, forkCutSeq):
-  prefix = parent.filter(e => e.seq <= forkCutSeq)   // cut guaranteed at turn_ended boundary
-  combined = [...prefix, ...child]
-  // Re-seq 1..N over the whole stream (clone events; DB rows untouched)
-  // AND remap compaction_completed payload coveredSeqStart/coveredSeqEnd by the same offset
-  return combined.map((e, i) => ({ ...e, seq: i + 1, payload: remapCompaction(e.payload) }))
+tabRunStore (NEW, src/stores/tabRunStore.ts)
+  runs: Record<runId, { tabId, productId, kind, sessionId, status, lastEvent }>
+  startTabRun(tabId, kind, userMessage, contextPayload) → engineRun(...)
+    - mints runId + a DEDICATED sessionId (crypto.randomUUID())
+    - owns the onEvent callback (store-level, not component-level)
+  cancelTabRun(runId) → engineCancel
 ```
 
-Why full re-seq (not just offsetting child by parentMaxSeq): `fromEvents` filters `seq > coveredSeqEnd` using the payload value (`chatSession.ts:310`). A child-native coveredSeqEnd compared against offset seqs silently breaks the compaction boundary. Remapping both event seqs and compaction payload values in one pass keeps `fromEvents`, `findCrashTailCutSeq`, and `findOrphanToolCallEvents` **completely unchanged** — they all sort/scan by seq, so all invariants hold on the normalized stream.
+**Dedicated session per tab run** (not shared with chat sessions): keeps `ChatSession.fromEvents` projections from mixing tab-run events into chat, and gives replay/restore a clean boundary. This is the one convention that must be decided up front — retrofitting session separation later means event-log surgery.
 
-Pairing invariants survive concatenation because `toolCallId` is UUID-per-call — zero cross-stream collision. Enforce **fork cut only at a `turn_ended` boundary** (reuse `findCrashTailCutSeq` on the parent) so the prefix can never contain an open tool_call: the parent segment needs no orphan settlement; orphan handling stays scoped to the child's own stream.
+**New vs modified:**
+- NEW: `src/stores/tabRunStore.ts`
+- NEW: `TabRunPanel` shared component (progress + event stream, see b)
+- MODIFIED: 6 `generate*AI` call sites in `rndStore.ts` (244-500), `FullDeliverablesTab` button, `productStore.runProductSkill` — all delegate to `tabRunStore.startTabRun`
+- MODIFIED (optional): `buildCoreContext` to accept tab-specific payload sections
 
-Replay parity: the permanent tests (`phase13ReplayParity.test.ts`, `phase14Integration.test.ts`) extend with one new case — *forked projection rebuilt twice yields identical projections, and equals the parent prefix projection plus child suffix*. Idempotency is structural: the helper is pure over `(parentEvents, childEvents, forkCutSeq)`.
+## (b) In-tab progress/event-stream projection
 
-**(2) Seq collision → none, by construction.** Child owns its seq namespace in the DB (`UNIQUE(session_id, seq)` is already per-session, `eventStore.ts:155`). Collision exists only in the projection and is resolved by normalization. `sessionChains` keyed by sessionId keeps write serialization correct for both streams independently.
+**Channel streaming, not polling.** The `Channel` is created per `engine_run` invoke and lives as long as that invoke's promise — which is held by `tabRunStore`, not by the component. So:
 
-**(3) Session switch lifecycle → `switchSession(sessionId)` in chatConsoleStore.**
+- Tab switch away/back: store keeps receiving events; `TabRunPanel` re-subscribes to store state. No reconnect logic needed.
+- Webview reload while run executes in Rust (tray-resident): channel dies; the run itself survives. Recovery = existing restore path — on mount, `tabRunStore` rehydrates by querying events by sessionId (the `restore.ts` / eventStore read path already exists). Poll `event_log` only for this one-shot rehydrate, never as the live path.
 
-| State | On switch | Why |
-|-------|-----------|-----|
-| `loading` (streaming lock) | **Guard**: switch refused while `loading === true` | Locked: streaming 中锁定切换 |
-| `messages`, `streamingResponse`, `streamingTrace`, `input` | Reset, rebuilt from projection | Per-session |
-| `pendingConfirmation`, `pendingDestructiveAction`, `pendingPrdDraft`, `prdDraftSnapshot` | Reset, re-surfaced filtered by `sessionId` | Candidate rows already carry `sessionId`, but some call sites stamp `null` (`confirmations.ts:152,217`) — must be fixed |
-| `pendingMemory`, `autoRemembered` | **Persist** (global) | Locked: 记忆/知识库保持全局, list-level isolation only |
-| `sessionRef.current` | Replaced by rebuilt session + `resumeEventEmission()` | Live events append to the child sessionId — emission target switches with the ref |
-| `activeSessionId` | Set | New store field, drives UI |
+**`TabRunPanel` (NEW, one component, reused by all tabs):** renders run status (queued/running/waiting/done via `run_status` events), a compact event stream (tool_start/tool_end/tool_output — same EngineEventMsg kinds the chat already renders), and the cancel button. HITL confirmation cards do NOT go here — they already route through the global confirmation queue (D-05 explicitly: 确认卡走现有确认队列). The panel only needs a "waiting for confirmation → open queue" affordance.
 
-`refreshMemoryCards` untouched (global queue).
+## (c) Document ingestion: split deterministic work from agent runs
 
-**(4) Yes — `restoreLatestSession()` becomes `restoreSession(sessionId?)`.** App entry does NOT auto-restore (locked: 启动默认新 session): `restore()` creates a fresh `ChatSession` and sets `activeSessionId`. `restoreSession(id)` fires on-demand from the recent-sessions panel / Select. Internals: load `sessions` row → if `parent_session_id`, load both streams → `buildForkEventStream` → run crash-tail/orphan logic **against the child stream only** (parent prefix is immutable and boundary-safe per rule 1) → `fromEvents(normalized)` → `resumeEventEmission()`. Keep the module-promise dedupe for initial `restore()`; `switchSession` needs none (user-driven, serialized by the loading guard).
+**Extraction (docx/pdf → text) is NOT a run.** It's deterministic, needs no LLM, no event log semantics, no HITL. Plain Rust commands, zero sidecar:
 
-**(5) `lastActiveAt` / title → `sessionRepo.upsert` on turn end.** Hook: the `finally` of `chatConsoleStore.submit` (after `recordTurnEnd`), plus `switchSession`/`newSession` first activation. Fire-and-forget. LLM auto-title: when `title IS NULL` and turn count ≥ 1, background generation (small maxTokens) → success updates `sessions.title`; failure falls back to first user message truncated (~30 chars). Title failure never surfaces as an error toast.
+- NEW `engine/ingest.rs` (or `src-tauri/src/ingest.rs`): `ingest_extract(path) -> { text, meta }`
+  - docx: docx = zip + XML — parse with existing zip dependency + minimal `w:t` text walk, or a small crate (`docx-rust`-class). Flag crate choice as a phase-level research point (LOW confidence until verified against current crate landscape).
+  - pdf: `pdf-extract` or equivalent pure-Rust text layer. Same flag.
+- Output stored as artifact (knowledge draft or `agent_artifacts`-style row if it must appear in a run's context) — keep extraction results files-in-tables, appended to runs only as context text.
 
-## Data Flow (changed paths only)
+**Classification + draft extraction ARE runs.** One `engine_run` per ingestion batch with the extracted text(s) in coreContext, instructing the model to classify and propose drafts. This reuses: scheduler queueing, event log audit, HITL candidates, tray background execution. Critically it also gets ingestion for free when the window is hidden — the exact v0.3.2 value proposition.
 
-```
-Turn end (submit.finally)
-  └─ sessionRepo.upsert({sessionId, workspaceId, lastActiveAt, title?})
-       └─ if title null → LLM auto-title (bg) → fallback truncate
+**Batch HITL for task/schedule drafts:** PM CRUD tools are absent from the Rust registry (deliberate, ADR-0003 ruling #3 — kv_store JSON, no bridge). So draft application follows the **existing legal transition pattern** (same shape as `engineCommitDeliverable` seam ①, 23-04): run proposes candidates → confirmation cards → on confirm, a TS-side applier writes into `taskStore`/`scheduleStore` (zustand persist → kv_store), then `engine_append_tool_result` lands the audit event with Rust as sole writer of `agent_events`. Either a new candidate kind (`entity_draft`) or reuse of `destructive_action` with typed args — recommend a new kind for clean card UI discrimination.
 
-Session switch (user click)
-  └─ switchSession(id): guard loading → load sessions row
-       ├─ fork? → listEvents(parent) + listEvents(child) → buildForkEventStream
-       └─ child-only crash-tail/orphan → fromEvents → resumeEventEmission
-            → set messages/pending cards → activeSessionId
+**New vs modified:**
+- NEW: Rust extraction command(s) + module
+- NEW: TS applier for confirmed entity drafts (one function per entity type, wired into the confirmation card flow)
+- MODIFIED: `confirmationStore` card rendering for the new kind
+- NO change: scheduler, loop_runner, channel protocol
 
-Fork (hover assistant card → branch icon)
-  └─ newSessionId = uuid; sessions INSERT {parent_session_id, fork_cut_seq}
-       └─ switchSession(newSessionId)  // projection = full parent prefix, empty child
-```
+## (d) Create product from workspace + kv_store interaction
+
+Products live in kv_store JSON snapshots written by TS (`productStore`, zustand persist). Per the ADR-0003 double-writer rule, Rust must not write it. Therefore:
+
+1. "从工作区创建产品" is a **webview-initiated user action**: user picks classified workspace docs → UI (or an agent run proposing a product brief as a candidate) → confirm card → TS applier creates the product via `productStore.addProduct` → the newly minted `productId` is handed to `tabRunStore`/subsequent runs as the `product_id` param + written into the ingestion run's context.
+2. **Auto-association = pass productId into engine_run, nothing more.** `knowledge_write` / deliverable candidates already carry `productId` (22-10 gap closure hardened exactly this). The only new wiring is that the ingestion flow stores the created productId on the workspace-entry record (frontend state) and injects it into every downstream run/candidate.
+3. This research assumes kv_store JSON remains the business-data truth for v0.3.3 and the TS-applier seam is acceptable transition architecture. If relational migration is pulled into this milestone, (c)/(d) change materially — that's a roadmap decision, not an architecture detail.
+
+## Component Summary
+
+| Component | Status | Purpose |
+|---|---|---|
+| `src/stores/tabRunStore.ts` | NEW | runId→origin registry; owns Channel callbacks; dedicated sessionId per tab run |
+| `TabRunPanel.tsx` | NEW (shared) | in-tab progress/event projection + cancel |
+| `rndStore` 6× `generate*AI` + `FullDeliverablesTab` + `runProductSkill` | MODIFIED | delegate to tabRunStore; delete setTimeout mocks |
+| Rust ingest module + extract command(s) | NEW | docx/pdf → text, deterministic, no sidecar |
+| `entity_draft` candidate kind + TS applier | NEW | task/schedule/product drafts → zustand stores + `engine_append_tool_result` audit |
+| `engine_run` / channel / scheduler / loop_runner | UNCHANGED | — |
+
+## Build Order (dependency-driven)
+
+1. **Tab run infrastructure** — tabRunStore + TabRunPanel + one pilot tab (Requirement). Everything else consumes this. Smallest seam, validates the dedicated-session convention early.
+2. **Mock 全清** — remaining 5 tabs + batch + runProductSkill onto the infra from step 1. Mechanical once step 1 holds.
+3. **Ingestion extraction** — Rust docx/pdf commands, no engine involvement. Independent of steps 1-2; can parallel.
+4. **Ingestion orchestration + batch HITL + reverse product creation** — depends on 3 (text source) and reuses 1 (run infra) + the seam pattern. Highest-risk item (new candidate kind, multi-doc context sizing) — flag for phase-level research on context window budget for large documents.
 
 ## Anti-Patterns to Avoid
 
-- **Copying parent events into the child session** — doubles storage, breaks audit provenance, diverges when the parent continues. Reference fork only.
-- **Fork awareness inside `fromEvents`** — contaminates the projection purity that 161 tests + replay parity rely on. Concatenation is a separate pure function.
-- **Auto-restoring latest session at app entry** — v0.3.0 behavior, replaced by new-session-on-start.
-- **Filtering memory cards by session** — locked as global.
-- **Allocating seq in JS for the child** — `eventStore.ts:149` is explicit: SQL-side only.
-
-## Suggested Build Order (dependencies respected)
-
-1. **Phase A — Data model + repo.** Migration 0007, `sessionRepo.ts`, workspaceId stamping via scope provider, `sessionId` stamped on ALL confirmation-candidate call sites. Foundation; nothing user-visible.
-2. **Phase B — Multi-session runtime.** `activeSessionId`, `restoreSession(sessionId?)`, `switchSession()` lifecycle, app-entry new session, session-scoped pending re-surfacing. Extends restore/pending tests.
-3. **Phase C — Fork.** `buildForkEventStream` + tests FIRST (pairing invariants, compaction remap, replay parity, idempotency), then branch UI (hover icon → sessions INSERT → switchSession) + copy-to-clipboard. Highest-risk logic isolated as a pure function before any UI.
-4. **Phase D — UI surfaces + titling.** ChatPanel workspace/session selects (Ctrl+Shift+K), recent-sessions panel, LLM auto-title with truncation fallback.
-
-A→B hard dependency; C depends on A + B; D depends on B (selects) and C (branch badge). C and D can partially parallel after B.
-
-## Open Risks
-
-- Candidate `sessionId: null` at some call sites — Phase A must audit every `save*Candidate` caller or session filtering silently returns nothing.
-- Compaction of a forked child: `maybeCompactSession` runs on the child's own stream; the normalized projection honors it only via payload remap — needs one dedicated test (Phase C).
-- `EventStore.listSessions()` vs sessionRepo listing overlap: sessionRepo is the UI source (title/workspace); `listSessions()` stays as restore fallback.
+- **Do not extend `engine_run`'s parameter list for tab metadata** — origin correlation is a frontend concern; core_context already carries model-visible context.
+- **Do not give tabs their own confirmation UI** — D-05: the existing global queue is the single HITL surface.
+- **Do not make extraction an LLM run** — deterministic work in the engine wastes the event log and adds failure modes.
+- **Do not share a chat session with tab runs** — projection mixing is the expensive-to-undo mistake.
 
 ## Sources
 
-- Direct source reads (HIGH): `src/ai/events/eventStore.ts`, `src/ai/chatSession.ts`, `src/ai/sessionRestore.ts`, `src/stores/chatConsoleStore.ts`, `src/ai/confirmations.ts` (grep), `src/ai/__tests__/phase13ReplayParity.test.ts` / `phase14Integration.test.ts` (grep), `.planning/PROJECT.md`
+- `src-tauri/src/engine/commands.rs` (engine_run signature, run_id minting, scheduler gate) — direct code read
+- `src/ai/api.ts` (full TS IPC surface incl. engineCommitDeliverable / engineAppendToolResult seam patterns) — direct code read
+- `src/stores/rndStore.ts` (mock call sites) — direct code read
+- `docs/ARCHITECTURE.md` v3.0, `docs/adr/ADR-0003-rust-run-engine.md`, `.planning/research/RND-ROLLOUT-V0.3-V0.4.md`, `.planning/PROJECT.md` — provided context

@@ -60,10 +60,11 @@ test('rndStore: console.warn fires for unknown productId', () => {
   console.warn = (...args: unknown[]) => { warns.push(args.join(' ')); };
   try {
     useRndStore.getState().getKnowledgeForProduct(UNKNOWN);
-    useRndStore.getState().getCompetitorDataForProduct(UNKNOWN);
   } finally {
     console.warn = orig;
   }
-  assert.ok(warns.length >= 2, `expected at least 2 warns, got ${warns.length}`);
+  // Phase 26 (26-04): competitor getter no longer fabricates and no longer
+  // warns — it just returns EMPTY_COMPETITOR for any miss.
+  assert.ok(warns.length >= 1, `expected at least 1 warn, got ${warns.length}`);
   assert.ok(warns.every(w => w.includes('[rndStore]')), 'all warns must be tagged [rndStore]');
 });

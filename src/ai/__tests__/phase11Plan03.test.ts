@@ -7,7 +7,10 @@ import { getMemoryKnowledgeRepo, resetMemoryKnowledgeRepo } from '../knowledgeRe
 import { useRndStore } from '../../stores/rndStore';
 
 test('Phase 11 Plan 03 registers real Zod tools and returns bounded document/PRD drafts', async () => {
-  for (const name of ['getProductDocumentContext', 'getPRDDraftContext', 'generateDeliverable', 'listKnowledgeArticles', 'searchKnowledgeBase']) {
+  // Phase 26 (26-04): the mock-backed generateDeliverable tool was removed;
+  // the real two-phase candidate tool lives in tools/generateDeliverable.ts
+  // (covered by phase16GenerateDeliverable.test.ts).
+  for (const name of ['getProductDocumentContext', 'getPRDDraftContext', 'listKnowledgeArticles', 'searchKnowledgeBase']) {
     assert.equal(listToolNames().includes(name), true, `${name} should be registered`);
     assert.equal(toolRegistry.get(name)?.jsonSchema.type, 'object');
   }
@@ -36,29 +39,6 @@ test('Phase 11 Plan 03 registers real Zod tools and returns bounded document/PRD
     executeTool('getPRDDraftContext', { productId: 'p1', unexpected: true }),
     (error: unknown) => error instanceof ToolArgError,
   );
-});
-
-test('generateDeliverable reads the store-backed content after the existing AI action', async () => {
-  const originalDeliverables = useRndStore.getState().deliverables;
-
-  try {
-    const result = await executeTool('generateDeliverable', { productId: 'p1', code: 'DEL-REQ-01' }) as {
-      productId: string;
-      code: string;
-      status: string;
-      content: string;
-    };
-    assert.deepEqual({ productId: result.productId, code: result.code, status: result.status }, {
-      productId: 'p1',
-      code: 'DEL-REQ-01',
-      status: 'ready',
-    });
-    assert.match(result.content, /# 标准产品需求规格说明书/);
-    assert.match(result.content, /## 验收要点/);
-    assert.equal(useRndStore.getState().deliverables.p1?.find((item) => item.code === 'DEL-REQ-01')?.content, result.content);
-  } finally {
-    useRndStore.setState({ deliverables: originalDeliverables });
-  }
 });
 
 test('knowledge list and search are bounded repo results scoped by product when requested', async () => {

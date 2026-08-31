@@ -81,37 +81,29 @@ interface AppContextType {
 
   getRequirementForProduct: (productId: string) => ProductRequirementDesign;
   updateRequirement: (productId: string, updates: Partial<ProductRequirementDesign>) => void;
-  generateRequirementAI: (productId: string, promptText: string, scenarioTemplate?: string) => Promise<void>;
 
   getPrototypeForProduct: (productId: string) => UIPrototypeScreen;
   updatePrototype: (productId: string, updates: Partial<UIPrototypeScreen>) => void;
-  generatePrototypeAI: (productId: string, promptText: string, device?: 'desktop' | 'mobile' | 'tablet', theme?: 'indigo' | 'dark' | 'mint' | 'sunset') => Promise<void>;
 
   getKnowledgeForProduct: (productId: string) => ProductKnowledgeItem[];
   addKnowledgeItem: (productId: string, item: Omit<ProductKnowledgeItem, 'id' | 'productId' | 'updatedAt'>) => Promise<void>;
   updateKnowledgeItem: (productId: string, itemId: string, updates: Partial<ProductKnowledgeItem>) => Promise<void>;
   deleteKnowledgeItem: (productId: string, itemId: string) => void;
-  polishKnowledgeArticleAI: (productId: string, itemId: string, action: string) => Promise<string>;
 
   getCodeScaffoldsForProduct: (productId: string) => CodeScaffoldItem[];
   addCodeScaffold: (productId: string, item: Omit<CodeScaffoldItem, 'id' | 'productId'>) => void;
-  generateCodeScaffoldAI: (productId: string, type: 'api' | 'types' | 'component' | 'schema' | 'docker' | 'commit', promptText?: string) => Promise<void>;
 
   getTestCasesForProduct: (productId: string) => TestCaseItem[];
   addTestCase: (productId: string, item: Omit<TestCaseItem, 'id' | 'productId'>) => void;
   updateTestCase: (productId: string, testCaseId: string, updates: Partial<TestCaseItem>) => void;
   deleteTestCase: (productId: string, testCaseId: string) => void;
-  generateTestCasesAI: (productId: string, promptText?: string) => Promise<void>;
   runTestCase: (productId: string, testCaseId: string) => Promise<void>;
   runAllTestCases: (productId: string) => Promise<void>;
 
   getCompetitorDataForProduct: (productId: string) => CompetitorAnalysisData;
   updateCompetitorData: (productId: string, updates: Partial<CompetitorAnalysisData>) => void;
-  generateCompetitorAnalysisAI: (productId: string, customPrompt?: string) => Promise<void>;
 
   getDeliverablesForProduct: (productId: string) => FullLifecycleDeliverable[];
-  generateDeliverableAI: (productId: string, code: string, customPrompt?: string) => Promise<void>;
-  generateAllDeliverablesBatchAI: (productId: string, onProgress?: (percent: number, currentTitle: string) => void) => Promise<void>;
   syncDeliverableToDocs: (productId: string, deliverableId: string) => void;
 
   addTask: (task: Task, categoryId?: string) => void;
@@ -127,7 +119,6 @@ interface AppContextType {
   deleteProduct: (id: string) => void;
   addProductDocument: (productId: string, doc: ProductDocument) => void;
   toggleSkillStatus: (productId: string, skillId: string) => void;
-  runProductSkill: (productId: string, skillId: string) => Promise<any>;
   addProductMilestone: (productId: string, milestone: ProductMilestone) => void;
   updateMilestoneStatus: (productId: string, milestoneId: string, status: 'completed' | 'in-progress' | 'pending') => void;
   addWorkspace: (workspace: Workspace) => void;
@@ -207,31 +198,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // R&D actions (stable references)
   const getRequirementForProduct = useRndStore((s) => s.getRequirementForProduct);
   const updateRequirement = useRndStore((s) => s.updateRequirement);
-  const generateRequirementAI = useRndStore((s) => s.generateRequirementAI);
   const getPrototypeForProduct = useRndStore((s) => s.getPrototypeForProduct);
   const updatePrototype = useRndStore((s) => s.updatePrototype);
-  const generatePrototypeAI = useRndStore((s) => s.generatePrototypeAI);
   const getKnowledgeForProduct = useRndStore((s) => s.getKnowledgeForProduct);
   const addKnowledgeItem = useRndStore((s) => s.addKnowledgeItem);
   const updateKnowledgeItem = useRndStore((s) => s.updateKnowledgeItem);
   const deleteKnowledgeItem = useRndStore((s) => s.deleteKnowledgeItem);
-  const polishKnowledgeArticleAI = useRndStore((s) => s.polishKnowledgeArticleAI);
   const getCodeScaffoldsForProduct = useRndStore((s) => s.getCodeScaffoldsForProduct);
   const addCodeScaffold = useRndStore((s) => s.addCodeScaffold);
-  const generateCodeScaffoldAI = useRndStore((s) => s.generateCodeScaffoldAI);
   const getTestCasesForProduct = useRndStore((s) => s.getTestCasesForProduct);
   const addTestCase = useRndStore((s) => s.addTestCase);
   const updateTestCase = useRndStore((s) => s.updateTestCase);
   const deleteTestCase = useRndStore((s) => s.deleteTestCase);
-  const generateTestCasesAI = useRndStore((s) => s.generateTestCasesAI);
   const runTestCase = useRndStore((s) => s.runTestCase);
   const runAllTestCases = useRndStore((s) => s.runAllTestCases);
   const getCompetitorDataForProduct = useRndStore((s) => s.getCompetitorDataForProduct);
   const updateCompetitorData = useRndStore((s) => s.updateCompetitorData);
-  const generateCompetitorAnalysisAI = useRndStore((s) => s.generateCompetitorAnalysisAI);
-  const getDeliverablesForProduct = useRndStore((s) => s.getDeliverablesForProduct);
-  const generateDeliverableAI = useRndStore((s) => s.generateDeliverableAI);
-  const generateAllDeliverablesBatchAI = useRndStore((s) => s.generateAllDeliverablesBatchAI);
+  const getDeliverablesForProduct = useRndStore((s) => s.getDeliverablesForProduct);
   const syncDeliverableToDocs = useRndStore((s) => s.syncDeliverableToDocs);
 
   // Task/Product/Workspace actions
@@ -265,7 +248,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteProduct = useProductStore((s) => s.deleteProduct);
   const addProductDocument = useProductStore((s) => s.addProductDocument);
   const toggleSkillStatus = useProductStore((s) => s.toggleSkillStatus);
-  const runProductSkill = useProductStore((s) => s.runProductSkill);
   const addProductMilestone = useProductStore((s) => s.addProductMilestone);
   const updateMilestoneStatus = useProductStore((s) => s.updateMilestoneStatus);
 
@@ -417,18 +399,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     requirements, prototypes, knowledgeBase, codeScaffolds, testCases, competitorData, deliverables,
 
-    getRequirementForProduct, updateRequirement, generateRequirementAI,
-    getPrototypeForProduct, updatePrototype, generatePrototypeAI,
-    getKnowledgeForProduct, addKnowledgeItem, updateKnowledgeItem, deleteKnowledgeItem, polishKnowledgeArticleAI,
-    getCodeScaffoldsForProduct, addCodeScaffold, generateCodeScaffoldAI,
-    getTestCasesForProduct, addTestCase, updateTestCase, deleteTestCase, generateTestCasesAI, runTestCase, runAllTestCases,
-    getCompetitorDataForProduct, updateCompetitorData, generateCompetitorAnalysisAI,
-    getDeliverablesForProduct, generateDeliverableAI, generateAllDeliverablesBatchAI, syncDeliverableToDocs,
+    getRequirementForProduct, updateRequirement,
+    getPrototypeForProduct, updatePrototype,
+    getKnowledgeForProduct, addKnowledgeItem, updateKnowledgeItem, deleteKnowledgeItem,
+    getCodeScaffoldsForProduct, addCodeScaffold,
+    getTestCasesForProduct, addTestCase, updateTestCase, deleteTestCase, runTestCase, runAllTestCases,
+    getCompetitorDataForProduct, updateCompetitorData,
+    getDeliverablesForProduct, syncDeliverableToDocs,
 
     addTask, addCategory, addEvent, addProject,
     createEvent, updateEvent, deleteEvent,
     addProduct, updateProduct, deleteProduct,
-    addProductDocument, toggleSkillStatus, runProductSkill,
+    addProductDocument, toggleSkillStatus,
     addProductMilestone, updateMilestoneStatus,
     addWorkspace, updateWorkspace, deleteWorkspace, addLocalIndexedFile,
     completeTask, getProjectTaskCount,

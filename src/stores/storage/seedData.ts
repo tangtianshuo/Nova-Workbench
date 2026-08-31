@@ -4,12 +4,7 @@
 import { INITIAL_PRODUCTS_DATA } from '@/src/data/mockProducts';
 import { INITIAL_CATEGORIES } from '@/src/data/mockTasks';
 import {
-  INITIAL_REQUIREMENTS,
-  INITIAL_PROTOTYPES,
   INITIAL_KNOWLEDGE_BASE,
-  INITIAL_CODE_SCAFFOLDS,
-  INITIAL_TEST_CASES,
-  INITIAL_COMPETITOR_DATA,
 } from '@/src/data/mockRndData';
 import { buildInitialDeliverables } from '../rndStore';
 import { INITIAL_EVENTS } from '../scheduleStore';
@@ -26,12 +21,12 @@ export function buildInitialSeed(): Record<string, unknown> {
     'nova-product': { products: INITIAL_PRODUCTS_DATA },
     'nova-task': { categories: INITIAL_CATEGORIES },
     'nova-rnd': {
-      requirements: INITIAL_REQUIREMENTS,
-      prototypes: INITIAL_PROTOTYPES,
+      requirements: {},
+      prototypes: {},
       knowledgeBase: INITIAL_KNOWLEDGE_BASE,
-      codeScaffolds: INITIAL_CODE_SCAFFOLDS,
-      testCases: INITIAL_TEST_CASES,
-      competitorData: INITIAL_COMPETITOR_DATA,
+      codeScaffolds: {},
+      testCases: {},
+      competitorData: {},
       deliverables: deliverablesMap,
     },
     'nova-schedule': { events: INITIAL_EVENTS },

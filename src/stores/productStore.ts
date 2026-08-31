@@ -26,7 +26,6 @@ interface ProductState {
 
   // Skill operations
   toggleSkillStatus: (productId: string, skillId: string) => void;
-  runProductSkill: (productId: string, skillId: string) => Promise<any>;
 
   // Milestone operations
   addProductMilestone: (productId: string, milestone: ProductMilestone) => void;
@@ -98,42 +97,6 @@ export const useProductStore = create<ProductState>()(
         };
       }),
     })),
-
-  runProductSkill: async (productId, skillId) => {
-    set((state) => ({
-      products: state.products.map((p) => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          associatedSkills: p.associatedSkills.map((s) =>
-            s.id === skillId ? { ...s, status: 'running' as const } : s
-          ),
-        };
-      }),
-    }));
-
-    await new Promise((r) => setTimeout(r, 1400));
-
-    set((state) => ({
-      products: state.products.map((p) => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          associatedSkills: p.associatedSkills.map((s) => {
-            if (s.id !== skillId) return s;
-            return {
-              ...s,
-              status: 'active' as const,
-              invocations: s.invocations + 1,
-              lastInvoked: '刚刚',
-            };
-          }),
-        };
-      }),
-    }));
-
-    return { success: true, timestamp: new Date().toLocaleTimeString() };
-  },
 
   addProductMilestone: (productId, milestone) =>
     set((state) => ({

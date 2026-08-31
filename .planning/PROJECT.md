@@ -31,7 +31,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 ## Current State (after v0.3.2)
 
-**v0.3.2 Rust Run Engine 执行完毕 2026-08-30(待人工 UAT 复测收口)** — 4 phases (22-25), 18 plans, ADR-0003 Accepted。TS toolLoop/compaction/contextAssembler 已删除(-1371 行),`engine_run` 经 Channel 是唯一 agent 运行时;调度器多 run 并行(cap 3 + FIFO)+ 托盘常驻(hide-on-close,后台 run 不中断)+ 系统通知;双侧 replay parity 永久测试(真实 v0.3.x 存量日志 fixture 端到端)。22-08 gap closure(2026-08-30):knowledge_write productId ctx 兜底、检索预算 prompt 规则 + MAX_ITERATIONS=8、预算耗尽中文无工具收尾轮(chat_no_tools);169 cargo + tsc 全绿。待办:22-UAT 3 项人工复测(ChatPanel 对话/检索/HITL 卡片)→ complete-milestone。
+**v0.3.2 Rust Run Engine 执行完毕 2026-08-31(待人工 UAT 复测收口)** — 4 phases (22-25), 18 plans + 3 gap closure plans (22-08/09/10), ADR-0003 Accepted。TS toolLoop/compaction/contextAssembler 已删除(-1371 行),`engine_run` 经 Channel 是唯一 agent 运行时;调度器多 run 并行(cap 3 + FIFO)+ 托盘常驻(hide-on-close,后台 run 不中断)+ 系统通知;双侧 replay parity 永久测试(真实 v0.3.x 存量日志 fixture 端到端)。三轮 gap closure:22-08(knowledge_write productId ctx 兜底、检索预算 prompt 规则 + MAX_ITERATIONS=8、chat_no_tools 收尾轮)、22-09(category enum 预校验 + tags 默认)、22-10(knowledge_write effective_args 规整为 TS knowledgeParams 同构 10 字段形状,params_hash 跨边界平价双向常量测试锁定,`params_mismatch` 结构性闭合)。cargo 176 + npm 222 + tsc 全绿。待办:22-UAT Test 7 人工复测(knowledge_write 卡片确认落库)→ complete-milestone。
 
 **v0.3.0 功能闭环 shipped 2026-08-17** — 5 phases (13-17), 19 plans, 149 commits, 161/161 tests。审计 tech_debt(无阻断):28/28 需求满足、11/11 集成 seam、4/4 E2E flows;统一人工 UAT 21/21(13-UAT 7 + 16-UAT 8 + 17-UAT 6,含 v0.2.0 遗留 35 步回归闭合)。
 
@@ -189,6 +189,7 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 19 (2026-08-18)**: 多 Session 运行时 — activeSessionId/switchSession + streaming 双层守卫 + pending 卡片按 session 过滤。VERIFICATION PASS。
 - **Phase 20 (2026-08-18)**: 分支与卡片操作 — buildForkEventStream 引用式 fork + hover 工具栏 + 复制。VERIFICATION PASS。
 - **Phase 21 (2026-08-19)**: Session 列表与快捷入口 + 自动命名 — 真实列表 + 双下拉 ChatPanel + 快捷键分流 + LLM 自动命名。VERIFICATION PASS(13/13,人工项留 UAT)。
+- **Phase 22 (2026-08-31)**: Loop Replay Parity + 三轮 UAT gap closure(22-08/09/10)— knowledge_write params_hash 跨边界平价闭合,Rust/TS 双侧 SHA-256 常量测试锁定。VERIFICATION PASS(2/2,Test 7 人工复测待办)。
 
 ---
-*Last updated: 2026-08-30 — v0.3.2 Rust Run Engine 4/4 phases + gap closure 执行完毕;待 22-UAT 人工复测后 complete-milestone*
+*Last updated: 2026-08-31 — v0.3.2 Rust Run Engine 4/4 phases + 3 轮 gap closure 收口;待 22-UAT Test 7 人工复测后 complete-milestone*

@@ -4,12 +4,66 @@
 
 ## Milestones
 
+- 🚧 **v0.3.3 产研半落地 + 工作区入驻** — Phases 26-28 (active)
 - ✅ **v0.3.2 Rust Run Engine** — Phases 22-25 (shipped 2026-08-31) — [archive](milestones/v0.3.2-ROADMAP.md)
 - ✅ **v0.3.1 多 Session 会话体系** — Phases 18-21 (shipped 2026-08-19, closed 2026-08-24) — [archive](milestones/v0.3.1-ROADMAP.md)
 - ✅ **v0.3.0 功能闭环** — Phases 13-17 (shipped 2026-08-17) — [archive](milestones/v0.3.0-ROADMAP.md)
 - ✅ **v0.2.0 日常管理 CRUD + 弱关联 + AI 驱动** — Phases 5-12 (shipped 2026-08-14) — [archive](milestones/v0.2.0-ROADMAP.md)
 
 ## Phases
+
+### v0.3.3 产研半落地 + 工作区入驻(RND-ROLLOUT ①层)
+
+- [ ] **Phase 26: Mock 全清 — tab 接引擎** - 产研各 tab AI 按钮触发真实 engine_run(带 tab 上下文、独立 session、流式进度、候选→HITL→落槽),mock 全删
+- [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等
+- [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT
+
+## Phase Details
+
+### Phase 26: Mock 全清 — tab 接引擎
+**Goal**: 用户在产研中心任一 tab 点 AI 按钮都跑真实引擎 run:流式可见、可取消、可审计,产物走统一候选→HITL→版本化落槽,代码中 mock 零残留
+**Depends on**: Nothing(v0.3.2 engine 已 shipped)
+**Requirements**: TAB-01, TAB-02, TAB-03, TAB-04, TAB-05, TAB-06
+**Success Criteria** (what must be TRUE):
+  1. 用户在产研中心任一 tab(需求/原型/代码脚手架/测试用例/竞品分析/一键交付物)点 AI 生成按钮,触发真实 `engine_run` 且携带 tab 上下文,返回内容非 mock(grep 零 mock/fabricate 残留,UI 无死路径)
+  2. 用户在 tab 内看到流式进度与事件投影(事件日志可审计),且可中途取消
+  3. 每类生成的产物统一走候选→HITL 确认卡→版本化落槽(knowledge_docs 卡槽 + AI 溯源徽章),与 PRD 生产线同构
+  4. tab 触发的 run 使用独立 sessionId,聊天会话列表与会话投影不受污染
+  5. 批量生成运行期间用户发起聊天,交互 run 优先于批量 run(不被 cap-3 队列饿死);一键十八份交付物为单 run 多步而非 18 个 run
+**Plans**: TBD
+
+### Phase 27: 工作区文档摄取
+**Goal**: 用户可对工作区文档发起纯 Rust 摄取:提取→分类→草稿抽取全程可见,产物经批量 HITL 确认后落业务数据,重扫幂等、立即可检索
+**Depends on**: Phase 26(摄取编排 run 复用 tab-run 接线模式与调度优先级)
+**Requirements**: ING-01, ING-02, ING-03, ING-04, ING-05, ING-06
+**Success Criteria** (what must be TRUE):
+  1. 用户对工作区 docx/pdf 发起摄取,系统以纯 Rust 提取文本(零 sidecar、无外部进程)
+  2. 无文本层/扫描件 PDF 的摄取结果以显式三态(extracted/partial/failed)呈现,不静默建档空文档
+  3. 用户发起摄取编排后,扫描工作区→AI 分类进知识库→抽取任务/日程草稿全程进度可见
+  4. 用户以批量 HITL 聚合卡确认摄取产物(全选/全不选、逐项编辑、一次提交),确认后才落业务数据
+  5. 重扫同一工作区时已摄取文档以内容 hash 识别,不重复建档/不重复索引;摄取完成的文档立即可在知识库 FTS5 中文检索命中
+**Plans**: TBD
+
+### Phase 28: 反向创建产品 + 收口
+**Goal**: 用户以既有工作区文档为起点入驻产品,反向创建的产品自动关联源工作区;里程碑以 parity 收口 gate + 统一 UAT 关闭
+**Depends on**: Phase 27(反向创建以摄取能力为起点)
+**Requirements**: REV-01, REV-02
+**Success Criteria** (what must be TRUE):
+  1. 用户可"从工作区创建产品"——复用创建产品向导模式,以既有工作区文档为起点反向创建产品
+  2. 反向创建的产品自动关联源工作区与 productId,后续摄取产物(知识/任务/日程草稿)默认归属该产品
+  3. 里程碑收口 gate 通过:新增事件种类均有双侧 replay parity fixture(cargo + npm + tsc 全绿);统一人工 UAT(含 ≥20 文档批量摄取 + 托盘后台 run)通过
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 26. Mock 全清 — tab 接引擎 | 0/? | Not started | - |
+| 27. 工作区文档摄取 | 0/? | Not started | - |
+| 28. 反向创建产品 + 收口 | 0/? | Not started | - |
+
+## Historical Milestones
 
 <details>
 <summary>✅ v0.3.2 Rust Run Engine (Phases 22-25) — SHIPPED 2026-08-31</summary>
@@ -32,17 +86,6 @@
 </details>
 
 ## Backlog (candidate phases — promote with `/gsd:review-backlog`)
-
-### Phase 999.1: 工作区先行的产品入驻（文档 → 产品 → AI 摄取） (BACKLOG)
-
-**Goal:** [Captured for future planning] 用户已有 PRD 等产品文档,以工作区(本地文件夹)为起点入驻:从工作区派生产品(反向创建 + 自动关联 projectId),AI 摄取文档 → 分类进知识库 → 抽取任务/日程草稿 → 批量 HITL 确认。这是 v0.3.0 三个技术投资(事件日志/FTS5/记忆)的用户可见收口叙事。
-**依赖:** Phase 13-15(事件日志 + toolLoop 底座、FTS5 + 记忆)— 已全部落地,可排期
-**已知缺口:**
-1. 文档摄取 — docx/pdf → 文本解析(Rust 侧,零 sidecar),当前仅有文件列表 + 手工 contentSnippet
-2. 摄取编排 — 扫描工作区 → 逐文档分类 → 抽取任务/日程草稿 → 批量 HITL 确认的 pipeline
-3. 反向创建入口 — "从工作区创建产品"向导(读文件夹 → AI 猜产品名/定位 → 建产品 + 自动挂 projectId)
-**Requirements:** TBD
-**归位(2026-08-24):** v0.3.3 — 需按 Rust 引擎校准后执行;见 `research/RND-ROLLOUT-V0.3-V0.4.md`
 
 ### Phase 999.2: Skill 系统（PM 领域工作流的沉淀与复用） (BACKLOG)
 
@@ -72,3 +115,7 @@
 **预估成本:** 隔离动作本身约一两天。
 **建议排期:** v0.4.0 前后的技术投资,或与 999.2 同期 — **归位确认与 999.2 同期 v0.4.0**(2026-08-24)
 **Requirements:** TBD
+
+---
+
+*999.1 工作区先行的产品入驻已于 2026-08-31 移入 v0.3.3 正式 scope(Phase 27 文档摄取 + Phase 28 反向创建产品,需求 ING-01..06 / REV-01..02),backlog 条目移除。*

@@ -71,13 +71,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (待 roadmap 创建后回填) | — | — |
+| TAB-01 | Phase 26 | Pending |
+| TAB-02 | Phase 26 | Pending |
+| TAB-03 | Phase 26 | Pending |
+| TAB-04 | Phase 26 | Pending |
+| TAB-05 | Phase 26 | Pending |
+| TAB-06 | Phase 26 | Pending |
+| ING-01 | Phase 27 | Pending |
+| ING-02 | Phase 27 | Pending |
+| ING-03 | Phase 27 | Pending |
+| ING-04 | Phase 27 | Pending |
+| ING-05 | Phase 27 | Pending |
+| ING-06 | Phase 27 | Pending |
+| REV-01 | Phase 28 | Pending |
+| REV-02 | Phase 28 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️(roadmap 创建时回填)
+- Mapped to phases: 14/14 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-08-31*
-*Last updated: 2026-08-31 after initial definition*
+*Last updated: 2026-08-31 — traceability 回填(roadmap Phases 26-28)*

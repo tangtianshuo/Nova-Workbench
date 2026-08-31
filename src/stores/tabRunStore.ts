@@ -44,6 +44,9 @@ export interface TabRunRecord {
   productId: string;
   status: TabRunStatus;
   currentStep: string;
+  /** Kept verbatim so TabRunPanel retry can re-run startTabRun with identical params. */
+  userMessage: string;
+  coreContext: string;
   events: TabRunEventRow[];
   startedAt: number;
   error?: string;
@@ -74,7 +77,7 @@ interface TabRunState {
 
 /** Cap per-run event rows — batch runs (18 deliverables) must not grow unbounded. */
 const MAX_EVENTS = 200;
-const ACTIVE: readonly TabRunStatus[] = ['queued', 'running', 'waiting-for-confirmation'];
+export const ACTIVE: readonly TabRunStatus[] = ['queued', 'running', 'waiting-for-confirmation'];
 
 function appendEvent(run: TabRunRecord, row: TabRunEventRow): TabRunRecord {
   const events = [...run.events, row];
@@ -114,6 +117,8 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
       productId: params.productId,
       status: 'queued',
       currentStep: '排队中…',
+      userMessage: params.userMessage,
+      coreContext: params.coreContext,
       events: [],
       startedAt: Date.now(),
       candidateCount: 0,
@@ -127,6 +132,8 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
       try {
         await engineRun({
           runId,
+          // TAB-06: tab runs are batch — interactive chat runs always win the scheduler.
+          priority: 'batch',
           userMessage: params.userMessage,
           sessionId,
           provider,

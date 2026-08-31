@@ -30,7 +30,12 @@
   3. 每类生成的产物统一走候选→HITL 确认卡→版本化落槽(knowledge_docs 卡槽 + AI 溯源徽章),与 PRD 生产线同构
   4. tab 触发的 run 使用独立 sessionId,聊天会话列表与会话投影不受污染
   5. 批量生成运行期间用户发起聊天,交互 run 优先于批量 run(不被 cap-3 队列饿死);一键十八份交付物为单 run 多步而非 18 个 run
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 26-01-PLAN.md — tabRunStore 基础设施 + deliverables 投影化(knowledge_docs 唯一真相源裁定)
+- [ ] 26-02-PLAN.md — Rust 调度器双队列优先级 + engine_run priority 字段
+- [ ] 26-03-PLAN.md — TabRunPanel 共享组件 + 需求 tab 试点端到端
+- [ ] 26-04-PLAN.md — 其余 tab + 一键单 run 多步 + mock 全清 + 人工验证
 
 ### Phase 27: 工作区文档摄取
 **Goal**: 用户可对工作区文档发起纯 Rust 摄取:提取→分类→草稿抽取全程可见,产物经批量 HITL 确认后落业务数据,重扫幂等、立即可检索
@@ -59,7 +64,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 26. Mock 全清 — tab 接引擎 | 0/? | Not started | - |
+| 26. Mock 全清 — tab 接引擎 | 0/4 | Not started | - |
 | 27. 工作区文档摄取 | 0/? | Not started | - |
 | 28. 反向创建产品 + 收口 | 0/? | Not started | - |
 

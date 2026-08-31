@@ -23,7 +23,27 @@ import {
 import { getMemoryMemoryStore, resetMemoryMemoryStore } from '../memoryStore';
 import { listPendingDeliverableDrafts } from '../confirmations';
 import { executeTool } from '../registry';
+import { computeParamsHash } from '../paramsHash';
 import '../tools/knowledgeWrite';
+
+// 22-10: TS-side mirror of the Rust constant test (tools.rs
+// knowledge_write_params_hash_matches_ts_create_path_constant). Same fixed
+// input, same SHA-256 — the create-path hash domains must never drift.
+test('22-10 knowledge_write params hash matches the Rust parity constant', async () => {
+  const content = 'C'.repeat(120);
+  const hash = await computeParamsHash({
+    productId: 'p1',
+    operation: 'created',
+    title: 'T',
+    category: '最佳实践',
+    tags: [],
+    content,
+    summary: content.slice(0, 100),
+    author: 'AI 助手',
+    readTime: '待阅读',
+  });
+  assert.equal(hash, '292fee04f1f110cf2c58fd244a2e1c4435582b9085bb4f6d8b986f1fc792eb4e');
+});
 
 const knowledgeDraftFixture = (overrides: Partial<KnowledgeWriteDraft> = {}): KnowledgeWriteDraft => ({
   productId: 'p1',

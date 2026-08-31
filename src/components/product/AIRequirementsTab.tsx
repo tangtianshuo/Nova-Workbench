@@ -64,7 +64,8 @@ export function AIRequirementsTab({ product }: Props) {
     return id ? ACTIVE.includes(s.runs[id]?.status) : false;
   });
   // 26-01 mock 全清: no fabricated seed — PRD content only via committed deliverable slot.
-  const prdSlot = useRndStore((s) => (s.deliverables[product.id] ?? []).find((d) => d.code === 'prd'));
+  // 'prd' commits land on slot DEL-REQ-01 (SLOT_BY_CODE in generateDeliverable).
+  const prdSlot = useRndStore((s) => (s.deliverables[product.id] ?? []).find((d) => d.code === 'DEL-REQ-01'));
   const hasData = !!prdSlot?.content;
   const prdMarkdown = prdSlot?.content ?? '';
 

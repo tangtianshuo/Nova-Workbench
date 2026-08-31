@@ -16,6 +16,11 @@ import {
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
+import { Tooltip } from '@/src/components/ui/Tooltip';
+import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
+import { buildCoreContext } from '@/src/ai/context';
+import { isTauri } from '@/src/lib/api';
 
 interface Props {
   product: Product;
@@ -23,8 +28,7 @@ interface Props {
 }
 
 export function ProductSkillsTab({ product, onAddSkill }: Props) {
-  const { toggleSkillStatus, runProductSkill } = useApp();
-  const [runningSkillId, setRunningSkillId] = useState<string | null>(null);
+  const { toggleSkillStatus } = useApp();
   const [selectedResult, setSelectedResult] = useState<{
     skillName: string;
     title: string;
@@ -33,31 +37,26 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
     details: string[];
   } | null>(null);
 
-  const handleRunSkill = async (skill: ProductSkill) => {
-    setRunningSkillId(skill.id);
-    try {
-      await runProductSkill(product.id, skill.id);
-      if (skill.sampleResult) {
-        setSelectedResult({
-          skillName: skill.name,
-          ...skill.sampleResult
-        });
-      } else {
-        setSelectedResult({
-          skillName: skill.name,
-          title: `${skill.name} 执行完成`,
-          time: new Date().toLocaleTimeString(),
-          summary: `已成功对【${product.name}】全量工作区资产完成自动化分析与扫描。`,
-          details: [
-            '已扫描产品 PRD 需求文档与接口定义',
-            '合规度与完整性评估得分 98.2 分',
-            '自动化建议与优化报告已同步至本地工作区'
-          ]
-        });
-      }
-    } finally {
-      setRunningSkillId(null);
-    }
+  // Phase 26 (26-04): real engine run replaces the old mock skill runner.
+  const runsByTab = useTabRunStore((s) => s.runsByTab);
+  const skillRuns = useTabRunStore((s) => s.runs);
+  const skillRunActive = (skillId: string) => {
+    const id = runsByTab[`skill-${skillId}`];
+    return id ? ACTIVE.includes(skillRuns[id]?.status) : false;
+  };
+
+  const handleRunSkill = (skill: ProductSkill) => {
+    useTabRunStore.getState().startTabRun({
+      tabId: `skill-${skill.id}`,
+      kind: 'product-skill',
+      productId: product.id,
+      userMessage: `运行 Skill:${skill.name}`,
+      coreContext: buildCoreContext({
+        kind: 'product-skill',
+        instruction: `执行产品 Skill「${skill.name}」(${skill.code})。技能说明:${skill.description}。围绕当前产品完成该技能的分析任务,产物经工具产出候选后等待用户确认。`,
+      }),
+      sessionTitle: `${product.name} · Skill ${skill.name}`,
+    });
   };
 
   const getCategoryColor = (cat: string) => {
@@ -105,7 +104,7 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
       {/* Skills Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {product.associatedSkills.map((skill, idx) => {
-          const isRunning = runningSkillId === skill.id || skill.status === 'running';
+          const isRunning = skillRunActive(skill.id) || skill.status === 'running';
 
           return (
             <motion.div
@@ -115,6 +114,7 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
               transition={{ type: 'spring', stiffness: 300, damping: 25, delay: idx * 0.05 }}
             >
               <Card variant="interactive" className="p-5 flex flex-col justify-between group">
+                <TabRunPanel tabId={`skill-${skill.id}`} />
                 <div>
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -204,24 +204,42 @@ export function ProductSkillsTab({ product, onAddSkill }: Props) {
                       </Button>
                     )}
 
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleRunSkill(skill)}
-                      disabled={isRunning}
-                    >
-                      {isRunning ? (
-                        <>
-                          <ArrowClockwise size={14} className="animate-spin" weight="duotone" />
-                          <span>正在执行...</span>
-                        </>
+                    {(() => {
+                      const webMode = !isTauri();
+                      const disabled = webMode || isRunning;
+                      const tooltip = webMode
+                        ? '此功能需要桌面引擎，请使用桌面版 Nova。'
+                        : isRunning
+                          ? '本 tab 已有生成任务进行中'
+                          : null;
+                      const btn = (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleRunSkill(skill)}
+                          disabled={disabled}
+                        >
+                          {isRunning ? (
+                            <>
+                              <ArrowClockwise size={14} className="animate-spin" weight="duotone" />
+                              <span>正在执行...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play size={14} weight="duotone" />
+                              <span>运行 Skill</span>
+                            </>
+                          )}
+                        </Button>
+                      );
+                      return tooltip ? (
+                        <Tooltip content={tooltip}>
+                          <span className="inline-flex">{btn}</span>
+                        </Tooltip>
                       ) : (
-                        <>
-                          <Play size={14} weight="duotone" />
-                          <span>立即执行</span>
-                        </>
-                      )}
-                    </Button>
+                        btn
+                      );
+                    })()}
                   </div>
                 </div>
               </Card>

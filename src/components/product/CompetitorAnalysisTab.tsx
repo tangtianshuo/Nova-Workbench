@@ -33,39 +33,55 @@ import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { MarkdownRenderer } from '@/src/components/ui';
 import { Badge } from '@/src/components/ui/Badge';
+import { Tooltip as UITooltip } from '@/src/components/ui/Tooltip';
+import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
+import { buildCoreContext } from '@/src/ai/context';
+import { isTauri } from '@/src/lib/api';
 
 interface Props {
   product: Product;
 }
 
 export function CompetitorAnalysisTab({ product }: Props) {
-  const { getCompetitorDataForProduct, generateCompetitorAnalysisAI } = useApp();
+  const { getCompetitorDataForProduct } = useApp();
   const compData = getCompetitorDataForProduct(product.id);
 
   const [promptInput, setPromptInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [activeSubView, setActiveSubView] = useState<'radar' | 'competitors' | 'swot' | 'strategy'>('radar');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Phase 26 (26-04): real engine run replaces the old mock generate flow.
+  const runActive = useTabRunStore((s) => {
+    const id = s.runsByTab['competitor'];
+    return id ? ACTIVE.includes(s.runs[id]?.status) : false;
+  });
+  // 26-04 mock 全清: no fabricated seed — structured views only when data exists.
+  const hasData = (compData.competitors?.length ?? 0) > 0 || !!compData.differentiationStrategy;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    try {
-      await generateCompetitorAnalysisAI(product.id, promptInput);
-      showToast('✨ AI 竞品深度分析与破局策略矩阵已更新！');
-    } catch (e) {
-      showToast('❌ 生成失败');
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleGenerate = () => {
+    useTabRunStore.getState().startTabRun({
+      tabId: 'competitor',
+      kind: 'competitor',
+      productId: product.id,
+      userMessage: `生成竞品分析。${promptInput || ''}`,
+      coreContext: buildCoreContext({
+        kind: 'competitor',
+        instruction: `为产品生成竞品分析文档(Markdown:竞品对比矩阵、SWOT、差异化破局策略)。产物经 knowledge_write 工具产出候选(标题含「竞品分析」),等待用户确认后写入产品知识库。${promptInput}`,
+      }),
+      sessionTitle: `${product.name} · 竞品分析生成`,
+    });
   };
 
   return (
     <div className="space-y-6">
+      <TabRunPanel tabId="competitor" />
+
       {/* Toast */}
       {toastMessage && (
         <motion.div
@@ -95,14 +111,32 @@ export function CompetitorAnalysisTab({ product }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="!px-6 !py-3.5 !rounded-xl !text-xs !font-bold shadow-lg shadow-amber-500/25"
-            >
-              {isGenerating ? <ArrowClockwise className="w-4 h-4 animate-spin" weight="duotone" /> : <Sparkle className="w-4 h-4" weight="duotone" />}
-              <span>AI 推导竞品破局分析</span>
-            </Button>
+            {(() => {
+              const webMode = !isTauri();
+              const disabled = webMode || runActive;
+              const tooltip = webMode
+                ? '此功能需要桌面引擎，请使用桌面版 Nova。'
+                : runActive
+                  ? '本 tab 已有生成任务进行中'
+                  : null;
+              const btn = (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={disabled}
+                  className="!px-6 !py-3.5 !rounded-xl !text-xs !font-bold shadow-lg shadow-amber-500/25"
+                >
+                  {runActive ? <ArrowClockwise className="w-4 h-4 animate-spin" weight="duotone" /> : <Sparkle className="w-4 h-4" weight="duotone" />}
+                  <span>{runActive ? '正在生成…' : 'AI 推导竞品破局分析'}</span>
+                </Button>
+              );
+              return tooltip ? (
+                <UITooltip content={tooltip}>
+                  <span className="inline-flex">{btn}</span>
+                </UITooltip>
+              ) : (
+                btn
+              );
+            })()}
           </div>
         </div>
 
@@ -118,7 +152,17 @@ export function CompetitorAnalysisTab({ product }: Props) {
         </div>
       </Card>
 
+      {!hasData && (
+        <Card className="p-10 flex flex-col items-center justify-center gap-3 text-center">
+          <Crosshair size={40} weight="duotone" className="text-text-tertiary" />
+          <p className="text-sm text-text-secondary">
+            还没有竞品分析。点击上方生成按钮,AI 将生成候选供你确认。
+          </p>
+        </Card>
+      )}
+
       {/* Sub View Tabs */}
+      {hasData && (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -146,9 +190,10 @@ export function CompetitorAnalysisTab({ product }: Props) {
           </div>
         </Card>
       </motion.div>
+      )}
 
       {/* Radar View */}
-      {activeSubView === 'radar' && (
+      {hasData && activeSubView === 'radar' && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -200,7 +245,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
       )}
 
       {/* Competitors Profile List */}
-      {activeSubView === 'competitors' && (
+      {hasData && activeSubView === 'competitors' && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -250,7 +295,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
       )}
 
       {/* SWOT Matrix */}
-      {activeSubView === 'swot' && (
+      {hasData && activeSubView === 'swot' && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -316,7 +361,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
       )}
 
       {/* Differentiation Strategy View */}
-      {activeSubView === 'strategy' && (
+      {hasData && activeSubView === 'strategy' && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

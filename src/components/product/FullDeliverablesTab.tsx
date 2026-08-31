@@ -36,6 +36,11 @@ import { Badge } from '@/src/components/ui/Badge';
 import { Tooltip } from '@/src/components/ui/Tooltip';
 import { Input } from '@/src/components/ui/Input';
 import { ProgressBar } from '@/src/components/ui/ProgressBar';
+import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
+import { buildCoreContext } from '@/src/ai/context';
+import { isTauri } from '@/src/lib/api';
+import { FULL_LIFECYCLE_DELIVERABLES_CATALOG } from '../../data/mockRndData';
 
 interface Props {
   product: Product;
@@ -50,8 +55,6 @@ function formatAiSourceTime(iso: string): string {
 export function FullDeliverablesTab({ product }: Props) {
   const {
     getDeliverablesForProduct,
-    generateDeliverableAI,
-    generateAllDeliverablesBatchAI,
     syncDeliverableToDocs,
   } = useApp();
 
@@ -60,11 +63,14 @@ export function FullDeliverablesTab({ product }: Props) {
   const [activePhase, setActivePhase] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDeliverable, setSelectedDeliverable] = useState<FullLifecycleDeliverable | null>(null);
-  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
-  const [batchProgress, setBatchProgress] = useState(0);
-  const [batchCurrentTitle, setBatchCurrentTitle] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Phase 26 (26-04): real engine run replaces the old mock generate flow.
+  const runActive = useTabRunStore((s) => {
+    const id = s.runsByTab['deliverable-batch'];
+    return id ? ACTIVE.includes(s.runs[id]?.status) : false;
+  });
   const previewDeliverable = selectedDeliverable
     ? deliverables.find((item) => item.id === selectedDeliverable.id) ?? selectedDeliverable
     : null;
@@ -87,29 +93,34 @@ export function FullDeliverablesTab({ product }: Props) {
   const totalCount = deliverables.length;
   const readyPercent = Math.round((readyCount / totalCount) * 100);
 
-  const handleGenerateSingle = async (code: string) => {
-    try {
-      await generateDeliverableAI(product.id, code);
-      showToast('✨ 成果物推导完成并已更新！');
-    } catch (e) {
-      showToast('❌ 生成失败');
-    }
+  const handleGenerateSingle = (code: string, title: string) => {
+    useTabRunStore.getState().startTabRun({
+      tabId: `deliverable-${code}`,
+      kind: 'deliverable-single',
+      productId: product.id,
+      userMessage: `生成交付物:${title}(${code})。`,
+      coreContext: buildCoreContext({
+        kind: 'deliverable-single',
+        instruction: `为产品生成交付物《${title}》的完整草稿。产物须经 generateDeliverable 工具产出候选(code=${code}),等待用户确认落槽。`,
+      }),
+      sessionTitle: `${product.name} · ${title}`,
+    });
   };
 
-  const handleBatchGenerateAll = async () => {
-    setIsBatchGenerating(true);
-    setBatchProgress(0);
-    try {
-      await generateAllDeliverablesBatchAI(product.id, (percent, title) => {
-        setBatchProgress(percent);
-        setBatchCurrentTitle(title);
-      });
-      showToast('🎉 全套产研生命周期成果物 (18 份) 已全部一键推导就绪！');
-    } catch (e) {
-      showToast('❌ 批量生成中断');
-    } finally {
-      setIsBatchGenerating(false);
-    }
+  // TAB-06: 一键十八份 = 单 run 多步(1 个 runId),候选逐份出、逐份 HITL。
+  const handleBatchGenerateAll = () => {
+    const catalogList = FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((c) => `- ${c.code}:${c.title}`).join('\n');
+    useTabRunStore.getState().startTabRun({
+      tabId: 'deliverable-batch',
+      kind: 'deliverable-batch',
+      productId: product.id,
+      userMessage: '一键生成全部十八份交付物',
+      coreContext: buildCoreContext({
+        kind: 'deliverable-batch',
+        instruction: `依次生成以下全部十八份交付物,每份调用一次 generateDeliverable 工具(每份一个 code),候选逐份产出等待用户确认,不要合并为一份文档:\n${catalogList}`,
+      }),
+      sessionTitle: `${product.name} · 一键生成十八份交付物`,
+    });
   };
 
   const handleCopy = (id: string, content: string) => {
@@ -157,6 +168,8 @@ export function FullDeliverablesTab({ product }: Props) {
 
   return (
     <div className="space-y-6">
+      <TabRunPanel tabId="deliverable-batch" />
+
       {/* Toast */}
       {toastMessage && (
         <motion.div
@@ -200,45 +213,44 @@ export function FullDeliverablesTab({ product }: Props) {
               <ProgressBar value={readyPercent} variant="success" className="w-16" />
             </div>
 
-            <Button
-              onClick={handleBatchGenerateAll}
-              disabled={isBatchGenerating}
-              size="lg"
-              className="bg-gradient-to-r from-success to-teal-600 hover:from-success/90 hover:to-teal-500 shadow-[var(--shadow-lg)] shadow-success/25 h-auto py-3.5 px-6 text-xs font-bold rounded-[var(--radius-lg)]"
-            >
-              {isBatchGenerating ? (
-                <>
-                  <ArrowClockwise size={16} weight="duotone" className="animate-spin" />
-                  <span>AI 批量推导中 ({batchProgress}%)...</span>
-                </>
+            {(() => {
+              const webMode = !isTauri();
+              const disabled = webMode || runActive;
+              const tooltip = webMode
+                ? '此功能需要桌面引擎，请使用桌面版 Nova。'
+                : runActive
+                  ? '本 tab 已有生成任务进行中'
+                  : null;
+              const btn = (
+                <Button
+                  onClick={handleBatchGenerateAll}
+                  disabled={disabled}
+                  size="lg"
+                  className="bg-gradient-to-r from-success to-teal-600 hover:from-success/90 hover:to-teal-500 shadow-[var(--shadow-lg)] shadow-success/25 h-auto py-3.5 px-6 text-xs font-bold rounded-[var(--radius-lg)]"
+                >
+                  {runActive ? (
+                    <>
+                      <ArrowClockwise size={16} weight="duotone" className="animate-spin" />
+                      <span>正在生成…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lightning size={16} weight="duotone" />
+                      <span>一键生成十八份交付物</span>
+                    </>
+                  )}
+                </Button>
+              );
+              return tooltip ? (
+                <Tooltip content={tooltip}>
+                  <span className="inline-flex">{btn}</span>
+                </Tooltip>
               ) : (
-                <>
-                  <Lightning size={16} weight="duotone" />
-                  <span>一键生成全流程所有成果物</span>
-                </>
-              )}
-            </Button>
+                btn
+              );
+            })()}
           </div>
         </div>
-
-        {/* Progress Bar when batch generating */}
-        {isBatchGenerating && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="p-4 bg-bg-secondary rounded-[var(--radius-lg)] border border-border-subtle space-y-2"
-          >
-            <div className="flex items-center justify-between text-xs text-text-secondary">
-              <span className="flex items-center gap-2">
-                <ArrowClockwise size={14} weight="duotone" className="animate-spin text-success" />
-                正在推导: <strong className="text-text-primary">{batchCurrentTitle || '初始化产研流水线...'}</strong>
-              </span>
-              <span className="font-mono font-bold text-success">{batchProgress}%</span>
-            </div>
-            <ProgressBar value={batchProgress} variant="success" />
-          </motion.div>
-        )}
       </Card>
 
       {/* Filter and Search Bar */}
@@ -322,14 +334,27 @@ export function FullDeliverablesTab({ product }: Props) {
                     <span>查看/编辑</span>
                   </Button>
 
-                  <Button
-                    onClick={() => handleGenerateSingle(d.code)}
-                    title="重新由 AI 推导"
-                    variant="ghost"
-                    size="sm"
-                  >
-                    <ArrowClockwise size={13} weight="duotone" />
-                  </Button>
+                  {(() => {
+                    const webMode = !isTauri();
+                    const btn = (
+                      <Button
+                        onClick={() => handleGenerateSingle(d.code, d.title)}
+                        disabled={webMode}
+                        title="重新由 AI 推导"
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <ArrowClockwise size={13} weight="duotone" />
+                      </Button>
+                    );
+                    return webMode ? (
+                      <Tooltip content="此功能需要桌面引擎，请使用桌面版 Nova。">
+                        <span className="inline-flex">{btn}</span>
+                      </Tooltip>
+                    ) : (
+                      btn
+                    );
+                  })()}
 
                   <Button
                     onClick={() => handleSyncToDocs(d)}

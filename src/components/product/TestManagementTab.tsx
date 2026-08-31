@@ -21,6 +21,11 @@ import {
 import { Card } from '@/src/components/ui/Card';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
+import { Tooltip } from '@/src/components/ui/Tooltip';
+import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
+import { buildCoreContext } from '@/src/ai/context';
+import { isTauri } from '@/src/lib/api';
 
 interface Props {
   product: Product;
@@ -29,11 +34,8 @@ interface Props {
 export function TestManagementTab({ product }: Props) {
   const {
     getTestCasesForProduct,
-    generateTestCasesAI,
     runTestCase,
     runAllTestCases,
-    addTestCase,
-    deleteTestCase
   } = useApp();
 
   const testCases = getTestCasesForProduct(product.id);
@@ -41,8 +43,13 @@ export function TestManagementTab({ product }: Props) {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isRunningAll, setIsRunningAll] = useState(false);
+
+  // Phase 26 (26-04): real engine run replaces the old mock generate flow.
+  const runActive = useTabRunStore((s) => {
+    const id = s.runsByTab['test'];
+    return id ? ACTIVE.includes(s.runs[id]?.status) : false;
+  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -67,16 +74,18 @@ export function TestManagementTab({ product }: Props) {
   const passRate = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 100;
   const autoRate = totalCount > 0 ? Math.round((automatedCount / totalCount) * 100) : 100;
 
-  const handleGenerateAI = async () => {
-    setIsGenerating(true);
-    try {
-      await generateTestCasesAI(product.id);
-      showToast('✨ AI 测试工程引擎已自动推导并生成全量测试用例集！');
-    } catch (e) {
-      showToast('❌ 生成失败');
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleGenerateAI = () => {
+    useTabRunStore.getState().startTabRun({
+      tabId: 'test',
+      kind: 'test',
+      productId: product.id,
+      userMessage: `生成测试用例。${searchQuery || ''}`,
+      coreContext: buildCoreContext({
+        kind: 'test',
+        instruction: `为产品生成测试用例文档(结构化用例表 Markdown:用例编号、模块、优先级、前置条件、执行步骤、预期结果)。产物须经 generateDeliverable 工具产出候选(code=DEL-TST-01),等待用户确认落槽。`,
+      }),
+      sessionTitle: `${product.name} · 测试用例生成`,
+    });
   };
 
   const handleRunAll = async () => {
@@ -93,6 +102,8 @@ export function TestManagementTab({ product }: Props) {
 
   return (
     <div className="space-y-6">
+      <TabRunPanel tabId="test" />
+
       {/* Toast */}
       {toastMessage && (
         <motion.div
@@ -122,14 +133,32 @@ export function TestManagementTab({ product }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button
-              onClick={handleGenerateAI}
-              disabled={isGenerating}
-              className="!px-5 !py-3 !rounded-xl !text-xs !font-bold shadow-lg shadow-teal-600/25"
-            >
-              {isGenerating ? <ArrowClockwise className="w-4 h-4 animate-spin" weight="duotone" /> : <Sparkle className="w-4 h-4" weight="duotone" />}
-              <span>AI 推导测试用例</span>
-            </Button>
+            {(() => {
+              const webMode = !isTauri();
+              const disabled = webMode || runActive;
+              const tooltip = webMode
+                ? '此功能需要桌面引擎，请使用桌面版 Nova。'
+                : runActive
+                  ? '本 tab 已有生成任务进行中'
+                  : null;
+              const btn = (
+                <Button
+                  onClick={handleGenerateAI}
+                  disabled={disabled}
+                  className="!px-5 !py-3 !rounded-xl !text-xs !font-bold shadow-lg shadow-teal-600/25"
+                >
+                  {runActive ? <ArrowClockwise className="w-4 h-4 animate-spin" weight="duotone" /> : <Sparkle className="w-4 h-4" weight="duotone" />}
+                  <span>{runActive ? '正在生成…' : 'AI 推导测试用例'}</span>
+                </Button>
+              );
+              return tooltip ? (
+                <Tooltip content={tooltip}>
+                  <span className="inline-flex">{btn}</span>
+                </Tooltip>
+              ) : (
+                btn
+              );
+            })()}
 
             <Button
               onClick={handleRunAll}
@@ -203,6 +232,14 @@ export function TestManagementTab({ product }: Props) {
       </motion.div>
 
       {/* Test Case Cards List */}
+      {filteredCases.length === 0 && (
+        <Card className="p-10 flex flex-col items-center justify-center gap-3 text-center">
+          <ShieldCheck size={40} weight="duotone" className="text-text-tertiary" />
+          <p className="text-sm text-text-secondary">
+            还没有测试用例。点击上方生成按钮,AI 将生成候选供你确认。
+          </p>
+        </Card>
+      )}
       <div className="space-y-3">
         {filteredCases.map((tc, idx) => (
           <motion.div

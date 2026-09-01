@@ -49,7 +49,7 @@ Plans:
   5. 重扫同一工作区时已摄取文档以内容 hash 识别,不重复建档/不重复索引;摄取完成的文档立即可在知识库 FTS5 中文检索命中
 **Plans**: 3 plans
 Plans:
-- [ ] 27-01-PLAN.md — 纯 Rust 提取地基:pdf_oxide/zip/quick-xml + ingest.rs 三态/hash/截断 + 中文 PDF PoC + ingest_scan + 0010 migration
+- [x] 27-01-PLAN.md — 纯 Rust 提取地基:pdf_oxide/zip/quick-xml + ingest.rs 三态/hash/截断 + 中文 PDF PoC + ingest_scan + 0010 migration
 - [ ] 27-02-PLAN.md — 批量 HITL 后端:PM 四类目双侧 parity + ingest_submit + engine_consume_ingestion_batch 事务 + consume 幂等
 - [ ] 27-03-PLAN.md — 前端摄取流:ingestion TabRunKind + ingestionStore + FileArchiveView 摄取区/聚合卡/队列入口卡 + 端到端人工验证
 
@@ -69,7 +69,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
-| 27. 工作区文档摄取 | 0/? | Not started | - |
+| 27. 工作区文档摄取 | 1/3 | In Progress|  |
 | 28. 反向创建产品 + 收口 | 0/? | Not started | - |
 
 ## Historical Milestones

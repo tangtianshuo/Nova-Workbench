@@ -38,6 +38,7 @@ const FS_MKDIR_DESCRIPTION: &str = "Create a directory (with parents) inside the
 const FS_DELETE_DESCRIPTION: &str = "Delete a file or directory (recursive) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_MOVE_DESCRIPTION: &str = "Move/rename within the workspace; src and dest are workspace-root-relative. Returns a confirmation candidate requiring user approval.";
 const INGEST_SCAN_DESCRIPTION: &str = "Scan a workspace directory for .docx/.pdf files, extract text (Chinese supported), and return per-file three-state results (extracted/partial/failed) with sha256 content hashes. Already-ingested files (same hash) are skipped; failed files (e.g. scanned PDFs without a text layer) are retried on every scan.";
+const INGEST_SUBMIT_DESCRIPTION: &str = "Submit extracted workspace documents as one batch for user confirmation. items[] carries knowledge articles (type=knowledge, needs category from the 13-value enum) plus optional task/schedule drafts — at most 5 drafts per source document. Every item id must be `ing-{contentHash8}`. The first call returns a single batch candidate; the user reviews/edits/selects items before anything is written.";
 const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft for the currently selected product. `code` is either \"prd\" or a catalog slot code (DEL-REQ-01 … DEL-REL-04). You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
@@ -82,6 +83,7 @@ pub enum ToolKind {
     Exec,
     Fs,
     Deliverable,
+    Ingest,
 }
 
 pub struct ToolSpec {
@@ -274,6 +276,25 @@ pub fn registry() -> Vec<ToolSpec> {
             // hash-idempotent: same bytes skip, changed bytes re-extract
             idempotency: "rerunnable",
         },
+        ToolSpec {
+            name: "ingest_submit",
+            description: INGEST_SUBMIT_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "workspaceId": { "type": "string", "minLength": 1 },
+                    "productId": { "type": "string", "description": "Optional when a product is selected in the workspace; omit it then." },
+                    "items": {
+                        "type": "array", "minItems": 1,
+                        "items": { "type": "object" }
+                    }
+                },
+                "required": ["workspaceId", "items"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Ingest,
+            idempotency: "verify_first",
+        },
         // ORCHESTRATOR RULING (22-05 plan / ADR-0003): PM CRUD tools
         // (createTask / updateTask / schedule CRUD / ...) are NOT registered —
         // no bridge in v0.3.2 (ruling 2026-08-24); Rust-native return in v0.3.3
@@ -342,6 +363,7 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "fs_move" => fs_ops::fs_move(conn, args, ctx),
         "generate_deliverable" => execute_generate_deliverable(conn, args, ctx),
         "ingest_scan" => execute_ingest_scan(conn, args, ctx),
+        "ingest_submit" => execute_ingest_submit(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -446,6 +468,91 @@ fn execute_ingest_scan(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> To
             "items": items,
         })),
         Err(e) => ToolOutcome::Failed { message: e, arg_error: false },
+    }
+}
+
+const CONFIRMATION_REQUIRED_INGEST: &str = "Explicit confirmation is required before applying the ingestion batch.";
+const INGEST_DRAFT_CAP: usize = 5;
+
+/// ingest_submit (27-02 ING-04): single `ingestion_batch` candidate carrying
+/// the full items array. Cap: ≤5 task/schedule drafts per source document
+/// (D-14 Rust-side double lock). items[].id convention `ing-{contentHash8}`
+/// is prompt-orchestration contract — consume dedups by it (Pitfall 6).
+fn execute_ingest_submit(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let Some(workspace_id) = str_arg(args, "workspaceId") else {
+        return arg_fail("ingest_submit", "workspaceId must be a non-empty string");
+    };
+    let Some(items) = args.get("items").and_then(|v| v.as_array()) else {
+        return arg_fail("ingest_submit", "items must be an array");
+    };
+    if items.is_empty() {
+        return arg_fail("ingest_submit", "items must contain at least one entry");
+    }
+    let product_id = str_arg(args, "productId").or(ctx.product_id);
+    let Some(product_id) = product_id else {
+        return arg_fail("ingest_submit", "productId must be a non-empty string (no product selected in the current context)");
+    };
+    let mut draft_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for item in items {
+        let ty = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        if !matches!(ty, "knowledge" | "task_draft" | "schedule_draft") {
+            return arg_fail("ingest_submit", "items[].type must be one of [knowledge, task_draft, schedule_draft]");
+        }
+        if item.get("title").and_then(|v| v.as_str()).map(str::is_empty).unwrap_or(true) {
+            return arg_fail("ingest_submit", "items[].title must be a non-empty string");
+        }
+        if ty == "knowledge" {
+            let category = item.get("category").and_then(|v| v.as_str()).unwrap_or("");
+            if !KNOWLEDGE_CATEGORIES.contains(&category) {
+                return arg_fail(
+                    "ingest_submit",
+                    &format!("knowledge items must carry a category from [{}]", KNOWLEDGE_CATEGORIES.join(", ")),
+                );
+            }
+            if item.get("content").and_then(|v| v.as_str()).map(str::is_empty).unwrap_or(true) {
+                return arg_fail("ingest_submit", "knowledge items must carry non-empty content");
+            }
+        }
+        if ty != "knowledge" {
+            let source = item
+                .get("sourcePath")
+                .and_then(|v| v.as_str())
+                .or_else(|| item.get("contentHash").and_then(|v| v.as_str()))
+                .unwrap_or("");
+            let n = draft_counts.entry(source.to_string()).or_insert(0);
+            *n += 1;
+            if *n > INGEST_DRAFT_CAP {
+                return arg_fail("ingest_submit", "drafts exceed cap 5 per source document — split the batch or drop drafts");
+            }
+        }
+    }
+    let params = json!({
+        "workspaceId": workspace_id,
+        "productId": product_id,
+        "items": items,
+    });
+    let summary = format!("ingestion batch: {} items", items.len());
+    match confirmations::create_candidate(conn, "ingestion_batch", &params, Some(&summary), Some(ctx.session_id)) {
+        Ok(candidate) => ToolOutcome::AwaitConfirmation {
+            candidate: json!({
+                "kind": "ingestion_batch",
+                "confirmationToken": candidate.confirmation_token,
+                "summary": candidate.summary,
+                "workspaceId": workspace_id,
+                "productId": product_id,
+                "items": items,
+            }),
+            wait_key: "error",
+            wait_value: CONFIRMATION_REQUIRED_INGEST.into(),
+        },
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn arg_fail(tool: &str, msg: &str) -> ToolOutcome {
+    ToolOutcome::Failed {
+        message: format!("Tool \"{tool}\" arg validation failed: {msg}"),
+        arg_error: true,
     }
 }
 
@@ -677,7 +784,7 @@ mod tests {
         assert_eq!(names, vec![
             "knowledge_search", "knowledge_write", "memory_write", "exec",
             "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
-            "generate_deliverable", "ingest_scan"
+            "generate_deliverable", "ingest_scan", "ingest_submit"
         ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));

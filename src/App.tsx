@@ -16,6 +16,7 @@ import { HydrationGate } from './components/HydrationGate';
 import { CmdKPalette } from './components/CmdKPalette';
 import { useCmdK } from './hooks/useCmdK';
 import { useUIStore } from './stores/uiStore';
+import { IngestionBatchCard } from './components/workspace/IngestionBatchCard';
 
 // Lazy-loaded views for code splitting
 const AgentWorkspaceView = lazy(() => import('./views/AgentWorkspaceView').then(m => ({ default: m.AgentWorkspaceView })));
@@ -124,6 +125,9 @@ function MainLayout() {
           </main>
         </div>
       </div>
+
+      {/* Global queue slim entry card (27-03 D-09) */}
+      <IngestionBatchCard />
     </div>
   );
 }

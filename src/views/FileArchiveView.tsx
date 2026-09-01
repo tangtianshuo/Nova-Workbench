@@ -40,6 +40,7 @@ import { AddWorkspaceModal } from '../components/AddWorkspaceModal';
 import { FileTree } from '@/src/components/FileTree';
 import { WorkspaceFileTree } from '@/src/components/WorkspaceFileTree';
 import { buildFileTree, commonRootDir } from '@/src/lib/fileTree';
+import { IngestionPanel } from '@/src/components/workspace/IngestionPanel';
 
 export function FileArchiveView() {
   const {
@@ -290,6 +291,9 @@ export function FileArchiveView() {
       </Card>
 
       {/* TAB 1: WORKSPACES */}
+      {activeTab === 'workspaces' && isTauri() && (
+        <IngestionPanel workspace={currentWorkspace} />
+      )}
       {activeTab === 'workspaces' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0">
           {/* Workspace List */}

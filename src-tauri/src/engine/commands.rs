@@ -1179,8 +1179,7 @@ mod tests {
     }
 
     #[test]
-    fn memory_supersede_chain() {
-        let conn = mem_conn();
+    fn memory_supersede_chain() {        let conn = mem_conn();
         let token = queue_memory_candidate(&conn, "周二评审");
         let v1 = consume_memory_inner(&conn, &token).unwrap();
         // Same memoryId + supersedesRowid → version 2, v1 superseded (MEM-05).
@@ -1206,5 +1205,133 @@ mod tests {
             )
             .unwrap();
         assert!(superseded_at.is_some(), "old row superseded, kept for audit");
+    }
+
+    /* === 27-02 Task 3: engine_consume_ingestion_batch === */
+
+    fn queue_ingestion_batch(conn: &Connection, items: Value) -> String {
+        use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(conn, "ingest_submit", &json!({"workspaceId": "w1", "items": items}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                candidate["confirmationToken"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected candidate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn consume_ingestion_batch_writes_knowledge_and_fts_hits() {
+        let conn = mem_conn();
+        // ingested_documents row for the source doc (scan already recorded it).
+        conn.execute(
+            "INSERT INTO ingested_documents (id, workspace_id, path, content_hash, status, extracted_at)
+             VALUES ('g1', 'w1', 'docs/评审纪要.docx', 'aaaa1111ffff', 'extracted', 1)",
+            [],
+        )
+        .unwrap();
+        let items = json!([
+            {"id": "ing-aaaa1111", "type": "knowledge", "title": "评审纪要文档", "content": "关于数字见证平台的评审结论", "category": "会议纪要", "sourcePath": "docs/评审纪要.docx", "contentHash": "aaaa1111ffff", "selected": true},
+        ]);
+        let token = queue_ingestion_batch(&conn, items);
+
+        let result = consume_ingestion_batch_inner(&conn, &token, &[]).unwrap();
+        assert_eq!(result["knowledge"], 1);
+
+        // knowledge_docs row written, traceable doc_id = item id.
+        let (title, source_type, category): (String, String, String) = conn
+            .query_row(
+                "SELECT title, source_type, category FROM knowledge_docs WHERE doc_id = 'ing-aaaa1111'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(title, "评审纪要文档");
+        assert_eq!(source_type, "ingested");
+        assert_eq!(category, "会议纪要");
+
+        // ING-06: FTS5 Chinese substring of title/content hits immediately.
+        let tokens = crate::engine::fts_tokens::fts_tokens("评审");
+        let hits = crate::engine::context_assembler::search_knowledge_hybrid(
+            &conn,
+            &crate::engine::fts_tokens::fts_match_string(&tokens),
+            Some("p1"),
+            10,
+        )
+        .unwrap();
+        assert!(hits.iter().any(|h| h.title == "评审纪要文档"), "FTS must hit");
+
+        // ingested_documents.doc_id backfilled.
+        let doc_id: String = conn
+            .query_row("SELECT doc_id FROM ingested_documents WHERE content_hash = 'aaaa1111ffff'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(doc_id, "ing-aaaa1111");
+
+        // Idempotent second consume: Ok, no duplicate rows/events.
+        let again = consume_ingestion_batch_inner(&conn, &token, &[]).unwrap();
+        assert_eq!(again["knowledge"], 0, "duplicate items skipped");
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM knowledge_docs", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn consume_ingestion_batch_drafts_only_write_audit_events() {
+        let conn = mem_conn();
+        let items = json!([
+            {"id": "ing-b1", "type": "task_draft", "title": "整理评审待办", "sourcePath": "a.docx", "selected": true},
+            {"id": "ing-c1", "type": "schedule_draft", "title": "周三评审会", "sourcePath": "a.docx", "selected": true},
+            {"id": "ing-c2", "type": "schedule_draft", "title": "未选中项", "sourcePath": "a.docx", "selected": false},
+        ]);
+        let token = queue_ingestion_batch(&conn, items);
+        let result = consume_ingestion_batch_inner(&conn, &token, &[]).unwrap();
+        assert_eq!(result["taskDrafts"], 1);
+        assert_eq!(result["scheduleDrafts"], 1);
+
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let kinds: Vec<&str> = events.iter().map(|e| e.event_type.as_str()).collect();
+        assert!(kinds.contains(&"ingestion_task_applied"));
+        assert!(kinds.contains(&"ingestion_schedule_applied"));
+        assert_eq!(events.iter().filter(|e| e.event_type.starts_with("ingestion_")).count(), 2, "unselected item must not apply");
+        let task_ev = events.iter().find(|e| e.event_type == "ingestion_task_applied").unwrap();
+        assert_eq!(task_ev.payload["item"]["title"], "整理评审待办");
+        assert_eq!(task_ev.payload["workspaceId"], "w1");
+        assert_eq!(task_ev.payload["productId"], "p1");
+        // Zero knowledge writes.
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM knowledge_docs", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+
+        // Second consume: idempotent, no duplicate events.
+        consume_ingestion_batch_inner(&conn, &token, &[]).unwrap();
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        assert_eq!(events.iter().filter(|e| e.event_type.starts_with("ingestion_")).count(), 2);
+    }
+
+    #[test]
+    fn consume_ingestion_batch_edited_items_override_and_guards() {
+        let conn = mem_conn();
+        let items = json!([
+            {"id": "ing-e1", "type": "knowledge", "title": "原标题", "content": "原内容", "category": "需求文档", "sourcePath": "e.docx", "selected": true},
+        ]);
+        let token = queue_ingestion_batch(&conn, items);
+        // UI edited title/content before submit (Phase 26 editedDraft shape).
+        let edited = vec![json!([
+            {"id": "ing-e1", "type": "knowledge", "title": "编辑后标题", "content": "编辑后内容", "category": "需求文档", "sourcePath": "e.docx", "selected": true},
+        ])];
+        consume_ingestion_batch_inner(&conn, &token, &edited).unwrap();
+        let title: String = conn
+            .query_row("SELECT title FROM knowledge_docs WHERE doc_id = 'ing-e1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(title, "编辑后标题");
+
+        // Wrong kind guard.
+        let other = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
+        let err = consume_ingestion_batch_inner(&conn, &other.confirmation_token, &[]).unwrap_err();
+        assert!(err.to_string().contains("not ingestion_batch"));
+        // Pending (unconfirmed) candidate → error.
+        let token2 = queue_ingestion_batch(&conn, json!([
+            {"id": "ing-p1", "type": "task_draft", "title": "x", "sourcePath": "p.docx", "selected": true},
+        ]));
+        let err = consume_ingestion_batch_inner(&conn, &token2, &[]).unwrap_err();
+        assert!(err.to_string().contains("not_confirmed"), "{err}");
     }
 }

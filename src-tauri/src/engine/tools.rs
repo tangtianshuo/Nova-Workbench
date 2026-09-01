@@ -17,6 +17,7 @@ use crate::engine::confirmations;
 use crate::engine::context_assembler::search_knowledge_hybrid;
 use crate::engine::exec;
 use crate::engine::fs_ops;
+use crate::engine::ingest;
 use crate::engine::fts_tokens::{fts_match_string, fts_tokens};
 use crate::engine::params_hash::params_hash;
 
@@ -36,6 +37,7 @@ const FS_WRITE_DESCRIPTION: &str = "Write content to a workspace file (workspace
 const FS_MKDIR_DESCRIPTION: &str = "Create a directory (with parents) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_DELETE_DESCRIPTION: &str = "Delete a file or directory (recursive) inside the workspace. Returns a confirmation candidate requiring user approval.";
 const FS_MOVE_DESCRIPTION: &str = "Move/rename within the workspace; src and dest are workspace-root-relative. Returns a confirmation candidate requiring user approval.";
+const INGEST_SCAN_DESCRIPTION: &str = "Scan a workspace directory for .docx/.pdf files, extract text (Chinese supported), and return per-file three-state results (extracted/partial/failed) with sha256 content hashes. Already-ingested files (same hash) are skipped; failed files (e.g. scanned PDFs without a text layer) are retried on every scan.";
 const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft for the currently selected product. `code` is either \"prd\" or a catalog slot code (DEL-REQ-01 … DEL-REL-04). You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
@@ -258,6 +260,20 @@ pub fn registry() -> Vec<ToolSpec> {
             // user action (webview), never a model retry (PORT-01).
             idempotency: "verify_first",
         },
+        ToolSpec {
+            name: "ingest_scan",
+            description: INGEST_SCAN_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "workspaceRoot": { "type": "string", "minLength": 1, "description": "Directory to scan for .docx/.pdf; defaults to the session workspace root." }
+                },
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Readonly,
+            // hash-idempotent: same bytes skip, changed bytes re-extract
+            idempotency: "rerunnable",
+        },
         // ORCHESTRATOR RULING (22-05 plan / ADR-0003): PM CRUD tools
         // (createTask / updateTask / schedule CRUD / ...) are NOT registered —
         // no bridge in v0.3.2 (ruling 2026-08-24); Rust-native return in v0.3.3
@@ -325,6 +341,7 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "fs_delete" => fs_ops::fs_delete(conn, args, ctx),
         "fs_move" => fs_ops::fs_move(conn, args, ctx),
         "generate_deliverable" => execute_generate_deliverable(conn, args, ctx),
+        "ingest_scan" => execute_ingest_scan(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -407,6 +424,27 @@ fn execute_knowledge_search(conn: &Connection, args: &Value) -> ToolOutcome {
         "matches": matches,
         "retrieval": "fts5-hybrid",
     }))
+}
+
+fn execute_ingest_scan(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let root = str_arg(args, "workspaceRoot")
+        .map(std::path::PathBuf::from)
+        .or_else(|| ctx.workspace_root.clone());
+    let Some(root) = root else {
+        return ToolOutcome::Failed {
+            message: "Tool \"ingest_scan\" arg validation failed: workspaceRoot must be a non-empty string (no workspace root in the current context)".into(),
+            arg_error: true,
+        };
+    };
+    match ingest::scan_workspace(&root, conn) {
+        Ok(items) => ToolOutcome::Executed(json!({
+            "workspaceRoot": root.to_string_lossy(),
+            "scanned": items.len(),
+            "skipped": items.iter().filter(|i| i["status"] == "skipped").count(),
+            "items": items,
+        })),
+        Err(e) => ToolOutcome::Failed { message: e, arg_error: false },
+    }
 }
 
 fn execute_knowledge_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
@@ -637,7 +675,7 @@ mod tests {
         assert_eq!(names, vec![
             "knowledge_search", "knowledge_write", "memory_write", "exec",
             "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
-            "generate_deliverable"
+            "generate_deliverable", "ingest_scan"
         ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));

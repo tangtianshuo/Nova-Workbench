@@ -552,7 +552,7 @@ mod tests {
         for absent in ["createTask", "updateTask", "deleteTask", "createSchedule", "updateSchedule", "createProject"] {
             assert!(!names.contains(&absent), "schema must not contain {absent}");
         }
-        assert_eq!(schemas.len(), 11);
+        assert_eq!(schemas.len(), 12);
     }
 
     #[test]

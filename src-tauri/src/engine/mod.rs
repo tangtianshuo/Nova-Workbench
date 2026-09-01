@@ -14,6 +14,7 @@ pub mod context_assembler;
 pub mod exec;
 pub mod fs_ops;
 pub mod tools;
+pub mod ingest;
 pub mod channel;
 pub mod loop_runner;
 pub mod restore;

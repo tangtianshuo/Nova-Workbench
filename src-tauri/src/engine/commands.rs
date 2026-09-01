@@ -710,6 +710,200 @@ pub fn commit_deliverable_inner(
     event_log::check_event_stream(&events).map_err(AppError::InternalError)
 }
 
+/// 27-02 (ING-04/05/06): confirm + atomically consume an ingestion_batch
+/// candidate. Selected knowledge items → knowledge_docs + knowledge_fts
+/// (doc_id = item.id, the write-side idempotency key); selected task/schedule
+/// drafts → agent_events audit entries for the webview applier (D-15, Plan 03).
+/// `items` are the UI-edited items — non-empty overrides the candidate's
+/// originals (Phase 26 editedDraft 同构). Re-consume of a settled token is an
+/// idempotent Ok: per-item dedup keeps every write exactly-once.
+#[tauri::command]
+pub async fn engine_consume_ingestion_batch(
+    token: String,
+    items: Vec<Value>,
+    db: State<'_, EngineDb>,
+) -> Result<Value, AppError> {
+    with_conn(&db, |conn| consume_ingestion_batch_inner(conn, &token, &items))
+}
+
+pub fn consume_ingestion_batch_inner(
+    conn: &Connection,
+    token: &str,
+    edited_items: &[Value],
+) -> Result<Value, AppError> {
+    use crate::engine::fts_tokens::fts_tokens;
+
+    let candidate = confirmations::get(conn, token)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
+    if candidate.kind != "ingestion_batch" {
+        return Err(AppError::InternalError(format!(
+            "candidate kind {} is not ingestion_batch",
+            candidate.kind
+        )));
+    }
+    let session_id = candidate.session_id.clone().unwrap_or_default();
+
+    // Confirm → consume, tolerating AlreadySettled-when-consumed (double click /
+    // retry; per-item dedup below keeps writes exactly-once).
+    let is_consumed = |conn: &Connection| -> Result<bool, AppError> {
+        Ok(confirmations::get(conn, token)
+            .map_err(|e| AppError::InternalError(e.to_string()))?
+            .map(|c| c.status == "consumed")
+            .unwrap_or(false))
+    };
+    if let Err(f) = confirmations::confirm(conn, token) {
+        if !matches!(f, confirmations::ConfirmationFailure::AlreadySettled) || !is_consumed(conn)? {
+            return Err(AppError::InternalError(f.to_string()));
+        }
+    }
+    if let Err(f) = confirmations::consume(conn, token, None) {
+        if !matches!(f, confirmations::ConfirmationFailure::AlreadySettled) || !is_consumed(conn)? {
+            return Err(AppError::InternalError(f.to_string()));
+        }
+    }
+
+    let empty = Vec::new();
+    let items: &[Value] = if edited_items.is_empty() {
+        candidate.params["items"].as_array().unwrap_or(&empty)
+    } else {
+        edited_items
+    };
+    let workspace_id = candidate.params["workspaceId"].as_str().unwrap_or_default().to_string();
+    let product_id = candidate.params["productId"].as_str().unwrap_or_default().to_string();
+    let now = event_log::now_iso();
+
+    let existing_docs: std::collections::HashSet<String> = {
+        let mut set = std::collections::HashSet::new();
+        for item in items {
+            if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                let n: i64 = conn
+                    .query_row("SELECT COUNT(*) FROM knowledge_docs WHERE doc_id = ?1", [id], |r| r.get(0))
+                    .unwrap_or(0);
+                if n > 0 {
+                    set.insert(id.to_string());
+                }
+            }
+        }
+        set
+    };
+    let applied_item_ids: std::collections::HashSet<String> = event_log::list_events(conn, &session_id)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .iter()
+        .filter(|e| e.event_type.starts_with("ingestion_"))
+        .filter_map(|e| {
+            let id = e.payload["item"]["id"].as_str()?;
+            (e.payload["applied"].as_bool().unwrap_or(true)).then(|| id.to_string())
+        })
+        .collect();
+
+    let mut knowledge = 0i64;
+    let mut task_drafts = 0i64;
+    let mut schedule_drafts = 0i64;
+    let mut skipped = 0i64;
+
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| AppError::InternalError(e.to_string()))?;
+    for item in items {
+        let selected = item.get("selected").and_then(|v| v.as_bool()).unwrap_or(true);
+        let status = item.get("status").and_then(|v| v.as_str()).unwrap_or("");
+        if !selected || status == "failed" {
+            skipped += 1; // Pitfall 2 二道闸: failed/unselected never archive
+            continue;
+        }
+        let Some(id) = item.get("id").and_then(|v| v.as_str()) else {
+            skipped += 1;
+            continue;
+        };
+        match item.get("type").and_then(|v| v.as_str()).unwrap_or("") {
+            "knowledge" => {
+                if existing_docs.contains(id) {
+                    skipped += 1;
+                    continue;
+                }
+                let title = item.get("title").and_then(|v| v.as_str()).unwrap_or_default();
+                let content = item.get("content").and_then(|v| v.as_str()).unwrap_or_default();
+                let category = item.get("category").and_then(|v| v.as_str()).unwrap_or_default();
+                if title.is_empty() || content.is_empty()
+                    || !tools::KNOWLEDGE_CATEGORIES.contains(&category)
+                {
+                    skipped += 1; // defensive: shape drifted since submit
+                    continue;
+                }
+                let summary: String = content.chars().take(120).collect();
+                let tags = match item.get("tags") {
+                    Some(Value::Array(list)) => serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()),
+                    _ => "[]".to_string(),
+                };
+                tx.execute(
+                    "INSERT INTO knowledge_docs
+                       (doc_id, version, product_id, title, category, tags_json, summary,
+                        content, author, source_type, source_session_id, created_at, updated_at)
+                     VALUES (?1, 1, ?2, ?3, ?4, ?5, ?6, ?7, 'AI 助手', 'ingested', ?8, ?9, ?9)",
+                    rusqlite::params![id, product_id, title, category, tags, summary, content, session_id, now],
+                )
+                .map_err(|e| AppError::InternalError(e.to_string()))?;
+                let doc_rowid = tx.last_insert_rowid();
+                tx.execute(
+                    "INSERT INTO knowledge_fts (title, content, summary, tags, doc_rowid)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    rusqlite::params![
+                        fts_tokens(title).join(" "),
+                        fts_tokens(content).join(" "),
+                        fts_tokens(&summary).join(" "),
+                        fts_tokens(&tags).join(" "),
+                        doc_rowid
+                    ],
+                )
+                .map_err(|e| AppError::InternalError(e.to_string()))?;
+                // Traceability backfill: item.contentHash → ingested_documents.doc_id.
+                if let Some(hash) = item.get("contentHash").and_then(|v| v.as_str()) {
+                    let _ = tx.execute(
+                        "UPDATE ingested_documents SET doc_id = ?1 WHERE content_hash = ?2 AND doc_id IS NULL",
+                        rusqlite::params![id, hash],
+                    );
+                }
+                knowledge += 1;
+            }
+            ty @ ("task_draft" | "schedule_draft") => {
+                if applied_item_ids.contains(id) {
+                    skipped += 1;
+                    continue;
+                }
+                let kind = if ty == "task_draft" { "ingestion_task_applied" } else { "ingestion_schedule_applied" };
+                event_log::append(
+                    &tx,
+                    &EventInput {
+                        session_id: session_id.clone(),
+                        event_type: kind.into(),
+                        workspace_id: Some(workspace_id.clone()),
+                        product_id: if product_id.is_empty() { None } else { Some(product_id.clone()) },
+                        project_id: None,
+                        correlation_id: None,
+                        payload: json!({
+                            "item": item,
+                            "workspaceId": workspace_id,
+                            "productId": product_id,
+                            "sessionId": session_id,
+                        }),
+                    },
+                )
+                .map_err(|e| AppError::InternalError(e.to_string()))?;
+                if ty == "task_draft" { task_drafts += 1 } else { schedule_drafts += 1 }
+            }
+            _ => skipped += 1,
+        }
+    }
+    tx.commit().map_err(|e| AppError::InternalError(e.to_string()))?;
+    Ok(json!({
+        "knowledge": knowledge,
+        "taskDrafts": task_drafts,
+        "scheduleDrafts": schedule_drafts,
+        "skipped": skipped,
+    }))
+}
+
 /// Seam ② migration (23-05): confirm + consume a memory candidate and land the
 /// memories row, all in Rust — one user action (the 已记住 click) is one
 /// command. Returns the camelCase MemoryRecord for the TS toast.
@@ -1314,9 +1508,10 @@ mod tests {
         ]);
         let token = queue_ingestion_batch(&conn, items);
         // UI edited title/content before submit (Phase 26 editedDraft shape).
-        let edited = vec![json!([
-            {"id": "ing-e1", "type": "knowledge", "title": "编辑后标题", "content": "编辑后内容", "category": "需求文档", "sourcePath": "e.docx", "selected": true},
-        ])];
+        let edited = vec![json!({
+            "id": "ing-e1", "type": "knowledge", "title": "编辑后标题", "content": "编辑后内容",
+            "category": "需求文档", "sourcePath": "e.docx", "selected": true,
+        })];
         consume_ingestion_batch_inner(&conn, &token, &edited).unwrap();
         let title: String = conn
             .query_row("SELECT title FROM knowledge_docs WHERE doc_id = 'ing-e1'", [], |r| r.get(0))
@@ -1327,11 +1522,19 @@ mod tests {
         let other = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
         let err = consume_ingestion_batch_inner(&conn, &other.confirmation_token, &[]).unwrap_err();
         assert!(err.to_string().contains("not ingestion_batch"));
-        // Pending (unconfirmed) candidate → error.
+        // Pending candidate: the consume click IS the confirmation
+        // (commit_deliverable precedent) → applies, not errors.
         let token2 = queue_ingestion_batch(&conn, json!([
             {"id": "ing-p1", "type": "task_draft", "title": "x", "sourcePath": "p.docx", "selected": true},
         ]));
-        let err = consume_ingestion_batch_inner(&conn, &token2, &[]).unwrap_err();
-        assert!(err.to_string().contains("not_confirmed"), "{err}");
+        let result = consume_ingestion_batch_inner(&conn, &token2, &[]).unwrap();
+        assert_eq!(result["taskDrafts"], 1);
+        // Rejected candidate → error, nothing applied.
+        let token3 = queue_ingestion_batch(&conn, json!([
+            {"id": "ing-r1", "type": "task_draft", "title": "y", "sourcePath": "r.docx", "selected": true},
+        ]));
+        confirmations::reject(&conn, &token3);
+        let err = consume_ingestion_batch_inner(&conn, &token3, &[]).unwrap_err();
+        assert!(err.to_string().contains("already_settled"), "{err}");
     }
 }

@@ -390,7 +390,8 @@ pub async fn execute_async(
 /// PAIRED with knowledgeCategories in src/ai/tools/knowledgeWrite.ts:12-22.
 /// Keep both lists in sync — post-confirmation replay validates against the TS zod enum.
 // 27-02 D-06: +4 PM categories (会议纪要/竞品分析/需求文档/项目周报) → 13.
-const KNOWLEDGE_CATEGORIES: [&str; 13] = [
+// Pub: the 27-02 consume path validates against the same enum.
+pub const KNOWLEDGE_CATEGORIES: [&str; 13] = [
     "架构设计", "领域字典", "技术协议", "FAQ与排障", "最佳实践",
     "经验沉淀", "业务规则", "架构约束", "踩坑指南",
     "会议纪要", "竞品分析", "需求文档", "项目周报",

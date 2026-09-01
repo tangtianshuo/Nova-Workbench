@@ -47,7 +47,11 @@ Plans:
   3. 用户发起摄取编排后,扫描工作区→AI 分类进知识库→抽取任务/日程草稿全程进度可见
   4. 用户以批量 HITL 聚合卡确认摄取产物(全选/全不选、逐项编辑、一次提交),确认后才落业务数据
   5. 重扫同一工作区时已摄取文档以内容 hash 识别,不重复建档/不重复索引;摄取完成的文档立即可在知识库 FTS5 中文检索命中
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 27-01-PLAN.md — 纯 Rust 提取地基:pdf_oxide/zip/quick-xml + ingest.rs 三态/hash/截断 + 中文 PDF PoC + ingest_scan + 0010 migration
+- [ ] 27-02-PLAN.md — 批量 HITL 后端:PM 四类目双侧 parity + ingest_submit + engine_consume_ingestion_batch 事务 + consume 幂等
+- [ ] 27-03-PLAN.md — 前端摄取流:ingestion TabRunKind + ingestionStore + FileArchiveView 摄取区/聚合卡/队列入口卡 + 端到端人工验证
 
 ### Phase 28: 反向创建产品 + 收口
 **Goal**: 用户以既有工作区文档为起点入驻产品,反向创建的产品自动关联源工作区;里程碑以 parity 收口 gate + 统一 UAT 关闭

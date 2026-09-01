@@ -151,6 +151,7 @@ pub fn run() {
             engine::commands::engine_commit_deliverable,
             engine::commands::engine_consume_memory,
             engine::commands::engine_consume_ingestion_batch,
+            engine::commands::engine_ingest_pending_count,
             engine::commands::engine_reject_memory,
         ])
         // 24-02 hide-on-close (SCHED-02): closing the window hides it — runs

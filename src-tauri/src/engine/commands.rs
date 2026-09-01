@@ -19,6 +19,7 @@ use crate::engine::event_log::{self, EventInput};
 use crate::engine::chat_session::LlmMessage;
 use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmToolCall, LlmTurn, LoopContext, LoopError, TokenSink};
 use crate::engine::{confirmations, exec, fs_ops, tools};
+use crate::engine::ingest;
 use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
 use crate::notify;
@@ -902,6 +903,19 @@ pub fn consume_ingestion_batch_inner(
         "scheduleDrafts": schedule_drafts,
         "skipped": skipped,
     }))
+}
+
+/// 27-03 (D-03 badge): light probe — enumerate + hash the workspace's
+/// docx/pdf, count how many are new (or previously failed). No extraction.
+#[tauri::command]
+pub async fn engine_ingest_pending_count(
+    root: String,
+    db: State<'_, EngineDb>,
+) -> Result<i64, AppError> {
+    with_conn(&db, |conn| {
+        ingest::pending_count(std::path::Path::new(&root), conn)
+            .map_err(|e| AppError::InternalError(e))
+    })
 }
 
 /// Seam ② migration (23-05): confirm + consume a memory candidate and land the

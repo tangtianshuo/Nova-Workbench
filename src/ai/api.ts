@@ -198,6 +198,30 @@ export async function engineRejectMemory(confirmationToken: string): Promise<voi
   await invoke('engine_reject_memory', { token: confirmationToken });
 }
 
+/** 27-02 (ING-04): confirm + consume an ingestion_batch candidate. Rust writes
+ *  knowledge_docs/knowledge_fts/ingested_documents + task/schedule audit events;
+ *  the webview applier applies drafts to taskStore/scheduleStore (D-15). */
+export interface IngestionConsumeResult {
+  knowledge: number;
+  taskDrafts: number;
+  scheduleDrafts: number;
+  skipped: number;
+}
+export async function engineConsumeIngestionBatch(
+  token: string,
+  items: unknown[],
+): Promise<IngestionConsumeResult> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<IngestionConsumeResult>('engine_consume_ingestion_batch', { token, items });
+}
+
+/** 27-03 (D-03 badge): enumerate + hash probe — count docx/pdf not yet
+ *  ingested (or previously failed). No extraction. */
+export async function engineIngestPendingCount(root: string): Promise<number> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<number>('engine_ingest_pending_count', { root });
+}
+
 /**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the

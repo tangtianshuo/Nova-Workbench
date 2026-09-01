@@ -233,6 +233,30 @@ fn collect_docs(dir: &Path, out: &mut Vec<std::path::PathBuf>) -> Result<(), Str
     Ok(())
 }
 
+/// D-03 badge probe (27-03): enumerate + sha256 hash only — no extraction.
+/// Counts docx/pdf files whose hash is absent from ingested_documents or was
+/// recorded as failed (failed files are always retried, D-04).
+pub fn pending_count(root: &Path, conn: &rusqlite::Connection) -> Result<i64, String> {
+    let mut files = Vec::new();
+    collect_docs(root, &mut files)?;
+    let mut n = 0i64;
+    for path in files {
+        let hash = file_sha256(&path)?;
+        let ingested: Option<String> = conn
+            .query_row(
+                "SELECT status FROM ingested_documents WHERE content_hash = ?1",
+                [&hash],
+                |r| r.get(0),
+            )
+            .ok()
+            .filter(|s: &String| s != "failed");
+        if ingested.is_none() {
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

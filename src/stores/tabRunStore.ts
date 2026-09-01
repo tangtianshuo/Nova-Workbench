@@ -22,7 +22,8 @@ export type TabRunKind =
   | 'competitor'
   | 'deliverable-single'
   | 'deliverable-batch'
-  | 'product-skill';
+  | 'product-skill'
+  | 'ingestion';
 
 export type TabRunStatus =
   | 'queued'
@@ -206,7 +207,13 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
             }
             if (msg.kind === 'confirmation' && msg.data?.candidate) {
               const cand = msg.data.candidate;
-              if (cand.kind === 'deliverable_draft') {
+              if (cand.kind === 'ingestion_batch') {
+                // 27-03 D-09: the batch candidate routes to the ingestion
+                // aggregate view (FileArchiveView), not the console PRD chain.
+                // Dynamic import — ingestionStore imports startTabRun from here.
+                void import('@/src/stores/ingestionStore').then((m) =>
+                  m.useIngestionStore.getState().setBatchCandidate(cand));
+              } else if (cand.kind === 'deliverable_draft') {
                 set((state) => ({
                   pendingDeliverables: [...state.pendingDeliverables, {
                     tabId: params.tabId,

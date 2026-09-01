@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-09-01T01:31:40.499Z"
+stopped_at: Completed 27-02-PLAN.md
+last_updated: "2026-09-01T01:51:42.575Z"
 last_activity: 2026-09-01
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 27 (workspace-ingestion) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-01
 
@@ -62,6 +62,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 26 P03 | 25m | 2 tasks | 3 files |
 | Phase 26 P04 | 83m | 2 tasks | 16 files |
 | Phase 27 P01 | 1.5h | 3 tasks | 11 files |
+| Phase 27 P02 | 50m | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 26]: TabRunPanel falls back to latest finished run per tab (runsByTab drops entry on settle); retry uses userMessage/coreContext persisted on TabRunRecord; requirements tab reads committed prd deliverable slot, HITL stays global-queue single chain (D-05)
 - [Phase 26]: 26-04: generateDeliverable widened to all 18 catalog codes both sides (TS+Rust parity); batch 18 = single multi-step run; competitor candidates via knowledge_write (no catalog slot); persist wipes five mock buckets (delete, no migrate)
 - [Phase 27]: pdf_oxide 0.3.77 中文 PoC 通过,zip 限 deflate 避免 C 构建
+- [Phase 27]: 27-02: knowledge doc_id = item.id (ing-{hash8}) 作 consume 幂等键,复用 doc_id 唯一索引;migration 0011 扩 candidates CHECK 加 ingestion_batch;consume 自动 confirm 沿 commit_deliverable 先例
 
 ### TODOs (pending)
 
@@ -100,8 +102,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-01T01:31:40.494Z
-Stopped at: Completed 27-01-PLAN.md
+Last session: 2026-09-01T01:51:42.570Z
+Stopped at: Completed 27-02-PLAN.md
 Resume file: None
 
 If resuming after context loss:

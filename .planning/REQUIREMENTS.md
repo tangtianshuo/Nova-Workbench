@@ -21,7 +21,7 @@ Requirements for v0.3.3. Each maps to roadmap phases (26+, numbering continues).
 
 - [x] **ING-01**: 用户对工作区文档(docx/pdf)发起摄取,系统以纯 Rust 提取文本(零 sidecar、无外部进程)
 - [x] **ING-02**: 无文本层/扫描件 PDF 的摄取结果以显式三态状态呈现(extracted/partial/failed),不静默建档空文档
-- [ ] **ING-03**: 用户发起摄取编排后,系统扫描工作区→AI 分类进知识库→抽取任务/日程草稿,全程进度可见
+- [x] **ING-03**: 用户发起摄取编排后,系统扫描工作区→AI 分类进知识库→抽取任务/日程草稿,全程进度可见
 - [x] **ING-04**: 用户以批量 HITL 聚合卡确认摄取产物(可全选/全不选、逐项编辑、一次提交),确认后才落业务数据
 - [x] **ING-05**: 用户重扫同一工作区时,已摄取文档以内容 hash 识别,不重复建档、不重复索引(重扫=diff)
 - [x] **ING-06**: 摄取完成的文档立即可在知识库 FTS5 中文检索命中
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TAB-06 | Phase 26 | Complete |
 | ING-01 | Phase 27 | Complete |
 | ING-02 | Phase 27 | Complete |
-| ING-03 | Phase 27 | Pending |
+| ING-03 | Phase 27 | Complete |
 | ING-04 | Phase 27 | Complete |
 | ING-05 | Phase 27 | Complete |
 | ING-06 | Phase 27 | Complete |

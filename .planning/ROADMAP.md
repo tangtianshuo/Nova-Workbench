@@ -51,7 +51,7 @@ Plans:
 Plans:
 - [x] 27-01-PLAN.md — 纯 Rust 提取地基:pdf_oxide/zip/quick-xml + ingest.rs 三态/hash/截断 + 中文 PDF PoC + ingest_scan + 0010 migration
 - [x] 27-02-PLAN.md — 批量 HITL 后端:PM 四类目双侧 parity + ingest_submit + engine_consume_ingestion_batch 事务 + consume 幂等
-- [ ] 27-03-PLAN.md — 前端摄取流:ingestion TabRunKind + ingestionStore + FileArchiveView 摄取区/聚合卡/队列入口卡 + 端到端人工验证
+- [x] 27-03-PLAN.md — 前端摄取流:ingestion TabRunKind + ingestionStore + FileArchiveView 摄取区/聚合卡/队列入口卡 + 端到端人工验证
 
 ### Phase 28: 反向创建产品 + 收口
 **Goal**: 用户以既有工作区文档为起点入驻产品,反向创建的产品自动关联源工作区;里程碑以 parity 收口 gate + 统一 UAT 关闭
@@ -69,7 +69,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
-| 27. 工作区文档摄取 | 2/3 | In Progress|  |
+| 27. 工作区文档摄取 | 3/3 | Complete   | 2026-09-01 |
 | 28. 反向创建产品 + 收口 | 0/? | Not started | - |
 
 ## Historical Milestones

@@ -1049,4 +1049,90 @@ mod tests {
             other => panic!("expected Failed, got {other:?}"),
         }
     }
+
+    /* === 27-02: ingest_submit (HITL ingestion_batch candidate, D-14 cap) === */
+
+    fn ingest_items() -> Value {
+        json!([
+            {"id": "ing-aaaa1111", "type": "knowledge", "title": "评审纪要", "content": "正文", "category": "会议纪要", "sourcePath": "docs/a.docx", "contentHash": "aaaa1111ffff"},
+            {"id": "ing-bbbb2222", "type": "task_draft", "title": "整理待办", "sourcePath": "docs/a.docx", "contentHash": "aaaa1111ffff"},
+            {"id": "ing-cccc3333", "type": "schedule_draft", "title": "周三评审", "sourcePath": "docs/a.docx", "contentHash": "aaaa1111ffff", "selected": false},
+        ])
+    }
+
+    #[test]
+    fn ingest_submit_creates_batch_candidate() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": ingest_items()}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["kind"], "ingestion_batch");
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("row");
+                assert_eq!(stored.kind, "ingestion_batch");
+                assert_eq!(stored.params["workspaceId"], "w1");
+                assert_eq!(stored.params["productId"], "p1");
+                assert_eq!(stored.params["items"].as_array().unwrap().len(), 3);
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ingest_submit_arg_errors() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let cases = [
+            (json!({"items": ingest_items()}), "missing workspaceId"),
+            (json!({"workspaceId": "w1", "items": []}), "empty items"),
+            (json!({"workspaceId": "w1"}), "missing items"),
+            (json!({"workspaceId": "w1", "items": [{"id": "i", "type": "bogus", "title": "t", "sourcePath": "a"}]}), "bad type"),
+            (json!({"workspaceId": "w1", "items": [{"id": "i", "type": "knowledge", "title": "t", "content": "c", "category": "介绍", "sourcePath": "a"}]}), "bad category"),
+            (json!({"workspaceId": "w1", "items": [{"id": "i", "type": "knowledge", "title": "", "content": "c", "category": "会议纪要", "sourcePath": "a"}]}), "empty title"),
+        ];
+        for (args, why) in cases {
+            match execute(&conn, "ingest_submit", &args, &ctx) {
+                ToolOutcome::Failed { arg_error: true, .. } => {}
+                other => panic!("{why}: expected arg_error Failed, got {other:?}"),
+            }
+        }
+        // no product in args or ctx → arg_error
+        let no_prod = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": ingest_items()}), &no_prod) {
+            ToolOutcome::Failed { arg_error: true, .. } => {}
+            other => panic!("no product: expected arg_error Failed, got {other:?}"),
+        }
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_confirmation_candidates", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn ingest_submit_rejects_drafts_over_cap() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        // 6 task_draft on the same sourcePath → D-14 cap 5 exceeded.
+        let over: Vec<Value> = (0..6)
+            .map(|i| json!({"id": format!("ing-t{i}"), "type": "task_draft", "title": format!("t{i}"), "sourcePath": "docs/same.docx"}))
+            .collect();
+        match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": over}), &ctx) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("drafts exceed cap 5"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("expected cap Failed, got {other:?}"),
+        }
+        // 5 on one source + 5 on another → ok (cap is per source document).
+        let mixed: Vec<Value> = (0..5)
+            .flat_map(|i| [
+                json!({"id": format!("ing-a{i}"), "type": "task_draft", "title": "t", "sourcePath": "docs/a.docx"}),
+                json!({"id": format!("ing-b{i}"), "type": "schedule_draft", "title": "s", "sourcePath": "docs/b.docx"}),
+            ])
+            .collect();
+        match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": mixed}), &ctx) {
+            ToolOutcome::AwaitConfirmation { .. } => {}
+            other => panic!("expected candidate, got {other:?}"),
+        }
+    }
 }

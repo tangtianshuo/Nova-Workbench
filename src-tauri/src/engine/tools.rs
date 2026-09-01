@@ -367,9 +367,11 @@ pub async fn execute_async(
 
 /// PAIRED with knowledgeCategories in src/ai/tools/knowledgeWrite.ts:12-22.
 /// Keep both lists in sync — post-confirmation replay validates against the TS zod enum.
-const KNOWLEDGE_CATEGORIES: [&str; 9] = [
+// 27-02 D-06: +4 PM categories (会议纪要/竞品分析/需求文档/项目周报) → 13.
+const KNOWLEDGE_CATEGORIES: [&str; 13] = [
     "架构设计", "领域字典", "技术协议", "FAQ与排障", "最佳实践",
     "经验沉淀", "业务规则", "架构约束", "踩坑指南",
+    "会议纪要", "竞品分析", "需求文档", "项目周报",
 ];
 
 fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
@@ -828,7 +830,9 @@ mod tests {
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("category must be one of"), "{message}");
-                for c in ["架构设计", "领域字典", "技术协议", "FAQ与排障", "最佳实践", "经验沉淀", "业务规则", "架构约束", "踩坑指南"] {
+                // 27-02 D-06 interlock: all 13 categories listed, order-stable.
+                assert_eq!(KNOWLEDGE_CATEGORIES.len(), 13);
+                for c in KNOWLEDGE_CATEGORIES {
                     assert!(message.contains(c), "missing enum value {c} in: {message}");
                 }
                 assert!(arg_error);

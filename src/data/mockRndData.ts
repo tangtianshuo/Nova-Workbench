@@ -82,7 +82,11 @@ export interface ProductKnowledgeItem {
     | '经验沉淀'
     | '业务规则'
     | '架构约束'
-    | '踩坑指南';
+    | '踩坑指南'
+    | '会议纪要'
+    | '竞品分析'
+    | '需求文档'
+    | '项目周报';
   tags: string[];
   author: string;
   updatedAt: string;

@@ -20,6 +20,10 @@ const knowledgeCategories = [
   '业务规则',
   '架构约束',
   '踩坑指南',
+  '会议纪要',
+  '竞品分析',
+  '需求文档',
+  '项目周报',
 ] as const satisfies readonly ProductKnowledgeItem['category'][];
 
 const writeKnowledgeArticleSchema = z.object({

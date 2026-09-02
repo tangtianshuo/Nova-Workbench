@@ -21,3 +21,4 @@ pub mod restore;
 pub mod scheduler;
 pub mod commands;
 pub mod parity;
+pub mod pm_store;

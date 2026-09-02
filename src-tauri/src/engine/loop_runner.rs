@@ -97,7 +97,15 @@ pub struct LoopContext<'a> {
 const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), generate_deliverable (queue a deliverable draft for user confirmation, code \"prd\" or a DEL-* catalog slot — you write the full draft content yourself in the draft parameter), and PM CRUD tools: task_create / task_update / task_complete / task_search, schedule_create / schedule_update / schedule_search apply immediately without confirmation; task_delete / schedule_delete require user confirmation via a candidate card. Act on the user's behalf with the light-write tools instead of telling them to do it manually.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.\nKnowledge search is budgeted: perform at most 1-2 knowledge_search calls per question, then STOP searching and answer directly from the results you already have. Never enumerate the whole knowledge base.\nIf a tool call fails, read the error message, fix the arguments ONCE, and move on; if it fails again, tell the user what failed and what you need (e.g. select a product) instead of retrying. Never invent confirmation prompts or numbered-choice menus.";
 
 pub fn build_system_prompt(core_context: &str) -> String {
-    format!("{ROLE_AND_TOOL_RULES}\n\n## Phase 9 Current Workspace Context\n\n{core_context}")
+    // Local date/weekday: without it the model shells out to `date` for "明天" (UAT-29 step 2),
+    // which fails on Windows where date is a shell builtin, not an executable.
+    use chrono::Datelike;
+    let now = chrono::Local::now();
+    format!(
+        "{ROLE_AND_TOOL_RULES}\n\n## 当前日期\n\n{} ({})——相对日期(今天/明天/下周X)直接据此换算,禁止用 exec 查询日期。\n\n## Phase 9 Current Workspace Context\n\n{core_context}",
+        now.format("%Y-%m-%d"),
+        now.weekday()
+    )
 }
 
 /* === helpers === */
@@ -544,6 +552,9 @@ mod tests {
         assert!(!prompt.contains("not available in this version"));
         assert!(prompt.contains("without confirmation"), "{prompt}");
         assert!(prompt.contains("task_delete / schedule_delete require user confirmation"));
+        // UAT-29: local date injected so the model never execs `date` for relative dates.
+        assert!(prompt.contains("当前日期"), "{prompt}");
+        assert!(prompt.contains("禁止用 exec 查询日期"));
         // ...describing every native tool...
         for name in [
             "knowledge_search", "knowledge_write", "memory_write", "exec",

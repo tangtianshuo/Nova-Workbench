@@ -76,6 +76,18 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0009_confirmation_kind_fs.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "ingested_documents idempotency",
+            sql: include_str!("../migrations/0010_ingested_documents.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "confirmation kind ingestion_batch",
+            sql: include_str!("../migrations/0011_confirmation_kind_ingestion.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

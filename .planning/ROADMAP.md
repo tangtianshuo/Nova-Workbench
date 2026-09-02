@@ -18,6 +18,7 @@
 - [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等 ⏸️(挂起 2026-09-02,修复已提交待 UAT 回归)
 - [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT(顺延 2026-09-02)
 - [x] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule(及 product 视讨论)的 CRUD 操作原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)✅(2026-09-02,UAT 8/8 + verifier GO 4/4)
+- [ ] **Phase 30: 参考模板数据化 + 工作流用户自组织** - 交付物 catalog/模板数据化(内置 JSON 只读层 + SQLite 用户层)+ 侧边栏顶层「工作流」视图(模板库 + 运行)+ 单 run 多步逐步 HITL 执行 + agent 对话创建/沉淀模板;严禁刚性 pipeline(2026-09-02 立项 + discuss 完成,30-CONTEXT 16 项裁定)
 
 ## Phase Details
 
@@ -81,6 +82,20 @@ Plans:
 - [x] 29-03-PLAN.md — engine_consume_pm_write 事务闭环 + 聊天确认卡 + pm_write_applied 双侧 parity fixture
 - [x] 29-04-PLAN.md — taskStore/scheduleStore SQL 换轨 + 事件驱动 refresh + 端到端 UAT(UAT 8/8 用户全过;gap 修复 f894b27/3ae51a6/c0fbb01)
 **排期**: 2026-09-02 promote 自 999.6(v0.3.3 优先级重定,第一优先;原裁定 v0.4 首批)
+
+### Phase 30: 参考模板数据化 + 工作流用户自组织
+**Goal**: 交付物目录与模板数据化(999.4)+ 工作流用户自组织(999.2 取材):用户从顶层「工作流」视图或对话发起模板 run(单 run 多步、逐步 HITL)、agent 对话创建/沉淀模板(29 写路径复用),Nova 只给参考+模板,严禁刚性 pipeline
+**Depends on**: Phase 29(写路径/三档风险/cap-5);Phase 26(单 run 多步先例、TabRunPanel、18 codes catalog)
+**Requirements**: TBD(WF-xx 于 REQUIREMENTS 定义)
+**Success Criteria** (what must be TRUE):
+  1. 用户从侧边栏顶层「工作流」视图浏览模板库(内置参考 + 自建),点模板或对话一句话发起 run:单 run 多步执行、每步产物走候选→HITL→版本化落槽、进度可见可取消(TabRunPanel 复用)
+  2. 用户在对话中让助手创建/修改/复制/删除工作流模板,agent 经写路径真实落库;删除走确认卡
+  3. 用户可把刚跑完的对话/run 沉淀为模板(提取步骤→草稿→确认→落库)
+  4. 交付物 catalog 与模板数据化:内置 JSON 只读层(换垂类只换文件)+ 用户层 SQLite 扩展;产研各 tab 从数据层读 catalog,`mockRndData.ts` catalog 硬编码退役
+  5. 模板 run 内写操作遵循 29 三档风险分级(模板不豁免);run 可审计(事件日志)
+  6. 模板格式预留 skill 字段兼容(单 DSL),agent 自主检索加载推 v0.4
+**Plans:** TBD
+**排期**: 2026-09-02 立项(29 落地后,ROADMAP 脚注裁定);product 关系化/CRUD 继续推迟 v0.4
 
 ## Progress
 

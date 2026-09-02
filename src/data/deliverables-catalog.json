@@ -1,0 +1,162 @@
+[
+  {
+    "code": "DEL-REQ-01",
+    "phase": "requirement",
+    "phaseName": "需求规划阶段",
+    "title": "标准产品需求规格说明书 (PRD v1.0)",
+    "category": "需求文档",
+    "format": "markdown",
+    "icon": "FileText",
+    "summary": "包含项目背景、业务目标、目标用户画像、核心功能规格清单及非功能性指标完整说明。"
+  },
+  {
+    "code": "DEL-REQ-02",
+    "phase": "requirement",
+    "phaseName": "需求规划阶段",
+    "title": "用户故事地图与 Gherkin 验收标准 (User Stories & AC)",
+    "category": "需求敏捷",
+    "format": "markdown",
+    "icon": "CheckSquare",
+    "summary": "按史诗 (Epic) 拆解的用户故事清单，附带 Given-When-Then 标准验收条件。"
+  },
+  {
+    "code": "DEL-REQ-03",
+    "phase": "requirement",
+    "phaseName": "需求规划阶段",
+    "title": "业务流转时序图与泳道流向图 (Flowchart & Sequence)",
+    "category": "流程架构",
+    "format": "markdown",
+    "icon": "Layers",
+    "summary": "涵盖用户、前端界面、BFF 网关、AI 智能体及数据层的全流程时序交互泳道图。"
+  },
+  {
+    "code": "DEL-REQ-04",
+    "phase": "requirement",
+    "phaseName": "需求规划阶段",
+    "title": "需求追踪矩阵与版本覆盖度报告 (RTM Matrix)",
+    "category": "需求管控",
+    "format": "markdown",
+    "icon": "Target",
+    "summary": "建立从业务目标 -> PRD 功能项 -> 代码模块 -> 测试用例的端到端双向可追溯矩阵。"
+  },
+  {
+    "code": "DEL-DES-01",
+    "phase": "design",
+    "phaseName": "界面设计阶段",
+    "title": "高保真原型交互说明书与界面规范 (UI/UX Specs)",
+    "category": "原型设计",
+    "format": "markdown",
+    "icon": "Sparkles",
+    "summary": "涵盖页面布局信息架构、主交互状态流转、微动效规范与响应式断点适配规则。"
+  },
+  {
+    "code": "DEL-DES-02",
+    "phase": "design",
+    "phaseName": "界面设计阶段",
+    "title": "统一设计系统规范 (Design System Tokens)",
+    "category": "设计资产",
+    "format": "json",
+    "icon": "Layers",
+    "summary": "色彩系统、文字阶梯、间距尺度、圆角与阴影规范的标准 Design Tokens (JSON 格式)。"
+  },
+  {
+    "code": "DEL-DEV-01",
+    "phase": "dev",
+    "phaseName": "技术研发阶段",
+    "title": "系统总体技术架构设计方案 (Architecture Blueprint)",
+    "category": "技术方案",
+    "format": "markdown",
+    "icon": "Code2",
+    "summary": "微服务分层拓扑、前后端通信协议、高可用容灾与数据流转架构方案。"
+  },
+  {
+    "code": "DEL-DEV-02",
+    "phase": "dev",
+    "phaseName": "技术研发阶段",
+    "title": "RESTful API 接口契约标准文档 (OpenAPI 3.0)",
+    "category": "接口契约",
+    "format": "json",
+    "icon": "Code2",
+    "summary": "符合 OpenAPI 3.0 规范的 RESTful API 接口清单，包含请求 Payload 与响应 Mock。"
+  },
+  {
+    "code": "DEL-DEV-03",
+    "phase": "dev",
+    "phaseName": "技术研发阶段",
+    "title": "数据库物理建模与 DDL 建表脚本 (Database Schema)",
+    "category": "数据建模",
+    "format": "sql",
+    "icon": "Layers",
+    "summary": "针对核心业务实体、交付物档案、测试用例与操作日志的 PostgreSQL DDL 语句。"
+  },
+  {
+    "code": "DEL-TST-01",
+    "phase": "test",
+    "phaseName": "质量测试阶段",
+    "title": "全量功能与边界测试用例集矩阵 (Test Cases Suite)",
+    "category": "测试用例",
+    "format": "table",
+    "icon": "CheckCircle2",
+    "summary": "覆盖正常流、逆向边界条件、权限越权与高并发压测的 100% 覆盖率用例清单。"
+  },
+  {
+    "code": "DEL-TST-02",
+    "phase": "test",
+    "phaseName": "质量测试阶段",
+    "title": "端到端自动化测试脚本套件 (Playwright / Jest)",
+    "category": "自动化测试",
+    "format": "typescript",
+    "icon": "Code2",
+    "summary": "基于 Playwright 编写的端到端 (E2E) 自动化测试脚本，可直接纳入 CI/CD 流水线。"
+  },
+  {
+    "code": "DEL-TST-03",
+    "phase": "test",
+    "phaseName": "质量测试阶段",
+    "title": "阶段质量验收与发版准入评估报告 (QA Sign-Off)",
+    "category": "质量报告",
+    "format": "markdown",
+    "icon": "ShieldCheck",
+    "summary": "包含用例通过率、缺陷分布统计、性能压测指标与最终上线准入结论。"
+  },
+  {
+    "code": "DEL-REL-01",
+    "phase": "release",
+    "phaseName": "发版与运营阶段",
+    "title": "官方发版说明与更新日志 (Release Notes v1.0)",
+    "category": "发版公告",
+    "format": "markdown",
+    "icon": "Flag",
+    "summary": "面向内部团队与外部客户的官方发版日志，总结核心新增特性与优化项。"
+  },
+  {
+    "code": "DEL-REL-02",
+    "phase": "release",
+    "phaseName": "发版与运营阶段",
+    "title": "竞品深度对比与市场差异化破局报告 (Competitor Intel)",
+    "category": "市场洞察",
+    "format": "markdown",
+    "icon": "LineChart",
+    "summary": "包含 5 维度竞品雷达对比、SWOT 态势分析与差异化护城河建设策略。"
+  },
+  {
+    "code": "DEL-REL-03",
+    "phase": "release",
+    "phaseName": "发版与运营阶段",
+    "title": "最终用户操作使用手册与帮助指南 (User Manual)",
+    "category": "用户指南",
+    "format": "markdown",
+    "icon": "BookOpen",
+    "summary": "详尽的用户使用教程，覆盖从快速入门、核心操作指引到常见问题解答 (FAQ)。"
+  },
+  {
+    "code": "DEL-REL-04",
+    "phase": "release",
+    "phaseName": "发版与运营阶段",
+    "title": "产品商业化价值白皮书与战略规划 (Product Whitepaper)",
+    "category": "商业方案",
+    "format": "markdown",
+    "icon": "Zap",
+    "summary": "面向企业决策层与投资人的商业化价值白皮书，阐述 ROI 投资回报率与商业模式。"
+  }
+]

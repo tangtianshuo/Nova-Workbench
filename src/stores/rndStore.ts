@@ -13,8 +13,8 @@ import {
   type CompetitorAnalysisData,
   type FullLifecycleDeliverable,
   INITIAL_KNOWLEDGE_BASE,
-  FULL_LIFECYCLE_DELIVERABLES_CATALOG,
 } from '../data/mockRndData';
+import { DELIVERABLES_CATALOG } from '../data/deliverableCatalog';
 
 export type {
   ProductRequirementDesign,
@@ -53,7 +53,7 @@ const EMPTY_COMPETITOR: CompetitorAnalysisData = {
 // metadata (id/phase/code/title/...); content readiness is projected from
 // knowledge_docs (hydrateDeliverableSlots). No fabricated seed content.
 export function buildInitialDeliverables(product: Product): FullLifecycleDeliverable[] {
-  return FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((cat) => ({
+  return DELIVERABLES_CATALOG.map((cat) => ({
     id: `del-${product.id}-${cat.code}`,
     productId: product.id,
     phase: cat.phase,

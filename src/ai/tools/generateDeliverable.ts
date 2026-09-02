@@ -14,7 +14,7 @@ import { useRndStore } from '@/src/stores/rndStore';
 import { registerTool } from '../registry';
 import { getKnowledgeRepo } from '../knowledgeRepo';
 import { getActiveAgentScope } from '../agentScope';
-import { FULL_LIFECYCLE_DELIVERABLES_CATALOG } from '../../data/mockRndData';
+import { DELIVERABLES_CATALOG } from '../../data/deliverableCatalog';
 import {
   confirmDeliverableDraft,
   consumeDeliverableDraftConfirmation,
@@ -26,11 +26,11 @@ import {
 // Phase 26 (26-04, DELIV-05 rollout): 'prd' alias + every catalog slot code.
 const SLOT_BY_CODE: Record<string, string> = {
   prd: 'DEL-REQ-01',
-  ...Object.fromEntries(FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((c) => [c.code, c.code])),
+  ...Object.fromEntries(DELIVERABLES_CATALOG.map((c) => [c.code, c.code])),
 };
 
 const generateDeliverableSchema = z.object({
-  code: z.enum(['prd', ...FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((c) => c.code)] as [string, ...string[]]),
+  code: z.enum(['prd', ...DELIVERABLES_CATALOG.map((c) => c.code)] as [string, ...string[]]),
   title: z.string().min(1),
   draft: z.string().min(1),
   confirmationToken: z.string().min(1).optional(),

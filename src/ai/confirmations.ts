@@ -10,7 +10,7 @@ import {
 } from './confirmationStore';
 import { computeParamsHash } from './paramsHash';
 import { getActiveAgentScope } from './agentScope';
-import { FULL_LIFECYCLE_DELIVERABLES_CATALOG } from '../data/mockRndData';
+import { DELIVERABLES_CATALOG } from '../data/deliverableCatalog';
 
 export type KnowledgeWriteOperation = 'created' | 'updated';
 
@@ -293,9 +293,10 @@ export async function listPendingDestructiveActions(sessionId?: string): Promise
 
 /* === Phase 16: deliverable draft candidates (PRD pipeline, DELIV-01..03) === */
 
-// Phase 26 (26-04): 'prd' alias + all 18 catalog slot codes (engine/tools.rs
-// SLOT_BY_CODE parity). Candidates carry whichever code the model used.
-export type DeliverableCode = 'prd' | (typeof FULL_LIFECYCLE_DELIVERABLES_CATALOG)[number]['code'];
+// Phase 30 (30-01, SC-4): 'prd' alias + catalog slot codes from the single
+// JSON source (engine/tools.rs include_str! parity). Candidates carry
+// whichever code the model used.
+export type DeliverableCode = 'prd' | (typeof DELIVERABLES_CATALOG)[number]['code'];
 
 export interface DeliverableDraftCandidate {
   confirmationToken: string;

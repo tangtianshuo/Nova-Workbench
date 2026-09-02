@@ -40,7 +40,7 @@ import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
 import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
 import { buildCoreContext } from '@/src/ai/context';
 import { isTauri } from '@/src/lib/api';
-import { FULL_LIFECYCLE_DELIVERABLES_CATALOG } from '../../data/mockRndData';
+import { DELIVERABLES_CATALOG } from '../../data/deliverableCatalog';
 
 interface Props {
   product: Product;
@@ -109,7 +109,7 @@ export function FullDeliverablesTab({ product }: Props) {
 
   // TAB-06: 一键十八份 = 单 run 多步(1 个 runId),候选逐份出、逐份 HITL。
   const handleBatchGenerateAll = () => {
-    const catalogList = FULL_LIFECYCLE_DELIVERABLES_CATALOG.map((c) => `- ${c.code}:${c.title}`).join('\n');
+    const catalogList = DELIVERABLES_CATALOG.map((c) => `- ${c.code}:${c.title}`).join('\n');
     useTabRunStore.getState().startTabRun({
       tabId: 'deliverable-batch',
       kind: 'deliverable-batch',

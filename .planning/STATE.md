@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 29 — pm-crud
+**Current focus:** Phase 30 — workflow-templates(模板数据化 + 工作流自组织)
 
 ## Current Position
 
 Phase: 29 (pm-crud) — COMPLETE ✅(2026-09-02,4/4 plans,UAT 8/8 + 29-VERIFICATION.md GO 4/4)
 Plan: 4 of 4 done
-Status: v0.3.3 剩余均为用户决策:27 UAT 回归恢复 / 28 顺延确认 / 30(模板数据化+工作流自组织)立项
-Next: 用户裁定 v0.3.3 收口方向
+Status: 30 context gathered(16 裁定),ready to plan;27 UAT 回归恢复 / 28 顺延维持为独立用户决策
+Next: `/gsd:plan-phase 30`
 Last activity: 2026-09-02
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/

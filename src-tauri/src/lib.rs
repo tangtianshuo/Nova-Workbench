@@ -104,6 +104,55 @@ fn get_gnome_color_scheme() -> Option<String> {
     None
 }
 
+// 27-04: registry completeness — Rust unit tests run migrations by scanning the
+// directory (db.rs testing::run_migrations), but production registers them here.
+// If these two paths diverge, tests stay green while real devices are missing
+// tables (the 27-04 root cause). This test makes a missing registration fail CI.
+#[cfg(test)]
+mod migration_registry_tests {
+    use super::*;
+
+    #[test]
+    fn registry_matches_migration_files() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/migrations");
+        let file_count = std::fs::read_dir(dir)
+            .expect("migrations dir readable")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map(|x| x == "sql").unwrap_or(false))
+            .count();
+
+        let migrations = sql_migrations();
+        assert_eq!(
+            migrations.len(),
+            file_count,
+            "every migrations/*.sql must be registered in sql_migrations() — an unregistered migration = real-device schema gap (27-04 root cause)"
+        );
+
+        let mut versions: Vec<i64> = migrations.iter().map(|m| m.version).collect();
+        assert!(versions.windows(2).all(|w| w[0] < w[1]), "versions strictly ascending");
+
+        let max_file_prefix = std::fs::read_dir(dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map(|x| x == "sql").unwrap_or(false))
+            .filter_map(|e| {
+                e.file_name()
+                    .to_str()?
+                    .split('_')
+                    .next()?
+                    .parse::<i64>()
+                    .ok()
+            })
+            .max()
+            .expect("at least one migration file");
+        assert_eq!(
+            *versions.iter().max().unwrap(),
+            max_file_prefix,
+            "max registered version must equal max file prefix"
+        );
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

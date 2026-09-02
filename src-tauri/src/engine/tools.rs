@@ -9,6 +9,8 @@
 // suffix (registry.ts:58, 22-01 Task 1 wording); idempotency class travels with
 // the tool_call event payload (PORT-01).
 
+use std::sync::LazyLock;
+
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
@@ -66,31 +68,33 @@ pub const TASK_PRIORITIES: [&str; 3] = ["high", "medium", "low"];
 const CONFIRMATION_REQUIRED_MEMORY: &str = "Explicit confirmation is required before saving memory.";
 const CONFIRMATION_REQUIRED_DELIVERABLE: &str = "Explicit confirmation is required before committing the deliverable.";
 
-/// deliverable code → R&D slot (generateDeliverable.ts SLOT_BY_CODE parity).
-/// Phase 26 (26-04, DELIV-05 rollout): 'prd' alias + all 18 catalog slots
-/// (each catalog code maps to itself).
-const SLOT_BY_CODE: &[(&str, &str)] = &[
-    ("prd", "DEL-REQ-01"),
-    ("DEL-REQ-01", "DEL-REQ-01"),
-    ("DEL-REQ-02", "DEL-REQ-02"),
-    ("DEL-REQ-03", "DEL-REQ-03"),
-    ("DEL-REQ-04", "DEL-REQ-04"),
-    ("DEL-DES-01", "DEL-DES-01"),
-    ("DEL-DES-02", "DEL-DES-02"),
-    ("DEL-DEV-01", "DEL-DEV-01"),
-    ("DEL-DEV-02", "DEL-DEV-02"),
-    ("DEL-DEV-03", "DEL-DEV-03"),
-    ("DEL-TST-01", "DEL-TST-01"),
-    ("DEL-TST-02", "DEL-TST-02"),
-    ("DEL-TST-03", "DEL-TST-03"),
-    ("DEL-REL-01", "DEL-REL-01"),
-    ("DEL-REL-02", "DEL-REL-02"),
-    ("DEL-REL-03", "DEL-REL-03"),
-    ("DEL-REL-04", "DEL-REL-04"),
-];
+/// Phase 30 (30-01, SC-4): deliverable catalog single source — the SAME JSON
+/// file the TS side imports (src/data/deliverableCatalog.ts). No hardcoded
+/// DEL-* strings here; switching verticals only swaps the JSON.
+#[derive(serde::Deserialize)]
+struct CatalogEntry {
+    code: String,
+}
 
+static CATALOG: LazyLock<Vec<CatalogEntry>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("../../../src/data/deliverables-catalog.json"))
+        .expect("deliverables-catalog.json invalid")
+});
+
+/// deliverable code → R&D slot ('prd' alias + every catalog code maps to
+/// itself; generateDeliverable.ts SLOT_BY_CODE parity).
 pub fn slot_by_code(code: &str) -> Option<&'static str> {
-    SLOT_BY_CODE.iter().find(|(c, _)| *c == code).map(|(_, s)| *s)
+    if code == "prd" {
+        return Some(CATALOG[0].code.as_str()); // 'prd' alias → first catalog entry (DEL-REQ-01)
+    }
+    CATALOG.iter().find(|e| e.code == code).map(|e| e.code.as_str())
+}
+
+/// 'prd' alias + every catalog code — the generate_deliverable `code` enum.
+fn deliverable_codes() -> Vec<&'static str> {
+    let mut codes: Vec<&'static str> = vec!["prd"];
+    codes.extend(CATALOG.iter().map(|e| e.code.as_str()));
+    codes
 }
 
 pub type Error = Box<dyn std::error::Error>;
@@ -271,7 +275,7 @@ pub fn registry() -> Vec<ToolSpec> {
             parameters: json!({
                 "type": "object",
                 "properties": {
-                    "code": { "type": "string", "enum": SLOT_BY_CODE.iter().map(|(c, _)| *c).collect::<Vec<_>>() },
+                    "code": { "type": "string", "enum": deliverable_codes() },
                     "title": { "type": "string", "minLength": 1 },
                     "draft": { "type": "string", "minLength": 1 },
                     "confirmationToken": { "type": "string", "minLength": 1 }
@@ -1232,6 +1236,23 @@ mod tests {
                   "schedule_create", "schedule_update", "schedule_delete"] {
             assert_eq!(idempotency(t), "verify_first");
         }
+    }
+
+    /// 30-01: catalog single source — Rust reads the same JSON as TS.
+    #[test]
+    fn catalog_single_source_shape() {
+        assert_eq!(CATALOG.len(), 16, "catalog entry count (plan said 18 — stale)");
+        let codes: Vec<&str> = CATALOG.iter().map(|e| e.code.as_str()).collect();
+        let mut uniq = codes.clone();
+        uniq.sort();
+        uniq.dedup();
+        assert_eq!(codes.len(), uniq.len(), "codes must be unique");
+        assert!(codes.contains(&"DEL-REQ-01"));
+        assert!(!codes.contains(&"prd"), "no alias keys in the catalog itself");
+        // 'prd' alias + all catalog codes are valid slots; anything else is not.
+        assert_eq!(slot_by_code("prd"), Some("DEL-REQ-01"));
+        assert!(codes.iter().all(|c| slot_by_code(c).is_some()));
+        assert_eq!(slot_by_code("roadmap"), None);
     }
 
     #[test]

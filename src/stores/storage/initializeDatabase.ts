@@ -81,6 +81,17 @@ export async function initializeDatabase(): Promise<void> {
   // Phase 26 (26-01): deliverable slots project from knowledge_docs too —
   // committed content survives restarts, uncommitted slots stay explicit-empty.
   await useRndStore.getState().hydrateDeliverableSlots();
+
+  // Phase 29 (29-04): task/schedule 关系表 hydration(Rust 启动搬移已把 kv 数据落表)。
+  // persist 在 Tauri 下退役 — 这是最初也是唯一的真相源装载点。
+  // 竞态:Rust kv 搬移在 setup 异步块执行,若此处先跑读到空表,旧数据会在下一次
+  // refresh 自愈;重启不丢由 UAT Task 3 验证。
+  const { useTaskStore } = await import('../taskStore');
+  const { useScheduleStore } = await import('../scheduleStore');
+  await useTaskStore.getState().refreshFromSql();
+  await useScheduleStore.getState().refreshFromSql();
+  useTaskStore.getState()._setHydrated();
+  useScheduleStore.getState()._setHydrated();
 }
 
 async function migrateKnowledgeIntoSqlite(db: Awaited<ReturnType<typeof lazySqlite>>): Promise<void> {

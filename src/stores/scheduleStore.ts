@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { sqliteStorage } from './storage/sqliteStorage';
+import { isTauri } from '@/src/lib/api';
+import * as pmRepo from './storage/pmRepo';
 
 // D-04: type union (Phase 7 will consume 'task' for "安排到日历" flow)
 export type ScheduleEventType =
@@ -51,65 +53,105 @@ interface ScheduleState {
   setEventStatus: (eventId: string, status: ScheduleEventStatus) => void;
   clearTaskLink: (eventId: string) => void;
 
+  // Phase 29 (29-04): 事件驱动 refresh — 从关系表全量拉回(引擎写后自愈)
+  refreshFromSql: () => Promise<void>;
+
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: boolean;
   _setHydrated: () => void;
 }
 
+// Phase 29 (29-04): fire-and-forget SQL 写 — 本地 set 乐观更新;SQL 失败仅
+// console.error 不回滚,漂移由 refreshFromSql 自愈。ON CONFLICT 幂等,联动
+// (setEventStatus/clearTaskLink)再写一次该行是安全的。
+const writeEventRow = (e: ScheduleEvent | undefined) => {
+  if (!e) return;
+  pmRepo.upsertScheduleRow(e).catch((err) =>
+    console.error('[scheduleStore] upsertScheduleRow failed:', err));
+};
+
+const findEvent = (events: ScheduleEvent[], id: string) => events.find((e) => e.id === id);
+
+// Phase 29 (29-04): base creator — Tauri 下 persist 退役(SQL 单真相源),
+// INITIAL_EVENTS 仅 web 模式默认生效(Tauri 下首帧 hydration 覆盖)。
+const scheduleBase = (set: any, get: () => ScheduleState) => ({
+  events: isTauri() ? [] : INITIAL_EVENTS,
+
+  addEvent: (event: ScheduleEvent) => {
+    if (isTauri()) writeEventRow(event);
+    set((state: ScheduleState) => {
+      if (state.events.some((e) => e.id === event.id)) return state;
+      const withDefaults: ScheduleEvent = { ...event, status: event.status ?? '未开始' };
+      return { events: sortByDateTime([...state.events, withDefaults]) };
+    });
+  },
+
+  setEvents: (events: ScheduleEvent[]) => set({ events }),
+
+  // ── Phase 6 CRUD actions (SCHED-01/02/03) ────────────────────────────
+  createEvent: (event: ScheduleEvent) => {
+    if (isTauri()) writeEventRow(event);
+    set((state: ScheduleState) => {
+      if (state.events.some((e) => e.id === event.id)) return state;
+      const withDefaults: ScheduleEvent = { ...event, status: event.status ?? '未开始' };
+      return { events: sortByDateTime([...state.events, withDefaults]) };
+    });
+  },
+
+  updateEvent: (eventId: string, updates: Partial<ScheduleEvent>) => {
+    set((state: ScheduleState) => ({
+      events: state.events.map((e) =>
+        e.id === eventId ? { ...e, ...updates } : e,
+      ),
+    }));
+    if (isTauri()) writeEventRow(findEvent(get().events, eventId));
+  },
+
+  deleteEvent: (eventId: string) => {
+    set((state: ScheduleState) => ({
+      events: state.events.filter((e) => e.id !== eventId),
+    }));
+    if (isTauri()) pmRepo.deleteScheduleRow(eventId).catch((err) =>
+      console.error('[scheduleStore] deleteScheduleRow failed:', err));
+  },
+
+  // ── Phase 7 cross-module hooks (CROSS-05/CROSS-07) ─────────────────
+  setEventStatus: (eventId: string, status: ScheduleEventStatus) => {
+    set((state: ScheduleState) => ({
+      events: state.events.map((e) =>
+        e.id === eventId ? { ...e, status } : e,
+      ),
+    }));
+    if (isTauri()) writeEventRow(findEvent(get().events, eventId));
+  },
+
+  clearTaskLink: (eventId: string) => {
+    set((state: ScheduleState) => ({
+      events: state.events.map((e) =>
+        e.id === eventId ? { ...e, taskId: undefined } : e,
+      ),
+    }));
+    if (isTauri()) writeEventRow(findEvent(get().events, eventId));
+  },
+
+  refreshFromSql: async () => {
+    if (!isTauri()) return;
+    try {
+      set({ events: sortByDateTime(await pmRepo.loadSchedules()) });
+    } catch (e) {
+      console.error('[scheduleStore] refreshFromSql failed:', e);
+    }
+  },
+
+  // ── Persistence ────────────────────────────────────────────────────
+  _hasHydrated: false,
+  _setHydrated: () => set({ _hasHydrated: true }),
+});
+
 export const useScheduleStore = create<ScheduleState>()(
-  persist(
-    (set) => ({
-      events: INITIAL_EVENTS,
-
-      addEvent: (event) =>
-        set((state) => {
-          if (state.events.some((e) => e.id === event.id)) return state;
-          const withDefaults: ScheduleEvent = { ...event, status: event.status ?? '未开始' };
-          return { events: sortByDateTime([...state.events, withDefaults]) };
-        }),
-
-      setEvents: (events) => set({ events }),
-
-      // ── Phase 6 CRUD actions (SCHED-01/02/03) ──────────────────────────
-      createEvent: (event) =>
-        set((state) => {
-          if (state.events.some((e) => e.id === event.id)) return state;
-          const withDefaults: ScheduleEvent = { ...event, status: event.status ?? '未开始' };
-          return { events: sortByDateTime([...state.events, withDefaults]) };
-        }),
-
-      updateEvent: (eventId, updates) =>
-        set((state) => ({
-          events: state.events.map((e) =>
-            e.id === eventId ? { ...e, ...updates } : e,
-          ),
-        })),
-
-      deleteEvent: (eventId) =>
-        set((state) => ({
-          events: state.events.filter((e) => e.id !== eventId),
-        })),
-
-      // ── Phase 7 cross-module hooks (CROSS-05/CROSS-07) ─────────────────
-      setEventStatus: (eventId, status) =>
-        set((state) => ({
-          events: state.events.map((e) =>
-            e.id === eventId ? { ...e, status } : e,
-          ),
-        })),
-
-      clearTaskLink: (eventId) =>
-        set((state) => ({
-          events: state.events.map((e) =>
-            e.id === eventId ? { ...e, taskId: undefined } : e,
-          ),
-        })),
-
-      // ── Persistence ────────────────────────────────────────────────────
-      _hasHydrated: false,
-      _setHydrated: () => set({ _hasHydrated: true }),
-    }),
-    {
+  isTauri()
+    ? scheduleBase
+    : persist(scheduleBase, {
       name: 'nova-schedule',
       version: 3,
       storage: sqliteStorage,
@@ -140,6 +182,5 @@ export const useScheduleStore = create<ScheduleState>()(
       onRehydrateStorage: () => (state) => {
         state?._setHydrated();
       },
-    },
-  ),
+    }),
 );

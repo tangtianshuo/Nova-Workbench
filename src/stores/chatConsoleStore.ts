@@ -41,6 +41,8 @@ import { getEventStore } from '@/src/ai/events/eventStore';
 import type { AgentEvent } from '@/src/ai/events/types';
 import { useUIStore } from '@/src/stores/uiStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { useTaskStore } from '@/src/stores/taskStore';
+import { useScheduleStore } from '@/src/stores/scheduleStore';
 import { isTauri } from '@/src/lib/api';
 import type { Provider } from '@/src/lib/api';
 
@@ -743,6 +745,10 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
                 return next;
               });
               if (name === 'memory_write') void refreshMemoryCards();
+              // Phase 29 (29-04): PM 写已落库(tool_end 在写后触发),拉全表刷新视图。
+              // ponytail: 全表 refresh,增量投影当任务量真的大再做。
+              if (name.startsWith('task_')) void useTaskStore.getState().refreshFromSql();
+              else if (name.startsWith('schedule_')) void useScheduleStore.getState().refreshFromSql();
               return;
             }
             if (msg.kind === 'tool_output' && msg.data?.name) {
@@ -1030,6 +1036,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         const candidate = pendingPmWrite;
         const actionLabel = PM_WRITE_ACTION_LABELS[candidate.action] ?? '执行写入';
         await engineConsumePmWrite(candidate.confirmationToken);
+        // Phase 29 (29-04): 确认写入已落库 — task/schedule 两表都可能被 pm_write 触及,都刷。
+        void useTaskStore.getState().refreshFromSql();
+        void useScheduleStore.getState().refreshFromSql();
         set((current) => ({
           messages: [...current.messages, {
             id: nextId++,

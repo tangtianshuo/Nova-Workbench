@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
-status: "v0.3.3 剩余均为用户决策:27 UAT 回归恢复 / 28 顺延确认 / 30(模板数据化+工作流自组织)立项"
-stopped_at: "Phase 30 context gathered (16 裁定) — next: plan-phase 30"
-last_updated: "2026-09-02T09:03:01.506Z"
+status: executing
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-09-02T09:38:33.641Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 11
+  total_plans: 16
+  completed_plans: 12
 ---
 
 # Project State
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 30 — workflow-templates(模板数据化 + 工作流自组织)
+**Current focus:** Phase 30 — workflow-templates
 
 ## Current Position
 
-Phase: 29 (pm-crud) — COMPLETE ✅(2026-09-02,4/4 plans,UAT 8/8 + 29-VERIFICATION.md GO 4/4)
-Plan: 4 of 4 done
-Status: 30 context gathered(16 裁定),ready to plan;27 UAT 回归恢复 / 28 顺延维持为独立用户决策
+Phase: 30 (workflow-templates) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Next: `/gsd:plan-phase 30`
 Last activity: 2026-09-02
 
@@ -69,6 +69,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 29 P02 | 35m | 2 tasks | 7 files |
 | Phase 29 P03 | 50m | 2 tasks | 5 files |
 | Phase 29 P04 | 240m(含 UAT) | 3 tasks | 8 files |
+| Phase 30 P01 | 25min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 29]: [29-02] PM 9 工具三档风险:读/轻写免确认直落库,delete+cap-5 走 pm_write HITL;pm_write 入 dedup kind 列表
 - [Phase 29]: [29-03] pm_write fixture 命名 projection-cases-pm-write.json — 双侧 glob 前缀约定;确认路径 Rust 一事务收口,不回 TS executeTool
 - [Phase 29]: [29-04] Tauri 下 task/schedule persist 退役、SQL 单真相源(pmRepo + refreshFromSql);UAT 三 gap 修复:system prompt 注入日期(f894b27)、create 工具 projectId 兜底 ctx.product_id(3ae51a6)、cap-5 候选 params 预烧 projectId(c0fbb01)
+- [Phase 30]: catalog 单源: 同一 JSON 由 TS import 与 Rust include_str! 消费;真实条数 16 (plan 的 18 是陈旧计数);defaultContent 已退役
 
 ### TODOs (pending)
 
@@ -115,9 +117,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-02T09:03:01.500Z
-Stopped at: Phase 30 context gathered (16 裁定) — next: plan-phase 30
-Resume file: .planning/phases/30-workflow-templates/30-CONTEXT.md
+Last session: 2026-09-02T09:38:33.635Z
+Stopped at: Completed 30-01-PLAN.md
+Resume file: None
 
 If resuming after context loss:
 

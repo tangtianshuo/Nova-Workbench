@@ -96,7 +96,7 @@ Plans:
   6. 模板格式预留 skill 字段兼容(单 DSL),agent 自主检索加载推 v0.4
 **Plans:** 4 plans
 Plans:
-- [ ] 30-01-PLAN.md — catalog 单源数据化:deliverables-catalog.json 双侧同读(TS import + Rust include_str!),mockRndData catalog/defaultContent 退役
+- [x] 30-01-PLAN.md — catalog 单源数据化:deliverables-catalog.json 双侧同读(TS import + Rust include_str!),mockRndData catalog/defaultContent 退役
 - [ ] 30-02-PLAN.md — migration 0013(workflow_templates + deliverable_catalog_user)+ workflow_store + 4 个 workflow_ 引擎工具(29 三档风险,delete 复用 pm_write)+ system prompt 模板清单 + TS registry/workflowStore + parity fixture
 - [ ] 30-03-PLAN.md — 内置参考模板 5 个 + WorkflowView(模板库/运行区 TabRunPanel 复用)+ Sidebar 顶层入口 + 一键发起单 run 多步
 - [ ] 30-04-PLAN.md — 沉淀确定性链路(事件提取→草稿 Dialog→落库)+ phase 端到端 UAT

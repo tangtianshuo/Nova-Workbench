@@ -14,7 +14,7 @@
 
 ### v0.3.3 产研半落地 + 工作区入驻(RND-ROLLOUT ①层)
 
-- [ ] **Phase 26: Mock 全清 — tab 接引擎** - 产研各 tab AI 按钮触发真实 engine_run(带 tab 上下文、独立 session、流式进度、候选→HITL→落槽),mock 全删 ✅(2026-08-31)
+- [x] **Phase 26: Mock 全清 — tab 接引擎** - 产研各 tab AI 按钮触发真实 engine_run(带 tab 上下文、独立 session、流式进度、候选→HITL→落槽),mock 全删 ✅(2026-08-31)
 - [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等 ⏸️(挂起 2026-09-02,修复已提交待 UAT 回归)
 - [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT(顺延 2026-09-02)
 - [ ] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule/product CRUD 原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)
@@ -68,13 +68,18 @@ Plans:
 ### Phase 29: PM CRUD 工具原生化 — agent 写路径
 **Goal**: 把 task/schedule(及 product 视讨论)的 CRUD 操作原生化为引擎工具(task_create/update/complete、schedule_create/update 等),每工具带三档风险标注(读免确认/可逆轻写免确认/删除+批量+外发确认,999.5 D-12),使助手具备真实写任务/日程/产品能力——「Agent 替你干活」的地基,也是后续工作流用户自组织(Phase 30)的执行基础
 **Depends on**: Phase 23 引擎工具注册表(v0.3.2 已就绪);999.5 D-11/D-12 裁定
-**Requirements**: TBD(discuss-phase 定义)
+**Requirements**: PM-01, PM-02, PM-03, PM-04
 **Success Criteria** (what must be TRUE):
   1. 用户在对话中让助手创建/修改/完成任务、日程,agent 调用原生 CRUD 工具真实落库(非 mock、非手动 UI 操作)
   2. 三档风险分级生效:读操作免确认,可逆轻写免确认,删除/批量/外发走 HITL 确认
   3. 写入立即可见于对应视图(任务页/日历/产品),重启不丢
   4. 业务数据关系化(task/schedule 自 Zustand-persist 迁 SQLite 关系表)是否同期——discuss 裁定
-**Plans:** TBD(/gsd:discuss-phase 29 → plan-phase)
+**Plans:** 4 plans
+Plans:
+- [ ] 29-01-PLAN.md — migration 0012 关系表 + pm_write kind + pm_store SQL 层 + kv 一次性幂等搬移
+- [ ] 29-02-PLAN.md — 9 个 PM 工具注册执行(读/轻写免确认、delete 走 pm_write)+ cap-5 升级护栏
+- [ ] 29-03-PLAN.md — engine_consume_pm_write 事务闭环 + 聊天确认卡 + pm_write_applied 双侧 parity fixture
+- [ ] 29-04-PLAN.md — taskStore/scheduleStore SQL 换轨 + 事件驱动 refresh + 端到端 UAT
 **排期**: 2026-09-02 promote 自 999.6(v0.3.3 优先级重定,第一优先;原裁定 v0.4 首批)
 
 ## Progress
@@ -84,7 +89,7 @@ Plans:
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
 | 27. 工作区文档摄取 | 3/4 | Suspended — 27-04 fix committed (2026-09-02), UAT-2..7 regression deferred by user (priority shift) | - |
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
-| 29. PM CRUD 工具原生化 — agent 写路径 | 0/? | Not started — next up (/gsd:discuss-phase 29) | - |
+| 29. PM CRUD 工具原生化 — agent 写路径 | 0/4 | Not started — next up (/gsd:discuss-phase 29) | - |
 
 ## Historical Milestones
 

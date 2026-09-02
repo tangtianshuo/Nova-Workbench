@@ -9,6 +9,7 @@ import {
   engineCommitDeliverable,
   engineConfirmCandidate,
   engineConsumeMemory,
+  engineConsumePmWrite,
   engineExecConfirmed,
   engineFsApply,
   engineRejectCandidate,
@@ -75,6 +76,24 @@ export interface FsWriteCandidate {
   summary: string;
 }
 
+/** pm_write 确认卡(29-03):删除类(task/schedule)与 cap-5 升级轻写,
+ * 确认走 engineConsumePmWrite(Rust 一事务完成写 + 审计)。 */
+export interface PmWriteCandidate {  confirmationToken: string;
+  /** task_delete | schedule_delete | 轻写工具名(cap 升级) */
+  action: string;
+  taskId?: string;
+  eventId?: string;
+  title: string;
+  summary: string;
+  /** cap 升级携带原参数 */
+  args?: Record<string, unknown>;
+}
+
+const PM_WRITE_ACTION_LABELS: Record<string, string> = {
+  task_delete: '删除任务',
+  schedule_delete: '删除日程',
+};
+
 export interface ChatMessage {
   id: number;
   role: 'user' | 'assistant';
@@ -121,6 +140,21 @@ function toDestructiveCandidate(
   } as DestructiveActionCandidate;
 }
 
+/** Rust pm_write candidate(tools.rs 平铺 {kind, confirmationToken, summary,
+ * action, taskId|eventId, title} 与 cap 升级 {…, args, reason})→ 卡片形状。 */
+function toPmWriteCandidate(candidate: EnginePendingCandidate): PmWriteCandidate {
+  const flat = candidate as EnginePendingCandidate & Record<string, unknown>;
+  return {
+    confirmationToken: candidate.confirmationToken,
+    action: String(flat.action ?? (candidate.args as Record<string, unknown> | undefined)?.action ?? ''),
+    taskId: typeof flat.taskId === 'string' ? flat.taskId : undefined,
+    eventId: typeof flat.eventId === 'string' ? flat.eventId : undefined,
+    title: String(flat.title ?? ''),
+    summary: String(candidate.summary ?? ''),
+    args: (flat.args as Record<string, unknown> | undefined) ?? undefined,
+  };
+}
+
 /**
  * Phase 26 (26-01): route a tab-run engine candidate into the global
  * confirmation queue (D-05 — HITL cards only render via this store's pending
@@ -156,6 +190,8 @@ export function routeEngineCandidateToConsole(candidate: EnginePendingCandidate,
         summary: String(candidate.summary ?? ''),
       },
     });
+  } else if (candidate.kind === 'pm_write') {
+    useChatConsoleStore.setState({ pendingPmWrite: toPmWriteCandidate(candidate) });
   }
   // memory_write candidates surface via the memory card store's own refresh
   // path — nothing to enqueue here.
@@ -244,6 +280,7 @@ interface ChatConsoleState {
   pendingDestructiveAction: DestructiveActionCandidate | null;
   pendingExecApproval: ExecApprovalCandidate | null;
   pendingFsWrite: FsWriteCandidate | null;
+  pendingPmWrite: PmWriteCandidate | null;
   pendingMemory: MemoryCandidate | null;
   autoRemembered: MemoryCandidate | null;
   memoryBusy: boolean;
@@ -278,6 +315,8 @@ interface ChatConsoleState {
   rejectExec: () => Promise<void>;
   confirmFsWrite: () => Promise<void>;
   rejectFsWrite: () => Promise<void>;
+  confirmPmWrite: () => Promise<void>;
+  rejectPmWrite: () => Promise<void>;
   confirmMemory: () => Promise<void>;
   rejectMemory: () => Promise<void>;
   rejectDraft: () => Promise<void>;
@@ -448,6 +487,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     pendingDestructiveAction: null,
     pendingExecApproval: null,
     pendingFsWrite: null,
+    pendingPmWrite: null,
     pendingMemory: null,
     autoRemembered: null,
     memoryBusy: false,
@@ -546,6 +586,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         pendingDestructiveAction: null,
         pendingExecApproval: null,
         pendingFsWrite: null,
+        pendingPmWrite: null,
         pendingPrdDraft: null,
         pendingMemory: null,
         forkableIds: new Set<number>(),
@@ -586,6 +627,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         // refreshExecFsCards re-populates from this session's pending candidates.
         pendingExecApproval: null,
         pendingFsWrite: null,
+        pendingPmWrite: null,
         forkableIds: new Set<number>(),
         parentSessionId: null,
         parentTitle: null,
@@ -628,6 +670,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
         let engineExecCandidate: ExecApprovalCandidate | null = null;
         let engineFsCandidate: FsWriteCandidate | null = null;
+        let enginePmCandidate: PmWriteCandidate | null = null;
         const toFsWriteCandidate = (candidate: EnginePendingCandidate): FsWriteCandidate => ({
           confirmationToken: candidate.confirmationToken,
           operation: (['write', 'mkdir', 'delete', 'move'] as const).includes(
@@ -735,6 +778,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
                 };
               } else if (candidate.kind === 'fs_write') {
                 engineFsCandidate = toFsWriteCandidate(candidate);
+              } else if (candidate.kind === 'pm_write') {
+                enginePmCandidate = toPmWriteCandidate(candidate);
               } else if (candidate.kind === 'memory_write') {
                 void refreshMemoryCards();
               }
@@ -761,6 +806,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         if (result.pendingConfirmation?.kind === 'fs_write' && !engineFsCandidate) {
           engineFsCandidate = toFsWriteCandidate(result.pendingConfirmation);
         }
+        if (result.pendingConfirmation?.kind === 'pm_write' && !enginePmCandidate) {
+          enginePmCandidate = toPmWriteCandidate(result.pendingConfirmation);
+        }
 
         const assistantContent = result.content || streamingResponseRef || 'AI 没有返回内容';
         set((current) => ({
@@ -777,6 +825,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           pendingDestructiveAction: engineDestructiveCandidate ?? current.pendingDestructiveAction,
           pendingExecApproval: engineExecCandidate ?? current.pendingExecApproval,
           pendingFsWrite: engineFsCandidate ?? current.pendingFsWrite,
+          pendingPmWrite: enginePmCandidate ?? current.pendingPmWrite,
         }));
 
         if (result.truncated) {
@@ -966,6 +1015,50 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           id: nextId++,
           role: 'assistant' as const,
           content: '已拒绝本次文件操作。',
+        }],
+      }));
+    },
+
+    // 29-03 pm_write 确认(确认/拒绝):Rust 侧 confirm+consume+写+审计一事务
+    // 完成(engineConsumePmWrite),前端只收结果 — 语义同 ingestion 先例,
+    // 不调 executeTool / engineAppendToolResult。
+    confirmPmWrite: async () => {
+      const { pendingPmWrite, loading } = get();
+      if (!pendingPmWrite || loading) return;
+      set({ loading: true });
+      try {
+        const candidate = pendingPmWrite;
+        const actionLabel = PM_WRITE_ACTION_LABELS[candidate.action] ?? '执行写入';
+        await engineConsumePmWrite(candidate.confirmationToken);
+        set((current) => ({
+          messages: [...current.messages, {
+            id: nextId++,
+            role: 'assistant' as const,
+            content: `已${actionLabel}${candidate.title ? `「${candidate.title}」` : ''}。`,
+          }],
+          pendingPmWrite: null,
+        }));
+      } catch (error) {
+        emitToast({
+          type: 'error',
+          title: '操作确认失败',
+          description: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    rejectPmWrite: async () => {
+      const { pendingPmWrite } = get();
+      if (!pendingPmWrite) return;
+      await engineRejectCandidate(pendingPmWrite.confirmationToken);
+      set((current) => ({
+        pendingPmWrite: null,
+        messages: [...current.messages, {
+          id: nextId++,
+          role: 'assistant' as const,
+          content: '已取消本次操作。',
         }],
       }));
     },

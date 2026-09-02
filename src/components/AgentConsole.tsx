@@ -86,6 +86,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     pendingDestructiveAction,
     pendingExecApproval,
     pendingFsWrite,
+    pendingPmWrite,
     pendingMemory,
     autoRemembered,
     memoryBusy,
@@ -109,6 +110,8 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     rejectExec,
     confirmFsWrite,
     rejectFsWrite,
+    confirmPmWrite,
+    rejectPmWrite,
     confirmMemory,
     rejectMemory,
     rejectDraft,
@@ -319,6 +322,25 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
               </Button>
               <Button type="button" variant="secondary" size="sm" onClick={() => void rejectFsWrite()} disabled={loading}>
                 拒绝
+              </Button>
+            </div>
+          </div>
+        )}
+        {pendingPmWrite && (
+          <div className="rounded-[var(--radius-lg)] border border-warning/30 bg-bg-secondary px-3.5 py-3 text-sm text-text-primary">
+            <div className="font-medium">
+              确认{pendingPmWrite.action === 'task_delete' ? '删除任务' : pendingPmWrite.action === 'schedule_delete' ? '删除日程' : '执行写入'}
+            </div>
+            <div className="mt-1 text-xs text-text-secondary">{pendingPmWrite.summary || pendingPmWrite.title}</div>
+            {pendingPmWrite.title && (
+              <div className="mt-1 text-xs text-text-tertiary">{pendingPmWrite.title}</div>
+            )}
+            <div className="mt-2 flex gap-2">
+              <Button type="button" variant="primary" size="sm" onClick={() => void confirmPmWrite()} disabled={loading}>
+                确认
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => void rejectPmWrite()} disabled={loading}>
+                取消
               </Button>
             </div>
           </div>

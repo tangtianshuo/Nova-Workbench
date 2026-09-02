@@ -222,6 +222,19 @@ export async function engineIngestPendingCount(root: string): Promise<number> {
   return invoke<number>('engine_ingest_pending_count', { root });
 }
 
+/** Phase 29 (29-03, PM-02): confirm + consume a pm_write candidate. Rust does
+ *  the write (delete row / replay light-write) + pm_write_applied audit event
+ *  in one transaction; the webview only clears the card. */
+export interface PmWriteConsumeResult {
+  applied: boolean;
+  action: string;
+  alreadyApplied?: boolean;
+}
+export async function engineConsumePmWrite(token: string): Promise<PmWriteConsumeResult> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<PmWriteConsumeResult>('engine_consume_pm_write', { token });
+}
+
 /**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the

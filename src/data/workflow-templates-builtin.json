@@ -1,33 +1,104 @@
 [
   {
-    "id": "builtin-competitor-analysis",
-    "name": "竞品深度分析",
-    "description": "扫描竞品信息并产出对比报告",
+    "id": "builtin-prd-draft",
+    "name": "PRD 起草",
+    "description": "先从知识库捞需求与背景,再起草 PRD 全文候选,确认后落研发中心卡槽",
     "steps": [
       {
-        "name": "生成竞品分析报告",
-        "prompt": "对当前产品的核心竞品做对比分析,调用 generate_deliverable(code=DEL-REL-03) 产出报告草稿",
-        "expectedSlotCode": "DEL-REL-03",
+        "name": "检索需求背景",
+        "prompt": "调用 knowledge_search 检索当前产品相关的需求、用户反馈与背景信息,整理为要点清单;没有命中时明确说明并基于产品概述继续",
+        "toolHint": "knowledge_search"
+      },
+      {
+        "name": "起草 PRD",
+        "prompt": "结合上一步要点,调用 generate_deliverable(code=DEL-REQ-01) 起草 PRD 全文候选,等待用户确认落槽",
+        "expectedSlotCode": "DEL-REQ-01",
+        "toolHint": "generate_deliverable"
+      },
+      {
+        "name": "登记评审待办",
+        "prompt": "为 PRD 评审创建一条高优先级任务(task_create,截止明天下班前),标题注明产品名与 PRD 字样",
+        "toolHint": "task_create"
+      }
+    ],
+    "source": "builtin"
+  },
+  {
+    "id": "builtin-competitor-analysis",
+    "name": "竞品深度分析",
+    "description": "检索知识库中的竞品与市场信息,产出竞品对比报告候选供确认",
+    "steps": [
+      {
+        "name": "检索竞品情报",
+        "prompt": "调用 knowledge_search 检索竞品、市场、行业相关信息,汇总各竞品的关键特征;信息不足时列出已知部分并注明缺口",
+        "toolHint": "knowledge_search"
+      },
+      {
+        "name": "生成竞品对比报告",
+        "prompt": "基于检索结果,调用 generate_deliverable(code=DEL-REL-02) 产出竞品深度对比与市场差异化破局报告候选,等待用户确认",
+        "expectedSlotCode": "DEL-REL-02",
         "toolHint": "generate_deliverable"
       }
     ],
     "source": "builtin"
   },
   {
-    "id": "builtin-prd-draft",
-    "name": "PRD 起草",
-    "description": "从需求出发起草 PRD 并落槽评审",
+    "id": "builtin-weekly-review",
+    "name": "周报汇总",
+    "description": "汇总本周任务与日程进展,写一份周报知识文档归档到第二大脑",
     "steps": [
       {
-        "name": "起草 PRD",
-        "prompt": "结合知识库中的需求信息,调用 generate_deliverable(code=prd) 起草 PRD 全文",
-        "expectedSlotCode": "DEL-REQ-01",
+        "name": "汇总本周进展",
+        "prompt": "读取本周的任务(task 相关工具)与日程(schedule 相关工具)情况,按「本周完成 / 进行中 / 下周计划」三段整理要点",
+        "toolHint": "task_search"
+      },
+      {
+        "name": "归档周报",
+        "prompt": "调用 knowledge_write 把周报写入知识库,标题为「周报 YYYY-MM-DD 所在周」,category 选最贴切的枚举值",
+        "toolHint": "knowledge_write"
+      }
+    ],
+    "source": "builtin"
+  },
+  {
+    "id": "builtin-weekend-scan",
+    "name": "周末工作区扫描",
+    "description": "扫描工作区新文档,整理归档为知识条目,给下一周一个干净的起点",
+    "steps": [
+      {
+        "name": "扫描工作区",
+        "prompt": "调用 ingest_scan(workspaceRoot 用本次 run 的工作区根目录)扫描工作区文件,列出本周新增或变更的文档",
+        "toolHint": "ingest_scan"
+      },
+      {
+        "name": "归档为知识",
+        "prompt": "对有价值的新文档逐份调用 knowledge_write 归档:一份文件 = 一条知识文档,标题用语义化中文标题概括内容,category 选最贴切枚举值",
+        "toolHint": "knowledge_write"
+      }
+    ],
+    "source": "builtin"
+  },
+  {
+    "id": "builtin-release-checklist",
+    "name": "发版前检查",
+    "description": "发版前跑一轮质量准入评估与发版说明草稿,两份候选逐份确认",
+    "steps": [
+      {
+        "name": "质量验收评估",
+        "prompt": "调用 generate_deliverable(code=DEL-TST-03) 产出阶段质量验收与发版准入评估报告候选,等待用户确认",
+        "expectedSlotCode": "DEL-TST-03",
         "toolHint": "generate_deliverable"
       },
       {
-        "name": "登记后续待办",
-        "prompt": "为 PRD 评审创建一条高优先级任务(task_create,截止明天下班前)",
-        "toolHint": "task_create"
+        "name": "发版说明草稿",
+        "prompt": "调用 generate_deliverable(code=DEL-REL-01) 产出官方发版说明与更新日志候选,等待用户确认",
+        "expectedSlotCode": "DEL-REL-01",
+        "toolHint": "generate_deliverable"
+      },
+      {
+        "name": "汇总检查结论",
+        "prompt": "汇总两份产物的结论,给出「可发版 / 有阻塞项」判断与理由,列出遗留风险",
+        "toolHint": "knowledge_write"
       }
     ],
     "source": "builtin"

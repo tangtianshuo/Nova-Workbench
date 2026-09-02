@@ -26,7 +26,8 @@ export type TabRunKind =
   | 'deliverable-single'
   | 'deliverable-batch'
   | 'product-skill'
-  | 'ingestion';
+  | 'ingestion'
+  | 'workflow';
 
 export type TabRunStatus =
   | 'queued'

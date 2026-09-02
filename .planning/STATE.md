@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
-status: executing
-stopped_at: Phase 29 complete (4/4, UAT 8/8 + verifier GO 4/4); next = user decision (27 UAT 回归 / 28 顺延确认 / 30 立项)
-last_updated: "2026-09-02T04:07:45.575Z"
+status: "v0.3.3 剩余均为用户决策:27 UAT 回归恢复 / 28 顺延确认 / 30(模板数据化+工作流自组织)立项"
+stopped_at: "Phase 30 context gathered (16 裁定) — next: plan-phase 30"
+last_updated: "2026-09-02T09:03:01.506Z"
 last_activity: 2026-09-02
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 2
   total_plans: 12
   completed_plans: 11
@@ -115,9 +115,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-02T04:07:45.570Z
-Stopped at: Phase 29 complete (4/4, UAT 8/8 + verifier GO); awaiting user decision on v0.3.3 remainder
-Resume file: None
+Last session: 2026-09-02T09:03:01.500Z
+Stopped at: Phase 30 context gathered (16 裁定) — next: plan-phase 30
+Resume file: .planning/phases/30-workflow-templates/30-CONTEXT.md
 
 If resuming after context loss:
 

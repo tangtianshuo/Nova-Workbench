@@ -94,7 +94,7 @@ pub struct LoopContext<'a> {
 // the model guides the user to act manually). NOT the original Phase 10 PM
 // guideline text — that returns together with the tools in v0.3.3.
 // Date context is a 22-06 wiring concern.
-const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), and generate_deliverable (queue a deliverable draft for user confirmation, code \"prd\" or a DEL-* catalog slot — you write the full draft content yourself in the draft parameter).\nTask and schedule CRUD tools are not available in this version; guide the user to create them manually in the Tasks/Schedule views. They return in a later release.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.\nKnowledge search is budgeted: perform at most 1-2 knowledge_search calls per question, then STOP searching and answer directly from the results you already have. Never enumerate the whole knowledge base.\nIf a tool call fails, read the error message, fix the arguments ONCE, and move on; if it fails again, tell the user what failed and what you need (e.g. select a product) instead of retrying. Never invent confirmation prompts or numbered-choice menus.";
+const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), generate_deliverable (queue a deliverable draft for user confirmation, code \"prd\" or a DEL-* catalog slot — you write the full draft content yourself in the draft parameter), and PM CRUD tools: task_create / task_update / task_complete / task_search, schedule_create / schedule_update / schedule_search apply immediately without confirmation; task_delete / schedule_delete require user confirmation via a candidate card. Act on the user's behalf with the light-write tools instead of telling them to do it manually.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.\nKnowledge search is budgeted: perform at most 1-2 knowledge_search calls per question, then STOP searching and answer directly from the results you already have. Never enumerate the whole knowledge base.\nIf a tool call fails, read the error message, fix the arguments ONCE, and move on; if it fails again, tell the user what failed and what you need (e.g. select a product) instead of retrying. Never invent confirmation prompts or numbered-choice menus.";
 
 pub fn build_system_prompt(core_context: &str) -> String {
     format!("{ROLE_AND_TOOL_RULES}\n\n## Phase 9 Current Workspace Context\n\n{core_context}")
@@ -222,6 +222,9 @@ pub async fn run_tool_loop(
     let mut arg_error_count: HashMap<String, u32> = HashMap::new();
     let mut content = String::new();
     let mut tool_calls_executed: u32 = 0;
+    // 29-02 cap-5: confirmation-free PM writes this run (per-run local — a new
+    // engine_run starts at 0). The 6th light write escalates to pm_write HITL.
+    let mut pm_writes_used: u32 = 0;
 
     for iteration in 1..=MAX_ITERATIONS {
         // CMP-01: compact at a pairing-balanced turn boundary BEFORE the next
@@ -309,7 +312,7 @@ pub async fn run_tool_loop(
                 session_id: &scope.session_id,
                 product_id: ctx.product_id.as_deref(),
                 workspace_root: ctx.workspace_root.clone(),
-                pm_writes_used: 0,
+                pm_writes_used,
             };
             match tools::execute_async(ctx.conn, &call.name, &call.arguments, &tool_ctx, cancel.clone(), on_event.as_ref()).await {
                 tools::ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -345,6 +348,11 @@ pub async fn run_tool_loop(
                 }
                 tools::ToolOutcome::Executed(value) => {
                     tool_calls_executed += 1;
+                    // Cap-5 input: count confirmation-free PM writes (judged by
+                    // tool name after execution — escalation WAITs don't count).
+                    if tools::is_pm_light_write(&call.name) {
+                        pm_writes_used += 1;
+                    }
                     on_event(EngineEvent::ToolEnd { name: call.name.clone(), ok: true });
                     // EVT-08: >4KB results artifact-ized; model keeps summary + head.
                     let prepared = event_log::prepare_tool_result(ctx.conn, &scope.session_id, &call.name, &value)
@@ -528,18 +536,21 @@ mod tests {
         events.iter().map(|e| e["kind"].as_str().unwrap()).collect()
     }
 
-    // 23-04: adapted tool guideline + PM CRUD degradation (TOOL-03).
+    // 23-04 tool guideline; 29-02: PM CRUD tools are live (degradation note removed).
     #[test]
-    fn system_prompt_has_degradation_note_and_no_crud_tools() {
+    fn system_prompt_lists_native_and_pm_crud_tools() {
         let prompt = build_system_prompt("核心事实");
-        // Degradation wording present...
-        assert!(prompt.contains("manually"), "{prompt}");
-        assert!(prompt.contains("not available in this version"));
+        // PM CRUD guidance present, old degradation wording gone...
+        assert!(!prompt.contains("not available in this version"));
+        assert!(prompt.contains("without confirmation"), "{prompt}");
+        assert!(prompt.contains("task_delete / schedule_delete require user confirmation"));
         // ...describing every native tool...
         for name in [
             "knowledge_search", "knowledge_write", "memory_write", "exec",
             "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
             "generate_deliverable",
+            "task_create", "task_update", "task_complete", "task_delete", "task_search",
+            "schedule_create", "schedule_update", "schedule_delete", "schedule_search",
         ] {
             assert!(prompt.contains(name), "prompt missing {name}");
         }
@@ -889,6 +900,32 @@ mod tests {
             .unwrap();
         assert_eq!(n, 1);
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    /* === 29-02: cap-5 per-run escalation (loop-level) === */
+
+    #[test]
+    fn sixth_pm_light_write_in_one_run_escalates_to_pm_write() {
+        let conn = mem_conn();
+        // 6 task_create calls in a single turn: first 5 write, 6th escalates.
+        let calls: Vec<LlmToolCall> = (0..6)
+            .map(|i| LlmToolCall {
+                name: "task_create".into(),
+                arguments: json!({"title": format!("任务{i}")}),
+            })
+            .collect();
+        let llm = FakeLlm::new(vec![LlmTurn { content: String::new(), tool_calls: calls }]);
+        let (result, _) = run(&conn, llm, CancellationToken::new());
+        let result = result.unwrap();
+        // 5 landed, run ended awaiting confirmation on the 6th.
+        assert_eq!(result.tool_calls_executed, 5);
+        let pending = result.pending_confirmation.expect("escalation candidate");
+        assert_eq!(pending["kind"], "pm_write");
+        assert_eq!(pending["action"], "task_create");
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tasks", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 5);
+        let turn = events_of(&conn).iter().find(|e| e.event_type == "turn_ended").unwrap().payload.clone();
+        assert_eq!(turn["outcome"], "awaiting_confirmation");
     }
 
     /* === 24-01 SCHED-01: two runs, two per-run connections, one WAL file DB === */

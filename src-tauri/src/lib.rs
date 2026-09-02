@@ -88,6 +88,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0011_confirmation_kind_ingestion.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "pm crud tables + confirmation kind pm_write",
+            sql: include_str!("../migrations/0012_pm_crud.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

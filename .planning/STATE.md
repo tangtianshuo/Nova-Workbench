@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: 27-04 Task 1 committed (61f9089, a070c41, 07e44fd); Task 2 human UAT deferred by user 2026-09-02
-last_updated: "2026-09-02T02:30:00.000Z"
-last_activity: 2026-09-02 -- Phase 27 gap closure paused, UAT-2..7 regression deferred
+stopped_at: Phase 27 SUSPENDED by user 2026-09-02 (priority shift) — 27-04 fix committed (61f9089/a070c41/07e44fd), UAT-2..7 regression postponed indefinitely. New priority: 产品 + 产研中心真实可用
+last_updated: "2026-09-02T03:00:00.000Z"
+last_activity: 2026-09-02 -- Phase 27 suspended; priority → product & R&D center real usability
 progress:
   total_phases: 8
   completed_phases: 1
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 27 — workspace-ingestion
+**Current focus:** Phase 27 SUSPENDED — 优先级转向:产品 + 产研中心真实可用（用户 2026-09-02）
 
 ## Current Position
 
-Phase: 27 (workspace-ingestion) — PAUSED (gap closure)
-Plan: 4 of 4 (27-04 Task 1 done, Task 2 human UAT deferred)
-Status: 27-04 修复代码已提交；UAT-2..7 真机回归整体延后（用户决定 2026-09-02）
-Last activity: 2026-09-02 -- Phase 27 gap closure paused, UAT-2..7 regression deferred
+Phase: 27 (workspace-ingestion) — SUSPENDED（用户降级,优先级不高）
+Status: 27-04 修复已提交（61f9089/a070c41/07e44fd）,UAT-2..7 回归无限期延后;Phase 28 排期待重定
+Next: 对齐「产品/产研中心真正用起来」的缺口 → 重新规划 v0.3.3 剩余排期
+Last activity: 2026-09-02 -- Phase 27 suspended; priority → product & R&D center real usability
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -93,7 +93,8 @@ v0.3.3 roadmap decisions (2026-08-31):
 
 ### TODOs (pending)
 
-- **Phase 27 UAT-2..7 真机回归延后**(2026-09-02):修复已提交(61f9089/a070c41/07e44fd),待重启 tauri:dev 按 27-HUMAN-UAT.md 清单回归;全 pass 前不生成 27-04-SUMMARY、Phase 27 不验证收口
+- **Phase 27 挂起**(2026-09-02,用户降级优先级):修复已提交(61f9089/a070c41/07e44fd),UAT-2..7 回归按 27-HUMAN-UAT.md 清单随时可恢复;全 pass 前不生成 27-04-SUMMARY、Phase 27 不验证收口
+- **优先级重定**:用户要求优先「产品 + 产研中心真正实现并可用」——待对齐缺口后重排 v0.3.3 剩余(Phase 28 反向创建是否顺延)
 - 22-UAT Test 7 人工复测待真实 LLM 环境补验(非阻塞,常量互锁已闭)
 - update-path params_hash 双源计算边界(升级路径 = 知识表单一真相源;v0.3.3 数据落点裁定时一并考虑)
 - 结转 tech debt(非阻断):FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null
@@ -104,8 +105,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-02T02:30:00.000Z
-Stopped at: 27-04 Task 1 committed; Task 2 human UAT deferred by user 2026-09-02
+Last session: 2026-09-02T03:00:00.000Z
+Stopped at: Phase 27 SUSPENDED (user priority shift) — next: 产品/产研中心真实可用 gap 对齐
 Resume file: None
 
 If resuming after context loss:
@@ -113,6 +114,6 @@ If resuming after context loss:
 1. Read `.planning/ROADMAP.md` — v0.3.3 active(Phases 26-28);历史里程碑全归档;999.x 为 BACKLOG
 2. Read `.planning/PROJECT.md` Current Milestone — v0.3.3 产研半落地 + 工作区入驻
 3. Read `.planning/research/SUMMARY.md` — 架构结论:引擎协议零改动,增量 = tabRunStore + Rust 提取命令 + HITL 复用
-4. Next action: 重启 tauri:dev 回归 27-HUMAN-UAT.md 的 UAT-2..7;全 pass 后 `/gsd:execute-phase 27 --gaps-only` 收口(SUMMARY + 验证 + close UAT gaps)
+4. Next action: 对齐「产品/产研中心真正用起来」缺口 → 重排 v0.3.3(Phase 27 恢复条件:用户重新拉高优先级;恢复时 `/gsd:execute-phase 27 --gaps-only`)
 
 Key files: `src-tauri/src/engine/`(Rust 引擎,协议不动)、`src/stores/rndStore.ts`(六个 generate*AI 为 mock 全清对象)、`research/RND-ROLLOUT-V0.3-V0.4.md`(路线真相源)、`docs/adr/ADR-0003-rust-run-engine.md`

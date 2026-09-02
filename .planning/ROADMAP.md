@@ -69,7 +69,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
-| 27. 工作区文档摄取 | 3/3 | Complete   | 2026-09-01 |
+| 27. 工作区文档摄取 | 3/4 | Suspended — 27-04 fix committed (2026-09-02), UAT-2..7 regression deferred by user (priority shift) | - |
 | 28. 反向创建产品 + 收口 | 0/? | Not started | - |
 
 ## Historical Milestones

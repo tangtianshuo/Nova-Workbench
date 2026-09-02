@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
-status: verifying
-stopped_at: Completed 27-03-PLAN.md (pending human UAT items)
-last_updated: "2026-09-01T02:06:52.892Z"
-last_activity: 2026-09-01
+status: executing
+stopped_at: 27-04 Task 1 committed (61f9089, a070c41, 07e44fd); Task 2 human UAT deferred by user 2026-09-02
+last_updated: "2026-09-02T02:30:00.000Z"
+last_activity: 2026-09-02 -- Phase 27 gap closure paused, UAT-2..7 regression deferred
 progress:
   total_phases: 8
-  completed_phases: 2
-  total_plans: 7
+  completed_phases: 1
+  total_plans: 8
   completed_plans: 7
 ---
 
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase: 27 (workspace-ingestion) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-09-01
+Phase: 27 (workspace-ingestion) — PAUSED (gap closure)
+Plan: 4 of 4 (27-04 Task 1 done, Task 2 human UAT deferred)
+Status: 27-04 修复代码已提交；UAT-2..7 真机回归整体延后（用户决定 2026-09-02）
+Last activity: 2026-09-02 -- Phase 27 gap closure paused, UAT-2..7 regression deferred
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -93,6 +93,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 
 ### TODOs (pending)
 
+- **Phase 27 UAT-2..7 真机回归延后**(2026-09-02):修复已提交(61f9089/a070c41/07e44fd),待重启 tauri:dev 按 27-HUMAN-UAT.md 清单回归;全 pass 前不生成 27-04-SUMMARY、Phase 27 不验证收口
 - 22-UAT Test 7 人工复测待真实 LLM 环境补验(非阻塞,常量互锁已闭)
 - update-path params_hash 双源计算边界(升级路径 = 知识表单一真相源;v0.3.3 数据落点裁定时一并考虑)
 - 结转 tech debt(非阻断):FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、taskStore/scheduleStore v1→v2 实测、MarkdownEditor chunk、CSP null
@@ -103,8 +104,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-01T02:06:52.885Z
-Stopped at: Completed 27-03-PLAN.md (pending human UAT items)
+Last session: 2026-09-02T02:30:00.000Z
+Stopped at: 27-04 Task 1 committed; Task 2 human UAT deferred by user 2026-09-02
 Resume file: None
 
 If resuming after context loss:
@@ -112,6 +113,6 @@ If resuming after context loss:
 1. Read `.planning/ROADMAP.md` — v0.3.3 active(Phases 26-28);历史里程碑全归档;999.x 为 BACKLOG
 2. Read `.planning/PROJECT.md` Current Milestone — v0.3.3 产研半落地 + 工作区入驻
 3. Read `.planning/research/SUMMARY.md` — 架构结论:引擎协议零改动,增量 = tabRunStore + Rust 提取命令 + HITL 复用
-4. Next action: `/gsd:plan-phase 26`
+4. Next action: 重启 tauri:dev 回归 27-HUMAN-UAT.md 的 UAT-2..7;全 pass 后 `/gsd:execute-phase 27 --gaps-only` 收口(SUMMARY + 验证 + close UAT gaps)
 
 Key files: `src-tauri/src/engine/`(Rust 引擎,协议不动)、`src/stores/rndStore.ts`(六个 generate*AI 为 mock 全清对象)、`research/RND-ROLLOUT-V0.3-V0.4.md`(路线真相源)、`docs/adr/ADR-0003-rust-run-engine.md`

@@ -3,12 +3,12 @@ status: diagnosed
 phase: 27-workspace-ingestion
 source: [27-VERIFICATION.md]
 started: 2026-09-01T09:35:00+08:00
-updated: 2026-09-02T00:00:00+08:00
+updated: 2026-09-02T10:30:00+08:00
 ---
 
 ## Current Test
 
-[testing complete]
+[deferred 2026-09-02] 修复已落地（27-04 Task 1：61f9089 注册表完整性测试 + a070c41 注册 0010/0011 + 07e44fd APP_SCHEMA_VERSION 9→11），用户选择整体延后 UAT-2..7 真机回归；恢复时重启 tauri:dev 按原验证清单逐项回归。
 
 ## Tests
 

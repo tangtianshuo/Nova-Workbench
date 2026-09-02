@@ -21,6 +21,7 @@ use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmTool
 use crate::engine::{confirmations, exec, fs_ops, tools};
 use crate::engine::ingest;
 use crate::engine::pm_store;
+use crate::engine::workflow_store;
 use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
 use crate::notify;
@@ -996,6 +997,12 @@ pub fn consume_pm_write_inner(conn: &Connection, token: &str) -> Result<Value, A
             pm_store::delete_schedule(&tx, event_id).map_err(pm_err)?;
             audit(&tx, json!({"eventId": event_id}))?;
         }
+        // 30-02: template delete reuses the pm_write kind (no new confirmation kind).
+        "workflow_delete" => {
+            let id = candidate.params["id"].as_str().unwrap_or_default();
+            workflow_store::delete_workflow(&tx, id).map_err(pm_err)?;
+            audit(&tx, json!({"id": id}))?;
+        }
         // Cap-5 escalation replay: execute the original light-write semantics.
         "task_create" => {
             let id = pm_store::insert_task(&tx, &args).map_err(pm_err)?;
@@ -1036,6 +1043,15 @@ pub async fn engine_ingest_pending_count(
     with_conn(&db, |conn| {
         ingest::pending_count(std::path::Path::new(&root), conn)
             .map_err(|e| AppError::InternalError(e))
+    })
+}
+
+/// Phase 30 (30-02): read command for the workflow template list (SQLite user
+/// layer; builtin JSON merged webview-side by workflowStore.refreshFromSql).
+#[tauri::command]
+pub async fn engine_list_workflows(db: State<'_, EngineDb>) -> Result<Vec<Value>, AppError> {
+    with_conn(&db, |conn| {
+        workflow_store::list_workflows(conn).map_err(|e| AppError::InternalError(e.to_string()))
     })
 }
 
@@ -1733,6 +1749,38 @@ mod tests {
         let ev = events.iter().find(|e| e.event_type == "pm_write_applied").unwrap();
         assert_eq!(ev.payload["action"], "schedule_delete");
         assert_eq!(ev.payload["eventId"], "pm-e1");
+    }
+
+    /// 30-02: workflow_delete rides the same pm_write consume path.
+    #[test]
+    fn consume_pm_write_workflow_delete_removes_row_and_audits() {
+        let conn = mem_conn();
+        workflow_store::insert_workflow(
+            &conn,
+            &json!({"name": "周末扫描", "steps": [{"name": "s", "prompt": "p"}]}),
+            "user",
+        )
+        .unwrap();
+        let id: String = conn
+            .query_row("SELECT id FROM workflow_templates LIMIT 1", [], |r| r.get(0))
+            .unwrap();
+        let token = confirmations::create_candidate(
+            &conn,
+            "pm_write",
+            &json!({"action": "workflow_delete", "id": id, "name": "周末扫描"}),
+            Some("删除工作流模板"),
+            Some("s1"),
+        )
+        .unwrap()
+        .confirmation_token;
+        let result = consume_pm_write_inner(&conn, &token).unwrap();
+        assert_eq!(result, json!({"applied": true, "action": "workflow_delete"}));
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM workflow_templates", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let ev = events.iter().find(|e| e.event_type == "pm_write_applied").unwrap();
+        assert_eq!(ev.payload["action"], "workflow_delete");
+        assert_eq!(ev.payload["id"], json!(id));
     }
 
     #[test]

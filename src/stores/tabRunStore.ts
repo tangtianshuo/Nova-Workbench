@@ -15,6 +15,7 @@ import { useUIStore } from '@/src/stores/uiStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { useTaskStore } from '@/src/stores/taskStore';
 import { useScheduleStore } from '@/src/stores/scheduleStore';
+import { useWorkflowStore } from '@/src/stores/workflowStore';
 
 export type TabRunKind =
   | 'requirement'
@@ -252,6 +253,7 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
               const toolName = msg.data.name;
               if (toolName.startsWith('task_')) void useTaskStore.getState().refreshFromSql();
               else if (toolName.startsWith('schedule_')) void useScheduleStore.getState().refreshFromSql();
+              else if (toolName.startsWith('workflow_')) void useWorkflowStore.getState().refreshFromSql();
               patchRun(set, runId, (run) => appendEvent(run, { ts: Date.now(), kind: 'tool_end', name: msg.data!.name, summary: msg.data!.ok === false ? 'failed' : 'ok' }));
               return;
             }

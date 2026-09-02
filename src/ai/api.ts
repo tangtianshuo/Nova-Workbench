@@ -235,6 +235,21 @@ export async function engineConsumePmWrite(token: string): Promise<PmWriteConsum
   return invoke<PmWriteConsumeResult>('engine_consume_pm_write', { token });
 }
 
+/** Phase 30 (30-02): SQLite user-layer workflow templates (builtin JSON merged
+ *  webview-side by workflowStore.refreshFromSql). */
+export interface EngineWorkflowRow {
+  id: string;
+  name: string;
+  description: string;
+  steps: unknown[];
+  source: 'user' | 'distilled';
+  updatedAt: string;
+}
+export async function engineListWorkflows(): Promise<EngineWorkflowRow[]> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<EngineWorkflowRow[]>('engine_list_workflows');
+}
+
 /**
  * Post-confirmation settlement: the tool re-executed in TS (executeTool stays
  * TS in Phase 22), the events land via Rust — sole writer. Fresh UUID when the

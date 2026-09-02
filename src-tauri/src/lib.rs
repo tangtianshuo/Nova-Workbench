@@ -225,6 +225,7 @@ pub fn run() {
             engine::commands::engine_consume_memory,
             engine::commands::engine_consume_ingestion_batch,
             engine::commands::engine_consume_pm_write,
+            engine::commands::engine_list_workflows,
             engine::commands::engine_ingest_pending_count,
             engine::commands::engine_reject_memory,
         ])

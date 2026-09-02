@@ -43,6 +43,7 @@ import { useUIStore } from '@/src/stores/uiStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { useTaskStore } from '@/src/stores/taskStore';
 import { useScheduleStore } from '@/src/stores/scheduleStore';
+import { useWorkflowStore } from '@/src/stores/workflowStore';
 import { isTauri } from '@/src/lib/api';
 import type { Provider } from '@/src/lib/api';
 
@@ -94,6 +95,7 @@ export interface PmWriteCandidate {  confirmationToken: string;
 const PM_WRITE_ACTION_LABELS: Record<string, string> = {
   task_delete: '删除任务',
   schedule_delete: '删除日程',
+  workflow_delete: '删除工作流模板',
 };
 
 export interface ChatMessage {
@@ -1039,6 +1041,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         // Phase 29 (29-04): 确认写入已落库 — task/schedule 两表都可能被 pm_write 触及,都刷。
         void useTaskStore.getState().refreshFromSql();
         void useScheduleStore.getState().refreshFromSql();
+        void useWorkflowStore.getState().refreshFromSql();
         set((current) => ({
           messages: [...current.messages, {
             id: nextId++,

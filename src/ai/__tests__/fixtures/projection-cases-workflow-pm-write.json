@@ -1,0 +1,91 @@
+[
+  {
+    "name": "workflow-pm-write-await-then-applied",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-1",
+        "sessionId": "wf1",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-09-02T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": { "content": "删掉周末扫描这个模板" }
+      },
+      {
+        "eventId": "ev-2",
+        "sessionId": "wf1",
+        "seq": 2,
+        "eventType": "tool_call",
+        "createdAt": "2026-09-02T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc1",
+          "toolName": "workflow_delete",
+          "args": { "id": "wf-1" },
+          "content": ""
+        }
+      },
+      {
+        "eventId": "ev-3",
+        "sessionId": "wf1",
+        "seq": 3,
+        "eventType": "tool_result",
+        "createdAt": "2026-09-02T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc1",
+          "toolName": "workflow_delete",
+          "modelText": "[tool_result workflow_delete] {\"ok\":false,\"awaitingConfirmation\":true,\"error\":\"Explicit confirmation is required before deleting or further writing PM data.\"}",
+          "ok": false,
+          "awaitingConfirmation": true,
+          "error": "Explicit confirmation is required before deleting or further writing PM data."
+        }
+      },
+      {
+        "eventId": "ev-4",
+        "sessionId": "wf1",
+        "seq": 4,
+        "eventType": "turn_ended",
+        "createdAt": "2026-09-02T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": { "outcome": "awaiting_confirmation" }
+      },
+      {
+        "eventId": "ev-5",
+        "sessionId": "wf1",
+        "seq": 5,
+        "eventType": "pm_write_applied",
+        "createdAt": "2026-09-02T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "action": "workflow_delete",
+          "id": "wf-1",
+          "applied": true,
+          "confirmationToken": "tok-1"
+        }
+      }
+    ],
+    "expectedMessages": [
+      { "role": "user", "content": "删掉周末扫描这个模板" },
+      { "role": "assistant", "content": "" },
+      { "role": "tool", "content": "[tool_result workflow_delete] {\"ok\":false,\"awaitingConfirmation\":true,\"error\":\"Explicit confirmation is required before deleting or further writing PM data.\"}" }
+    ]
+  }
+]

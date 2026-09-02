@@ -40,6 +40,10 @@ const expectedTools = [
   'listKnowledgeArticles',
   'searchKnowledgeBase',
   'proposeMemory',
+  'workflow_search',
+  'workflow_create',
+  'workflow_update',
+  'workflow_delete',
 ];
 
 assert.deepEqual([...listToolNames()].sort(), [...expectedTools].sort());

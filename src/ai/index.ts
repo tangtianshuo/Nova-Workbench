@@ -12,6 +12,7 @@ import './tools/knowledgeSearch';
 import './tools/navigation';
 import './tools/proposeMemory';
 import './tools/generateDeliverable';
+import './tools/workflow';
 
 export * from './registry';
 export { VIEW_IDS } from './tools/navigation';

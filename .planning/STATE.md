@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Phase 27 SUSPENDED by user 2026-09-02 (priority shift) — 27-04 fix committed (61f9089/a070c41/07e44fd), UAT-2..7 regression postponed indefinitely. New priority: 产品 + 产研中心真实可用
-last_updated: "2026-09-02T03:00:00.000Z"
-last_activity: 2026-09-02 -- Phase 27 suspended; priority → product & R&D center real usability
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-09-02T03:39:25.939Z"
+last_activity: 2026-09-02
 progress:
-  total_phases: 9
+  total_phases: 8
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 7
+  total_plans: 12
+  completed_plans: 8
 ---
 
 # Project State
@@ -20,14 +20,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 29 — PM CRUD 工具原生化（agent 写路径,2026-09-02 自 999.6 promote,第一优先）
+**Current focus:** Phase 29 — pm-crud
 
 ## Current Position
 
-Phase: 29 (pm-crud) — NEXT UP（立项讨论）
-Status: v0.3.3 优先级重定完成（2026-09-02）:27 挂起、28 顺延、29 promote;Phase 30（参考模板+工作流自组织,取材 999.4+999.2）待 29 落地后立项
+Phase: 29 (pm-crud) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Next: `/gsd:discuss-phase 29`
-Last activity: 2026-09-02 -- backlog review: 999.6 → Phase 29, malformed dir cleaned, Phase 30 素材锁定
+Last activity: 2026-09-02
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -64,6 +65,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 27 P01 | 1.5h | 3 tasks | 11 files |
 | Phase 27 P02 | 50m | 3 tasks | 7 files |
 | Phase 27 P03 | 35m | 3 tasks | 10 files |
+| Phase 29 P01 | 35m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -90,6 +92,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 26]: 26-04: generateDeliverable widened to all 18 catalog codes both sides (TS+Rust parity); batch 18 = single multi-step run; competitor candidates via knowledge_write (no catalog slot); persist wipes five mock buckets (delete, no migrate)
 - [Phase 27]: pdf_oxide 0.3.77 中文 PoC 通过,zip 限 deflate 避免 C 构建
 - [Phase 27]: 27-02: knowledge doc_id = item.id (ing-{hash8}) 作 consume 幂等键,复用 doc_id 唯一索引;migration 0011 扩 candidates CHECK 加 ingestion_batch;consume 自动 confirm 沿 commit_deliverable 先例
+- [Phase 29]: [29-01] task/schedule 关系表落地(schema 12)+ kv→关系一次性幂等搬移(meta latch pm_kv_migrated_v29,kv 保留);日期全 TEXT 零转换
 
 ### TODOs (pending)
 
@@ -105,8 +108,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-02T03:00:00.000Z
-Stopped at: Phase 27 SUSPENDED (user priority shift) — next: 产品/产研中心真实可用 gap 对齐
+Last session: 2026-09-02T03:39:25.934Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
 
 If resuming after context loss:

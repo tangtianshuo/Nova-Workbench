@@ -11,6 +11,7 @@ import {
   Calendar,
   Folder,
   BookOpen,
+  FlowArrow,
   Gear,
   Cpu,
   Cube,
@@ -181,5 +182,6 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: 'schedule', icon: Calendar, label: '日常管理', subtitle: '时间规划 / 会议安排 / 事项提醒' },
   { id: 'files', icon: Folder, label: '文件归档', subtitle: '工作区管理 / 本地文件索引' },
   { id: 'knowledge', icon: BookOpen, label: '知识库', subtitle: '经验总结 / 最佳实践 / 团队财富' },
+  { id: 'workflows', icon: FlowArrow, label: '工作流', subtitle: '模板库 / 参考剧本 / 一次发起', isNew: true },
   { id: 'settings', icon: Gear, label: '设置中心', subtitle: '系统配置 / 权限管理 / 个性化' },
 ];

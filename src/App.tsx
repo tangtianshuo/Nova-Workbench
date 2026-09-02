@@ -26,6 +26,7 @@ const RndCenterView = lazy(() => import('./views/RndCenterView').then(m => ({ de
 const ScheduleView = lazy(() => import('./views/ScheduleView').then(m => ({ default: m.ScheduleView })));
 const FileArchiveView = lazy(() => import('./views/FileArchiveView').then(m => ({ default: m.FileArchiveView })));
 const KnowledgeBaseView = lazy(() => import('./views/KnowledgeBaseView').then(m => ({ default: m.KnowledgeBaseView })));
+const WorkflowView = lazy(() => import('./views/WorkflowView').then(m => ({ default: m.WorkflowView })));
 const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })));
 
 /* View loading fallback */
@@ -87,6 +88,8 @@ function MainLayout() {
         return <FileArchiveView />;
       case 'knowledge':
         return <KnowledgeBaseView />;
+      case 'workflows':
+        return <WorkflowView />;
       case 'settings':
         return <SettingsView />;
       default:

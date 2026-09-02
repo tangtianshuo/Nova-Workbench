@@ -1,10 +1,11 @@
 ---
 phase: 30
 slug: workflow-templates
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-02
+reviewed_at: 2026-09-02
 ---
 
 # Phase 30 — UI Design Contract(工作流视图 / 模板库 / 沉淀确认卡)

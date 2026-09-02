@@ -4,7 +4,7 @@
 
 ## Milestones
 
-- 🚧 **v0.3.3 产研半落地 + 工作区入驻** — Phases 26-28 (active)
+- 🚧 **v0.3.3 产研半落地 + 工作区入驻** — Phases 26-29 (active)
 - ✅ **v0.3.2 Rust Run Engine** — Phases 22-25 (shipped 2026-08-31) — [archive](milestones/v0.3.2-ROADMAP.md)
 - ✅ **v0.3.1 多 Session 会话体系** — Phases 18-21 (shipped 2026-08-19, closed 2026-08-24) — [archive](milestones/v0.3.1-ROADMAP.md)
 - ✅ **v0.3.0 功能闭环** — Phases 13-17 (shipped 2026-08-17) — [archive](milestones/v0.3.0-ROADMAP.md)
@@ -14,9 +14,10 @@
 
 ### v0.3.3 产研半落地 + 工作区入驻(RND-ROLLOUT ①层)
 
-- [ ] **Phase 26: Mock 全清 — tab 接引擎** - 产研各 tab AI 按钮触发真实 engine_run(带 tab 上下文、独立 session、流式进度、候选→HITL→落槽),mock 全删
-- [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等
-- [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT
+- [ ] **Phase 26: Mock 全清 — tab 接引擎** - 产研各 tab AI 按钮触发真实 engine_run(带 tab 上下文、独立 session、流式进度、候选→HITL→落槽),mock 全删 ✅(2026-08-31)
+- [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等 ⏸️(挂起 2026-09-02,修复已提交待 UAT 回归)
+- [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT(顺延 2026-09-02)
+- [ ] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule/product CRUD 原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)
 
 ## Phase Details
 
@@ -64,13 +65,26 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 29: PM CRUD 工具原生化 — agent 写路径
+**Goal**: 把 task/schedule(及 product 视讨论)的 CRUD 操作原生化为引擎工具(task_create/update/complete、schedule_create/update 等),每工具带三档风险标注(读免确认/可逆轻写免确认/删除+批量+外发确认,999.5 D-12),使助手具备真实写任务/日程/产品能力——「Agent 替你干活」的地基,也是后续工作流用户自组织(Phase 30)的执行基础
+**Depends on**: Phase 23 引擎工具注册表(v0.3.2 已就绪);999.5 D-11/D-12 裁定
+**Requirements**: TBD(discuss-phase 定义)
+**Success Criteria** (what must be TRUE):
+  1. 用户在对话中让助手创建/修改/完成任务、日程,agent 调用原生 CRUD 工具真实落库(非 mock、非手动 UI 操作)
+  2. 三档风险分级生效:读操作免确认,可逆轻写免确认,删除/批量/外发走 HITL 确认
+  3. 写入立即可见于对应视图(任务页/日历/产品),重启不丢
+  4. 业务数据关系化(task/schedule 自 Zustand-persist 迁 SQLite 关系表)是否同期——discuss 裁定
+**Plans:** TBD(/gsd:discuss-phase 29 → plan-phase)
+**排期**: 2026-09-02 promote 自 999.6(v0.3.3 优先级重定,第一优先;原裁定 v0.4 首批)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
 | 27. 工作区文档摄取 | 3/4 | Suspended — 27-04 fix committed (2026-09-02), UAT-2..7 regression deferred by user (priority shift) | - |
-| 28. 反向创建产品 + 收口 | 0/? | Not started | - |
+| 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
+| 29. PM CRUD 工具原生化 — agent 写路径 | 0/? | Not started — next up (/gsd:discuss-phase 29) | - |
 
 ## Historical Milestones
 
@@ -135,17 +149,10 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
-### Phase 999.6: PM CRUD 工具原生化 — 助手写路径前置 (BACKLOG)
-
-**Goal:** [Captured for future planning] 把 task/schedule 的 CRUD 操作原生化为引擎工具(task_create/update/complete、schedule_create/update 等),每工具带三档风险标注(读免确认/可逆轻写免确认/删除+批量+外发确认,999.5 D-12),使日常助手 persona 具备写任务/日程能力。999.5 D-11 裁定:单独立项为 v0.4 硬前置,不并入双 agent phase。业务数据关系化(task/schedule 自 Zustand-persist 种子迁 SQLite 关系表)是否同期,立项时讨论。
-**依赖:** Phase 23 引擎工具注册表(已就绪);999.5 D-11
-**建议排期:** v0.3.3 收口后、v0.4 助手/coding 场景前(v0.4 首批 phase)
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
-
 ---
 
 *999.1 工作区先行的产品入驻已于 2026-08-31 移入 v0.3.3 正式 scope(Phase 27 文档摄取 + Phase 28 反向创建产品,需求 ING-01..06 / REV-01..02),backlog 条目移除。*
+
+*999.6 PM CRUD 工具原生化已于 2026-09-02 promote 为 **Phase 29**(v0.3.3 优先级重定:27 挂起、28 顺延,agent 写路径第一优先),backlog 条目移除。*
+
+*Phase 30(参考模板数据化 + 工作流用户自组织)取材 999.4 + 999.2,2026-09-02 裁定:29 落地后再立项——自组织工作流的执行基础是 29 的写路径,且避免一次拉两个大 scope。产品哲学约束:工作流用户自组织,Nova 只提供参考+模板,严禁刚性 pipeline 设计。*

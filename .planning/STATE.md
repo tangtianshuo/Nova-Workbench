@@ -7,7 +7,7 @@ stopped_at: Phase 27 SUSPENDED by user 2026-09-02 (priority shift) — 27-04 fix
 last_updated: "2026-09-02T03:00:00.000Z"
 last_activity: 2026-09-02 -- Phase 27 suspended; priority → product & R&D center real usability
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 1
   total_plans: 8
   completed_plans: 7
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 27 SUSPENDED — 优先级转向:产品 + 产研中心真实可用（用户 2026-09-02）
+**Current focus:** Phase 29 — PM CRUD 工具原生化（agent 写路径,2026-09-02 自 999.6 promote,第一优先）
 
 ## Current Position
 
-Phase: 27 (workspace-ingestion) — SUSPENDED（用户降级,优先级不高）
-Status: 27-04 修复已提交（61f9089/a070c41/07e44fd）,UAT-2..7 回归无限期延后;Phase 28 排期待重定
-Next: 对齐「产品/产研中心真正用起来」的缺口 → 重新规划 v0.3.3 剩余排期
-Last activity: 2026-09-02 -- Phase 27 suspended; priority → product & R&D center real usability
+Phase: 29 (pm-crud) — NEXT UP（立项讨论）
+Status: v0.3.3 优先级重定完成（2026-09-02）:27 挂起、28 顺延、29 promote;Phase 30（参考模板+工作流自组织,取材 999.4+999.2）待 29 落地后立项
+Next: `/gsd:discuss-phase 29`
+Last activity: 2026-09-02 -- backlog review: 999.6 → Phase 29, malformed dir cleaned, Phase 30 素材锁定
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -111,9 +111,9 @@ Resume file: None
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.3 active(Phases 26-28);历史里程碑全归档;999.x 为 BACKLOG
+1. Read `.planning/ROADMAP.md` — v0.3.3 active(Phases 26-29,27 挂起/28 顺延/29 next);历史里程碑全归档;999.x 为 BACKLOG
 2. Read `.planning/PROJECT.md` Current Milestone — v0.3.3 产研半落地 + 工作区入驻
 3. Read `.planning/research/SUMMARY.md` — 架构结论:引擎协议零改动,增量 = tabRunStore + Rust 提取命令 + HITL 复用
-4. Next action: 对齐「产品/产研中心真正用起来」缺口 → 重排 v0.3.3(Phase 27 恢复条件:用户重新拉高优先级;恢复时 `/gsd:execute-phase 27 --gaps-only`)
+4. Next action: `/gsd:discuss-phase 29`(PM CRUD 原生化/agent 写路径;裁定素材 999.5-CONTEXT D-11/D-12;产品哲学:工作流用户自组织,只给参考+模板,严禁刚性 pipeline)
 
 Key files: `src-tauri/src/engine/`(Rust 引擎,协议不动)、`src/stores/rndStore.ts`(六个 generate*AI 为 mock 全清对象)、`research/RND-ROLLOUT-V0.3-V0.4.md`(路线真相源)、`docs/adr/ADR-0003-rust-run-engine.md`

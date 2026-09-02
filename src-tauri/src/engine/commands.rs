@@ -1117,6 +1117,7 @@ mod tests {
                 session_id: "s1",
                 product_id: None,
                 workspace_root: Some(std::path::PathBuf::from(&cwd)),
+                pm_writes_used: 0,
             };
             let outcome = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -1188,7 +1189,7 @@ mod tests {
         // fs_write tool → fs_write candidate
         let token = {
             use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-            let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: Some(root.clone()) };
+            let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: Some(root.clone()), pm_writes_used: 0 };
             match execute(&conn, "fs_write", &json!({"path": "out.md", "content": "confirmed"}), &ctx) {
                 ToolOutcome::AwaitConfirmation { candidate, .. } => {
                     candidate["confirmationToken"].as_str().unwrap().to_string()
@@ -1226,7 +1227,7 @@ mod tests {
     /// Queue a deliverable_draft candidate via the native tool (product p1).
     fn queue_deliverable(conn: &Connection) -> String {
         use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v1", "draft": "D"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 candidate["confirmationToken"].as_str().unwrap().to_string()
@@ -1276,7 +1277,7 @@ mod tests {
         // candidate is still active and would dedup the queue call.)
         let token2 = {
             use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
             match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v2", "draft": "D"}), &ctx) {
                 ToolOutcome::AwaitConfirmation { candidate, .. } => candidate["confirmationToken"].as_str().unwrap().to_string(),
                 other => panic!("expected candidate, got {other:?}"),
@@ -1286,7 +1287,7 @@ mod tests {
         // Rejected candidate → confirm fails non-AlreadySettled → error, no event.
         let token3 = {
             use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
             match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v3", "draft": "D"}), &ctx) {
                 ToolOutcome::AwaitConfirmation { candidate, .. } => candidate["confirmationToken"].as_str().unwrap().to_string(),
                 other => panic!("expected candidate, got {other:?}"),
@@ -1419,7 +1420,7 @@ mod tests {
 
     fn queue_ingestion_batch(conn: &Connection, items: Value) -> String {
         use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(conn, "ingest_submit", &json!({"workspaceId": "w1", "items": items}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 candidate["confirmationToken"].as_str().unwrap().to_string()

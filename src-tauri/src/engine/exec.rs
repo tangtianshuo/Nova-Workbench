@@ -400,7 +400,7 @@ mod tests {
     }
 
     fn ctx<'a>(root: Option<PathBuf>) -> ToolCtx<'a> {
-        ToolCtx { session_id: "s1", product_id: None, workspace_root: root }
+        ToolCtx { session_id: "s1", product_id: None, workspace_root: root, pm_writes_used: 0 }
     }
 
     #[test]

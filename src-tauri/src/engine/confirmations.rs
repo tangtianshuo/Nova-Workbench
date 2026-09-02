@@ -168,7 +168,7 @@ pub fn create_candidate(
     summary: Option<&str>,
     session_id: Option<&str>,
 ) -> Result<Candidate> {
-    if matches!(kind, "destructive_action" | "deliverable_draft" | "exec_approval" | "fs_write") {
+    if matches!(kind, "destructive_action" | "deliverable_draft" | "exec_approval" | "fs_write" | "pm_write") {
         let hash = params_hash(params);
         for row in list_pending(conn, kind)? {
             let dup = if kind != "deliverable_draft" {

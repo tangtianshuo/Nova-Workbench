@@ -62,7 +62,7 @@ pub fn list_tasks(conn: &Connection, filters: &Value) -> Result<Vec<Value>> {
         "SELECT id, title, status, priority, deadline, description, project, project_id, assignee, assignee_avatar, time, category_id, scheduled_event_id FROM tasks WHERE 1=1",
     );
     let mut args: Vec<String> = Vec::new();
-    for (f, col) in [("status", "status"), ("projectId", "project_id"), ("deadline", "deadline")] {
+    for (f, col) in [("status", "status"), ("priority", "priority"), ("projectId", "project_id"), ("deadline", "deadline")] {
         if let Some(v) = s(filters, f) {
             args.push(v);
             sql.push_str(&format!(" AND {col} = ?{}", args.len()));
@@ -125,7 +125,7 @@ pub fn list_schedules(conn: &Connection, filters: &Value) -> Result<Vec<Value>> 
         "SELECT id, title, time, date, type, location, project_id, task_id, status FROM schedules WHERE 1=1",
     );
     let mut args: Vec<String> = Vec::new();
-    for (f, col) in [("date", "date"), ("projectId", "project_id"), ("taskId", "task_id")] {
+    for (f, col) in [("date", "date"), ("projectId", "project_id"), ("taskId", "task_id"), ("type", "type")] {
         if let Some(v) = s(filters, f) {
             args.push(v);
             sql.push_str(&format!(" AND {col} = ?{}", args.len()));

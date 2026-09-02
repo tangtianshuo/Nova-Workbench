@@ -309,6 +309,7 @@ pub async fn run_tool_loop(
                 session_id: &scope.session_id,
                 product_id: ctx.product_id.as_deref(),
                 workspace_root: ctx.workspace_root.clone(),
+                pm_writes_used: 0,
             };
             match tools::execute_async(ctx.conn, &call.name, &call.arguments, &tool_ctx, cancel.clone(), on_event.as_ref()).await {
                 tools::ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -552,7 +553,7 @@ mod tests {
         for absent in ["createTask", "updateTask", "deleteTask", "createSchedule", "updateSchedule", "createProject"] {
             assert!(!names.contains(&absent), "schema must not contain {absent}");
         }
-        assert_eq!(schemas.len(), 13); // 27-02: +ingest_submit
+        assert_eq!(schemas.len(), 22); // 29-02: +9 PM CRUD tools
     }
 
     #[test]

@@ -1,7 +1,8 @@
 // src-tauri/src/engine/tools.rs
-// Phase 22 (22-05) — minimal Rust-native tool set (orchestrator ruling:
-// NO TS bridge in Phase 22; PM CRUD tools are intentionally NOT registered —
-// they disappear from the model schema and return via the Phase 23 bridge).
+// Phase 22 (22-05) — minimal Rust-native tool set.
+// Phase 29 (29-02) — 9 PM CRUD tools (task/schedule four-piece ×2 + search)
+// registered with three-tier risk: read/light-write run free, delete (and
+// cap-5 escalated writes) route through pm_write HITL candidates.
 //
 // Tool set: knowledge_search (read-only FTS5) + knowledge_write / memory_write
 // (HITL candidates). Every description carries the PORT-01 verify-before-rerun
@@ -18,6 +19,7 @@ use crate::engine::context_assembler::search_knowledge_hybrid;
 use crate::engine::exec;
 use crate::engine::fs_ops;
 use crate::engine::ingest;
+use crate::engine::pm_store;
 use crate::engine::fts_tokens::{fts_match_string, fts_tokens};
 use crate::engine::params_hash::params_hash;
 
@@ -39,9 +41,28 @@ const FS_DELETE_DESCRIPTION: &str = "Delete a file or directory (recursive) insi
 const FS_MOVE_DESCRIPTION: &str = "Move/rename within the workspace; src and dest are workspace-root-relative. Returns a confirmation candidate requiring user approval.";
 const INGEST_SCAN_DESCRIPTION: &str = "Scan a workspace directory for .docx/.pdf files, extract text (Chinese supported), and return per-file three-state results (extracted/partial/failed) with sha256 content hashes. Already-ingested files (same hash) are skipped; failed files (e.g. scanned PDFs without a text layer) are retried on every scan.";
 const INGEST_SUBMIT_DESCRIPTION: &str = "Submit extracted workspace documents as one batch for user confirmation. items[] carries knowledge articles (type=knowledge, needs category from the 13-value enum) plus optional task/schedule drafts — at most 5 drafts per source document. Every item id must be `ing-{contentHash8}`. The first call returns a single batch candidate; the user reviews/edits/selects items before anything is written.";
+const TASK_CREATE_DESCRIPTION: &str = "Create a task and apply it immediately — no confirmation needed. Field names mirror the Tasks view (title/priority/deadline/description/projectId).";
+const TASK_UPDATE_DESCRIPTION: &str = "Update writable fields of an existing task (status/priority/title/deadline/…) and apply immediately — no confirmation needed. Deleting is NOT possible here; use task_delete.";
+const TASK_COMPLETE_DESCRIPTION: &str = "Mark a task as 已完成 and apply immediately — no confirmation needed.";
+const TASK_DELETE_DESCRIPTION: &str = "Delete a task. Requires user confirmation: the first call returns a candidate card; the deletion only happens after the user approves.";
+const TASK_SEARCH_DESCRIPTION: &str = "Search tasks by status/priority/projectId/deadline filters. Read-only, no confirmation.";
+const SCHEDULE_CREATE_DESCRIPTION: &str = "Create a schedule event and apply it immediately — no confirmation needed. date is YYYY-MM-DD, time is HH:mm (or 'HH:mm - HH:mm').";
+const SCHEDULE_UPDATE_DESCRIPTION: &str = "Update writable fields of an existing schedule event and apply immediately — no confirmation needed. Deleting is NOT possible here; use schedule_delete.";
+const SCHEDULE_DELETE_DESCRIPTION: &str = "Delete a schedule event. Requires user confirmation: the first call returns a candidate card; the deletion only happens after the user approves.";
+const SCHEDULE_SEARCH_DESCRIPTION: &str = "Search schedule events by date/projectId/type filters. Read-only, no confirmation.";
 const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft for the currently selected product. `code` is either \"prd\" or a catalog slot code (DEL-REQ-01 … DEL-REL-04). You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
+const CONFIRMATION_REQUIRED_PM_WRITE: &str = "Explicit confirmation is required before deleting or further writing PM data.";
+
+/// 29-02 cap-5 guardrail (学 ingest INGEST_DRAFT_CAP 先例): per run, after 5
+/// confirmation-free PM writes every further light write escalates to a
+/// pm_write HITL candidate instead of writing directly.
+pub const PM_WRITE_CAP: u32 = 5;
+
+/// scheduleStore.ts ScheduleEventType — enum parity, do not invent values.
+pub const SCHEDULE_TYPES: [&str; 6] = ["meeting", "deadline", "task", "reminder", "review", "sync"];
+pub const TASK_PRIORITIES: [&str; 3] = ["high", "medium", "low"];
 const CONFIRMATION_REQUIRED_MEMORY: &str = "Explicit confirmation is required before saving memory.";
 const CONFIRMATION_REQUIRED_DELIVERABLE: &str = "Explicit confirmation is required before committing the deliverable.";
 
@@ -84,6 +105,7 @@ pub enum ToolKind {
     Fs,
     Deliverable,
     Ingest,
+    Pm,
 }
 
 pub struct ToolSpec {
@@ -295,10 +317,145 @@ pub fn registry() -> Vec<ToolSpec> {
             kind: ToolKind::Ingest,
             idempotency: "verify_first",
         },
-        // ORCHESTRATOR RULING (22-05 plan / ADR-0003): PM CRUD tools
-        // (createTask / updateTask / schedule CRUD / ...) are NOT registered —
-        // no bridge in v0.3.2 (ruling 2026-08-24); Rust-native return in v0.3.3
-        // after business-data relationalization.
+        // 29-02: PM CRUD — three-tier risk (CONTEXT D-12). ids are server-generated
+        // and never accepted from the model.
+        ToolSpec {
+            name: "task_create",
+            description: TASK_CREATE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "minLength": 1 },
+                    "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+                    "deadline": { "type": "string", "description": "YYYY-MM-DD" },
+                    "description": { "type": "string" },
+                    "projectId": { "type": "string" }
+                },
+                "required": ["title"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "task_update",
+            description: TASK_UPDATE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "taskId": { "type": "string", "minLength": 1 },
+                    "updates": { "type": "object" }
+                },
+                "required": ["taskId", "updates"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "task_complete",
+            description: TASK_COMPLETE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "taskId": { "type": "string", "minLength": 1 } },
+                "required": ["taskId"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "task_delete",
+            description: TASK_DELETE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "taskId": { "type": "string", "minLength": 1 } },
+                "required": ["taskId"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "task_search",
+            description: TASK_SEARCH_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "status": { "type": "string" },
+                    "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+                    "projectId": { "type": "string" },
+                    "deadline": { "type": "string", "description": "YYYY-MM-DD" },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": MAX_ARTICLES }
+                },
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "rerunnable",
+        },
+        ToolSpec {
+            name: "schedule_create",
+            description: SCHEDULE_CREATE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "minLength": 1 },
+                    "date": { "type": "string", "description": "YYYY-MM-DD" },
+                    "time": { "type": "string", "description": "HH:mm or 'HH:mm - HH:mm'" },
+                    "type": { "type": "string", "enum": SCHEDULE_TYPES.to_vec() },
+                    "location": { "type": "string" },
+                    "projectId": { "type": "string" },
+                    "taskId": { "type": "string" }
+                },
+                "required": ["title", "date"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "schedule_update",
+            description: SCHEDULE_UPDATE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "eventId": { "type": "string", "minLength": 1 },
+                    "updates": { "type": "object" }
+                },
+                "required": ["eventId", "updates"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "schedule_delete",
+            description: SCHEDULE_DELETE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "eventId": { "type": "string", "minLength": 1 } },
+                "required": ["eventId"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "schedule_search",
+            description: SCHEDULE_SEARCH_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "date": { "type": "string", "description": "YYYY-MM-DD" },
+                    "projectId": { "type": "string" },
+                    "type": { "type": "string", "enum": SCHEDULE_TYPES.to_vec() },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": MAX_ARTICLES }
+                },
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "rerunnable",
+        },
     ]
 }
 
@@ -348,6 +505,9 @@ pub struct ToolCtx<'a> {
     pub session_id: &'a str,
     pub product_id: Option<&'a str>,
     pub workspace_root: Option<std::path::PathBuf>,
+    /// Confirmation-free PM writes already landed this run (cap-5 input,
+    /// maintained by loop_runner; 0 for one-shot webview actions).
+    pub pm_writes_used: u32,
 }
 
 pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
@@ -364,6 +524,15 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "generate_deliverable" => execute_generate_deliverable(conn, args, ctx),
         "ingest_scan" => execute_ingest_scan(conn, args, ctx),
         "ingest_submit" => execute_ingest_submit(conn, args, ctx),
+        "task_create" => execute_task_create(conn, args, ctx),
+        "task_update" => execute_task_update(conn, args, ctx),
+        "task_complete" => execute_task_complete(conn, args, ctx),
+        "task_delete" => execute_task_delete(conn, args, ctx),
+        "task_search" => execute_pm_search(conn, args, ctx, false),
+        "schedule_create" => execute_schedule_create(conn, args, ctx),
+        "schedule_update" => execute_schedule_update(conn, args, ctx),
+        "schedule_delete" => execute_schedule_delete(conn, args, ctx),
+        "schedule_search" => execute_pm_search(conn, args, ctx, true),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -546,6 +715,243 @@ fn execute_ingest_submit(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> 
             wait_key: "error",
             wait_value: CONFIRMATION_REQUIRED_INGEST.into(),
         },
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+/* === 29-02: PM CRUD (three-tier risk, CONTEXT D-12) === */
+
+/// Light-write set counted against PM_WRITE_CAP by loop_runner.
+pub fn is_pm_light_write(name: &str) -> bool {
+    matches!(
+        name,
+        "task_create" | "task_update" | "task_complete" | "schedule_create" | "schedule_update"
+    )
+}
+
+/// Shared pm_write escalation (delete tier + cap-5 escalation tier).
+/// candidate JSON spreads the stored params keys top-level (action/taskId/title
+/// for deletes; action/args/reason for cap escalation) — 29-03 consume reads
+/// the stored candidate params.
+fn pm_write_escalated(conn: &Connection, ctx: &ToolCtx<'_>, params: &Value, summary: &str) -> ToolOutcome {
+    match confirmations::create_candidate(conn, "pm_write", params, Some(summary), Some(ctx.session_id)) {
+        Ok(candidate) => {
+            let mut payload = json!({
+                "kind": "pm_write",
+                "confirmationToken": candidate.confirmation_token,
+                "summary": candidate.summary,
+            });
+            if let (Some(dst), Some(src)) = (payload.as_object_mut(), params.as_object()) {
+                for (k, v) in src {
+                    dst.insert(k.clone(), v.clone());
+                }
+            }
+            ToolOutcome::AwaitConfirmation {
+                candidate: payload,
+                wait_key: "error",
+                wait_value: CONFIRMATION_REQUIRED_PM_WRITE.into(),
+            }
+        }
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+/// Cap-5 gate for light writes: at/over the cap, escalate instead of writing.
+fn escalate_if_capped(conn: &Connection, ctx: &ToolCtx<'_>, tool: &str, args: &Value) -> Option<ToolOutcome> {
+    (ctx.pm_writes_used >= PM_WRITE_CAP).then(|| {
+        pm_write_escalated(
+            conn,
+            ctx,
+            &json!({"action": tool, "args": args, "reason": "cap-5 escalation: per-run confirmation-free write limit reached"}),
+            "本 run 免确认写入已超 5 条,需确认",
+        )
+    })
+}
+
+fn task_not_found(tool: &str, id: &str) -> ToolOutcome {
+    ToolOutcome::Failed { message: format!("Tool \"{tool}\": task {id} not found"), arg_error: false }
+}
+
+fn event_not_found(tool: &str, id: &str) -> ToolOutcome {
+    ToolOutcome::Failed { message: format!("Tool \"{tool}\": schedule event {id} not found"), arg_error: false }
+}
+
+fn execute_task_create(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "task_create", args) {
+        return o;
+    }
+    let Some(title) = str_arg(args, "title") else {
+        return arg_fail("task_create", "title must be a non-empty string");
+    };
+    let priority = str_arg(args, "priority").unwrap_or("medium");
+    if !TASK_PRIORITIES.contains(&priority) {
+        return arg_fail("task_create", &format!("priority must be one of [{}]", TASK_PRIORITIES.join(", ")));
+    }
+    let task = json!({
+        "title": title,
+        "priority": priority,
+        "status": "未开始",
+        "deadline": str_arg(args, "deadline").unwrap_or(""),
+        "description": str_arg(args, "description").unwrap_or(""),
+        "projectId": str_arg(args, "projectId"),
+        "assignee": "AI 助手",
+        "assigneeAvatar": "AI",
+        "categoryId": "",
+    });
+    match pm_store::insert_task(conn, &task) {
+        Ok(id) => ToolOutcome::Executed(json!({"taskId": id, "created": true, "title": title})),
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn execute_task_update(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "task_update", args) {
+        return o;
+    }
+    let Some(task_id) = str_arg(args, "taskId") else {
+        return arg_fail("task_update", "taskId must be a non-empty string");
+    };
+    let Some(updates) = args.get("updates").and_then(|v| v.as_object()) else {
+        return arg_fail("task_update", "updates must be an object");
+    };
+    if updates.is_empty() {
+        return arg_fail("task_update", "updates must contain at least one field");
+    }
+    match pm_store::update_task(conn, task_id, &json!(updates)) {
+        Ok(true) => ToolOutcome::Executed(json!({"updated": true, "taskId": task_id})),
+        Ok(false) => task_not_found("task_update", task_id),
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+/// task_complete = task_update(status=已完成) with its own tool name
+/// (CONTEXT 自裁: merged implementation, separate model-facing name).
+fn execute_task_complete(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "task_complete", args) {
+        return o;
+    }
+    let Some(task_id) = str_arg(args, "taskId") else {
+        return arg_fail("task_complete", "taskId must be a non-empty string");
+    };
+    match pm_store::update_task(conn, task_id, &json!({"status": "已完成"})) {
+        Ok(true) => ToolOutcome::Executed(json!({"completed": true, "taskId": task_id})),
+        Ok(false) => task_not_found("task_complete", task_id),
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn execute_task_delete(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let Some(task_id) = str_arg(args, "taskId") else {
+        return arg_fail("task_delete", "taskId must be a non-empty string");
+    };
+    let title: Option<String> = conn
+        .query_row("SELECT title FROM tasks WHERE id = ?1", [task_id], |r| r.get(0))
+        .ok();
+    let Some(title) = title else {
+        return task_not_found("task_delete", task_id);
+    };
+    pm_write_escalated(
+        conn,
+        ctx,
+        &json!({"action": "task_delete", "taskId": task_id, "title": title}),
+        &format!("删除任务「{title}」"),
+    )
+}
+
+fn execute_schedule_create(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "schedule_create", args) {
+        return o;
+    }
+    let Some(title) = str_arg(args, "title") else {
+        return arg_fail("schedule_create", "title must be a non-empty string");
+    };
+    let Some(date) = str_arg(args, "date") else {
+        return arg_fail("schedule_create", "date must be a non-empty string (YYYY-MM-DD)");
+    };
+    let ty = str_arg(args, "type").unwrap_or("reminder");
+    if !SCHEDULE_TYPES.contains(&ty) {
+        return arg_fail("schedule_create", &format!("type must be one of [{}]", SCHEDULE_TYPES.join(", ")));
+    }
+    let event = json!({
+        "title": title,
+        "date": date,
+        "time": str_arg(args, "time").unwrap_or(""),
+        "type": ty,
+        "location": str_arg(args, "location").unwrap_or(""),
+        "projectId": str_arg(args, "projectId"),
+        "taskId": str_arg(args, "taskId"),
+        "status": "未开始",
+    });
+    match pm_store::upsert_schedule_from_json(conn, &event) {
+        Ok(id) => ToolOutcome::Executed(json!({"eventId": id, "created": true, "title": title})),
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn execute_schedule_update(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "schedule_update", args) {
+        return o;
+    }
+    let Some(event_id) = str_arg(args, "eventId") else {
+        return arg_fail("schedule_update", "eventId must be a non-empty string");
+    };
+    let Some(updates) = args.get("updates").and_then(|v| v.as_object()) else {
+        return arg_fail("schedule_update", "updates must be an object");
+    };
+    if updates.is_empty() {
+        return arg_fail("schedule_update", "updates must contain at least one field");
+    }
+    match pm_store::update_schedule(conn, event_id, &json!(updates)) {
+        Ok(true) => ToolOutcome::Executed(json!({"updated": true, "eventId": event_id})),
+        Ok(false) => event_not_found("schedule_update", event_id),
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn execute_schedule_delete(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let Some(event_id) = str_arg(args, "eventId") else {
+        return arg_fail("schedule_delete", "eventId must be a non-empty string");
+    };
+    let title: Option<String> = conn
+        .query_row("SELECT title FROM schedules WHERE id = ?1", [event_id], |r| r.get(0))
+        .ok();
+    let Some(title) = title else {
+        return event_not_found("schedule_delete", event_id);
+    };
+    pm_write_escalated(
+        conn,
+        ctx,
+        &json!({"action": "schedule_delete", "eventId": event_id, "title": title}),
+        &format!("删除日程「{title}」"),
+    )
+}
+
+/// Shared search body for task_search / schedule_search (read tier).
+fn execute_pm_search(conn: &Connection, args: &Value, _ctx: &ToolCtx<'_>, schedule: bool) -> ToolOutcome {
+    let tool = if schedule { "schedule_search" } else { "task_search" };
+    let limit = match args.get("limit").and_then(|v| v.as_i64()) {
+        None => MAX_ARTICLES,
+        Some(n) if (1..=MAX_ARTICLES).contains(&n) => n,
+        Some(n) => {
+            return arg_fail(tool, &format!("limit {n} out of range 1..={MAX_ARTICLES}"));
+        }
+    };
+    let mut filters = json!({"limit": limit});
+    const TASK_KEYS: [&str; 4] = ["status", "priority", "projectId", "deadline"];
+    const SCHEDULE_KEYS: [&str; 3] = ["date", "projectId", "type"];
+    let keys: &[&str] = if schedule { &SCHEDULE_KEYS } else { &TASK_KEYS };
+    for key in keys {
+        if let Some(v) = str_arg(args, key) {
+            filters[key] = json!(v);
+        }
+    }
+    let result = if schedule {
+        pm_store::list_schedules(conn, &filters)
+    } else {
+        pm_store::list_tasks(conn, &filters)
+    };
+    match result {
+        Ok(rows) => ToolOutcome::Executed(json!({"matches": rows, "count": rows.len()})),
         Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
     }
 }
@@ -785,7 +1191,9 @@ mod tests {
         assert_eq!(names, vec![
             "knowledge_search", "knowledge_write", "memory_write", "exec",
             "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
-            "generate_deliverable", "ingest_scan", "ingest_submit"
+            "generate_deliverable", "ingest_scan", "ingest_submit",
+            "task_create", "task_update", "task_complete", "task_delete", "task_search",
+            "schedule_create", "schedule_update", "schedule_delete", "schedule_search"
         ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));
@@ -807,12 +1215,19 @@ mod tests {
         }
         assert_eq!(idempotency("generate_deliverable"), "verify_first");
         assert_eq!(idempotency("createTask"), "verify_first"); // old-event default
+        // 29-02: PM reads rerunnable, writes/deletes verify_first
+        assert_eq!(idempotency("task_search"), "rerunnable");
+        assert_eq!(idempotency("schedule_search"), "rerunnable");
+        for t in ["task_create", "task_update", "task_complete", "task_delete",
+                  "schedule_create", "schedule_update", "schedule_delete"] {
+            assert_eq!(idempotency(t), "verify_first");
+        }
     }
 
     #[test]
     fn generate_deliverable_queues_candidate_and_dedups() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         let args = json!({"code": "prd", "title": "PRD v1", "draft": "# 草稿"});
         let token = match execute(&conn, "generate_deliverable", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -854,7 +1269,7 @@ mod tests {
     #[test]
     fn generate_deliverable_arg_errors_and_no_product() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         for (args, why) in [
             (json!({}), "no fields"),
             (json!({"code": "prd"}), "missing title/draft"),
@@ -867,7 +1282,7 @@ mod tests {
             }
         }
         // No product selected → non-arg failure (precondition, retry can't fix).
-        let no_product = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let no_product = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "T", "draft": "D"}), &no_product) {
             ToolOutcome::Failed { arg_error: false, .. } => {}
             other => panic!("expected precondition Failed, got {other:?}"),
@@ -878,7 +1293,7 @@ mod tests {
     fn knowledge_search_executes_fts() {
         let conn = mem_conn();
         seed_knowledge(&conn);
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_search", &json!({"query": "需求"}), &ctx) {
             ToolOutcome::Executed(value) => {
                 assert_eq!(value["retrieval"], "fts5-hybrid");
@@ -892,7 +1307,7 @@ mod tests {
     #[test]
     fn knowledge_search_arg_error_is_retryable() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_search", &json!({}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("arg validation failed"));
@@ -905,7 +1320,7 @@ mod tests {
     #[test]
     fn knowledge_write_creates_candidate_and_waits() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -933,7 +1348,7 @@ mod tests {
     #[test]
     fn knowledge_write_invalid_category_rejected_pre_candidate() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "C", "category": "介绍"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
@@ -956,7 +1371,7 @@ mod tests {
     #[test]
     fn knowledge_write_valid_category_creates_candidate() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["kind"], "knowledge_write");
@@ -969,7 +1384,7 @@ mod tests {
     #[test]
     fn knowledge_write_defaults_tags_to_empty_array() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["tags"], json!([]));
@@ -983,7 +1398,7 @@ mod tests {
     #[test]
     fn knowledge_write_uses_ctx_product_id_when_model_omits_it() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["productId"], "p1");
@@ -1002,7 +1417,7 @@ mod tests {
     #[test]
     fn knowledge_write_without_product_id_and_no_ctx_arg_errors() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("no product selected"), "{message}");
@@ -1015,7 +1430,7 @@ mod tests {
     #[test]
     fn knowledge_write_explicit_product_id_wins_over_ctx() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"productId": "p9", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["productId"], "p9");
@@ -1032,7 +1447,7 @@ mod tests {
         // knowledgeParams(resolveDraft(...))-equivalent object) via npx tsx.
         // Memory-parity precedent: commands.rs:1099.
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "C".repeat(120), "category": "最佳实践"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
@@ -1047,7 +1462,7 @@ mod tests {
     #[test]
     fn knowledge_write_normalizes_to_exact_ts_shape() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "X".repeat(150), "category": "最佳实践", "unknownExtra": "junk"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
@@ -1072,7 +1487,7 @@ mod tests {
     fn knowledge_write_preserves_explicit_fields_and_computes_update_operation() {
         let conn = mem_conn();
         seed_knowledge(&conn); // doc_id "d1" exists in knowledge_docs
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "itemId": "d1", "title": "T", "content": "C", "category": "最佳实践",
             "tags": ["a", "b"], "summary": "S", "author": "Me", "readTime": "5 min"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
@@ -1103,7 +1518,7 @@ mod tests {
     #[test]
     fn knowledge_write_rejects_bad_tags_pre_card() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         for (args, why) in [
             (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": ["ok", ""]}), "empty string tag"),
             (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": ["ok", 3]}), "non-string tag"),
@@ -1126,7 +1541,7 @@ mod tests {
     #[test]
     fn memory_write_inserts_memory_candidate_and_waits() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "memory_write", &json!({"content": "用户喜欢简短回复"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
                 assert_eq!(wait_value, "Explicit confirmation is required before saving memory.");
@@ -1148,7 +1563,7 @@ mod tests {
     #[test]
     fn unknown_tool_fails_without_arg_error() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "createTask", &json!({"title": "x"}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert_eq!(message, "Unknown tool: createTask");
@@ -1171,7 +1586,7 @@ mod tests {
     #[test]
     fn ingest_submit_creates_batch_candidate() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": ingest_items()}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["kind"], "ingestion_batch");
@@ -1189,7 +1604,7 @@ mod tests {
     #[test]
     fn ingest_submit_arg_errors() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         let cases = [
             (json!({"items": ingest_items()}), "missing workspaceId"),
             (json!({"workspaceId": "w1", "items": []}), "empty items"),
@@ -1205,7 +1620,7 @@ mod tests {
             }
         }
         // no product in args or ctx → arg_error
-        let no_prod = ToolCtx { session_id: "s1", product_id: None, workspace_root: None };
+        let no_prod = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
         match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": ingest_items()}), &no_prod) {
             ToolOutcome::Failed { arg_error: true, .. } => {}
             other => panic!("no product: expected arg_error Failed, got {other:?}"),
@@ -1219,7 +1634,7 @@ mod tests {
     #[test]
     fn ingest_submit_rejects_drafts_over_cap() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
         // 6 task_draft on the same sourcePath → D-14 cap 5 exceeded.
         let over: Vec<Value> = (0..6)
             .map(|i| json!({"id": format!("ing-t{i}"), "type": "task_draft", "title": format!("t{i}"), "sourcePath": "docs/same.docx"}))
@@ -1242,5 +1657,210 @@ mod tests {
             ToolOutcome::AwaitConfirmation { .. } => {}
             other => panic!("expected candidate, got {other:?}"),
         }
+    }
+
+    /* === 29-02: PM CRUD tools (three-tier risk) === */
+
+    #[test]
+    fn task_create_inserts_row_and_returns_id() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        match execute(&conn, "task_create", &json!({"title": "写 PRD", "priority": "high", "deadline": "2026-09-03"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["created"], true);
+                let id = v["taskId"].as_str().unwrap().to_string();
+                let (title, prio, status, assignee): (String, String, String, String) = conn
+                    .query_row(
+                        "SELECT title, priority, status, assignee FROM tasks WHERE id = ?1",
+                        rusqlite::params![id],
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                    )
+                    .unwrap();
+                assert_eq!((title.as_str(), prio.as_str(), status.as_str(), assignee.as_str()),
+                    ("写 PRD", "high", "未开始", "AI 助手"));
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn task_create_arg_errors() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        for (args, why) in [
+            (json!({}), "missing title"),
+            (json!({"title": "t", "priority": "urgent"}), "bad priority enum"),
+        ] {
+            match execute(&conn, "task_create", &args, &ctx) {
+                ToolOutcome::Failed { message, arg_error: true } => {
+                    assert!(message.contains("arg validation failed"), "{why}: {message}");
+                }
+                other => panic!("{why}: expected arg_error Failed, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn task_update_and_complete_hit_and_miss() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let id = pm_store::insert_task(&conn, &json!({"title": "T"})).unwrap();
+        match execute(&conn, "task_update", &json!({"taskId": id, "updates": {"status": "进行中"}}), &ctx) {
+            ToolOutcome::Executed(v) => assert_eq!(v["updated"], true),
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        match execute(&conn, "task_complete", &json!({"taskId": id}), &ctx) {
+            ToolOutcome::Executed(v) => assert_eq!(v["completed"], true),
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        let status: String = conn.query_row("SELECT status FROM tasks WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+        assert_eq!(status, "已完成");
+        // unknown id → non-arg failure; empty updates → arg_error
+        match execute(&conn, "task_update", &json!({"taskId": "nope", "updates": {"status": "进行中"}}), &ctx) {
+            ToolOutcome::Failed { arg_error: false, .. } => {}
+            other => panic!("expected miss Failed, got {other:?}"),
+        }
+        match execute(&conn, "task_update", &json!({"taskId": id, "updates": {}}), &ctx) {
+            ToolOutcome::Failed { arg_error: true, .. } => {}
+            other => panic!("expected arg_error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn task_delete_returns_pm_write_candidate_and_dedups() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let id = pm_store::insert_task(&conn, &json!({"title": "要删的任务"})).unwrap();
+        let args = json!({"taskId": id});
+        let token = match execute(&conn, "task_delete", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
+                assert_eq!(wait_key, "error");
+                assert_eq!(wait_value, CONFIRMATION_REQUIRED_PM_WRITE);
+                assert_eq!(candidate["kind"], "pm_write");
+                assert_eq!(candidate["action"], "task_delete");
+                assert_eq!(candidate["title"], "要删的任务");
+                candidate["confirmationToken"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        };
+        // row still present (delete only happens on confirm)
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tasks WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+        // stored candidate params carry action/taskId/title
+        let stored = confirmations::get(&conn, &token).unwrap().expect("row");
+        assert_eq!(stored.kind, "pm_write");
+        assert_eq!(stored.params, json!({"action": "task_delete", "taskId": id, "title": "要删的任务"}));
+        // same args → dedup to same token
+        match execute(&conn, "task_delete", &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["confirmationToken"].as_str().unwrap(), token);
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+        // unknown id → non-arg failure
+        match execute(&conn, "task_delete", &json!({"taskId": "missing"}), &ctx) {
+            ToolOutcome::Failed { arg_error: false, .. } => {}
+            other => panic!("expected miss Failed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn schedule_crud_roundtrip_via_tools() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let id = match execute(&conn, "schedule_create",
+            &json!({"title": "评审会", "date": "2026-09-03", "time": "10:00", "type": "meeting"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["created"], true);
+                v["eventId"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        };
+        match execute(&conn, "schedule_create", &json!({"title": "x", "date": "d", "type": "party"}), &ctx) {
+            ToolOutcome::Failed { message, arg_error: true } => assert!(message.contains("type must be one of"), "{message}"),
+            other => panic!("expected arg_error, got {other:?}"),
+        }
+        match execute(&conn, "schedule_update", &json!({"eventId": id, "updates": {"time": "11:00"}}), &ctx) {
+            ToolOutcome::Executed(v) => assert_eq!(v["updated"], true),
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        match execute(&conn, "schedule_delete", &json!({"eventId": id}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["kind"], "pm_write");
+                assert_eq!(candidate["action"], "schedule_delete");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+        // still present
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM schedules WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+        match execute(&conn, "schedule_update", &json!({"eventId": "nope", "updates": {"time": "11:00"}}), &ctx) {
+            ToolOutcome::Failed { arg_error: false, .. } => {}
+            other => panic!("expected miss Failed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pm_search_filters_and_limit_cap() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        pm_store::insert_task(&conn, &json!({"title": "a", "status": "未开始"})).unwrap();
+        pm_store::insert_task(&conn, &json!({"title": "b", "status": "进行中"})).unwrap();
+        match execute(&conn, "task_search", &json!({"status": "未开始"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["count"], 1);
+                assert_eq!(v["matches"][0]["title"], "a");
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        pm_store::upsert_schedule_from_json(&conn, &json!({"title": "s", "date": "2026-09-03", "type": "sync"})).unwrap();
+        match execute(&conn, "schedule_search", &json!({"date": "2026-09-03", "type": "sync"}), &ctx) {
+            ToolOutcome::Executed(v) => assert_eq!(v["count"], 1),
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        // limit over 50 → arg_error
+        for tool in ["task_search", "schedule_search"] {
+            match execute(&conn, tool, &json!({"limit": 51}), &ctx) {
+                ToolOutcome::Failed { message, arg_error: true } => assert!(message.contains("out of range"), "{message}"),
+                other => panic!("expected arg_error, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn pm_light_write_cap_escalates_to_pm_write() {
+        let conn = mem_conn();
+        let capped = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: PM_WRITE_CAP };
+        match execute(&conn, "task_create", &json!({"title": "第6条"}), &capped) {
+            ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
+                assert_eq!(wait_value, CONFIRMATION_REQUIRED_PM_WRITE);
+                assert_eq!(candidate["kind"], "pm_write");
+                assert_eq!(candidate["action"], "task_create");
+                assert!(candidate["reason"].as_str().unwrap().contains("cap"), "{}", candidate);
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("row");
+                assert_eq!(stored.params["action"], "task_create");
+                assert_eq!(stored.params["args"]["title"], "第6条");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+        // nothing landed
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tasks", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+        // one under the cap writes normally
+        let under = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: PM_WRITE_CAP - 1 };
+        match execute(&conn, "task_create", &json!({"title": "第5条"}), &under) {
+            ToolOutcome::Executed(v) => assert_eq!(v["created"], true),
+            other => panic!("expected Executed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn is_pm_light_write_set() {
+        assert!(is_pm_light_write("task_create"));
+        assert!(is_pm_light_write("schedule_update"));
+        assert!(!is_pm_light_write("task_delete"));
+        assert!(!is_pm_light_write("task_search"));
+        assert!(!is_pm_light_write("knowledge_search"));
     }
 }

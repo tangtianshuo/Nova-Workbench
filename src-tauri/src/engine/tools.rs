@@ -97,6 +97,12 @@ fn deliverable_codes() -> Vec<&'static str> {
     codes
 }
 
+/// 30-02 (Pitfall #3): workflow_store user-catalog inserts check collisions
+/// against the builtin catalog codes here.
+pub fn catalog_has_code(code: &str) -> bool {
+    CATALOG.iter().any(|e| e.code == code)
+}
+
 pub type Error = Box<dyn std::error::Error>;
 type Result<T> = std::result::Result<T, Error>;
 

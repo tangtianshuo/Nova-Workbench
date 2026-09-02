@@ -94,6 +94,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0012_pm_crud.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "workflow templates + user deliverable catalog",
+            sql: include_str!("../migrations/0013_workflow_templates.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

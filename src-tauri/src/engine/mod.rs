@@ -22,3 +22,4 @@ pub mod scheduler;
 pub mod commands;
 pub mod parity;
 pub mod pm_store;
+pub mod workflow_store;

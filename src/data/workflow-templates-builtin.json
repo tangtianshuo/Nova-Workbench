@@ -1,0 +1,35 @@
+[
+  {
+    "id": "builtin-competitor-analysis",
+    "name": "竞品深度分析",
+    "description": "扫描竞品信息并产出对比报告",
+    "steps": [
+      {
+        "name": "生成竞品分析报告",
+        "prompt": "对当前产品的核心竞品做对比分析,调用 generate_deliverable(code=DEL-REL-03) 产出报告草稿",
+        "expectedSlotCode": "DEL-REL-03",
+        "toolHint": "generate_deliverable"
+      }
+    ],
+    "source": "builtin"
+  },
+  {
+    "id": "builtin-prd-draft",
+    "name": "PRD 起草",
+    "description": "从需求出发起草 PRD 并落槽评审",
+    "steps": [
+      {
+        "name": "起草 PRD",
+        "prompt": "结合知识库中的需求信息,调用 generate_deliverable(code=prd) 起草 PRD 全文",
+        "expectedSlotCode": "DEL-REQ-01",
+        "toolHint": "generate_deliverable"
+      },
+      {
+        "name": "登记后续待办",
+        "prompt": "为 PRD 评审创建一条高优先级任务(task_create,截止明天下班前)",
+        "toolHint": "task_create"
+      }
+    ],
+    "source": "builtin"
+  }
+]

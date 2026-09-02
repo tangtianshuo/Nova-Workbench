@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 27-workspace-ingestion
 source: [27-VERIFICATION.md]
 started: 2026-09-01T09:35:00+08:00
@@ -63,5 +63,15 @@ blocked: 0
   reason: "User reported: 生成完成 — 0 份候选已提交确认（run 完成但 ingest_submit 提交 0 候选，docx+pdf 未产出任何草稿）"
   severity: major
   test: 2
-  artifacts: []
-  missing: []
+  root_cause: "src-tauri/src/lib.rs sql_migrations() 注册表止于 0009，0010_ingested_documents.sql 与 0011_confirmation_kind_ingestion.sql 文件存在但未 include_str! 注册，真机 nova.db 缺 ingested_documents 表 → 每次摄取 run 的 ingest_scan 报 'no such table: ingested_documents'，LLM fallback 到 fs_read（docx 二进制读失败）/exec python（卡 HITL/超时），未产出任何条目也未调 ingest_submit，run 以 0 候选正常结束。单测全绿是因测试走 mem_conn 全量迁移，与生产注册表两条路径。"
+  artifacts:
+    - path: "src-tauri/src/lib.rs"
+      issue: "sql_migrations() Vec 漏注册 0010/0011（根因）"
+    - path: "src-tauri/migrations/0010_ingested_documents.sql"
+      issue: "文件在，未接线"
+    - path: "src-tauri/migrations/0011_confirmation_kind_ingestion.sql"
+      issue: "文件在，未接线；未应用意味着 candidates kind CHECK 不含 ingestion_batch，scan 修好后 submit 仍会被拒——必须与 0010 一起补"
+  missing:
+    - "在 sql_migrations() Vec 追加 0010/0011 两个 Migration 条目（include_str! 同款写法）"
+    - "加一个『注册表数量 == migrations 目录文件数量』防复发断言（测试与生产两条路径导致的盲区）"
+  debug_session: .planning/debug/ingestion-zero-candidates.md

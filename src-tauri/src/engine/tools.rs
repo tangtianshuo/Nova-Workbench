@@ -22,6 +22,7 @@ use crate::engine::exec;
 use crate::engine::fs_ops;
 use crate::engine::ingest;
 use crate::engine::pm_store;
+use crate::engine::workflow_store;
 use crate::engine::fts_tokens::{fts_match_string, fts_tokens};
 use crate::engine::params_hash::params_hash;
 
@@ -53,6 +54,10 @@ const SCHEDULE_UPDATE_DESCRIPTION: &str = "Update writable fields of an existing
 const SCHEDULE_DELETE_DESCRIPTION: &str = "Delete a schedule event. Requires user confirmation: the first call returns a candidate card; the deletion only happens after the user approves.";
 const SCHEDULE_SEARCH_DESCRIPTION: &str = "Search schedule events by date/projectId/type filters. Read-only, no confirmation.";
 const GENERATE_DELIVERABLE_DESCRIPTION: &str = "Generate a deliverable draft for the currently selected product. `code` is either \"prd\" or a catalog slot code (DEL-REQ-01 … DEL-REL-04). You produce the full draft content yourself in the `draft` parameter. The first call only queues a candidate for user confirmation — the user will review and edit it in the chat panel; do not call again for the same deliverable.";
+const WORKFLOW_SEARCH_DESCRIPTION: &str = "List available workflow templates (builtin reference + user-created), each with name/description/step summaries. Templates are reference playbooks the user runs on demand — search by keyword in name/description. Read-only, no confirmation.";
+const WORKFLOW_CREATE_DESCRIPTION: &str = "Create a workflow template and apply it immediately — no confirmation needed. steps is an ordered array of {name, prompt, expectedSlotCode?, toolHint?}. source defaults to 'user'; 'distilled' marks templates distilled from a past run. Never pass 'builtin' — builtins are packaged, not stored.";
+const WORKFLOW_UPDATE_DESCRIPTION: &str = "Update name/description/steps (whole-array replace) of an existing workflow template and apply immediately — no confirmation needed. Deleting is NOT possible here; use workflow_delete.";
+const WORKFLOW_DELETE_DESCRIPTION: &str = "Delete a workflow template. Requires user confirmation: the first call returns a candidate card; the deletion only happens after the user approves.";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
 const CONFIRMATION_REQUIRED_PM_WRITE: &str = "Explicit confirmation is required before deleting or further writing PM data.";
@@ -101,6 +106,29 @@ fn deliverable_codes() -> Vec<&'static str> {
 /// against the builtin catalog codes here.
 pub fn catalog_has_code(code: &str) -> bool {
     CATALOG.iter().any(|e| e.code == code)
+}
+
+/// Phase 30 (30-02): builtin workflow templates — same single-source pattern
+/// as CATALOG (TS imports the same JSON). Never stored in SQLite (D-01).
+static BUILTIN_WORKFLOWS: LazyLock<Vec<Value>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("../../../src/data/workflow-templates-builtin.json"))
+        .expect("workflow-templates-builtin.json invalid")
+});
+
+/// Builtin template names for the system-prompt short list (loop_runner).
+pub fn builtin_workflow_names() -> Vec<String> {
+    BUILTIN_WORKFLOWS
+        .iter()
+        .filter_map(|t| t["name"].as_str().map(String::from))
+        .collect()
+}
+
+/// 30-02 SC-4: user-added catalog codes extend the valid `code` set (builtin
+/// ∪ user table). Queried per call — 16+N rows, caching buys nothing.
+fn catalog_user_has_code(conn: &Connection, code: &str) -> bool {
+    workflow_store::list_catalog_user(conn)
+        .map(|rows| rows.iter().any(|r| r["code"].as_str() == Some(code)))
+        .unwrap_or(false)
 }
 
 pub type Error = Box<dyn std::error::Error>;
@@ -466,6 +494,80 @@ pub fn registry() -> Vec<ToolSpec> {
             kind: ToolKind::Pm,
             idempotency: "rerunnable",
         },
+        // 30-02: workflow templates — same three-tier risk (search read;
+        // create/update light-write cap-5; delete pm_write HITL). Templates
+        // are reference playbooks, never a rigid pipeline (Phase 30 philosophy).
+        ToolSpec {
+            name: "workflow_search",
+            description: WORKFLOW_SEARCH_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Keyword matched against template name/description" }
+                },
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "rerunnable",
+        },
+        ToolSpec {
+            name: "workflow_create",
+            description: WORKFLOW_CREATE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "minLength": 1 },
+                    "description": { "type": "string" },
+                    "steps": {
+                        "type": "array", "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": { "type": "string", "minLength": 1 },
+                                "prompt": { "type": "string", "minLength": 1 },
+                                "expectedSlotCode": { "type": "string" },
+                                "toolHint": { "type": "string" }
+                            },
+                            "required": ["name", "prompt"]
+                        }
+                    },
+                    "source": { "type": "string", "enum": ["user", "distilled"] }
+                },
+                "required": ["name", "steps"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "workflow_update",
+            description: WORKFLOW_UPDATE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "name": { "type": "string", "minLength": 1 },
+                    "description": { "type": "string" },
+                    "steps": { "type": "array", "minItems": 1, "items": { "type": "object" } }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "workflow_delete",
+            description: WORKFLOW_DELETE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": { "id": { "type": "string", "minLength": 1 } },
+                "required": ["id"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Pm,
+            idempotency: "verify_first",
+        },
     ]
 }
 
@@ -543,6 +645,10 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "schedule_update" => execute_schedule_update(conn, args, ctx),
         "schedule_delete" => execute_schedule_delete(conn, args, ctx),
         "schedule_search" => execute_pm_search(conn, args, ctx, true),
+        "workflow_search" => execute_workflow_search(conn, args),
+        "workflow_create" => execute_workflow_create(conn, args, ctx),
+        "workflow_update" => execute_workflow_update(conn, args, ctx),
+        "workflow_delete" => execute_workflow_delete(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -736,6 +842,7 @@ pub fn is_pm_light_write(name: &str) -> bool {
     matches!(
         name,
         "task_create" | "task_update" | "task_complete" | "schedule_create" | "schedule_update"
+            | "workflow_create" | "workflow_update"
     )
 }
 
@@ -976,6 +1083,114 @@ fn execute_pm_search(conn: &Connection, args: &Value, _ctx: &ToolCtx<'_>, schedu
     }
 }
 
+/* === 30-02: workflow template tools (same three-tier risk) === */
+
+fn workflow_summary(t: &Value) -> Value {
+    let steps = t["steps"].as_array().cloned().unwrap_or_default();
+    json!({
+        "id": t["id"],
+        "name": t["name"],
+        "description": t["description"],
+        "source": t["source"],
+        "stepCount": steps.len(),
+        "steps": steps.iter().map(|s| json!({
+            "name": s["name"],
+            "prompt": s["prompt"],
+            "expectedSlotCode": s["expectedSlotCode"],
+            "toolHint": s["toolHint"],
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// workflow_search (read tier): builtin packaged JSON ∪ SQLite user layer.
+fn execute_workflow_search(conn: &Connection, args: &Value) -> ToolOutcome {
+    let query = str_arg(args, "query").map(|q| q.to_lowercase());
+    let mut all: Vec<Value> = BUILTIN_WORKFLOWS.iter().map(workflow_summary).collect();
+    match workflow_store::list_workflows(conn) {
+        Ok(rows) => all.extend(rows.iter().map(workflow_summary)),
+        Err(e) => return ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+    if let Some(q) = &query {
+        all.retain(|t| {
+            let name = t["name"].as_str().unwrap_or_default().to_lowercase();
+            let desc = t["description"].as_str().unwrap_or_default().to_lowercase();
+            name.contains(q.as_str()) || desc.contains(q.as_str())
+        });
+    }
+    ToolOutcome::Executed(json!({"matches": all, "count": all.len()}))
+}
+
+fn execute_workflow_create(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "workflow_create", args) {
+        return o;
+    }
+    let Some(name) = str_arg(args, "name") else {
+        return arg_fail("workflow_create", "name must be a non-empty string");
+    };
+    let Some(steps) = args.get("steps").and_then(|v| v.as_array()) else {
+        return arg_fail("workflow_create", "steps must be a non-empty array");
+    };
+    if steps.is_empty() {
+        return arg_fail("workflow_create", "steps must contain at least one entry");
+    }
+    let source = str_arg(args, "source").unwrap_or("user");
+    if !matches!(source, "user" | "distilled") {
+        return arg_fail("workflow_create", "source must be 'user' or 'distilled' (builtin templates are packaged, never stored)");
+    }
+    let template = json!({"name": name, "description": str_arg(args, "description").unwrap_or(""), "steps": steps});
+    match workflow_store::insert_workflow(conn, &template, source) {
+        Ok(id) => ToolOutcome::Executed(json!({"id": id, "created": true, "name": name, "source": source})),
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn execute_workflow_update(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    if let Some(o) = escalate_if_capped(conn, ctx, "workflow_update", args) {
+        return o;
+    }
+    let Some(id) = str_arg(args, "id") else {
+        return arg_fail("workflow_update", "id must be a non-empty string");
+    };
+    let mut updates = json!({});
+    for key in ["name", "description", "steps"] {
+        if let Some(v) = args.get(key) {
+            if !v.is_null() { updates[key] = v.clone(); }
+        }
+    }
+    if updates.as_object().map(|o| o.is_empty()).unwrap_or(true) {
+        return arg_fail("workflow_update", "provide at least one of name/description/steps");
+    }
+    if let Some(steps) = updates.get("steps").and_then(|v| v.as_array()) {
+        if steps.is_empty() {
+            return arg_fail("workflow_update", "steps must contain at least one entry");
+        }
+    }
+    match workflow_store::update_workflow(conn, id, &updates) {
+        Ok(true) => ToolOutcome::Executed(json!({"updated": true, "id": id})),
+        Ok(false) => ToolOutcome::Failed { message: format!("Tool \"workflow_update\": workflow {id} not found"), arg_error: false },
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+/// Delete tier: pm_write candidate (reuse 29's confirmation path — no new kind).
+fn execute_workflow_delete(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let Some(id) = str_arg(args, "id") else {
+        return arg_fail("workflow_delete", "id must be a non-empty string");
+    };
+    let name: Option<String> = conn
+        .query_row("SELECT name FROM workflow_templates WHERE id = ?1", [id], |r| r.get(0))
+        .ok();
+    let Some(name) = name else {
+        return ToolOutcome::Failed { message: format!("Tool \"workflow_delete\": workflow {id} not found"), arg_error: false };
+    };
+    pm_write_escalated(
+        conn,
+        ctx,
+        &json!({"action": "workflow_delete", "id": id, "name": name}),
+        &format!("删除工作流模板「{name}」"),
+    )
+}
+
 fn arg_fail(tool: &str, msg: &str) -> ToolOutcome {
     ToolOutcome::Failed {
         message: format!("Tool \"{tool}\" arg validation failed: {msg}"),
@@ -1133,7 +1348,7 @@ fn execute_generate_deliverable(conn: &Connection, args: &Value, ctx: &ToolCtx<'
             arg_error: true,
         };
     };
-    if slot_by_code(code).is_none() {
+    if slot_by_code(code).is_none() && !catalog_user_has_code(conn, code) {
         return ToolOutcome::Failed {
             message: "Tool \"generate_deliverable\" arg validation failed: code must be \"prd\" or a DEL-* catalog slot code".into(),
             arg_error: true,
@@ -1213,7 +1428,8 @@ mod tests {
             "fs_list", "fs_read", "fs_write", "fs_mkdir", "fs_delete", "fs_move",
             "generate_deliverable", "ingest_scan", "ingest_submit",
             "task_create", "task_update", "task_complete", "task_delete", "task_search",
-            "schedule_create", "schedule_update", "schedule_delete", "schedule_search"
+            "schedule_create", "schedule_update", "schedule_delete", "schedule_search",
+            "workflow_search", "workflow_create", "workflow_update", "workflow_delete"
         ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));
@@ -1239,9 +1455,15 @@ mod tests {
         assert_eq!(idempotency("task_search"), "rerunnable");
         assert_eq!(idempotency("schedule_search"), "rerunnable");
         for t in ["task_create", "task_update", "task_complete", "task_delete",
-                  "schedule_create", "schedule_update", "schedule_delete"] {
+                  "schedule_create", "schedule_update", "schedule_delete",
+                  "workflow_create", "workflow_update", "workflow_delete"] {
             assert_eq!(idempotency(t), "verify_first");
         }
+        // 30-02: workflow reads rerunnable; light-write set covers create/update
+        assert_eq!(idempotency("workflow_search"), "rerunnable");
+        assert!(is_pm_light_write("workflow_create"));
+        assert!(is_pm_light_write("workflow_update"));
+        assert!(!is_pm_light_write("workflow_delete"));
     }
 
     /// 30-01: catalog single source — Rust reads the same JSON as TS.
@@ -1941,5 +2163,98 @@ mod tests {
         assert!(!is_pm_light_write("task_delete"));
         assert!(!is_pm_light_write("task_search"));
         assert!(!is_pm_light_write("knowledge_search"));
+    }
+
+    /* === 30-02: workflow template tools === */
+
+    #[test]
+    fn workflow_crud_via_tools_three_tiers() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        // search: builtin ∪ user, keyword filter
+        match execute(&conn, "workflow_search", &json!({}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["count"], BUILTIN_WORKFLOWS.len(), "user layer empty → builtin only");
+                assert!(v["matches"].as_array().unwrap().iter().all(|t| t["source"] == json!("builtin")));
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        // create: light write lands immediately
+        let id = match execute(&conn, "workflow_create", &json!({
+            "name": "周末扫描", "steps": [{"name": "扫描", "prompt": "扫描知识库新增"}]
+        }), &ctx) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["created"], true);
+                v["id"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        };
+        // create: 'builtin' source rejected
+        match execute(&conn, "workflow_create", &json!({"name": "x", "steps": [{"name": "s", "prompt": "p"}], "source": "builtin"}), &ctx) {
+            ToolOutcome::Failed { message, arg_error: true } => assert!(message.contains("source"), "{message}"),
+            other => panic!("expected arg_error, got {other:?}"),
+        }
+        // search now sees user layer merged with builtin
+        match execute(&conn, "workflow_search", &json!({"query": "周末"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["count"], 1);
+                assert_eq!(v["matches"][0]["source"], "user");
+                assert_eq!(v["matches"][0]["stepCount"], 1);
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        // update: whole steps replace
+        match execute(&conn, "workflow_update", &json!({"id": id, "steps": [{"name": "S1", "prompt": "P1"}, {"name": "S2", "prompt": "P2"}]}), &ctx) {
+            ToolOutcome::Executed(v) => assert_eq!(v["updated"], true),
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        // delete: pm_write candidate, row still present
+        match execute(&conn, "workflow_delete", &json!({"id": id}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
+                assert_eq!(wait_value, CONFIRMATION_REQUIRED_PM_WRITE);
+                assert_eq!(candidate["kind"], "pm_write");
+                assert_eq!(candidate["action"], "workflow_delete");
+                assert_eq!(candidate["name"], "周末扫描");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM workflow_templates WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1, "delete only happens on confirm");
+        // unknown id → non-arg failure
+        match execute(&conn, "workflow_delete", &json!({"id": "missing"}), &ctx) {
+            ToolOutcome::Failed { arg_error: false, .. } => {}
+            other => panic!("expected miss Failed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn workflow_light_write_counts_toward_cap5() {
+        let conn = mem_conn();
+        let capped = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: PM_WRITE_CAP };
+        match execute(&conn, "workflow_create", &json!({"name": "第6条", "steps": [{"name": "s", "prompt": "p"}]}), &capped) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["kind"], "pm_write");
+                assert_eq!(candidate["action"], "workflow_create");
+            }
+            other => panic!("expected cap escalation, got {other:?}"),
+        }
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM workflow_templates", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0, "nothing landed past the cap");
+    }
+
+    /// SC-4: user catalog codes extend the generate_deliverable code enum.
+    #[test]
+    fn generate_deliverable_accepts_user_catalog_code() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        workflow_store::insert_catalog_user(&conn, &json!({"code": "DEL-USR-01", "title": "自定义产物"})).unwrap();
+        match execute(&conn, "generate_deliverable", &json!({"code": "DEL-USR-01", "title": "T", "draft": "D"}), &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => assert_eq!(candidate["code"], "DEL-USR-01"),
+            other => panic!("expected candidate, got {other:?}"),
+        }
+        match execute(&conn, "generate_deliverable", &json!({"code": "DEL-USR-99", "title": "T", "draft": "D"}), &ctx) {
+            ToolOutcome::Failed { arg_error: true, .. } => {}
+            other => panic!("expected arg_error, got {other:?}"),
+        }
     }
 }

@@ -94,7 +94,7 @@ pub struct LoopContext<'a> {
 // the model guides the user to act manually). NOT the original Phase 10 PM
 // guideline text — that returns together with the tools in v0.3.3.
 // Date context is a 22-06 wiring concern.
-const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), generate_deliverable (queue a deliverable draft for user confirmation, code \"prd\" or a DEL-* catalog slot — you write the full draft content yourself in the draft parameter), and PM CRUD tools: task_create / task_update / task_complete / task_search, schedule_create / schedule_update / schedule_search apply immediately without confirmation; task_delete / schedule_delete require user confirmation via a candidate card. Act on the user's behalf with the light-write tools instead of telling them to do it manually.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.\nKnowledge search is budgeted: perform at most 1-2 knowledge_search calls per question, then STOP searching and answer directly from the results you already have. Never enumerate the whole knowledge base.\nIf a tool call fails, read the error message, fix the arguments ONCE, and move on; if it fails again, tell the user what failed and what you need (e.g. select a product) instead of retrying. Never invent confirmation prompts or numbered-choice menus.";
+const ROLE_AND_TOOL_RULES: &str = "You are Nova, an AI assistant for product, task, schedule, and workspace management.\nUse the current workspace context as the source of truth. Use tools for workspace facts and mutations instead of inventing IDs or state.\nAvailable native tools: knowledge_search / knowledge_write (product knowledge; writes need user confirmation), memory_write (long-term memory proposals), exec (read-only shell commands in the workspace; others need approval), fs_list / fs_read / fs_write / fs_mkdir / fs_delete / fs_move (workspace files; writes need user confirmation), generate_deliverable (queue a deliverable draft for user confirmation, code \"prd\" or a DEL-* catalog slot — you write the full draft content yourself in the draft parameter), and PM CRUD tools: task_create / task_update / task_complete / task_search, schedule_create / schedule_update / schedule_search apply immediately without confirmation; task_delete / schedule_delete require user confirmation via a candidate card. Act on the user's behalf with the light-write tools instead of telling them to do it manually.\nAfter a tool call, explain the result briefly and mention any failed or ambiguous items.\nKnowledge search is budgeted: perform at most 1-2 knowledge_search calls per question, then STOP searching and answer directly from the results you already have. Never enumerate the whole knowledge base.\nIf a tool call fails, read the error message, fix the arguments ONCE, and move on; if it fails again, tell the user what failed and what you need (e.g. select a product) instead of retrying. Never invent confirmation prompts or numbered-choice menus.\nWorkflow templates: workflow_search / workflow_create / workflow_update apply immediately (counted toward the light-write budget); workflow_delete requires user confirmation. Templates are reference playbooks the user runs on demand.";
 
 pub fn build_system_prompt(core_context: &str) -> String {
     // Local date/weekday: without it the model shells out to `date` for "明天" (UAT-29 step 2),
@@ -106,6 +106,21 @@ pub fn build_system_prompt(core_context: &str) -> String {
         now.format("%Y-%m-%d"),
         now.weekday()
     )
+}
+
+/// 30-02: append the workflow template short list (builtin ∪ user, ≤30) to the
+/// system prompt so the user can say 「帮我跑 X」. Truncation note:
+// TODO v0.4: FTS5 retrieval (D-08) instead of a truncated name list.
+pub fn append_workflow_list(conn: &Connection, prompt: String) -> String {
+    let mut names = tools::builtin_workflow_names();
+    if let Ok(rows) = crate::engine::workflow_store::list_workflows(conn) {
+        names.extend(rows.iter().filter_map(|r| r["name"].as_str().map(String::from)));
+    }
+    if names.is_empty() {
+        return prompt;
+    }
+    names.truncate(30);
+    format!("{prompt}\n\n## 可用工作流模板\n\n- {}", names.join(" / "))
 }
 
 /* === helpers === */
@@ -224,7 +239,7 @@ pub async fn run_tool_loop(
         &ctx.user_message,
     );
     let core_context = assembled["coreContext"].as_str().unwrap_or_default().to_string();
-    let system_prompt = build_system_prompt(&core_context);
+    let system_prompt = append_workflow_list(ctx.conn, build_system_prompt(&core_context));
     append_event(ctx.conn, &scope, "context_injected", assembled["audit"].clone(), &on_event)?;
 
     let mut arg_error_count: HashMap<String, u32> = HashMap::new();
@@ -575,7 +590,37 @@ mod tests {
         for absent in ["createTask", "updateTask", "deleteTask", "createSchedule", "updateSchedule", "createProject"] {
             assert!(!names.contains(&absent), "schema must not contain {absent}");
         }
-        assert_eq!(schemas.len(), 22); // 29-02: +9 PM CRUD tools
+        assert_eq!(schemas.len(), 26); // 29-02 +9 PM CRUD; 30-02 +4 workflow
+    }
+
+    // 30-02: template short list appended to the system prompt (builtin ∪ user).
+    #[test]
+    fn workflow_list_appended_to_system_prompt() {
+        let conn = mem_conn();
+        let prompt = append_workflow_list(&conn, build_system_prompt("核心事实"));
+        assert!(prompt.contains("可用工作流模板"), "{prompt}");
+        assert!(prompt.contains("竞品深度分析"), "builtin names present");
+        crate::engine::workflow_store::insert_workflow(
+            &conn,
+            &serde_json::json!({"name": "周末扫描", "steps": [{"name": "s", "prompt": "p"}]}),
+            "user",
+        )
+        .unwrap();
+        let prompt2 = append_workflow_list(&conn, String::new());
+        assert!(prompt2.contains("周末扫描"), "user template names present");
+        // ≤30 truncation holds (2 builtin + N user)
+        let many: Vec<serde_json::Value> = (0..40)
+            .map(|i| serde_json::json!({"name": format!("模板{i}"), "steps": []}))
+            .collect();
+        for t in &many {
+            crate::engine::workflow_store::insert_workflow(&conn, t, "user").unwrap();
+        }
+        let prompt3 = append_workflow_list(&conn, String::new());
+        let listed = prompt3.rsplit("- ").next().unwrap().split(" / ").count();
+        assert_eq!(listed, 30, "capped at 30 names");
+        // ROLE_AND_TOOL_RULES carries the workflow risk sentence
+        assert!(prompt.contains("workflow_delete requires user confirmation"));
+        assert!(prompt.contains("Templates are reference playbooks"));
     }
 
     #[test]

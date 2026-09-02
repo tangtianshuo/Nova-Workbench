@@ -793,7 +793,9 @@ fn execute_task_create(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> To
         "status": "未开始",
         "deadline": str_arg(args, "deadline").unwrap_or(""),
         "description": str_arg(args, "description").unwrap_or(""),
-        "projectId": str_arg(args, "projectId"),
+        // Model often omits projectId; default to the run's selected product
+        // (same D-05 ownership rule as ingestion).
+        "projectId": str_arg(args, "projectId").or(ctx.product_id),
         "assignee": "AI 助手",
         "assigneeAvatar": "AI",
         "categoryId": "",
@@ -878,7 +880,7 @@ fn execute_schedule_create(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -
         "time": str_arg(args, "time").unwrap_or(""),
         "type": ty,
         "location": str_arg(args, "location").unwrap_or(""),
-        "projectId": str_arg(args, "projectId"),
+        "projectId": str_arg(args, "projectId").or(ctx.product_id),
         "taskId": str_arg(args, "taskId"),
         "status": "未开始",
     });
@@ -1797,6 +1799,37 @@ mod tests {
         match execute(&conn, "schedule_update", &json!({"eventId": "nope", "updates": {"time": "11:00"}}), &ctx) {
             ToolOutcome::Failed { arg_error: false, .. } => {}
             other => panic!("expected miss Failed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pm_create_defaults_project_id_from_ctx() {
+        let conn = mem_conn();
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        match execute(&conn, "task_create", &json!({"title": "t"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                let id = v["taskId"].as_str().unwrap();
+                let pid: Option<String> = conn.query_row("SELECT project_id FROM tasks WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+                assert_eq!(pid.as_deref(), Some("p1"));
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        // explicit projectId wins over ctx
+        match execute(&conn, "schedule_create", &json!({"title": "s", "date": "2026-09-03", "type": "meeting", "projectId": "p2"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                let id = v["eventId"].as_str().unwrap();
+                let pid: Option<String> = conn.query_row("SELECT project_id FROM schedules WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+                assert_eq!(pid.as_deref(), Some("p2"));
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+        match execute(&conn, "schedule_create", &json!({"title": "s2", "date": "2026-09-03", "type": "meeting"}), &ctx) {
+            ToolOutcome::Executed(v) => {
+                let id = v["eventId"].as_str().unwrap();
+                let pid: Option<String> = conn.query_row("SELECT project_id FROM schedules WHERE id = ?1", rusqlite::params![id], |r| r.get(0)).unwrap();
+                assert_eq!(pid.as_deref(), Some("p1"));
+            }
+            other => panic!("expected Executed, got {other:?}"),
         }
     }
 

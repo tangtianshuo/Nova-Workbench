@@ -78,7 +78,7 @@ Plans:
 Plans:
 - [x] 29-01-PLAN.md — migration 0012 关系表 + pm_write kind + pm_store SQL 层 + kv 一次性幂等搬移
 - [x] 29-02-PLAN.md — 9 个 PM 工具注册执行(读/轻写免确认、delete 走 pm_write)+ cap-5 升级护栏
-- [ ] 29-03-PLAN.md — engine_consume_pm_write 事务闭环 + 聊天确认卡 + pm_write_applied 双侧 parity fixture
+- [x] 29-03-PLAN.md — engine_consume_pm_write 事务闭环 + 聊天确认卡 + pm_write_applied 双侧 parity fixture
 - [ ] 29-04-PLAN.md — taskStore/scheduleStore SQL 换轨 + 事件驱动 refresh + 端到端 UAT
 **排期**: 2026-09-02 promote 自 999.6(v0.3.3 优先级重定,第一优先;原裁定 v0.4 首批)
 
@@ -89,7 +89,7 @@ Plans:
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
 | 27. 工作区文档摄取 | 3/4 | Suspended — 27-04 fix committed (2026-09-02), UAT-2..7 regression deferred by user (priority shift) | - |
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
-| 29. PM CRUD 工具原生化 — agent 写路径 | 2/4 | In Progress|  |
+| 29. PM CRUD 工具原生化 — agent 写路径 | 3/4 | In Progress|  |
 
 ## Historical Milestones
 

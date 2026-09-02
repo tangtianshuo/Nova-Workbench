@@ -759,6 +759,14 @@ fn pm_write_escalated(conn: &Connection, ctx: &ToolCtx<'_>, params: &Value, summ
 /// Cap-5 gate for light writes: at/over the cap, escalate instead of writing.
 fn escalate_if_capped(conn: &Connection, ctx: &ToolCtx<'_>, tool: &str, args: &Value) -> Option<ToolOutcome> {
     (ctx.pm_writes_used >= PM_WRITE_CAP).then(|| {
+        // Consume replays from these params with no run ctx available — bake
+        // the selected-product fallback in now (same rule as the direct path).
+        let mut args = args.clone();
+        if matches!(tool, "task_create" | "schedule_create") && str_arg(&args, "projectId").is_none() {
+            if let Some(pid) = ctx.product_id {
+                args["projectId"] = json!(pid);
+            }
+        }
         pm_write_escalated(
             conn,
             ctx,
@@ -1874,6 +1882,17 @@ mod tests {
                 let stored = confirmations::get(&conn, token).unwrap().expect("row");
                 assert_eq!(stored.params["action"], "task_create");
                 assert_eq!(stored.params["args"]["title"], "第6条");
+            }
+            other => panic!("expected AwaitConfirmation, got {other:?}"),
+        }
+        // escalated candidate params carry the ctx product fallback (consume
+        // replays them with no run ctx — UAT step 7 gap)
+        let capped_pid = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: PM_WRITE_CAP };
+        match execute(&conn, "task_create", &json!({"title": "第7条"}), &capped_pid) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                let token = candidate["confirmationToken"].as_str().unwrap();
+                let stored = confirmations::get(&conn, token).unwrap().expect("row");
+                assert_eq!(stored.params["args"]["projectId"], "p1");
             }
             other => panic!("expected AwaitConfirmation, got {other:?}"),
         }

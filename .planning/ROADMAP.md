@@ -17,7 +17,7 @@
 - [x] **Phase 26: Mock 全清 — tab 接引擎** - 产研各 tab AI 按钮触发真实 engine_run(带 tab 上下文、独立 session、流式进度、候选→HITL→落槽),mock 全删 ✅(2026-08-31)
 - [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等 ⏸️(挂起 2026-09-02,修复已提交待 UAT 回归)
 - [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT(顺延 2026-09-02)
-- [ ] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule/product CRUD 原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)
+- [x] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule(及 product 视讨论)的 CRUD 操作原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)✅(2026-09-02,UAT 8/8 + verifier GO 4/4)
 
 ## Phase Details
 
@@ -79,7 +79,7 @@ Plans:
 - [x] 29-01-PLAN.md — migration 0012 关系表 + pm_write kind + pm_store SQL 层 + kv 一次性幂等搬移
 - [x] 29-02-PLAN.md — 9 个 PM 工具注册执行(读/轻写免确认、delete 走 pm_write)+ cap-5 升级护栏
 - [x] 29-03-PLAN.md — engine_consume_pm_write 事务闭环 + 聊天确认卡 + pm_write_applied 双侧 parity fixture
-- [ ] 29-04-PLAN.md — taskStore/scheduleStore SQL 换轨 + 事件驱动 refresh + 端到端 UAT
+- [x] 29-04-PLAN.md — taskStore/scheduleStore SQL 换轨 + 事件驱动 refresh + 端到端 UAT(UAT 8/8 用户全过;gap 修复 f894b27/3ae51a6/c0fbb01)
 **排期**: 2026-09-02 promote 自 999.6(v0.3.3 优先级重定,第一优先;原裁定 v0.4 首批)
 
 ## Progress
@@ -89,7 +89,7 @@ Plans:
 | 26. Mock 全清 — tab 接引擎 | 4/4 | Complete   | 2026-08-31 |
 | 27. 工作区文档摄取 | 3/4 | Suspended — 27-04 fix committed (2026-09-02), UAT-2..7 regression deferred by user (priority shift) | - |
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
-| 29. PM CRUD 工具原生化 — agent 写路径 | 3/4 | In Progress|  |
+| 29. PM CRUD 工具原生化 — agent 写路径 | 4/4 | Complete | 2026-09-02 |
 
 ## Historical Milestones
 

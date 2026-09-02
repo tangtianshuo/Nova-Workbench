@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: 29-04 automatable tasks done (dc57be4/7be219a); UAT checkpoint awaiting user
+stopped_at: Phase 29 complete (4/4, UAT 8/8 + verifier GO 4/4); next = user decision (27 UAT 回归 / 28 顺延确认 / 30 立项)
 last_updated: "2026-09-02T04:07:45.575Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase: 29 (pm-crud) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
-Next: `/gsd:discuss-phase 29`
+Phase: 29 (pm-crud) — COMPLETE ✅(2026-09-02,4/4 plans,UAT 8/8 + 29-VERIFICATION.md GO 4/4)
+Plan: 4 of 4 done
+Status: v0.3.3 剩余均为用户决策:27 UAT 回归恢复 / 28 顺延确认 / 30(模板数据化+工作流自组织)立项
+Next: 用户裁定 v0.3.3 收口方向
 Last activity: 2026-09-02
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
@@ -68,6 +68,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 29 P01 | 35m | 2 tasks | 5 files |
 | Phase 29 P02 | 35m | 2 tasks | 7 files |
 | Phase 29 P03 | 50m | 2 tasks | 5 files |
+| Phase 29 P04 | 240m(含 UAT) | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -97,9 +98,11 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 29]: [29-01] task/schedule 关系表落地(schema 12)+ kv→关系一次性幂等搬移(meta latch pm_kv_migrated_v29,kv 保留);日期全 TEXT 零转换
 - [Phase 29]: [29-02] PM 9 工具三档风险:读/轻写免确认直落库,delete+cap-5 走 pm_write HITL;pm_write 入 dedup kind 列表
 - [Phase 29]: [29-03] pm_write fixture 命名 projection-cases-pm-write.json — 双侧 glob 前缀约定;确认路径 Rust 一事务收口,不回 TS executeTool
+- [Phase 29]: [29-04] Tauri 下 task/schedule persist 退役、SQL 单真相源(pmRepo + refreshFromSql);UAT 三 gap 修复:system prompt 注入日期(f894b27)、create 工具 projectId 兜底 ctx.product_id(3ae51a6)、cap-5 候选 params 预烧 projectId(c0fbb01)
 
 ### TODOs (pending)
 
+- **cap-5 计数 resume 重置**(2026-09-02 Phase 29 UAT 发现,用户裁定记 debt 不当日修):pm_writes_used 为 run 局部变量,弹卡确认恢复(new engine_run)后归零;缓解=每次恢复需人工确认卡把关。后续改为从 agent_events 数 session 已落轻写 tool_result(唯一真相源,天然跨恢复)
 - **Phase 27 挂起**(2026-09-02,用户降级优先级):修复已提交(61f9089/a070c41/07e44fd),UAT-2..7 回归按 27-HUMAN-UAT.md 清单随时可恢复;全 pass 前不生成 27-04-SUMMARY、Phase 27 不验证收口
 - **优先级重定**:用户要求优先「产品 + 产研中心真正实现并可用」——待对齐缺口后重排 v0.3.3 剩余(Phase 28 反向创建是否顺延)
 - 22-UAT Test 7 人工复测待真实 LLM 环境补验(非阻塞,常量互锁已闭)
@@ -113,14 +116,13 @@ None.
 ## Session Continuity
 
 Last session: 2026-09-02T04:07:45.570Z
-Stopped at: 29-04 automatable tasks done (dc57be4/7be219a); UAT checkpoint awaiting user
+Stopped at: Phase 29 complete (4/4, UAT 8/8 + verifier GO); awaiting user decision on v0.3.3 remainder
 Resume file: None
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.3 active(Phases 26-29,27 挂起/28 顺延/29 next);历史里程碑全归档;999.x 为 BACKLOG
+1. Read `.planning/ROADMAP.md` — v0.3.3 active(26 ✅ / 27 ⏸️ / 28 ⏭️ / 29 ✅);历史里程碑全归档;999.x 为 BACKLOG
 2. Read `.planning/PROJECT.md` Current Milestone — v0.3.3 产研半落地 + 工作区入驻
-3. Read `.planning/research/SUMMARY.md` — 架构结论:引擎协议零改动,增量 = tabRunStore + Rust 提取命令 + HITL 复用
-4. Next action: `/gsd:discuss-phase 29`(PM CRUD 原生化/agent 写路径;裁定素材 999.5-CONTEXT D-11/D-12;产品哲学:工作流用户自组织,只给参考+模板,严禁刚性 pipeline)
+3. Next action: 用户裁定 — ①恢复 Phase 27 UAT 回归(27-HUMAN-UAT.md)②确认 28 顺延或重排 ③Phase 30(模板数据化+工作流自组织)立项讨论
 
 Key files: `src-tauri/src/engine/`(Rust 引擎,协议不动)、`src/stores/rndStore.ts`(六个 generate*AI 为 mock 全清对象)、`research/RND-ROLLOUT-V0.3-V0.4.md`(路线真相源)、`docs/adr/ADR-0003-rust-run-engine.md`

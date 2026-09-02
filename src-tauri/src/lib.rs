@@ -285,6 +285,11 @@ pub fn run() {
                             Ok(_) => {}
                             Err(e) => eprintln!("[engine] startup restore failed: {e}"),
                         }
+                        // 29-01: one-shot idempotent kv → relational migration.
+                        // Failure only logs — latch unset means next startup retries safely.
+                        if let Err(e) = engine::pm_store::migrate_kv_pm_data(&conn) {
+                            eprintln!("[engine] pm kv migration failed: {e}");
+                        }
                         let db = handle.state::<engine::commands::EngineDb>();
                         *db.0.lock().unwrap() = Some(conn);
                     }

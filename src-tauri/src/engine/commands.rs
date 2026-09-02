@@ -20,6 +20,7 @@ use crate::engine::chat_session::LlmMessage;
 use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmToolCall, LlmTurn, LoopContext, LoopError, TokenSink};
 use crate::engine::{confirmations, exec, fs_ops, tools};
 use crate::engine::ingest;
+use crate::engine::pm_store;
 use crate::error::AppError;
 use crate::llm::{self, ChatMessage, Provider};
 use crate::notify;
@@ -905,6 +906,126 @@ pub fn consume_ingestion_batch_inner(
     }))
 }
 
+/// Phase 29 (29-03, PM-02): confirm + atomically consume a pm_write candidate
+/// and perform the write in one transaction. 删除类直接删行;cap-5 升级类按
+/// params.action 原工具语义执行(轻写重放)。审计事件 pm_write_applied 落
+/// candidate 自己的 session。Re-consume of a settled token is idempotent Ok.
+#[tauri::command]
+pub async fn engine_consume_pm_write(token: String, db: State<'_, EngineDb>) -> Result<Value, AppError> {
+    with_conn(&db, |conn| consume_pm_write_inner(conn, &token))
+}
+
+pub fn consume_pm_write_inner(conn: &Connection, token: &str) -> Result<Value, AppError> {
+    let candidate = confirmations::get(conn, token)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
+    if candidate.kind != "pm_write" {
+        return Err(AppError::InternalError(format!(
+            "candidate kind {} is not pm_write",
+            candidate.kind
+        )));
+    }
+    let session_id = candidate.session_id.clone().unwrap_or_default();
+    let action = candidate.params["action"].as_str().unwrap_or_default().to_string();
+
+    // Confirm → consume, tolerating AlreadySettled-when-consumed (double click /
+    // retry; the exactly-once gate below keeps the write itself idempotent).
+    let is_consumed = |conn: &Connection| -> Result<bool, AppError> {
+        Ok(confirmations::get(conn, token)
+            .map_err(|e| AppError::InternalError(e.to_string()))?
+            .map(|c| c.status == "consumed")
+            .unwrap_or(false))
+    };
+    if let Err(f) = confirmations::confirm(conn, token) {
+        if !matches!(f, confirmations::ConfirmationFailure::AlreadySettled) || !is_consumed(conn)? {
+            return Err(AppError::InternalError(f.to_string()));
+        }
+    }
+    if let Err(f) = confirmations::consume(conn, token, None) {
+        if !matches!(f, confirmations::ConfirmationFailure::AlreadySettled) || !is_consumed(conn)? {
+            return Err(AppError::InternalError(f.to_string()));
+        }
+    }
+
+    // Exactly-once gate: an audit event for this token exists → already applied.
+    let applied_before = event_log::list_events(conn, &session_id)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .iter()
+        .any(|e| {
+            e.event_type == "pm_write_applied"
+                && e.payload.get("confirmationToken").and_then(|v| v.as_str()) == Some(token)
+        });
+    if applied_before {
+        return Ok(json!({"applied": false, "action": action, "alreadyApplied": true}));
+    }
+
+    let args = candidate.params["args"].clone();
+    let audit = |tx: &Connection, mut payload: Value| -> Result<(), AppError> {
+        payload["action"] = json!(action);
+        payload["applied"] = json!(true);
+        payload["confirmationToken"] = json!(token);
+        event_log::append(
+            tx,
+            &EventInput {
+                session_id: session_id.clone(),
+                event_type: "pm_write_applied".into(),
+                workspace_id: None,
+                product_id: None,
+                project_id: None,
+                correlation_id: None,
+                payload,
+            },
+        )
+        .map_err(|e| AppError::InternalError(e.to_string()))
+        .map(|_| ())
+    };
+    let pm_err = |e: Box<dyn std::error::Error>| AppError::InternalError(e.to_string());
+
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| AppError::InternalError(e.to_string()))?;
+    match action.as_str() {
+        "task_delete" => {
+            let task_id = candidate.params["taskId"].as_str().unwrap_or_default();
+            // affected=false (row already gone) still counts as applied — idempotent.
+            pm_store::delete_task(&tx, task_id).map_err(pm_err)?;
+            audit(&tx, json!({"taskId": task_id}))?;
+        }
+        "schedule_delete" => {
+            let event_id = candidate.params["eventId"].as_str().unwrap_or_default();
+            pm_store::delete_schedule(&tx, event_id).map_err(pm_err)?;
+            audit(&tx, json!({"eventId": event_id}))?;
+        }
+        // Cap-5 escalation replay: execute the original light-write semantics.
+        "task_create" => {
+            let id = pm_store::insert_task(&tx, &args).map_err(pm_err)?;
+            audit(&tx, json!({"taskId": id}))?;
+        }
+        "task_update" | "task_complete" => {
+            let task_id = args["taskId"].as_str().unwrap_or_default().to_string();
+            let updates = if action == "task_complete" { json!({"status": "已完成"}) } else { args["updates"].clone() };
+            pm_store::update_task(&tx, &task_id, &updates).map_err(pm_err)?;
+            audit(&tx, json!({"taskId": task_id}))?;
+        }
+        "schedule_create" => {
+            let id = pm_store::upsert_schedule_from_json(&tx, &args).map_err(pm_err)?;
+            audit(&tx, json!({"eventId": id}))?;
+        }
+        "schedule_update" => {
+            let event_id = args["eventId"].as_str().unwrap_or_default().to_string();
+            pm_store::update_schedule(&tx, &event_id, &args["updates"]).map_err(pm_err)?;
+            audit(&tx, json!({"eventId": event_id}))?;
+        }
+        other => {
+            return Err(AppError::InternalError(format!(
+                "unknown pm_write action {other}"
+            )))
+        }
+    }
+    tx.commit().map_err(|e| AppError::InternalError(e.to_string()))?;
+    Ok(json!({"applied": true, "action": action}))
+}
+
 /// 27-03 (D-03 badge): light probe — enumerate + hash the workspace's
 /// docx/pdf, count how many are new (or previously failed). No extraction.
 #[tauri::command]
@@ -1551,5 +1672,115 @@ mod tests {
         confirmations::reject(&conn, &token3);
         let err = consume_ingestion_batch_inner(&conn, &token3, &[]).unwrap_err();
         assert!(err.to_string().contains("already_settled"), "{err}");
+    }
+
+    /* === 29-03 Task 1: engine_consume_pm_write === */
+
+    fn queue_pm_delete(conn: &Connection, tool: &str, id_arg: &str, id: &str) -> String {
+        use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let args = json!({ id_arg: id });
+        match execute(conn, tool, &args, &ctx) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                candidate["confirmationToken"].as_str().unwrap().to_string()
+            }
+            other => panic!("expected candidate, got {other:?}"),
+        }
+    }
+
+    fn seeded_pm_conn() -> Connection {
+        let conn = mem_conn();
+        pm_store::insert_task(&conn, &json!({"id": "pm-1", "title": "写 PRD", "status": "未开始"})).unwrap();
+        pm_store::upsert_schedule_from_json(&conn, &json!({"id": "pm-e1", "title": "评审", "date": "2026-09-03", "time": "10:00", "type": "meeting", "taskId": "pm-1"})).unwrap();
+        conn
+    }
+
+    #[test]
+    fn consume_pm_write_task_delete_removes_row_and_audits() {
+        let conn = seeded_pm_conn();
+        let token = queue_pm_delete(&conn, "task_delete", "taskId", "pm-1");
+
+        let result = consume_pm_write_inner(&conn, &token).unwrap();
+        assert_eq!(result, json!({"applied": true, "action": "task_delete"}));
+
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tasks WHERE id='pm-1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0, "task row deleted");
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let ev = events.iter().find(|e| e.event_type == "pm_write_applied").unwrap();
+        assert_eq!(ev.payload["action"], "task_delete");
+        assert_eq!(ev.payload["taskId"], "pm-1");
+        assert_eq!(ev.payload["applied"], true);
+        let status: String = conn
+            .query_row("SELECT status FROM agent_confirmation_candidates WHERE confirmation_token = ?1", rusqlite::params![token], |r| r.get(0))
+            .unwrap();
+        assert_eq!(status, "consumed");
+        // weak link cleared (Test 6): schedule.task_id → NULL
+        let link: Option<String> = conn
+            .query_row("SELECT task_id FROM schedules WHERE id='pm-e1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(link, None);
+    }
+
+    #[test]
+    fn consume_pm_write_schedule_delete_symmetric() {
+        let conn = seeded_pm_conn();
+        let token = queue_pm_delete(&conn, "schedule_delete", "eventId", "pm-e1");
+        let result = consume_pm_write_inner(&conn, &token).unwrap();
+        assert_eq!(result, json!({"applied": true, "action": "schedule_delete"}));
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM schedules WHERE id='pm-e1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let ev = events.iter().find(|e| e.event_type == "pm_write_applied").unwrap();
+        assert_eq!(ev.payload["action"], "schedule_delete");
+        assert_eq!(ev.payload["eventId"], "pm-e1");
+    }
+
+    #[test]
+    fn consume_pm_write_cap_escalation_replays_light_write() {
+        let conn = mem_conn();
+        // Simulate the cap-5 escalation candidate directly (as escalate_if_capped builds it).
+        let cand = confirmations::create_candidate(
+            &conn,
+            "pm_write",
+            &json!({"action": "task_create", "args": {"title": "升级任务", "priority": "high"}, "reason": "cap-5 escalation"}),
+            Some("超限升级"),
+            Some("s1"),
+        )
+        .unwrap();
+        let result = consume_pm_write_inner(&conn, &cand.confirmation_token).unwrap();
+        assert_eq!(result["applied"], true);
+        let title: String = conn
+            .query_row("SELECT title FROM tasks WHERE priority='high'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(title, "升级任务");
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let ev = events.iter().find(|e| e.event_type == "pm_write_applied").unwrap();
+        assert_eq!(ev.payload["action"], "task_create");
+        let new_id = ev.payload["taskId"].as_str().unwrap();
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tasks WHERE id=?1", rusqlite::params![new_id], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1, "audit payload taskId is the newly created row");
+    }
+
+    #[test]
+    fn consume_pm_write_double_consume_is_idempotent() {
+        let conn = seeded_pm_conn();
+        let token = queue_pm_delete(&conn, "task_delete", "taskId", "pm-1");
+        consume_pm_write_inner(&conn, &token).unwrap();
+        let again = consume_pm_write_inner(&conn, &token).unwrap();
+        assert_eq!(again["applied"], false);
+        assert_eq!(again["alreadyApplied"], true);
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        assert_eq!(events.iter().filter(|e| e.event_type == "pm_write_applied").count(), 1);
+    }
+
+    #[test]
+    fn consume_pm_write_rejects_wrong_kind_and_unknown_action() {
+        let conn = mem_conn();
+        let other = confirmations::create_candidate(&conn, "knowledge_write", &json!({"title": "t"}), None, None).unwrap();
+        let err = consume_pm_write_inner(&conn, &other.confirmation_token).unwrap_err();
+        assert!(err.to_string().contains("not pm_write"), "{err}");
+        let bad = confirmations::create_candidate(&conn, "pm_write", &json!({"action": "explode"}), None, Some("s1")).unwrap();
+        let err = consume_pm_write_inner(&conn, &bad.confirmation_token).unwrap_err();
+        assert!(err.to_string().contains("unknown pm_write action"), "{err}");
     }
 }

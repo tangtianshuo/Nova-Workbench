@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CaretDown, CheckCircle, CircleNotch } from '@phosphor-icons/react';
+import { BookmarkSimple, CaretDown, CheckCircle, CircleNotch } from '@phosphor-icons/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
@@ -14,6 +14,8 @@ import { ProgressBar } from '@/src/components/ui/ProgressBar';
 import { Tooltip } from '@/src/components/ui/Tooltip';
 import { useToast } from '@/src/components/ui/Toast';
 import { PrdDraftDialog } from '@/src/components/PrdDraftDialog';
+import { DistillDialog } from '@/src/components/workflow/DistillDialog';
+import { distillSessionToSteps, type DistilledStep } from '@/src/ai/distill';
 import { cn } from '@/src/lib/utils';
 import { useTabRunStore, ACTIVE, type TabRunRecord, type TabDeliverableCandidate } from '@/src/stores/tabRunStore';
 import { useUIStore } from '@/src/stores/uiStore';
@@ -119,6 +121,19 @@ export function TabRunPanel({ tabId, className }: Props) {
     return () => clearInterval(t);
   }, [isActive, run?.runId]);
 
+  // 30-04: settled runs — extract distillable product steps for the entry state.
+  const [distillSteps, setDistillSteps] = useState<DistilledStep[] | null>(null);
+  const [showDistill, setShowDistill] = useState(false);
+  useEffect(() => {
+    if (!run || isActive) return;
+    let cancelled = false;
+    setDistillSteps(null);
+    distillSessionToSteps(run.sessionId)
+      .then((steps) => { if (!cancelled) setDistillSteps(steps); })
+      .catch(() => { if (!cancelled) setDistillSteps([]); });
+    return () => { cancelled = true; };
+  }, [run?.sessionId, run?.status, isActive]);
+
   // Auto-expand on run start; auto-collapse ~2s after done/error.
   useEffect(() => {
     if (!run) return;
@@ -195,6 +210,23 @@ export function TabRunPanel({ tabId, className }: Props) {
               取消生成
             </Button>
           </Tooltip>
+        )}
+        {(run.status === 'done' || run.status === 'cancelled') && distillSteps !== null && (
+          distillSteps.length > 0 ? (
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setShowDistill(true)}>
+              <BookmarkSimple size={14} weight="duotone" className="mr-1" />
+              把这次沉淀成模板
+            </Button>
+          ) : (
+            <Tooltip content="这次运行没有可沉淀的产物步骤">
+              <span className="shrink-0">
+                <Button variant="ghost" size="sm" disabled>
+                  <BookmarkSimple size={14} weight="duotone" className="mr-1" />
+                  把这次沉淀成模板
+                </Button>
+              </span>
+            </Tooltip>
+          )
         )}
         {run.status === 'waiting-for-confirmation' && (
           <Button
@@ -299,6 +331,15 @@ export function TabRunPanel({ tabId, className }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showDistill && distillSteps && distillSteps.length > 0 && (
+        <DistillDialog
+          open
+          onOpenChange={(open) => !open && setShowDistill(false)}
+          defaultName={`${run.sessionTitle ?? '运行'} 模板`}
+          steps={distillSteps}
+        />
+      )}
 
       {dialogSnapshot && (
         <PrdDraftDialog

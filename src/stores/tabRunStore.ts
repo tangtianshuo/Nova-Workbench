@@ -55,6 +55,8 @@ export interface TabRunRecord {
   /** Kept verbatim so TabRunPanel retry can re-run startTabRun with identical params. */
   userMessage: string;
   coreContext: string;
+  /** Kept for the distill dialog's default template name (30-04). */
+  sessionTitle?: string;
   events: TabRunEventRow[];
   startedAt: number;
   error?: string;
@@ -171,6 +173,7 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
       currentStep: '排队中…',
       userMessage: params.userMessage,
       coreContext: params.coreContext,
+      sessionTitle: params.sessionTitle ?? params.userMessage.slice(0, 24),
       events: [],
       startedAt: Date.now(),
       candidateCount: 0,

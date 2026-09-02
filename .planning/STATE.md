@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-09-02T03:39:25.939Z"
+stopped_at: Completed 29-02-PLAN.md
+last_updated: "2026-09-02T03:50:01.296Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 12
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 29 (pm-crud) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Next: `/gsd:discuss-phase 29`
 Last activity: 2026-09-02
@@ -66,6 +66,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 27 P02 | 50m | 3 tasks | 7 files |
 | Phase 27 P03 | 35m | 3 tasks | 10 files |
 | Phase 29 P01 | 35m | 2 tasks | 5 files |
+| Phase 29 P02 | 35m | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 27]: pdf_oxide 0.3.77 中文 PoC 通过,zip 限 deflate 避免 C 构建
 - [Phase 27]: 27-02: knowledge doc_id = item.id (ing-{hash8}) 作 consume 幂等键,复用 doc_id 唯一索引;migration 0011 扩 candidates CHECK 加 ingestion_batch;consume 自动 confirm 沿 commit_deliverable 先例
 - [Phase 29]: [29-01] task/schedule 关系表落地(schema 12)+ kv→关系一次性幂等搬移(meta latch pm_kv_migrated_v29,kv 保留);日期全 TEXT 零转换
+- [Phase 29]: [29-02] PM 9 工具三档风险:读/轻写免确认直落库,delete+cap-5 走 pm_write HITL;pm_write 入 dedup kind 列表
 
 ### TODOs (pending)
 
@@ -108,8 +110,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-02T03:39:25.934Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-09-02T03:50:01.291Z
+Stopped at: Completed 29-02-PLAN.md
 Resume file: None
 
 If resuming after context loss:

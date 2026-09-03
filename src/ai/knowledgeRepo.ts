@@ -26,6 +26,8 @@ export interface KnowledgeDocInput {
   sourceSessionId?: string;
   /** Phase 16 (DELIV-03): correlation_id of the generating turn (agent_events source-event pointer). */
   sourceEventId?: string;
+  /** Phase 31 (D-06): 'note' = 全局笔记 (productId='__global__'); defaults to 'document'. */
+  docKind?: 'document' | 'note';
   /** Seeding/backfill only — defaults to now. Mock relative strings ('刚刚') must be ISO-converted by the caller. */
   updatedAt?: string;
 }
@@ -44,6 +46,7 @@ export interface KnowledgeDoc {
   sourceType: string;
   sourceSessionId: string | null;
   sourceEventId: string | null;
+  docKind: 'document' | 'note';
   createdAt: string;
   updatedAt: string;
   supersededAt: string | null;
@@ -77,6 +80,8 @@ export interface KnowledgeRepo {
   /** Audit: full version history of one docId. */
   listVersions(docId: string): Promise<KnowledgeDoc[]>;
   search(query: string, filters?: SearchFilters & { limit?: number }): Promise<KnowledgeHit[]>;
+  /** Phase 31: workspace doc list, filtered by kind/product, newest first. */
+  listDocs(filter?: { docKind?: 'document' | 'note'; productId?: string; limit?: number }): Promise<KnowledgeDoc[]>;
   deleteByProduct(productId: string): Promise<void>;
   /** Repair path: wipe FTS and re-index all current versions. */
   rebuildFts(): Promise<void>;
@@ -123,6 +128,7 @@ export class MemoryKnowledgeRepo implements KnowledgeRepo {
       sourceType: input.sourceType ?? 'user',
       sourceSessionId: input.sourceSessionId ?? null,
       sourceEventId: input.sourceEventId ?? null,
+      docKind: input.docKind ?? 'document',
       createdAt: current?.createdAt ?? now,
       updatedAt: input.updatedAt ?? now,
       supersededAt: null,
@@ -192,6 +198,12 @@ export class MemoryKnowledgeRepo implements KnowledgeRepo {
     /* memory impl: FTS is derived at query time — nothing to rebuild */
   }
 
+  async listDocs(filter?: { docKind?: 'document' | 'note'; productId?: string; limit?: number }): Promise<KnowledgeDoc[]> {
+    let docs = await this.getCurrentDocs(filter?.productId);
+    if (filter?.docKind) docs = docs.filter((d) => d.docKind === filter.docKind);
+    return docs.slice(0, filter?.limit ?? docs.length);
+  }
+
   reset(): void {
     this.docs.clear();
     this.nextRowid = 1;
@@ -230,6 +242,7 @@ interface KnowledgeDocRow {
   source_type: string;
   source_session_id: string | null;
   source_event_id: string | null;
+  doc_kind: string;
   created_at: string;
   updated_at: string;
   superseded_at: string | null;
@@ -250,6 +263,7 @@ function mapRow(row: KnowledgeDocRow): KnowledgeDoc {
     sourceType: row.source_type,
     sourceSessionId: row.source_session_id,
     sourceEventId: row.source_event_id,
+    docKind: row.doc_kind === 'note' ? 'note' : 'document',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     supersededAt: row.superseded_at,
@@ -270,14 +284,14 @@ export class SqliteKnowledgeRepo implements KnowledgeRepo {
     await db.execute(
       `INSERT INTO knowledge_docs
          (doc_id, version, product_id, title, category, tags_json, summary, content, author,
-          source_type, source_session_id, source_event_id, created_at, updated_at, superseded_at)
+          source_type, source_session_id, source_event_id, doc_kind, created_at, updated_at, superseded_at)
        VALUES ($1, (SELECT COALESCE(MAX(version), 0) + 1 FROM knowledge_docs WHERE doc_id = $1),
-               $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULL)`,
+               $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULL)`,
       [
         input.docId, input.productId, input.title, input.category,
         JSON.stringify(input.tags), input.summary, input.content, input.author,
         input.sourceType ?? 'user', input.sourceSessionId ?? null, input.sourceEventId ?? null,
-        now, updatedAt,
+        input.docKind ?? 'document', now, updatedAt,
       ],
     );
     const rows = await db.select<KnowledgeDocRow[]>(
@@ -318,6 +332,20 @@ export class SqliteKnowledgeRepo implements KnowledgeRepo {
     const rows = await db.select<KnowledgeDocRow[]>(
       'SELECT * FROM knowledge_docs WHERE doc_id = $1 ORDER BY version ASC',
       [docId],
+    );
+    return rows.map(mapRow);
+  }
+
+  async listDocs(filter?: { docKind?: 'document' | 'note'; productId?: string; limit?: number }): Promise<KnowledgeDoc[]> {
+    const db = await lazySqlite();
+    const rows = await db.select<KnowledgeDocRow[]>(
+      `SELECT * FROM knowledge_docs
+        WHERE superseded_at IS NULL
+          AND ($1 IS NULL OR doc_kind = $1)
+          AND ($2 IS NULL OR product_id = $2)
+        ORDER BY updated_at DESC
+        LIMIT $3`,
+      [filter?.docKind ?? null, filter?.productId ?? null, filter?.limit ?? 500],
     );
     return rows.map(mapRow);
   }

@@ -2,8 +2,8 @@
 // Commands are the 7.22.1 .d.ts-verified keys (research MEDIUM item resolved:
 // heading command is `wrapInHeadingCommand`, not turnIntoHeadingCommand).
 import { undoCommand, redoCommand } from '@milkdown/kit/plugin/history';
+import { editorViewCtx } from '@milkdown/kit/core';
 import {
-  wrapInHeadingCommand,
   toggleStrongCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
@@ -41,6 +41,27 @@ type Instance = ReturnType<typeof useInstance>[1];
 function run(getInstance: Instance, key: CmdKey<unknown>, payload?: unknown) {
   const ed = getInstance();
   ed?.action(callCommand(key, payload));
+}
+
+// UAT fix 3: wrapInHeadingCommand can't re-wrap an existing heading block.
+// Direct setNodeMarkup instead: any heading level replaces any other; clicking
+// the current level toggles back to paragraph. Keeps the id attr (sync-heading-id).
+function setHeadingLevel(getInstance: Instance, level: number) {
+  const ed = getInstance();
+  ed?.action((ctx) => {
+    const view = ctx.get(editorViewCtx);
+    const { state } = view;
+    const { $from } = state.selection;
+    const parent = $from.parent;
+    const heading = state.schema.nodes.heading;
+    const paragraph = state.schema.nodes.paragraph;
+    if (!parent.isTextblock || !heading || !paragraph) return;
+    if (parent.type.name === 'code_block') return;
+    const toggleOff = parent.type === heading && parent.attrs.level === level;
+    const type = toggleOff ? paragraph : heading;
+    const attrs = toggleOff ? undefined : { ...parent.attrs, level };
+    view.dispatch(state.tr.setNodeMarkup($from.before(), type, attrs));
+  });
 }
 
 function ToolbarButton({
@@ -88,7 +109,7 @@ export function MarkdownToolbar() {
         <ToolbarButton
           key={level}
           label={`标题 ${level}`}
-          onClick={runCmd(wrapInHeadingCommand.key, level)}
+          onClick={() => setHeadingLevel(getInstance, level)}
         >
           <span className="text-xs font-semibold">H{level}</span>
         </ToolbarButton>

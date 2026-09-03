@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: 31-05 UAT checkpoint — SC-1.1 failed (编辑器空白,根因已定位) + 多 tab 功能请求,裁定进 31-07
-last_updated: "2026-09-03T09:19:16.293Z"
-last_activity: 2026-09-03 -- Phase 31 execution started
+stopped_at: Completed 31-07-PLAN.md
+last_updated: "2026-09-03T09:43:30.600Z"
+last_activity: 2026-09-03
 progress:
   total_phases: 10
   completed_phases: 3
-  total_plans: 22
-  completed_plans: 20
+  total_plans: 23
+  completed_plans: 21
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 31 (doc-workspace) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 31
+Plan: 2 of 6
+Status: Ready to execute
 Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
-Last activity: 2026-09-03 -- Phase 31 execution started
+Last activity: 2026-09-03
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -77,6 +77,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 31 P03 | 16m | 2 tasks | 5 files |
 | Phase 31 P04 | 35m | 2 tasks | 4 files |
 | Phase 31 P06 | 45m | 2 tasks | 8 files |
+| Phase 31 P07 | 25m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 31]: [31-03] 非 modal Drawer 三件套 modal={false}+showOverlay={false}+onInteractOutside preventDefault(Radix 非 modal 默认外点仍 dismiss);常驻面板= flex aside + uiStore persist
 - [Phase 31]: [31-04] 确认卡多宿主:工作区渲染宿主直调 chatConsoleStore 既有 actions,真相源零改动;非 md 判定用标题扩展名(doc_kind 无文件类型维度)
 - [Phase 31]: 31-06: PrdDraftDialog 保留(内存候选稿+落槽 commit 为独立工作流,先落库再 open 会持久化取消稿);openDoc/createNote store 单点 expandPanel;收起面板自动退出禅模式
+- [Phase 31]: 31-07: D-14 采纳 effect deps=(activeDocId, version)+editing 跳过;D-15 多 tab openDocIds/activeDocId+closeDoc 左邻激活,tab 栏在 Content 渲染、zen/单 tab 隐藏;D-16 flushPendingSave 先于切/关
 
 ### TODOs (pending)
 
@@ -139,8 +141,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-03T08:53:02.845Z
-Stopped at: Completed 31-06-PLAN.md
+Last session: 2026-09-03T09:43:30.594Z
+Stopped at: Completed 31-07-PLAN.md
 Resume file: None
 
 If resuming after context loss:

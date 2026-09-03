@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 31-01-PLAN.md (UAT fixes done)
-last_updated: "2026-09-03T07:53:30.978Z"
+stopped_at: Completed 31-02-PLAN.md
+last_updated: "2026-09-03T08:00:55.185Z"
 last_activity: 2026-09-03
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 21
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 31 (doc-workspace) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
 Last activity: 2026-09-03
@@ -73,6 +73,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 30 P02 | 55min | 3 tasks | 16 files |
 | Phase 30 P03 | 18m | 2 tasks | 5 files |
 | Phase 30 P04 | 20m | 2 tasks | 6 files |
+| Phase 31 P02 | 18m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 30]: [30-02] workflow_delete 复用 pm_write kind+action 路由;内置模板不入 SQLite(include_str 合并);parity fixture 前缀 projection-cases-workflow-pm-write
 - [Phase 30]: [30-03] 内置竞品模板用 DEL-REL-02(catalog 真实 code);Phosphor 用 FlowArrow(无 Flow 导出);WorkflowView 一键发起无确认(D-05),参考剧本措辞卡上+userMessage 双出现
 - [Phase 30]: [30-04] distill 走 workflowStore.createTemplate → executeTool('workflow_create') 单一写路径;确定性提取不烧 LLM、不进 candidates 表;沉淀入口空结果 disabled+Tooltip
+- [Phase 31]: [31-02] doc_kind 哨兵方案落地:migration 0014 加列默认 document,全局笔记 product_id='__global__',FTS/版本链零改动;docWorkspaceStore 不 persist(面板态归 uiStore)
 
 ### TODOs (pending)
 
@@ -131,8 +133,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-03T07:53:30.970Z
-Stopped at: Completed 31-01-PLAN.md (UAT fixes done)
+Last session: 2026-09-03T08:00:50.651Z
+Stopped at: Completed 31-02-PLAN.md
 Resume file: None
 
 If resuming after context loss:

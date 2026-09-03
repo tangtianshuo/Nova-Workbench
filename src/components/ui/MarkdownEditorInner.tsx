@@ -41,6 +41,86 @@ export interface MarkdownEditorHandle {
   getMarkdown: () => string;
 }
 
+/* --- ingest normalization (UAT fix 1) ---
+   AI-generated docs contain raw `<br />` which Milkdown renders as literal
+   text (html inline node keeps the raw string). Convert to markdown hardbreak
+   (`\` at EOL). Line-wise, skips fenced ``` blocks.
+   ponytail: only <br> is converted; other raw HTML round-trips untouched as
+   Milkdown html nodes — add per-tag rules here if more show up. */
+const BR_RE = /<br\s*\/?>/gi;
+function normalizeMarkdown(md: string): string {
+  let inFence = false;
+  return md
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+      if (inFence || /^\s*(```|~~~)/.test(line)) return line;
+      return line.replace(BR_RE, '\\\n');
+    })
+    .join('\n');
+}
+
+/* --- live preview (UAT fix 2): Obsidian-style cursor-in-block syntax reveal.
+   No inlineSync plugin exists in 7.22.1 preset-commonmark, so this is a small
+   decoration plugin: block marker widget (`##` / `>`) when the caret is inside
+   the block, and delimiter widgets (`**` `*` `~` `` ` ``) around inline marks
+   containing the caret.
+   ponytail: empty-selection only; adjacent same-mark nodes get their own
+   delimiters (Obsidian merges them) — upgrade path: real inlineSync plugin
+   when Milkdown ships one for headless core. */
+const INLINE_SYNTAX: Record<string, string> = {
+  strong: '**',
+  emphasis: '*',
+  inlineCode: '`',
+  strikethrough: '~~',
+};
+
+function syntaxWidget(text: string) {
+  const span = document.createElement('span');
+  span.classList.add('milkdown-syntax');
+  span.textContent = text;
+  return span;
+}
+
+function livePreviewPlugin() {
+  return $prose(
+    () =>
+      new Plugin({
+        props: {
+          decorations(state) {
+            const { selection } = state;
+            if (!selection.empty) return undefined;
+            const { $from } = selection;
+            const parent = $from.parent;
+            const decos: Decoration[] = [];
+            if (parent.type.name === 'heading') {
+              decos.push(
+                Decoration.widget($from.before() + 1, syntaxWidget('#'.repeat(parent.attrs.level) + ' '), {
+                  side: -10,
+                }),
+              );
+            } else if (parent.type.name === 'blockquote') {
+              decos.push(Decoration.widget($from.before() + 1, syntaxWidget('> '), { side: -10 }));
+            }
+            parent.forEach((node, offset) => {
+              if (!node.marks.length) return;
+              const start = $from.start() + offset;
+              const end = start + node.nodeSize;
+              if ($from.pos < start || $from.pos > end) return;
+              for (const mark of node.marks) {
+                const delim = INLINE_SYNTAX[mark.type.name];
+                if (!delim) continue;
+                decos.push(Decoration.widget(start, syntaxWidget(delim), { side: -10 }));
+                decos.push(Decoration.widget(end, syntaxWidget(delim), { side: 10 }));
+              }
+            });
+            return decos.length ? DecorationSet.create(state.doc, decos) : undefined;
+          },
+        },
+      }),
+  );
+}
+
 /* --- placeholder (empty-doc widget decoration, simplest approach) --- */
 function placeholderPlugin(text: string) {
   return $prose(
@@ -72,7 +152,10 @@ interface EditorCoreProps extends MarkdownEditorProps {
 function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef }: EditorCoreProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  const lastEmitted = useRef(value);
+  // '' not value: forces the mount effect to replaceAll the initial doc —
+  // without it the first-open doc never loads (UAT fix 1). replaceAll(flush)
+  // sets addToHistory:false so the listener never emits for it → no loop.
+  const lastEmitted = useRef('');
 
   const { get } = useEditor(
     (root) =>
@@ -94,7 +177,8 @@ function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef 
         .use(gfm)
         .use(history)
         .use(listener)
-        .use(clipboard),
+        .use(clipboard)
+        .use(livePreviewPlugin()),
     // ponytail: rebuild only on readOnly/placeholder toggle; onChange rides a ref
     // (research Pattern 1: useEditor deps change = destroy + recreate editor).
     [readOnly, placeholder],
@@ -102,10 +186,11 @@ function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef 
 
   // External doc swap only (lastEmitted dirty-check prevents onChange->replaceAll loop).
   useEffect(() => {
-    if (value !== lastEmitted.current) {
+    const source = normalizeMarkdown(value);
+    if (source !== lastEmitted.current) {
       // flush:true wipes the undo stack — undo must not resurrect the previous doc.
-      get()?.action(replaceAll(value, true));
-      lastEmitted.current = value;
+      get()?.action(replaceAll(source, true));
+      lastEmitted.current = source;
     }
   }, [value, get]);
 

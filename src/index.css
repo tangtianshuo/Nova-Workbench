@@ -152,6 +152,23 @@ html, body {
 .milkdown-editor .milkdown {
   outline: none;
 }
+/* UAT fix 4: kill the browser/ProseMirror focus ring on the editable area. */
+.milkdown-editor .ProseMirror,
+.milkdown-editor .ProseMirror:focus,
+.milkdown-editor .ProseMirror-focused,
+.milkdown-editor .ProseMirror-focused:focus {
+  outline: none;
+}
+/* gapcursor default is `border-top: 1px solid black` — token it. */
+.milkdown-editor .ProseMirror-gapcursor:after {
+  border-top-color: hsl(var(--text-tertiary));
+}
+/* UAT fix 2: live-preview syntax markers (## / > / ** etc.) — muted, not content. */
+.milkdown-editor .milkdown-syntax {
+  color: hsl(var(--text-tertiary));
+  font-weight: 400;
+  font-size: 0.9em;
+}
 .milkdown-editor .milkdown .ProseMirror {
   min-height: 200px;
   font-size: 15px;

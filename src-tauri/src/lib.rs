@@ -100,6 +100,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0013_workflow_templates.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 14,
+            description: "doc_kind column for global notes (doc workspace)",
+            sql: include_str!("../migrations/0014_doc_kind_note.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

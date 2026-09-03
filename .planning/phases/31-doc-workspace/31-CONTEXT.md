@@ -41,6 +41,12 @@
 - **D-12 禅模式:** 隐藏主工作区内容区（Header + main），左侧导航 Sidebar 保留，编辑区占满主工作区；工具栏按钮进出；收起面板自动退出禅模式。
 - **D-13 新建笔记入口:** 知识库视图 header 按钮（非面板内）。
 
+### UAT 收口裁定（2026-09-03，D-14..D-16，驱动 31-07）
+
+- **D-14 SC-1.1 bug 修复:** 知识库点击文档面板弹出但编辑器空白。根因：`DocWorkspaceContent.tsx` 内容采纳 effect 仅依赖 `[currentDocId]`，首次打开时 `loadDocs()`（SQLite 异步）未返回，`docs.find()` 为 undefined → content 置空且后续不重跑。修复：deps 加入 `currentDoc?.version`（编辑中 saveStatus==='editing' 时跳过采纳防覆写）。
+- **D-15 多 tab 文档:** 工作区支持 tab 页打开多个文档。store 增 `openDocIds[] + activeDocId`（openDoc 改追加语义）；面板顶部 tab 栏（标题 + 关闭按钮；禅模式下隐藏）；点击已开 tab 激活不重复开。
+- **D-16 切换即保存:** 切换/关闭 tab 时 flush 未落盘的防抖编辑（立即 saveDoc，不等 800ms）。同时修复现有潜伏 bug：切换 currentDocId 会 clearTimeout 静默丢弃 ≤800ms 编辑。
+
 ### Claude's Discretion
 
 - 工作区文档列表信息架构（分组/过滤：按产品、按 doc_kind、最近打开）

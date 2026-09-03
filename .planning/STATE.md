@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase: 30 (complete)
-Plan: 4/4 + UAT 8/8 approved
-Status: Milestone decision point
-Next: 用户裁定 — ①恢复 Phase 27 UAT 回归 ②plan Phase 28 ③/gsd:complete-milestone
-Last activity: 2026-09-03 - Completed quick task 260903-gh0: 产物卡双源投影(槽位流 + knowledge_write 归档流)
+Phase: 31 (doc-workspace, discuss complete — ready for plan-phase)
+Plan: 0/TBD
+Status: Planning next
+Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
+Last activity: 2026-09-03 - Phase 31 discuss 完成(Milkdown core 选型,MDXEditor 全量退役,31-CONTEXT D-01..D-08,b611f5b)
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -137,8 +137,8 @@ Resume file: None
 
 If resuming after context loss:
 
-1. Read `.planning/ROADMAP.md` — v0.3.3 active(26 ✅ / 27 ⏸️ / 28 ⏭️ / 29 ✅);历史里程碑全归档;999.x 为 BACKLOG
+1. Read `.planning/ROADMAP.md` — v0.3.3 active(26 ✅ / 27 ⏸️ / 28 ⏭️ / 29 ✅ / 30 ✅ / 31 讨论完);历史里程碑全归档;999.x 为 BACKLOG
 2. Read `.planning/PROJECT.md` Current Milestone — v0.3.3 产研半落地 + 工作区入驻
-3. Next action: 用户裁定 — ①恢复 Phase 27 UAT 回归(27-HUMAN-UAT.md)②确认 28 顺延或重排 ③Phase 30(模板数据化+工作流自组织)立项讨论
+3. Next action: `/gsd:plan-phase 31`(文档工作区,31-CONTEXT 8 项裁定已锁);里程碑决策点(27/28 债务 vs close)仍开放
 
 Key files: `src-tauri/src/engine/`(Rust 引擎,协议不动)、`src/stores/rndStore.ts`(六个 generate*AI 为 mock 全清对象)、`research/RND-ROLLOUT-V0.3-V0.4.md`(路线真相源)、`docs/adr/ADR-0003-rust-run-engine.md`

@@ -167,6 +167,7 @@ export function CodeManagementTab({ product }: Props) {
         productId={product.id}
         code="DEL-DEV-01"
         title="系统总体技术架构设计方案"
+        knowledgeCategory="架构设计"
       />
     </div>
   );

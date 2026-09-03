@@ -88,6 +88,7 @@ export function CompetitorAnalysisTab({ product }: Props) {
         productId={product.id}
         code="DEL-REL-02"
         title="竞品深度对比与市场差异化破局报告"
+        knowledgeCategory="竞品分析"
       />
 
       {/* Toast */}

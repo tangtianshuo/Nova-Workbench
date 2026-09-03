@@ -1,5 +1,5 @@
 // Milkdown headless editor (Phase 31, D-01/D-03).
-// Contract-compatible with the retired MDXEditor implementation:
+// Contract-compatible with the previous editor implementation:
 // value/onChange/readOnly/placeholder/className/minHeight — the 3 call sites
 // (KnowledgeBaseView / ProductKnowledgeTab / PrdDraftDialog) need zero changes.
 // Structural ProseMirror base styles only — all chrome is Nova tokens (see

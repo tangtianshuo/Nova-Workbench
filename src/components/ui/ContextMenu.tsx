@@ -65,7 +65,7 @@ interface AiContextMenuProps {
 }
 
 // Belt-and-braces contenteditable guard. Primary guard is structural: the
-// MDXEditor pane is never wrapped (17-UI-SPEC locked). If a contenteditable
+// markdown editor pane is never wrapped (17-UI-SPEC locked). If a contenteditable
 // ever ends up inside a wrapped region anyway, this capture-phase
 // stopPropagation stops Radix's trigger handler before it runs — without
 // preventDefault, so the native editor menu still opens. (Plain

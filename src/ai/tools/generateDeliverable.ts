@@ -45,7 +45,7 @@ async function commitConfirmedDraft(
   const candidate = await getDeliverableDraftCandidate(token);
   if (!candidate) throw new Error('PRD 草稿候选已失效,请重新生成。');
   // Identity guard: only code/title identify the candidate — draft IS expected
-  // to differ (user edited it in the MDXEditor before committing).
+  // to differ (user edited it in the markdown editor before committing).
   if (args.code !== candidate.code || args.title !== candidate.title) {
     throw new Error('确认的草稿与候选不一致,请重新生成。');
   }

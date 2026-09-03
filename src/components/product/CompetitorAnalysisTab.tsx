@@ -35,6 +35,7 @@ import { MarkdownRenderer } from '@/src/components/ui';
 import { Badge } from '@/src/components/ui/Badge';
 import { Tooltip as UITooltip } from '@/src/components/ui/Tooltip';
 import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { DeliverableDocCard } from '@/src/components/rnd/DeliverableDocCard';
 import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
 import { buildCoreContext } from '@/src/ai/context';
 import { isTauri } from '@/src/lib/api';
@@ -81,6 +82,13 @@ export function CompetitorAnalysisTab({ product }: Props) {
   return (
     <div className="space-y-6">
       <TabRunPanel tabId="competitor" />
+
+      {/* Phase 30 竞品工作流模板产物投影(DEL-REL-02 竞品深度对比报告),纯增量 */}
+      <DeliverableDocCard
+        productId={product.id}
+        code="DEL-REL-02"
+        title="竞品深度对比与市场差异化破局报告"
+      />
 
       {/* Toast */}
       {toastMessage && (

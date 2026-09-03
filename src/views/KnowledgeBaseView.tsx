@@ -377,7 +377,11 @@ export function KnowledgeBaseView() {
                           { icon: <ChatCircleDots size={14} weight="duotone" className="text-accent" />, label: '相关问题追问', onSelect: () => fireAiAction(`基于文档《${item.title}》，列出值得进一步追问的问题清单。`) },
                         ]}>
                           <button
-                            onClick={() => setActiveItemId(item.id)}
+                            onClick={() => {
+                              setActiveItemId(item.id);
+                              // SC-1.1: clicking a doc opens it in the workspace panel.
+                              openDoc(item.id);
+                            }}
                             className={cn(
                               'w-full flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-sm transition-colors',
                               currentItem && 'id' in currentItem && currentItem.id === item.id

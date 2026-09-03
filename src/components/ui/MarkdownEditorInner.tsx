@@ -157,7 +157,7 @@ function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef 
   // sets addToHistory:false so the listener never emits for it → no loop.
   const lastEmitted = useRef('');
 
-  const { get } = useEditor(
+  const { get, loading } = useEditor(
     (root) =>
       Editor.make()
         .config((ctx) => {
@@ -185,14 +185,17 @@ function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef 
   );
 
   // External doc swap only (lastEmitted dirty-check prevents onChange->replaceAll loop).
+  // loading gate: get() returns undefined until editor.create() resolves — burning
+  // lastEmitted in that window strands the doc (SC-1.1 round-2 root cause).
   useEffect(() => {
+    if (loading) return;
     const source = normalizeMarkdown(value);
     if (source !== lastEmitted.current) {
       // flush:true wipes the undo stack — undo must not resurrect the previous doc.
       get()?.action(replaceAll(source, true));
       lastEmitted.current = source;
     }
-  }, [value, get]);
+  }, [value, loading, get]);
 
   const [, getInstance] = useInstance();
   useImperativeHandle(

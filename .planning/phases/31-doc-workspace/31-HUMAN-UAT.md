@@ -16,6 +16,7 @@
 
 - [ ] **SC-1.1** 在主工作区知识库(或产品知识 tab)点击一篇 AI 产出的知识文档:右侧面板滑出并打开(31-06 后入口在主工作区,面板无列表)
   - ❌ 2026-09-03 UAT:面板弹出但编辑器未携带文档内容(空白)。根因:`DocWorkspaceContent.tsx` 内容采纳 effect 仅依赖 `[currentDocId]`,首次点击时面板才挂载、`loadDocs()`(SQLite 异步)未返回,`docs.find()` 为 undefined → content 置空;docs 到位后 effect 不重跑。修复方向:deps 加入 `currentDoc?.version`(编辑中防覆写)。
+  - ❌ 2026-09-03 复测#2(D-14 修复后仍失败,且「点击行」不弹面板、「编辑」弹但空白):**真根因在编辑器层**。`MarkdownEditorInner.tsx` 同步 effect 中 `get()?.action(replaceAll(...))` 在 Milkdown 实例未就绪时(`editor.create()` 异步未返回,`get()` 为 undefined)是 no-op,但 `lastEmitted.current = source` 无条件执行——值被「烧掉」,`loading` 翻 false 后 effect 不重跑(deps 无 loading)→ 编辑器永久空白。竞态:store 层 content 送达落在 create() 完成前即触发。修复:effect 加 `loading` 门控(实例就绪才应用+烧值)。次要:行点击只做选中不开面板(SC-1.1 预期点击即开),补 `openDoc(item.id)`。
 - [ ] **SC-1.2** 修改正文内容,等待自动保存(防抖)或失焦触发;无手动保存按钮要求
 - [ ] **SC-1.3** 完全退出应用重新打开(`npm run tauri:dev` 重启):同一文档内容为修改后版本,不丢
 - [ ] **SC-1.4** 版本化:同一 docId 多次编辑保存后版本号递增(可在 31-05-SUMMARY 记录验证 SQL:`SELECT doc_id, COUNT(*) FROM knowledge_doc_versions WHERE doc_id = '...' GROUP BY doc_id`)

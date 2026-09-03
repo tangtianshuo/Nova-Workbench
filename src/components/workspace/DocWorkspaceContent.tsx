@@ -5,16 +5,22 @@
  * knowledge tab) own discovery; the panel is preview + edit only.
  */
 import { useEffect, useRef, useState } from 'react';
+import { X } from '@phosphor-icons/react';
 import { cn } from '@/src/lib/utils';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { WorkspaceConfirmCard } from './WorkspaceConfirmCard';
 import { useDocWorkspaceStore } from '@/src/stores/docWorkspaceStore';
+import { useUIStore } from '@/src/stores/uiStore';
 
 const SAVE_DEBOUNCE_MS = 800;
 
 export function DocWorkspaceContent() {
   const docs = useDocWorkspaceStore((s) => s.docs);
+  const openDocIds = useDocWorkspaceStore((s) => s.openDocIds);
   const activeDocId = useDocWorkspaceStore((s) => s.activeDocId);
+  const setActiveDoc = useDocWorkspaceStore((s) => s.setActiveDoc);
+  const closeDoc = useDocWorkspaceStore((s) => s.closeDoc);
+  const zen = useUIStore((s) => s.docZenMode);
   const saveStatus = useDocWorkspaceStore((s) => s.saveStatus);
   const lastError = useDocWorkspaceStore((s) => s.lastError);
   const loadDocs = useDocWorkspaceStore((s) => s.loadDocs);
@@ -65,6 +71,16 @@ export function DocWorkspaceContent() {
     if (activeDocId) timerRef.current = setTimeout(() => doSave(activeDocId, value), SAVE_DEBOUNCE_MS);
   };
 
+  // D-16: flush a pending debounced edit immediately (tab switch/close must not
+  // lose the last ≤800ms of typing). Call BEFORE changing activeDocId.
+  const flushPendingSave = () => {
+    const s = useDocWorkspaceStore.getState();
+    if (s.saveStatus === 'editing' && s.activeDocId) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      void saveDoc(s.activeDocId, contentRef.current);
+    }
+  };
+
   // Blur-to-save (window blur covers editor blur in the panel).
   useEffect(() => {
     const onBlur = () => {
@@ -78,6 +94,54 @@ export function DocWorkspaceContent() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <WorkspaceConfirmCard />
+
+      {/* Tab bar (D-15): hidden in zen mode and for a single open doc. */}
+      {openDocIds.length > 1 && !zen && (
+        <div className="flex items-center gap-0.5 px-2 h-8 shrink-0 overflow-x-auto border-b border-border-subtle bg-bg-secondary">
+          {openDocIds.map((id) => {
+            const title = docs.find((d) => d.docId === id)?.title ?? id;
+            const isActive = id === activeDocId;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  flushPendingSave();
+                  setActiveDoc(id);
+                }}
+                className={cn(
+                  'flex items-center gap-1 max-w-[160px] px-2 h-full shrink-0 text-xs truncate',
+                  isActive
+                    ? 'text-text-primary border-b-2 border-accent'
+                    : 'text-text-secondary hover:text-text-primary'
+                )}
+              >
+                <span className="truncate">{title}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={'关闭 ' + title}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    flushPendingSave();
+                    closeDoc(id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      flushPendingSave();
+                      closeDoc(id);
+                    }
+                  }}
+                  className="flex items-center text-text-tertiary hover:text-danger shrink-0"
+                >
+                  <X size={12} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Editor (flex-1) + save status in toolbar row */}
       <div className="flex-1 flex flex-col overflow-hidden">

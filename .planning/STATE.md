@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
-status: planning
-stopped_at: Phase 31 UI-SPEC approved
-last_updated: "2026-09-03T07:03:23.902Z"
-last_activity: 2026-09-03 - Phase 31 discuss 完成(Milkdown core 选型,MDXEditor 全量退役,31-CONTEXT D-01..D-08,b611f5b)
+status: executing
+stopped_at: Completed 31-01-PLAN.md (UAT fixes done)
+last_updated: "2026-09-03T07:53:30.978Z"
+last_activity: 2026-09-03
 progress:
   total_phases: 10
   completed_phases: 3
-  total_plans: 16
-  completed_plans: 15
+  total_plans: 21
+  completed_plans: 16
 ---
 
 # Project State
@@ -20,15 +20,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 31 — doc-workspace(Milkdown 编辑器 + 右侧常驻面板)
+**Current focus:** Phase 31 — doc-workspace
 
 ## Current Position
 
-Phase: 31 (doc-workspace, discuss complete — ready for plan-phase)
-Plan: 0/TBD
-Status: Planning next
+Phase: 31 (doc-workspace) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
-Last activity: 2026-09-03 - Phase 31 discuss 完成(Milkdown core 选型,MDXEditor 全量退役,31-CONTEXT D-01..D-08,b611f5b)
+Last activity: 2026-09-03
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -131,9 +131,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-03T07:03:23.896Z
-Stopped at: Phase 31 UI-SPEC approved
-Resume file: .planning/phases/31-doc-workspace/31-UI-SPEC.md
+Last session: 2026-09-03T07:53:30.970Z
+Stopped at: Completed 31-01-PLAN.md (UAT fixes done)
+Resume file: None
 
 If resuming after context loss:
 

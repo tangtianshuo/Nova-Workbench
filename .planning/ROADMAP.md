@@ -117,7 +117,7 @@ Plans:
   7. 中文输入法、表格/代码块 round-trip 真机 UAT 通过;docx/pdf/excel/ppt 预览记技术债不进 v1
 **Plans:** 5 plans
 Plans:
-- [ ] 31-01-PLAN.md — Milkdown 受控编辑器重写 + 自建 toolbar + MDXEditor 全量退役(含 IME/round-trip PoC checkpoint)
+- [x] 31-01-PLAN.md — Milkdown 受控编辑器重写 + 自建 toolbar + MDXEditor 全量退役(含 IME/round-trip PoC checkpoint)
 - [ ] 31-02-PLAN.md — migration 0014 doc_kind + knowledgeRepo 扩展 + docWorkspaceStore
 - [ ] 31-03-PLAN.md — ⌘K Drawer 左滑非模态 + 右侧常驻工作区面板壳(收起/拖宽/persist)
 - [ ] 31-04-PLAN.md — 工作区业务:三过滤文档列表 + 编辑器自动保存 + 全局笔记 + 确认卡第三宿主
@@ -134,7 +134,7 @@ Plans:
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
 | 29. PM CRUD 工具原生化 — agent 写路径 | 4/4 | Complete | 2026-09-02 |
 | 30. 参考模板数据化 + 工作流用户自组织 | 4/4 | Complete | 2026-09-03 |
-| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 0/? | Planned (2026-09-03 discuss complete) | - |
+| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 1/5 | In Progress|  |
 
 ## Historical Milestones
 

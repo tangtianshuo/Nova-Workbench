@@ -146,3 +146,67 @@ html, body {
     z-index: 9999;
   }
 }
+
+/* === Milkdown editor (Phase 31) — the ONLY editor-specific CSS layer === */
+/* Structural styles on top of ProseMirror base; chrome colors all via tokens. */
+.milkdown-editor .milkdown {
+  outline: none;
+}
+.milkdown-editor .milkdown .ProseMirror {
+  min-height: 200px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: hsl(var(--text-primary));
+}
+.milkdown-editor h1 { font-size: 20px; font-weight: 600; margin: 0.8em 0 0.4em; }
+.milkdown-editor h2 { font-size: 17px; font-weight: 600; margin: 0.7em 0 0.35em; }
+.milkdown-editor h3 { font-size: 15px; font-weight: 600; margin: 0.6em 0 0.3em; }
+.milkdown-editor p { margin: 0.35em 0; }
+.milkdown-editor pre {
+  background: hsl(var(--bg-tertiary));
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  overflow-x: auto;
+}
+.milkdown-editor code {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  background: hsl(var(--bg-tertiary));
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.milkdown-editor pre code { background: transparent; padding: 0; }
+.milkdown-editor blockquote {
+  border-left: 2px solid hsl(var(--border-secondary));
+  padding-left: 12px;
+  color: hsl(var(--text-secondary));
+  margin: 0.5em 0;
+}
+.milkdown-editor ul, .milkdown-editor ol { padding-left: 1.4em; margin: 0.35em 0; }
+.milkdown-editor ul { list-style: disc; }
+.milkdown-editor ol { list-style: decimal; }
+.milkdown-editor a { color: hsl(var(--accent)); }
+.milkdown-editor table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+}
+.milkdown-editor th, .milkdown-editor td {
+  border: 1px solid hsl(var(--border-secondary));
+  padding: 6px 10px;
+  text-align: left;
+}
+.milkdown-editor th { background: hsl(var(--bg-secondary)); font-weight: 600; }
+.milkdown-editor .selectedCell:after {
+  background: hsl(var(--accent) / 0.1);
+}
+.milkdown-editor hr { border-color: hsl(var(--border-secondary)); margin: 1em 0; }
+.milkdown-editor .milkdown-placeholder {
+  color: hsl(var(--text-tertiary));
+  pointer-events: none;
+  height: 0;
+  display: block;
+}
+.milkdown-editor img { max-width: 100%; border-radius: var(--radius-md); }

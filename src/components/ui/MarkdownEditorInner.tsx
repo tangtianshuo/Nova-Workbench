@@ -1,26 +1,32 @@
+// Milkdown headless editor (Phase 31, D-01/D-03).
+// Contract-compatible with the retired MDXEditor implementation:
+// value/onChange/readOnly/placeholder/className/minHeight — the 3 call sites
+// (KnowledgeBaseView / ProductKnowledgeTab / PrdDraftDialog) need zero changes.
+// Structural ProseMirror base styles only — all chrome is Nova tokens (see
+// `.milkdown-editor` in src/index.css). No external theme CSS.
+import '@milkdown/kit/prose/view/style/prosemirror.css';
+import '@milkdown/kit/prose/gapcursor/style/gapcursor.css';
+import '@milkdown/kit/prose/tables/style/tables.css';
+import { Editor, rootCtx, editorViewOptionsCtx } from '@milkdown/kit/core';
+import { commonmark } from '@milkdown/kit/preset/commonmark';
+import { gfm } from '@milkdown/kit/preset/gfm';
+import { history } from '@milkdown/kit/plugin/history';
+import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
+import { clipboard } from '@milkdown/kit/plugin/clipboard';
+import { $prose, replaceAll, getMarkdown } from '@milkdown/kit/utils';
+import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
+import { Plugin } from '@milkdown/kit/prose/state';
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 import {
-  BlockTypeSelect,
-  BoldItalicUnderlineToggles,
-  codeBlockPlugin,
-  codeMirrorPlugin,
-  CreateLink,
-  headingsPlugin,
-  InsertTable,
-  InsertCodeBlock,
-  linkPlugin,
-  listsPlugin,
-  ListsToggle,
-  markdownShortcutPlugin,
-  MDXEditor,
-  quotePlugin,
-  tablePlugin,
-  toolbarPlugin,
-  UndoRedo,
-  type MDXEditorMethods,
-} from '@mdxeditor/editor';
-import '@mdxeditor/editor/style.css';
-import { forwardRef, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { cn } from '@/src/lib/utils';
+import { MarkdownToolbar } from './MarkdownToolbar';
 
 export interface MarkdownEditorProps {
   value: string;
@@ -31,175 +37,122 @@ export interface MarkdownEditorProps {
   minHeight?: string;
 }
 
-export type MarkdownEditorHandle = MDXEditorMethods;
+export interface MarkdownEditorHandle {
+  getMarkdown: () => string;
+}
 
-const novaEditorTokenStyles = `
-  .nova-markdown-editor .mdxeditor {
-    --basePageBg: hsl(var(--bg-primary));
-    --baseBase: hsl(var(--bg-secondary));
-    --baseBgSubtle: hsl(var(--bg-secondary));
-    --baseBg: hsl(var(--bg-primary));
-    --baseBgHover: hsl(var(--bg-tertiary));
-    --baseBgActive: hsl(var(--bg-tertiary));
-    --baseLine: hsl(var(--border-secondary));
-    --baseBorder: hsl(var(--border-secondary));
-    --baseBorderHover: hsl(var(--border-primary));
-    --baseText: hsl(var(--text-primary));
-    --baseTextContrast: hsl(var(--text-primary));
-    --accentBase: hsl(var(--accent-subtle));
-    --accentBg: hsl(var(--accent-subtle));
-    --accentBgHover: hsl(var(--accent-muted));
-    --accentBorder: hsl(var(--accent));
-    --accentText: hsl(var(--accent));
-    --accentTextContrast: hsl(var(--text-inverted));
-  }
-  /* ponytail: same prose-token remap as MarkdownRenderer. Selector MUST cover
-   * .prose itself, not just .mdxeditor — typography sets the prose CSS vars on
-   * the contentEditable element (it carries the prose class), overriding
-   * anything inherited from .mdxeditor. Without the .prose target, headings
-   * stay slate-900 even in dark mode. */
-  .nova-markdown-editor .mdxeditor,
-  .nova-markdown-editor .mdxeditor .prose {
-    --tw-prose-body: hsl(var(--text-secondary));
-    --tw-prose-headings: hsl(var(--text-primary));
-    --tw-prose-lead: hsl(var(--text-tertiary));
-    --tw-prose-links: hsl(var(--accent));
-    --tw-prose-bold: hsl(var(--text-primary));
-    --tw-prose-counters: hsl(var(--text-tertiary));
-    --tw-prose-bullets: hsl(var(--text-tertiary));
-    --tw-prose-hr: hsl(var(--border-secondary));
-    --tw-prose-quotes: hsl(var(--text-secondary));
-    --tw-prose-quote-borders: hsl(var(--border-secondary));
-    --tw-prose-captions: hsl(var(--text-tertiary));
-    --tw-prose-kbd: hsl(var(--text-primary));
-    --tw-prose-code: hsl(var(--text-primary));
-    --tw-prose-pre-code: hsl(var(--text-secondary));
-    --tw-prose-pre-bg: hsl(var(--bg-secondary));
-    --tw-prose-th-borders: hsl(var(--border-primary));
-    --tw-prose-td-borders: hsl(var(--border-secondary));
-  }
-  /* ponytail: CodeMirror 6 ships its own light theme (white bg + dark text)
-   * baked into a generated class (ͼ1) via EditorView.theme. It ignores Nova
-   * tokens, so it stays white-on-dark in dark mode. Override within the editor
-   * scope so it follows .dark via hsl(var(--*)). No syntax highlighting is
-   * attached by default, so only base chrome needs overriding. */
-  .nova-markdown-editor .cm-editor {
-    background: hsl(var(--bg-secondary));
-    color: hsl(var(--text-primary));
-    border: 1px solid hsl(var(--border-secondary));
-    border-radius: var(--radius-md);
-  }
-  .nova-markdown-editor .cm-gutters {
-    background: hsl(var(--bg-secondary));
-    border-right: 1px solid hsl(var(--border-secondary));
-    color: hsl(var(--text-tertiary));
-  }
-  .nova-markdown-editor .cm-activeLine,
-  .nova-markdown-editor .cm-activeLineGutter {
-    background-color: hsl(var(--bg-tertiary) / 0.5);
-  }
-  .nova-markdown-editor .cm-cursor {
-    border-left-color: hsl(var(--accent));
-  }
-  .nova-markdown-editor .cm-selectionBackground {
-    background-color: hsl(var(--accent) / 0.25);
-  }
-`;
+/* --- placeholder (empty-doc widget decoration, simplest approach) --- */
+function placeholderPlugin(text: string) {
+  return $prose(
+    () =>
+      new Plugin({
+        props: {
+          decorations(state) {
+            const { doc } = state;
+            if (doc.childCount > 1 || (doc.firstChild && doc.firstChild.content.size > 0)) {
+              return undefined;
+            }
+            const span = document.createElement('span');
+            span.classList.add('milkdown-placeholder');
+            span.textContent = text;
+            return DecorationSet.create(doc, [
+              Decoration.widget(1, span, { side: -1, marks: null }),
+            ]);
+          },
+        },
+      }),
+  );
+}
+
+/* --- editor core (must be inside MilkdownProvider) --- */
+interface EditorCoreProps extends MarkdownEditorProps {
+  handleRef: RefObject<MarkdownEditorHandle | null>;
+}
+
+function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef }: EditorCoreProps) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const lastEmitted = useRef(value);
+
+  const { get } = useEditor(
+    (root) =>
+      Editor.make()
+        .config((ctx) => {
+          ctx.set(rootCtx, root);
+          ctx.update(editorViewOptionsCtx, (prev) => ({
+            ...prev,
+            editable: () => !readOnly,
+            attributes: { class: 'milkdown-doc', spellcheck: 'false' },
+          }));
+          ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
+            lastEmitted.current = markdown;
+            onChangeRef.current(markdown);
+          });
+        })
+        .use(placeholder ? placeholderPlugin(placeholder) : [])
+        .use(commonmark)
+        .use(gfm)
+        .use(history)
+        .use(listener)
+        .use(clipboard),
+    // ponytail: rebuild only on readOnly/placeholder toggle; onChange rides a ref
+    // (research Pattern 1: useEditor deps change = destroy + recreate editor).
+    [readOnly, placeholder],
+  );
+
+  // External doc swap only (lastEmitted dirty-check prevents onChange->replaceAll loop).
+  useEffect(() => {
+    if (value !== lastEmitted.current) {
+      // flush:true wipes the undo stack — undo must not resurrect the previous doc.
+      get()?.action(replaceAll(value, true));
+      lastEmitted.current = value;
+    }
+  }, [value, get]);
+
+  const [, getInstance] = useInstance();
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      getMarkdown: () => getInstance()?.action(getMarkdown()) ?? '',
+    }),
+    [getInstance],
+  );
+
+  return <Milkdown />;
+}
 
 export const MarkdownEditorInner = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function MarkdownEditorInner(
     { value, onChange, readOnly = false, placeholder, className, minHeight = '320px' },
     ref,
   ) {
-    const editorRef = useRef<MarkdownEditorHandle | null>(null);
-
+    const handleRef = useRef<MarkdownEditorHandle | null>(null);
     useEffect(() => {
-      const editor = editorRef.current;
-      if (editor && editor.getMarkdown() !== value) {
-        editor.setMarkdown(value);
-      }
-    }, [value]);
-
-    const plugins = useMemo(
-      () => [
-        ...(readOnly
-          ? []
-          : [
-              toolbarPlugin({
-                toolbarContents: () => (
-                  <>
-                    <UndoRedo />
-                    <BlockTypeSelect />
-                    <BoldItalicUnderlineToggles />
-                    <ListsToggle />
-                    <CreateLink />
-                    <InsertTable />
-                    <InsertCodeBlock />
-                  </>
-                ),
-              }),
-            ]),
-        // ponytail: markdownShortcutPlugin MUST be registered AFTER headings/lists/
-        // quote/link/codeblock — its init reads activePlugins$ to decide which
-        // transformers to wire up, and plugins init in array order. Putting it
-        // before codeBlockPlugin leaves "codeblock" absent from activePlugins$
-        // at init time, so the ``` shortcut transformer is silently skipped.
-        headingsPlugin(),
-        listsPlugin(),
-        tablePlugin(),
-        linkPlugin(),
-        quotePlugin(),
-        codeBlockPlugin(),
-        codeMirrorPlugin({
-          codeBlockLanguages: {
-            js: 'JavaScript',
-            ts: 'TypeScript',
-            rust: 'Rust',
-            bash: 'Bash',
-            text: 'Plain Text',
-          },
-          // ponytail: lazy-load CodeMirror grammar per language via @codemirror/language-data.
-          // Vite code-splits each @codemirror/lang-* into its own chunk; Tauri bundles them
-          // all into dist/ so this stays offline-capable. Adding bundle-time grammar for
-          // every language upfront would bloat the editor chunk for a feature most docs
-          // never touch.
-          autoLoadLanguageSupport: true,
-        }),
-        markdownShortcutPlugin(),
-      ],
-      [readOnly],
-    );
+      if (typeof ref === 'function') ref(handleRef.current);
+      else if (ref) ref.current = handleRef.current;
+    }, [ref]);
 
     return (
       <div
         className={cn(
-          'nova-markdown-editor w-full overflow-hidden border border-border-subtle',
+          'milkdown-editor flex w-full flex-col overflow-hidden border border-border-subtle',
           'rounded-[var(--radius-lg)] bg-bg-primary text-text-primary',
           className,
         )}
         style={{ minHeight } as CSSProperties}
       >
-        <style>{novaEditorTokenStyles}</style>
-        <MDXEditor
-          ref={(instance) => {
-            editorRef.current = instance;
-            if (typeof ref === 'function') {
-              ref(instance);
-            } else if (ref) {
-              ref.current = instance;
-            }
-          }}
-          markdown={value}
-          onChange={onChange}
-          readOnly={readOnly}
-          placeholder={placeholder}
-          contentEditableClassName={cn(
-            'prose prose-sm max-w-none min-h-[240px] bg-bg-primary text-text-primary font-sans leading-relaxed',
-            'focus:outline-none',
-          )}
-          plugins={plugins}
-          className="mdxeditor-full-height w-full bg-bg-primary text-text-primary"
-        />
+        <MilkdownProvider>
+          {!readOnly && <MarkdownToolbar />}
+          <div className="milkdown-scroll flex-1 overflow-y-auto px-4 py-3">
+            <EditorCore
+              handleRef={handleRef}
+              value={value}
+              onChange={onChange}
+              readOnly={readOnly}
+              placeholder={placeholder}
+            />
+          </div>
+        </MilkdownProvider>
       </div>
     );
   },

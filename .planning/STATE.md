@@ -28,7 +28,7 @@ Phase: 30 (complete)
 Plan: 4/4 + UAT 8/8 approved
 Status: Milestone decision point
 Next: 用户裁定 — ①恢复 Phase 27 UAT 回归 ②plan Phase 28 ③/gsd:complete-milestone
-Last activity: 2026-09-03 - Completed quick task 260903-exg: 确认卡前台提醒(Toast + 侧边栏红点)
+Last activity: 2026-09-03 - Completed quick task 260903-gh0: 产物卡双源投影(槽位流 + knowledge_write 归档流)
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -127,6 +127,7 @@ None.
 |---|-------------|------|--------|-----------|
 | 260903-e4l | 统一投影层:产研业务 tab 接 knowledge_docs 产物投影(竞品 DEL-REL-02 / 测试 DEL-TST-03 / 代码 DEL-DEV-01,共享 DeliverableDocCard) | 2026-09-03 | 3da1d76 | [260903-e4l-tab-knowledge-docs](./quick/260903-e4l-tab-knowledge-docs/) |
 | 260903-exg | 确认卡前台提醒:Toast(0→N 一次,带「去确认」跳转)+ Sidebar agent 红点(selectPendingCount 派生七字段+pendingDeliverables;人工验证 checkpoint 待真机) | 2026-09-03 | c30c1bd | [260903-exg-toast](./quick/260903-exg-toast/) |
+| 260903-gh0 | 产物卡双源投影:DeliverableDocCard 加 knowledge_write category fallback(槽位优先,竞品分析→竞品 tab、架构设计→代码 tab);根因 = agent 落库走 knowledge_write 而非槽位流(nova.db 实测 kb-* docId) | 2026-09-03 | c29d023 | [260903-gh0-tab-knowledge-write](./quick/260903-gh0-tab-knowledge-write/) |
 
 ## Session Continuity
 

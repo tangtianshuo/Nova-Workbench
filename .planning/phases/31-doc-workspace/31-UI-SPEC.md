@@ -1,16 +1,18 @@
 ---
 phase: 31
 slug: doc-workspace
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-03
+reviewed_at: 2026-09-03
 ---
 
 # Phase 31 — UI Design Contract
 
 > 文档工作区：右侧常驻面板（flex aside）+ Milkdown headless 编辑器 + ⌘K 左滑非模态 + 确认卡第三宿主 + MDXEditor 退役。
 > 全部视觉走既有 Nova tokens / Radix ui/ 原语 / Phosphor duotone。**本 phase 禁新增 UI 依赖**（Milkdown 除外，非 UI 皮肤）。
+> 视觉焦点：编辑器正文区为第一层级（用户主要工作面）；文档列表与 toolbar 为次级 chrome，不得抢占注意力。
 
 ---
 
@@ -37,7 +39,7 @@ created: 2026-09-03
 | xs | 4px | 图标-文字间距、列表行内 padding |
 | sm | 8px | 面板内紧凑间距、列表行 gap |
 | md | 16px | 面板 padding（`p-4`） |
-| lg | 24px | 卡片/区块 padding（`p-5`/`p-6`） |
+| lg | 24px | 卡片/区块 padding（锚点 `p-6`=24px；`p-5`=20px 仅沿既有组件现状，不作为新声明） |
 | xl | 32px | 布局间隙 |
 
 Exceptions: 拖宽手柄宽 4px（`w-1`）；toolbar 按钮 `h-7`（sm 按钮既有规格）。
@@ -71,7 +73,7 @@ Exceptions: 拖宽手柄宽 4px（`w-1`）；toolbar 按钮 `h-7`（sm 按钮既
 | Accent (10%) | `--accent` | 见下方保留清单 |
 | Destructive | `--danger` | 确认卡「拒绝」按钮仅 |
 
-**Accent 保留清单（本 phase 穷举）：** 当前打开文档在列表中的高亮行、拖宽手柄 hover 态、「新建笔记」主按钮、保存状态指示器的「已保存 ✓」瞬间反馈（`text-success` 也可，见保存状态契约）、确认卡「确认」主按钮。
+**Accent 保留清单（本 phase 穷举）：** 当前打开文档在列表中的高亮行、拖宽手柄 hover 态、「新建笔记」主按钮、保存状态指示器的「已保存 ✓」瞬间反馈（`text-success` 也可，见保存状态契约）、确认卡「确认写入」主按钮。
 
 **保存状态指示器（discretion 落点）：** 编辑器 toolbar 右侧 11px `text-text-tertiary` 文案三态——`编辑中…`（防抖 800ms 未保存）→ `保存中…` → `已保存`（`text-success`，2s 后淡出）。无 toast（编辑是高频操作，toast 即噪音）。
 
@@ -122,7 +124,7 @@ Exceptions: 拖宽手柄宽 4px（`w-1`）；toolbar 按钮 `h-7`（sm 按钮既
 ### 5. 确认卡第三宿主（D-07）
 
 - 面板顶部条件插入 `WorkspaceConfirmCard`（`pendingConfirmation`/KnowledgeWrite 存在时显示，`Card variant="elevated"` + 左缘 `border-l-2` `--warning`），不遮挡编辑器（编辑器下移，非 overlay）。
-- 内容：待确认文档名（13px 600）+ 摘要一行（11px truncate）+ 两按钮：确认（`Button variant="primary" size="sm"`）/ 拒绝（`Button variant="secondary" size="sm"`）——动作直调 chatConsoleStore 既有 confirm/reject actions，真相源不动。
+- 内容：待确认文档名（13px 600）+ 摘要一行（11px truncate）+ 两按钮：确认写入（`Button variant="primary" size="sm"`）/ 拒绝（`Button variant="secondary" size="sm"`）——动作直调 chatConsoleStore 既有 confirm/reject actions，真相源不动。
 - 与当前文档无关的其余 pending kind：折叠一行 `另有 N 项待确认`（`text-warning`，link-style Button）跳转 AI 台。diff 视图不做（D-07 锁定）。
 
 ### 6. MDXEditor 退役视觉收口（D-02）
@@ -150,7 +152,7 @@ zh-CN，用户可见字符串全字面量：
 | 保存状态 | 编辑中… / 保存中… / 已保存 |
 | Error — 保存失败 | 保存失败：{原因摘要}。内容仍在编辑器中，可重试；若持续失败请重启应用后重试。重试为 inline link-style Button |
 | Error — 文档加载失败 | 文档加载失败：{原因摘要}。请重新打开该文档。 |
-| 确认卡 | 确认 AI 写入：{文档名}？ AI 生成了新的文档内容，确认后写入知识库。 [确认] [拒绝] |
+| 确认卡 | 确认 AI 写入：{文档名}？ AI 生成了新的文档内容，确认后写入知识库。 [确认写入] [拒绝] |
 | 确认卡折叠行 | 另有 {N} 项待确认 — 打开 AI 台 |
 | 拒绝（确认卡） | 无二次确认弹窗；拒绝即生效（队列中可追溯，版本链保底） |
 | Tooltip — 收起面板 | 收起文档工作区（右侧按钮展开） |

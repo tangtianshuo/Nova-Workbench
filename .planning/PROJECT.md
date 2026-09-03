@@ -20,6 +20,10 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 **边界:** 原型/代码/测试 tab = 文档级生成,不写真文件(v0.4.0 coding 工具的事);不做 subagent/pipeline/Skill/MCP。路线来源:`research/RND-ROLLOUT-V0.3-V0.4.md`(2026-08-24 discuss-phase 预决策)。
 
+## Current State (v0.3.3 进行中)
+
+**v0.3.3 活跃 phase 已全部收口(2026-09-03)**:Phase 26 mock 全清(4/4)、Phase 29 PM CRUD 工具原生化(4/4,agent 写路径 + 三档风险)、Phase 30 参考模板数据化 + 工作流用户自组织(4/4,VERIFICATION 13/13 + 真机 UAT 8/8)。Phase 27(工作区文档摄取)挂起 —— UAT-2「摄取 0 候选」未修,连带 5 项 UAT 跳过待回归;Phase 28(反向创建产品)顺延。里程碑收口决策点:处理 27/28 债务或直接 close v0.3.3。Phase 30 关键落地:交付物 catalog 单源 JSON(TS+Rust 同读,999.4 投资前置)、workflow_templates 表 + 4 个 workflow_ 引擎工具(删除走 pm_write HITL)、「工作流」顶层视图 + 5 内置参考模板 + 单 run 多步剧本、确定性沉淀链(事件日志提取 → Dialog 编辑 → 直接落库,零 LLM)。
+
 ## Current State (after v0.3.2)
 
 **v0.3.2 Rust Run Engine shipped 2026-08-31** — 4 phases (22-25), 21 plans(含 22-08/09/10 三轮 UAT gap closure), 114 commits, 16/16 需求, milestone audit passed(16/16 需求、6/6 集成、6/6 E2E)。TS toolLoop/compaction/contextAssembler 已删除(-1371 行),`engine_run` 经 Channel 是唯一 agent 运行时;调度器多 run 并行(cap 3 + FIFO)+ 托盘常驻(hide-on-close,后台 run 不中断)+ 系统通知;双侧 replay parity 永久测试(真实 v0.3.x 存量日志 fixture 端到端);exec/fs/knowledge/deliverable 四类工具全 Rust 原生(TS 工具桥取消,PM CRUD 归 v0.3.3);三轮 gap closure 闭合 knowledge_write HITL 跨边界链(productId 兜底 → category 枚举 → params_hash 域对齐)。收口 gates:cargo 176 + npm 222 + tsc 全绿。
@@ -183,6 +187,9 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 20 (2026-08-18)**: 分支与卡片操作 — buildForkEventStream 引用式 fork + hover 工具栏 + 复制。VERIFICATION PASS。
 - **Phase 21 (2026-08-19)**: Session 列表与快捷入口 + 自动命名 — 真实列表 + 双下拉 ChatPanel + 快捷键分流 + LLM 自动命名。VERIFICATION PASS(13/13,人工项留 UAT)。
 - **Phase 22 (2026-08-31)**: Loop Replay Parity + 三轮 UAT gap closure(22-08/09/10)— knowledge_write params_hash 跨边界平价闭合,Rust/TS 双侧 SHA-256 常量测试锁定。VERIFICATION PASS(2/2,Test 7 人工复测待办)。
+- **Phase 26 (2026-08-xx)**: mock 全清 — 产研中心各 tab AI 按钮接真实引擎 run,流式/取消/审计统一,产物走候选→HITL→版本化落槽。VERIFICATION PASS(4/4 plans)。
+- **Phase 29 (2026-09-02)**: PM CRUD 工具原生化 — task/schedule CRUD 引擎工具 + 三档风险标注(999.5 D-12),agent 获得真实写路径。VERIFICATION PASS(4/4 plans)。
+- **Phase 30 (2026-09-03)**: 参考模板数据化 + 工作流用户自组织 — catalog 单源 JSON、workflow_ 工具族、「工作流」视图 + 模板 run、确定性沉淀链。VERIFICATION PASS(13/13)+ 真机 UAT 8/8(哲学红线无违反)。
 
 ---
-*Last updated: 2026-08-31 — milestone v0.3.3 started(产研半落地 + 工作区入驻)*
+*Last updated: 2026-09-03 — Phase 30 complete,v0.3.3 活跃 phase 收口;27 挂起(UAT-2 摄取 0 候选)/ 28 顺延*

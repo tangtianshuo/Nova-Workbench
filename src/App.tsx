@@ -19,6 +19,7 @@ import { useCmdK } from './hooks/useCmdK';
 import { useUIStore } from './stores/uiStore';
 import { IngestionBatchCard } from './components/workspace/IngestionBatchCard';
 import { DocWorkspaceShell } from './components/workspace/DocWorkspaceShell';
+import { DocWorkspaceContent } from './components/workspace/DocWorkspaceContent';
 
 // Lazy-loaded views for code splitting
 const AgentWorkspaceView = lazy(() => import('./views/AgentWorkspaceView').then(m => ({ default: m.AgentWorkspaceView })));
@@ -131,7 +132,9 @@ function MainLayout() {
         </div>
 
         {/* Right-edge doc workspace panel (Phase 31, flex aside — non-modal) */}
-        <DocWorkspaceShell />
+        <DocWorkspaceShell>
+          <DocWorkspaceContent />
+        </DocWorkspaceShell>
       </div>
 
       {/* Global queue slim entry card (27-03 D-09) */}

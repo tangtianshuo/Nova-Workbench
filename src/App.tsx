@@ -50,6 +50,7 @@ function ViewLoading() {
 function MainLayout() {
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
+  const docZenMode = useUIStore((state) => state.docZenMode);
   const { setSelectedProductId } = useApp();
 
   const getHeaderInfo = () => {
@@ -110,31 +111,37 @@ function MainLayout() {
         {/* Sidebar */}
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} menuItems={MENU_ITEMS} />
 
-        {/* Content area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header title={headerInfo.label} subtitle={headerInfo.subtitle} />
+        {/* Content area — the doc panel overlays this wrapper (31-06 D-11),
+            so the main workspace width never shrinks. Zen mode (D-12) hides
+            the main content; the panel then spans the full content area. */}
+        <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
+          {!docZenMode && (
+            <>
+              <Header title={headerInfo.label} subtitle={headerInfo.subtitle} />
 
-          <main className="flex-1 overflow-auto p-6">
-            <Suspense fallback={<ViewLoading />}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                >
-                  {renderContent()}
-                </motion.div>
-              </AnimatePresence>
-            </Suspense>
-          </main>
+              <main className="flex-1 overflow-auto p-6">
+                <Suspense fallback={<ViewLoading />}>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                    >
+                      {renderContent()}
+                    </motion.div>
+                  </AnimatePresence>
+                </Suspense>
+              </main>
+            </>
+          )}
+
+          {/* Right-edge doc workspace overlay (Phase 31, non-modal) */}
+          <DocWorkspaceShell>
+            <DocWorkspaceContent />
+          </DocWorkspaceShell>
         </div>
-
-        {/* Right-edge doc workspace panel (Phase 31, flex aside — non-modal) */}
-        <DocWorkspaceShell>
-          <DocWorkspaceContent />
-        </DocWorkspaceShell>
       </div>
 
       {/* Global queue slim entry card (27-03 D-09) */}

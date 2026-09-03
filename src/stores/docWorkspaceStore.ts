@@ -5,6 +5,14 @@
 import { create } from 'zustand';
 import { getKnowledgeRepo, type KnowledgeDoc } from '@/src/ai/knowledgeRepo';
 import { useRndStore } from './rndStore';
+import { useUIStore } from './uiStore';
+
+/** Main-workspace entries (D-09) always open the panel alongside the doc. */
+function expandPanel() {
+  if (!useUIStore.getState().docWorkspaceOpen) {
+    useUIStore.getState().toggleDocWorkspace();
+  }
+}
 
 /** Sentinel product_id for notes without a product owner (migration 0014 comment). */
 export const GLOBAL_OWNER = '__global__';
@@ -39,6 +47,7 @@ export const useDocWorkspaceStore = create<DocWorkspaceState>((set, get) => ({
   },
 
   openDoc: (docId) => {
+    expandPanel();
     set({ currentDocId: docId, saveStatus: 'idle', lastError: null });
   },
 
@@ -61,6 +70,7 @@ export const useDocWorkspaceStore = create<DocWorkspaceState>((set, get) => ({
         docKind: 'note',
       });
       await get().loadDocs();
+      expandPanel();
       set({ currentDocId: doc.docId, saveStatus: 'idle', lastError: null });
       return doc.docId;
     } catch (err) {

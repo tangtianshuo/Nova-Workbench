@@ -44,6 +44,10 @@ interface UIState {
   // Both persisted so reload keeps open state and width.
   docWorkspaceOpen: boolean;
   docWorkspaceWidth: number;
+  // Phase 31 (31-06, D-12): zen mode — hide main workspace content, editor
+  // fills the content area (sidebar nav stays). Exiting also when the panel
+  // collapses, otherwise the app would show an empty content area.
+  docZenMode: boolean;
 
   // Actions
   setActiveTab: (tab: string) => void;
@@ -64,6 +68,7 @@ interface UIState {
   setPendingChatPrefill: (v: string | null) => void;
   toggleDocWorkspace: () => void;
   setDocWorkspaceWidth: (w: number) => void;
+  toggleDocZenMode: () => void;
 
   // Persistence
   _hasHydrated: boolean;
@@ -94,6 +99,7 @@ export const useUIStore = create<UIState>()(
 
   docWorkspaceOpen: true,
   docWorkspaceWidth: 420,
+  docZenMode: false,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSelectedProductId: (id) => set({ selectedProductId: id }),
@@ -123,8 +129,14 @@ export const useUIStore = create<UIState>()(
     })),
   setTaskKanbanCategory: (name) => set({ taskKanbanCategory: name }),
   setPendingChatPrefill: (v) => set({ pendingChatPrefill: v }),
-  toggleDocWorkspace: () => set((s) => ({ docWorkspaceOpen: !s.docWorkspaceOpen })),
+  toggleDocWorkspace: () =>
+    set((s) => ({
+      docWorkspaceOpen: !s.docWorkspaceOpen,
+      // Collapsing the panel exits zen mode (D-12): editor is gone, content must return.
+      docZenMode: s.docZenMode ? false : s.docZenMode,
+    })),
   setDocWorkspaceWidth: (w) => set({ docWorkspaceWidth: w }),
+  toggleDocZenMode: () => set((s) => ({ docZenMode: !s.docZenMode })),
 
   // Persistence
   _hasHydrated: false,
@@ -144,6 +156,7 @@ export const useUIStore = create<UIState>()(
         ollamaModel: s.ollamaModel,
         docWorkspaceOpen: s.docWorkspaceOpen,
         docWorkspaceWidth: s.docWorkspaceWidth,
+        docZenMode: s.docZenMode,
       }),
       migrate: (persisted, _version) => persisted as Partial<UIState>,
       onRehydrateStorage: () => (state) => {

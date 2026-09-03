@@ -10,6 +10,7 @@ import { Sidebar, MENU_ITEMS } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Skeleton } from './components/ui/Skeleton';
 import { ToastProvider } from './components/ui/Toast';
+import { ConfirmationToastWatcher } from './components/ConfirmationToastWatcher';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { AppProvider, useApp } from './store/AppContext';
 import { HydrationGate } from './components/HydrationGate';
@@ -143,6 +144,7 @@ export default function App() {
       <ToastProvider>
         <AppProvider>
           <CmdKPalette />
+          <ConfirmationToastWatcher />
           <HydrationGate>
             <MainLayout />
           </HydrationGate>

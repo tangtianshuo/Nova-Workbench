@@ -1,8 +1,11 @@
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { type ElementType } from 'react';
+import { type ElementType, useEffect, useState } from 'react';
 import { ChatPanel } from '@/src/components/ChatPanel';
 import { useUIStore } from '@/src/stores/uiStore';
+import { useChatConsoleStore } from '@/src/stores/chatConsoleStore';
+import { useTabRunStore } from '@/src/stores/tabRunStore';
+import { selectPendingCount } from '@/src/ai/pendingCount';
 import { kbdHint } from '@/src/lib/api';
 import {
   Robot,
@@ -34,6 +37,7 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, onTabChange, menuItems }: SidebarProps) {
   const setChatPanelOpen = useUIStore((state) => state.setChatPanelOpen);
+  const pendingCount = usePendingCount();
 
   return (
     <>
@@ -77,6 +81,7 @@ export function Sidebar({ activeTab, onTabChange, menuItems }: SidebarProps) {
               item={item}
               isActive={activeTab === item.id}
               onClick={() => onTabChange(item.id)}
+              badge={item.id === 'agent' ? pendingCount : undefined}
             />
           ))}
 
@@ -117,15 +122,40 @@ export function Sidebar({ activeTab, onTabChange, menuItems }: SidebarProps) {
   );
 }
 
+/* === Agent 待确认计数(Sidebar 红点数据源)== */
+function usePendingCount(): number {
+  const [count, setCount] = useState(() =>
+    selectPendingCount(
+      useChatConsoleStore.getState(),
+      useTabRunStore.getState().pendingDeliverables,
+    ),
+  );
+  useEffect(() => {
+    const read = () =>
+      selectPendingCount(
+        useChatConsoleStore.getState(),
+        useTabRunStore.getState().pendingDeliverables,
+      );
+    const unsubConsole = useChatConsoleStore.subscribe(() => setCount(read()));
+    const unsubTabRun = useTabRunStore.subscribe(() => setCount(read()));
+    return () => {
+      unsubConsole();
+      unsubTabRun();
+    };
+  }, []);
+  return count;
+}
+
 /* === Sidebar Item === */
 interface SidebarItemProps {
   item: MenuItem;
   isActive: boolean;
   onClick: () => void;
   accent?: boolean;
+  badge?: number;
 }
 
-function SidebarItem({ item, isActive, onClick, accent }: SidebarItemProps) {
+function SidebarItem({ item, isActive, onClick, accent, badge }: SidebarItemProps) {
   const Icon = item.icon;
 
   return (
@@ -165,6 +195,11 @@ function SidebarItem({ item, isActive, onClick, accent }: SidebarItemProps) {
         )}
       />
       <span className="relative z-10 text-truncate">{item.label}</span>
+      {(badge ?? 0) > 0 && (
+        <span className="relative z-10 ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent text-white">
+          {badge}
+        </span>
+      )}
       {item.isNew && (
         <span className="relative z-10 ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-subtle text-accent">
           新

@@ -1,14 +1,12 @@
 /**
- * Phase 31 (31-04) — doc workspace body: confirm card (top) + collapsible
- * doc list + Milkdown editor with 800ms debounced autosave (UI-SPEC §3 / 交互契约 3).
- * Mounted as DocWorkspaceShell children (App.tsx).
+ * Phase 31 (31-04, slimmed 31-06 D-10) — doc workspace body: confirm card
+ * (top) + Milkdown editor with 800ms debounced autosave (UI-SPEC §3). No doc
+ * list inside the panel — main-workspace entries (knowledge view / product
+ * knowledge tab) own discovery; the panel is preview + edit only.
  */
 import { useEffect, useRef, useState } from 'react';
-import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import { cn } from '@/src/lib/utils';
-import { Button } from '@/src/components/ui';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
-import { DocList } from './DocList';
 import { WorkspaceConfirmCard } from './WorkspaceConfirmCard';
 import { useDocWorkspaceStore } from '@/src/stores/docWorkspaceStore';
 
@@ -23,7 +21,6 @@ export function DocWorkspaceContent() {
   const saveDoc = useDocWorkspaceStore((s) => s.saveDoc);
   const setSaveStatus = useDocWorkspaceStore((s) => s.setSaveStatus);
 
-  const [listOpen, setListOpen] = useState(true);
   const [content, setContent] = useState('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -73,27 +70,6 @@ export function DocWorkspaceContent() {
     <div className="h-full flex flex-col overflow-hidden">
       <WorkspaceConfirmCard />
 
-      {/* Doc list (collapsible, default open) */}
-      <div className="border-b border-border-subtle shrink-0">
-        <div className="flex items-center justify-between px-3 py-1">
-          <span className="text-xs text-text-tertiary">文档</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            aria-label={listOpen ? '收起文档列表' : '展开文档列表'}
-            onClick={() => setListOpen((v) => !v)}
-          >
-            {listOpen ? <CaretUp size={12} /> : <CaretDown size={12} />}
-          </Button>
-        </div>
-        {listOpen && (
-          <div className="max-h-64 overflow-y-auto">
-            <DocList />
-          </div>
-        )}
-      </div>
-
       {/* Editor (flex-1) + save status in toolbar row */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-end px-3 h-6 shrink-0">
@@ -118,7 +94,7 @@ export function DocWorkspaceContent() {
         ) : (
           <div className="flex-1 flex items-center justify-center px-6">
             <p className="text-sm text-text-tertiary text-center">
-              从上方列表选择文档，或新建一篇笔记开始编辑
+              在主工作区点击文档打开，或在知识库新建笔记
             </p>
           </div>
         )}

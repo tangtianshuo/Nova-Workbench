@@ -32,9 +32,8 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { Input } from '@/src/components/ui/Input';
 import { MarkdownRenderer } from '@/src/components/ui';
-import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
-import { Separator } from '@/src/components/ui/Separator';
 import { executeTool } from '@/src/ai';
+import { useDocWorkspaceStore } from '@/src/stores/docWorkspaceStore';
 import {
   confirmKnowledgeWrite,
   rejectKnowledgeWrite,
@@ -52,19 +51,20 @@ export function ProductKnowledgeTab({ product }: Props) {
   const {
     getKnowledgeForProduct,
     addKnowledgeItem,
-    updateKnowledgeItem,
     deleteKnowledgeItem,
   } = useApp();
+
+  // 31-06 (D-09): full editing handed over to the right doc-workspace panel.
+  // item.id === knowledge_docs.docId (rndStore docToItem projection).
+  const openDoc = useDocWorkspaceStore((s) => s.openDoc);
 
   const items = getKnowledgeForProduct(product.id);
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(items[0]?.id || null);
-  const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editCategory, setEditCategory] = useState<any>('业务规则');
-  const [editContent, setEditContent] = useState('');
   const [editTags, setEditTags] = useState('');
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [isPolishing, setIsPolishing] = useState(false);
@@ -87,14 +87,6 @@ export function ProductKnowledgeTab({ product }: Props) {
 
   const selectedItem = items.find(i => i.id === selectedItemId) || items[0];
 
-  const handleStartEdit = (item: ProductKnowledgeItem) => {
-    setEditTitle(item.title);
-    setEditCategory(item.category);
-    setEditContent(item.content);
-    setEditTags(item.tags.join(', '));
-    setIsEditing(true);
-  };
-
   const handleConfirmPolish = async () => {
     if (!pendingPolishCandidate) return;
     try {
@@ -112,40 +104,16 @@ export function ProductKnowledgeTab({ product }: Props) {
         confirmationToken: candidate.confirmationToken,
       });
       setPendingPolishCandidate(null);
-      setIsEditing(false);
       showToast('知识库候选稿已确认写入');
     } catch {
       showToast('候选稿写入失败，请重新生成');
     }
   };
 
-  const handleCancelEdit = async () => {
-    if (pendingPolishCandidate) {
-      await rejectKnowledgeWrite(pendingPolishCandidate.confirmationToken);
-      setPendingPolishCandidate(null);
-    }
-    if (selectedItem) {
-      setEditTitle(selectedItem.title);
-      setEditContent(selectedItem.content);
-      setEditTags(selectedItem.tags.join(', '));
-    }
-    setIsEditing(false);
-  };
-
-  const handleSaveEdit = () => {
-    if (pendingPolishCandidate) {
-      void handleConfirmPolish();
-      return;
-    }
-    if (!selectedItem) return;
-    updateKnowledgeItem(product.id, selectedItem.id, {
-      title: editTitle,
-      category: editCategory,
-      content: editContent,
-      tags: editTags.split(',').map(t => t.trim()).filter(Boolean)
-    });
-    setIsEditing(false);
-    showToast('💾 知识库文档更新成功');
+  const handleCancelCandidate = async () => {
+    if (!pendingPolishCandidate) return;
+    await rejectKnowledgeWrite(pendingPolishCandidate.confirmationToken);
+    setPendingPolishCandidate(null);
   };
 
   const handleCreateNew = () => {
@@ -153,15 +121,14 @@ export function ProductKnowledgeTab({ product }: Props) {
     addKnowledgeItem(product.id, {
       title: editTitle,
       category: editCategory,
-      summary: editContent ? editContent.slice(0, 100) : editTitle,
-      content: editContent || '# ' + editTitle + '\n\n输入知识沉淀内容...',
+      summary: editTitle,
+      content: '# ' + editTitle + '\n\n输入知识沉淀内容...',
       readTime: '3 分钟',
       tags: editTags.split(',').map(t => t.trim()).filter(Boolean),
       author: product.owner
     });
     setIsCreatingNew(false);
     setEditTitle('');
-    setEditContent('');
     setEditTags('');
     showToast('✨ 知识词条已创建并收录');
   };
@@ -192,11 +159,6 @@ export function ProductKnowledgeTab({ product }: Props) {
       } catch (error) {
         if (!(error instanceof ConfirmationRequiredError)) throw error;
         setPendingPolishCandidate(error.candidate);
-        setEditTitle(article.title);
-        setEditCategory(article.category);
-        setEditContent(error.candidate.content);
-        setEditTags(article.tags.join(', '));
-        setIsEditing(true);
         showToast(`已生成【${action}】候选稿，请确认写入`);
       }
     } catch (e) {
@@ -243,7 +205,6 @@ export function ProductKnowledgeTab({ product }: Props) {
             variant="primary"
             onClick={() => {
               setEditTitle('');
-              setEditContent('');
               setEditTags('核心, 业务');
               setEditCategory('业务规则');
               setIsCreatingNew(true);
@@ -298,7 +259,6 @@ export function ProductKnowledgeTab({ product }: Props) {
                 layout
                 onClick={() => {
                   setSelectedItemId(item.id);
-                  setIsEditing(false);
                 }}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2 ${
                   selectedItemId === item.id
@@ -372,18 +332,23 @@ export function ProductKnowledgeTab({ product }: Props) {
                     </button>
                   </div>
 
-                  {!isEditing ? (
+                  {pendingPolishCandidate ? (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={() => void handleCancelCandidate()}>
+                        取消候选
+                      </Button>
+                      <Button variant="primary" size="sm" onClick={() => void handleConfirmPolish()} className="bg-success hover:bg-success/90">
+                        确认写入
+                      </Button>
+                    </>
+                  ) : (
                     <Button
                       variant="secondary"
                       size="sm"
                       aria-label="编辑知识条目"
-                      onClick={() => handleStartEdit(selectedItem)}
+                      onClick={() => openDoc(selectedItem.id)}
                     >
                       <PhEdit3 size={14} weight="duotone" />
-                    </Button>
-                  ) : (
-                     <Button variant="primary" size="sm" onClick={handleSaveEdit} className="bg-success hover:bg-success/90">
-                       {pendingPolishCandidate ? '确认写入' : '保存更新'}
                     </Button>
                   )}
 
@@ -399,38 +364,13 @@ export function ProductKnowledgeTab({ product }: Props) {
                 </div>
               </div>
 
-              {/* Editor / Markdown Body */}
-              {isEditing ? (
+              {/* Candidate preview (HITL) / Markdown Body: full editing lives in the
+                  right doc-workspace panel (31-06 D-09). */}
+              {pendingPolishCandidate ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="词条标题..."
-                      className="text-xs font-bold"
-                    />
-                    <Input
-                      value={editTags}
-                      onChange={(e) => setEditTags(e.target.value)}
-                      placeholder="标签（以逗号分隔，如：RBAC, 架构, 性能）"
-                      className="text-xs"
-                    />
-                  </div>
-
-                  <MarkdownEditor
-                    value={editContent}
-                    onChange={setEditContent}
-                    placeholder="知识正文..."
-                    className="min-h-[320px]"
-                  />
-
-                  <div className="flex justify-end gap-2">
-                     <Button variant="secondary" size="md" onClick={() => void handleCancelEdit()}>
-                       取消
-                     </Button>
-                    <Button variant="primary" size="md" onClick={handleSaveEdit}>
-                       {pendingPolishCandidate ? '确认写入候选稿' : '保存词条'}
-                     </Button>
+                  <Badge variant="warning" className="text-xs">AI 候选稿，确认后写入</Badge>
+                  <div className="prose prose-slate prose-sm max-w-none text-text-primary font-sans leading-relaxed">
+                    <MarkdownRenderer>{pendingPolishCandidate.content}</MarkdownRenderer>
                   </div>
                 </div>
               ) : (
@@ -438,7 +378,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                   <MarkdownRenderer>{selectedItem.content}</MarkdownRenderer>
                 </div>
               )}
-            </>
+              </>
           ) : (
             <div className="text-center py-20 text-text-tertiary text-xs">
               暂无知识库词条，点击右上角新建词条。
@@ -511,16 +451,7 @@ export function ProductKnowledgeTab({ product }: Props) {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-text-secondary mb-1">知识正文 (支持 Markdown)</label>
-                  <MarkdownEditor
-                    value={editContent}
-                    onChange={setEditContent}
-                    placeholder="# 业务背景与规则规范..."
-                    className="min-h-[200px]"
-                  />
-                </div>
-              </div>
+                              </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border-subtle">
                 <Button variant="secondary" size="md" onClick={() => setIsCreatingNew(false)}>

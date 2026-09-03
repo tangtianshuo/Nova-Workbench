@@ -1,4 +1,4 @@
-import { BookOpen, Brain, FileText, MagnifyingGlass, CaretRight, Star, Tag, Article, ChatCircleDots } from '@phosphor-icons/react';
+import { BookOpen, Brain, FileText, MagnifyingGlass, CaretRight, Star, Tag, Article, ChatCircleDots, PencilSimple, Plus } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/src/components/ui/Badge';
 import { Card } from '@/src/components/ui/Card';
@@ -7,7 +7,6 @@ import { AiContextMenu } from '@/src/components/ui/ContextMenu';
 import { fireAiAction } from '@/src/lib/aiActions';
 import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/src/components/ui/Dialog';
 import { Input } from '@/src/components/ui/Input';
-import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { MarkdownRenderer } from '@/src/components/ui/MarkdownRenderer';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/src/components/ui/Select';
 import { Separator } from '@/src/components/ui/Separator';
@@ -18,6 +17,7 @@ import { getMemoryStore, type MemoryRecord } from '@/src/ai/memoryStore';
 import { useRndStore } from '@/src/stores/rndStore';
 import { useProductStore } from '@/src/stores/productStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { useDocWorkspaceStore } from '@/src/stores/docWorkspaceStore';
 import { isTauri } from '@/src/lib/api';
 import type { ProductKnowledgeItem } from '@/src/data/mockRndData';
 
@@ -27,8 +27,9 @@ import type { ProductKnowledgeItem } from '@/src/data/mockRndData';
 export function KnowledgeBaseView() {
   // ── Store subscriptions ───────────────────────────────────────────────────
   const knowledgeBase = useRndStore((s) => s.knowledgeBase);
-  const updateKnowledgeItem = useRndStore((s) => s.updateKnowledgeItem);
   const products = useProductStore((s) => s.products);
+  const openDoc = useDocWorkspaceStore((s) => s.openDoc);
+  const createNote = useDocWorkspaceStore((s) => s.createNote);
 
   // ── Derived aggregated data ───────────────────────────────────────────────
   // Flatten all productId buckets; tag each item with its source productId so
@@ -46,8 +47,6 @@ export function KnowledgeBaseView() {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     () => new Set(categories)
   );
@@ -181,27 +180,11 @@ export function KnowledgeBaseView() {
     return allItems[0] ?? null;
   }, [activeItemId, allItems, externalDoc]);
 
-  // Reset edit state when switching articles.
-  useEffect(() => {
-    setIsEditing(false);
-    setEditContent(currentItem?.content ?? '');
-  }, [activeItemId, currentItem?.content]);
-
-  const startEditing = () => {
-    setEditContent(currentItem?.content ?? '');
-    setIsEditing(true);
-  };
-
-  const cancelEditing = () => {
-    setEditContent(currentItem?.content ?? '');
-    setIsEditing(false);
-  };
-
-  const saveEditing = () => {
-    if (!currentItem || !('id' in currentItem)) return;
-    // Route through store action — persists via Zustand persist layer (F5 safe).
-    updateKnowledgeItem(currentItem.productId, currentItem.id, { content: editContent });
-    setIsEditing(false);
+  // 31-06 (D-09): editing is handed over to the right doc-workspace panel.
+  // item.id === knowledge_docs.docId, so openDoc targets the same row.
+  const handleNewNote = () => void createNote('无标题笔记');
+  const handleEditInPanel = () => {
+    if (currentItem) openDoc('id' in currentItem ? currentItem.id : currentItem.docId);
   };
 
   // ── Archive to workspace (quick-260818-dyo, Tauri only) ───────────────────
@@ -462,25 +445,19 @@ export function KnowledgeBaseView() {
             <span className="text-text-primary font-medium">{currentItem?.title ?? ''}</span>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={startEditing}
-                disabled={!currentItem || !('id' in currentItem)}
-              >
-                编辑
-              </Button>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" onClick={cancelEditing}>
-                  取消
-                </Button>
-                <Button variant="primary" size="sm" onClick={saveEditing}>
-                  保存
-                </Button>
-              </>
-            )}
+            <Button variant="primary" size="sm" onClick={handleNewNote}>
+              <Plus size={14} />
+              新建笔记
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleEditInPanel}
+              disabled={!currentItem}
+            >
+              <PencilSimple size={14} weight="duotone" />
+              编辑
+            </Button>
             <Button variant="primary" size="sm">
               分享
             </Button>
@@ -502,18 +479,9 @@ export function KnowledgeBaseView() {
                 维护人: {currentItem.author} · 最后更新: {currentItem.updatedAt} · 来源产品:{' '}
                 {productNameFor(currentItem.productId)}
               </p>
-              {isEditing ? (
-                <MarkdownEditor
-                  value={editContent}
-                  onChange={setEditContent}
-                  placeholder="输入 Markdown 内容..."
-                  minHeight="480px"
-                />
-              ) : (
-                <MarkdownRenderer className="prose prose-sm max-w-none text-text-primary font-sans leading-relaxed">
-                  {currentItem.content}
-                </MarkdownRenderer>
-              )}
+              <MarkdownRenderer className="prose prose-sm max-w-none text-text-primary font-sans leading-relaxed">
+                {currentItem.content}
+              </MarkdownRenderer>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-text-tertiary">

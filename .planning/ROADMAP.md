@@ -4,7 +4,7 @@
 
 ## Milestones
 
-- 🚧 **v0.3.3 产研半落地 + 工作区入驻** — Phases 26-29 (active)
+- 🚧 **v0.3.3 产研半落地 + 工作区入驻** — Phases 26-31 (active)
 - ✅ **v0.3.2 Rust Run Engine** — Phases 22-25 (shipped 2026-08-31) — [archive](milestones/v0.3.2-ROADMAP.md)
 - ✅ **v0.3.1 多 Session 会话体系** — Phases 18-21 (shipped 2026-08-19, closed 2026-08-24) — [archive](milestones/v0.3.1-ROADMAP.md)
 - ✅ **v0.3.0 功能闭环** — Phases 13-17 (shipped 2026-08-17) — [archive](milestones/v0.3.0-ROADMAP.md)
@@ -18,7 +18,8 @@
 - [ ] **Phase 27: 工作区文档摄取** - 纯 Rust docx/pdf 文本提取 + 摄取编排(扫描→分类→草稿抽取)+ 批量 HITL + 内容 hash 幂等 ⏸️(挂起 2026-09-02,修复已提交待 UAT 回归)
 - [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT(顺延 2026-09-02)
 - [x] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule(及 product 视讨论)的 CRUD 操作原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)✅(2026-09-02,UAT 8/8 + verifier GO 4/4)
-- [ ] **Phase 30: 参考模板数据化 + 工作流用户自组织** - 交付物 catalog/模板数据化(内置 JSON 只读层 + SQLite 用户层)+ 侧边栏顶层「工作流」视图(模板库 + 运行)+ 单 run 多步逐步 HITL 执行 + agent 对话创建/沉淀模板;严禁刚性 pipeline(2026-09-02 立项 + discuss 完成,30-CONTEXT 16 项裁定)
+- [x] **Phase 30: 参考模板数据化 + 工作流用户自组织** - 交付物 catalog/模板数据化(内置 JSON 只读层 + SQLite 用户层)+ 侧边栏顶层「工作流」视图(模板库 + 运行)+ 单 run 多步逐步 HITL 执行 + agent 对话创建/沉淀模板;严禁刚性 pipeline(2026-09-02 立项 + discuss 完成,30-CONTEXT 16 项裁定)✅(2026-09-03,UAT 8/8 + verifier 13/13)
+- [ ] **Phase 31: 文档工作区 — Milkdown 编辑器 + 右侧常驻面板** - 右侧常驻可收/调宽文档工作区(Milkdown core headless,Nova tokens 自建 UI),承载修改 AI 产出/日常笔记/阅读审批三场景;笔记落 knowledge_docs(doc_kind=note);确认卡工作区多宿主;⌘K Drawer 改左滑;MDXEditor 全量退役(删 vendored patch)(2026-09-03 discuss 完成,31-CONTEXT 8 项裁定)
 
 ## Phase Details
 
@@ -100,7 +101,23 @@ Plans:
 - [x] 30-02-PLAN.md — migration 0013(workflow_templates + deliverable_catalog_user)+ workflow_store + 4 个 workflow_ 引擎工具(29 三档风险,delete 复用 pm_write)+ system prompt 模板清单 + TS registry/workflowStore + parity fixture
 - [x] 30-03-PLAN.md — 内置参考模板 5 个 + WorkflowView(模板库/运行区 TabRunPanel 复用)+ Sidebar 顶层入口 + 一键发起单 run 多步
 - [x] 30-04-PLAN.md — 沉淀确定性链路(事件提取→草稿 Dialog→落库)+ phase 端到端 UAT
-**排期**: 2026-09-02 立项(29 落地后,ROADMAP 脚注裁定);product 关系化/CRUD 继续推迟 v0.4
+**排期**: 2026-09-02 立项(29 落地后,ROADMAP 脚注裁定);product 关系化/CRUD 继续推迟 v0.4;✅ 2026-09-03 收口
+
+### Phase 31: 文档工作区 — Milkdown 编辑器 + 右侧常驻面板
+**Goal**: 右侧常驻文档工作区(Milkdown core headless 编辑器,可收起/拖宽),承载修改 AI 产出/日常笔记/阅读审批 AI 文档三场景;⌘K AI Drawer 改左滑并存;MDXEditor 全量退役(删 vendored patch);笔记落 knowledge_docs 扩展;待确认文档的确认卡在工作区多宿主渲染
+**Depends on**: knowledge_docs 管线(v0.2.0 Phase 15/16 + 26/30 投影);确认卡宿主模式(Agent Console 双宿主先例);Milkdown PoC(research 建议前置)
+**Requirements**: TBD(DOC-xx 于 REQUIREMENTS 定义或沿用里程碑需求)
+**Success Criteria** (what must be TRUE):
+  1. 用户在右侧工作区打开/编辑/保存 markdown 文档(AI 产出/知识库/笔记),保存落 knowledge_docs 版本化存储,重启不丢
+  2. 用户可新建全局笔记(无产品归属,doc_kind=note),笔记在知识库 FTS5 可检索命中
+  3. 待确认 AI 文档在工作区内直接渲染确认卡,确认/拒绝不离开工作区;全局确认队列仍是唯一真相源
+  4. ⌘K AI Drawer 从左侧滑出,与右侧工作区同屏并存互不遮挡
+  5. MDXEditor 全量退役:3 个使用点(KnowledgeBaseView/ProductKnowledgeTab/PrdDraftDialog)迁 Milkdown,`@mdxeditor` 依赖与 vendored patch 删除,grep 零残留
+  6. 编辑器 UI(toolbar/主题)全 Nova tokens + Phosphor 构建,无外部编辑器默认主题 CSS 覆盖
+  7. 中文输入法、表格/代码块 round-trip 真机 UAT 通过;docx/pdf/excel/ppt 预览记技术债不进 v1
+**Plans:** TBD
+**UI hint**: yes
+**排期**: 2026-09-03 立项(discuss 完成,31-CONTEXT D-01..D-08);挂 v0.3.3「工作区入驻」主题
 
 ## Progress
 
@@ -110,6 +127,8 @@ Plans:
 | 27. 工作区文档摄取 | 3/4 | Suspended — 27-04 fix committed (2026-09-02), UAT-2..7 regression deferred by user (priority shift) | - |
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
 | 29. PM CRUD 工具原生化 — agent 写路径 | 4/4 | Complete | 2026-09-02 |
+| 30. 参考模板数据化 + 工作流用户自组织 | 4/4 | Complete | 2026-09-03 |
+| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 0/? | Planned (2026-09-03 discuss complete) | - |
 
 ## Historical Milestones
 

@@ -11,6 +11,7 @@ interface Toast {
   title: string;
   description?: string;
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastContextValue {
@@ -108,6 +109,17 @@ function ToastContainer({
                 <p className="text-sm font-medium text-text-primary">{t.title}</p>
                 {t.description && (
                   <p className="text-xs text-text-secondary mt-0.5">{t.description}</p>
+                )}
+                {t.action && (
+                  <button
+                    onClick={() => {
+                      onDismiss(t.id);
+                      t.action!.onClick();
+                    }}
+                    className="text-xs text-accent font-medium hover:underline cursor-pointer mt-1"
+                  >
+                    {t.action.label}
+                  </button>
                 )}
               </div>
               <button

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 30-03-PLAN.md
-last_updated: "2026-09-02T10:01:06.003Z"
-last_activity: 2026-09-02
+stopped_at: Completed 30-04-PLAN.md (awaiting human UAT)
+last_updated: "2026-09-03T00:45:25.101Z"
+last_activity: 2026-09-03
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -28,7 +28,7 @@ Phase: 30 (workflow-templates) — EXECUTING
 Plan: 4 of 4
 Status: Ready to execute
 Next: `/gsd:plan-phase 30`
-Last activity: 2026-09-02
+Last activity: 2026-09-03
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 
@@ -72,6 +72,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 30 P01 | 25min | 2 tasks | 9 files |
 | Phase 30 P02 | 55min | 3 tasks | 16 files |
 | Phase 30 P03 | 18m | 2 tasks | 5 files |
+| Phase 30 P04 | 20m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 30]: catalog 单源: 同一 JSON 由 TS import 与 Rust include_str! 消费;真实条数 16 (plan 的 18 是陈旧计数);defaultContent 已退役
 - [Phase 30]: [30-02] workflow_delete 复用 pm_write kind+action 路由;内置模板不入 SQLite(include_str 合并);parity fixture 前缀 projection-cases-workflow-pm-write
 - [Phase 30]: [30-03] 内置竞品模板用 DEL-REL-02(catalog 真实 code);Phosphor 用 FlowArrow(无 Flow 导出);WorkflowView 一键发起无确认(D-05),参考剧本措辞卡上+userMessage 双出现
+- [Phase 30]: [30-04] distill 走 workflowStore.createTemplate → executeTool('workflow_create') 单一写路径;确定性提取不烧 LLM、不进 candidates 表;沉淀入口空结果 disabled+Tooltip
 
 ### TODOs (pending)
 
@@ -121,8 +123,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-02T10:01:05.997Z
-Stopped at: Completed 30-03-PLAN.md
+Last session: 2026-09-03T00:45:25.096Z
+Stopped at: Completed 30-04-PLAN.md (awaiting human UAT)
 Resume file: None
 
 If resuming after context loss:

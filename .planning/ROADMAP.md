@@ -115,7 +115,13 @@ Plans:
   5. MDXEditor 全量退役:3 个使用点(KnowledgeBaseView/ProductKnowledgeTab/PrdDraftDialog)迁 Milkdown,`@mdxeditor` 依赖与 vendored patch 删除,grep 零残留
   6. 编辑器 UI(toolbar/主题)全 Nova tokens + Phosphor 构建,无外部编辑器默认主题 CSS 覆盖
   7. 中文输入法、表格/代码块 round-trip 真机 UAT 通过;docx/pdf/excel/ppt 预览记技术债不进 v1
-**Plans:** TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 31-01-PLAN.md — Milkdown 受控编辑器重写 + 自建 toolbar + MDXEditor 全量退役(含 IME/round-trip PoC checkpoint)
+- [ ] 31-02-PLAN.md — migration 0014 doc_kind + knowledgeRepo 扩展 + docWorkspaceStore
+- [ ] 31-03-PLAN.md — ⌘K Drawer 左滑非模态 + 右侧常驻工作区面板壳(收起/拖宽/persist)
+- [ ] 31-04-PLAN.md — 工作区业务:三过滤文档列表 + 编辑器自动保存 + 全局笔记 + 确认卡第三宿主
+- [ ] 31-05-PLAN.md — Phase 31 端到端真机 UAT(SC-1..7)
 **UI hint**: yes
 **排期**: 2026-09-03 立项(discuss 完成,31-CONTEXT D-01..D-08);挂 v0.3.3「工作区入驻」主题
 

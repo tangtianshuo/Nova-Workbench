@@ -21,11 +21,14 @@ export type SaveStatus = 'idle' | 'editing' | 'saving' | 'saved' | 'error';
 
 interface DocWorkspaceState {
   docs: KnowledgeDoc[];
-  currentDocId: string | null;
+  openDocIds: string[];
+  activeDocId: string | null;
   saveStatus: SaveStatus;
   lastError: string | null;
   loadDocs: () => Promise<void>;
   openDoc: (docId: string) => void;
+  setActiveDoc: (docId: string) => void;
+  closeDoc: (docId: string) => void;
   createNote: (title: string) => Promise<string | null>;
   saveDoc: (docId: string, content: string) => Promise<void>;
   setSaveStatus: (status: SaveStatus) => void;
@@ -33,7 +36,8 @@ interface DocWorkspaceState {
 
 export const useDocWorkspaceStore = create<DocWorkspaceState>((set, get) => ({
   docs: [],
-  currentDocId: null,
+  openDocIds: [],
+  activeDocId: null,
   saveStatus: 'idle',
   lastError: null,
 
@@ -48,7 +52,29 @@ export const useDocWorkspaceStore = create<DocWorkspaceState>((set, get) => ({
 
   openDoc: (docId) => {
     expandPanel();
-    set({ currentDocId: docId, saveStatus: 'idle', lastError: null });
+    // Append semantics: clicking an already-open tab just activates it (D-15).
+    set((s) => ({
+      openDocIds: s.openDocIds.includes(docId) ? s.openDocIds : [...s.openDocIds, docId],
+      activeDocId: docId,
+      saveStatus: 'idle',
+      lastError: null,
+    }));
+  },
+
+  setActiveDoc: (docId) => set({ activeDocId: docId, saveStatus: 'idle', lastError: null }),
+
+  closeDoc: (docId) => {
+    set((s) => {
+      const idx = s.openDocIds.indexOf(docId);
+      const next = s.openDocIds.filter((id) => id !== docId);
+      return {
+        openDocIds: next,
+        // Activate left neighbor; null when no tabs remain.
+        activeDocId: s.activeDocId === docId ? (next[Math.max(0, idx - 1)] ?? null) : s.activeDocId,
+        saveStatus: 'idle',
+        lastError: null,
+      };
+    });
   },
 
   createNote: async (title) => {
@@ -71,7 +97,12 @@ export const useDocWorkspaceStore = create<DocWorkspaceState>((set, get) => ({
       });
       await get().loadDocs();
       expandPanel();
-      set({ currentDocId: doc.docId, saveStatus: 'idle', lastError: null });
+      set((s) => ({
+        openDocIds: s.openDocIds.includes(doc.docId) ? s.openDocIds : [...s.openDocIds, doc.docId],
+        activeDocId: doc.docId,
+        saveStatus: 'idle',
+        lastError: null,
+      }));
       return doc.docId;
     } catch (err) {
       set({ lastError: (err as Error).message, saveStatus: 'error' });

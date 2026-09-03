@@ -14,7 +14,7 @@ const SAVE_DEBOUNCE_MS = 800;
 
 export function DocWorkspaceContent() {
   const docs = useDocWorkspaceStore((s) => s.docs);
-  const currentDocId = useDocWorkspaceStore((s) => s.currentDocId);
+  const activeDocId = useDocWorkspaceStore((s) => s.activeDocId);
   const saveStatus = useDocWorkspaceStore((s) => s.saveStatus);
   const lastError = useDocWorkspaceStore((s) => s.lastError);
   const loadDocs = useDocWorkspaceStore((s) => s.loadDocs);
@@ -23,18 +23,26 @@ export function DocWorkspaceContent() {
 
   const [content, setContent] = useState('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sync mirrors (assigned in render) so imperative paths read latest values.
+  const saveStatusRef = useRef(saveStatus);
+  saveStatusRef.current = saveStatus;
+  const contentRef = useRef(content);
+  contentRef.current = content;
 
-  const currentDoc = docs.find((d) => d.docId === currentDocId) ?? null;
+  const currentDoc = docs.find((d) => d.docId === activeDocId) ?? null;
 
   useEffect(() => {
     void loadDocs();
   }, [loadDocs]);
 
-  // Switching docs: adopt store content, cancel any pending debounce.
+  // Adopt store content when doc changes OR when a not-yet-adopted version
+  // arrives (first-open race: loadDocs() async, docs=[] at first click — D-14).
+  // Skip while editing: a save round-trip bumps version; adopting would clobber.
   useEffect(() => {
+    if (saveStatusRef.current === 'editing') return;
     if (timerRef.current) clearTimeout(timerRef.current);
     setContent(currentDoc?.content ?? '');
-  }, [currentDocId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeDocId, currentDoc?.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // "已保存" fades back to idle after 2s.
   useEffect(() => {
@@ -43,24 +51,25 @@ export function DocWorkspaceContent() {
     return () => clearTimeout(t);
   }, [saveStatus, setSaveStatus]);
 
-  const doSave = (value: string) => {
-    if (!currentDocId) return;
+  // Explicit docId: flush needs to save the OLD tab, not the (new) active one.
+  const doSave = (docId: string, value: string) => {
+    if (!docId) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    void saveDoc(currentDocId, value);
+    void saveDoc(docId, value);
   };
 
   const handleChange = (value: string) => {
     setContent(value);
     setSaveStatus('editing');
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => doSave(value), SAVE_DEBOUNCE_MS);
+    if (activeDocId) timerRef.current = setTimeout(() => doSave(activeDocId, value), SAVE_DEBOUNCE_MS);
   };
 
   // Blur-to-save (window blur covers editor blur in the panel).
   useEffect(() => {
     const onBlur = () => {
       const s = useDocWorkspaceStore.getState();
-      if (s.saveStatus === 'editing' && s.currentDocId) doSave(content);
+      if (s.saveStatus === 'editing' && s.activeDocId) doSave(s.activeDocId, contentRef.current);
     };
     window.addEventListener('blur', onBlur);
     return () => window.removeEventListener('blur', onBlur);
@@ -73,15 +82,15 @@ export function DocWorkspaceContent() {
       {/* Editor (flex-1) + save status in toolbar row */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-end px-3 h-6 shrink-0">
-          {currentDocId && (
+          {activeDocId && (
             <SaveStatusIndicator
               status={saveStatus}
               error={lastError}
-              onRetry={() => doSave(content)}
+              onRetry={() => doSave(activeDocId, contentRef.current)}
             />
           )}
         </div>
-        {currentDocId ? (
+        {activeDocId ? (
           <div className="flex-1 overflow-y-auto px-3 pb-3">
             <MarkdownEditor
               value={content}

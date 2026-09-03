@@ -4,39 +4,56 @@ import { cn } from '@/src/lib/utils';
 import { X } from '@phosphor-icons/react';
 import { Button } from './Button';
 
-/* === Root (alias of Radix Dialog Root) === */
-export const Drawer = DialogPrimitive.Root;
+/* === Root (Radix Dialog Root + modal passthrough, default modal) === */
+export function Drawer({
+  modal = true,
+  ...props
+}: DialogPrimitive.DialogProps) {
+  return <DialogPrimitive.Root modal={modal} {...props} />;
+}
 
-/* === Content (right-anchored slide-in) === */
+/* === Content (side-anchored slide-in; overlay suppressed when non-modal) === */
 export function DrawerContent({
   className,
   children,
   width = 360,
+  side = 'right',
+  showOverlay = true,
   ...props
-}: DialogPrimitive.DialogContentProps & { width?: number }) {
+}: DialogPrimitive.DialogContentProps & {
+  width?: number;
+  side?: 'left' | 'right';
+  /** Set false alongside modal={false} — non-modal drawers must not dim the app. */
+  showOverlay?: boolean;
+}) {
+  const isLeft = side === 'left';
+  const offscreen = isLeft ? '-100%' : '100%';
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay
-        className="fixed inset-0 z-modal bg-bg-overlay backdrop-blur-sm"
-        asChild
-      >
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        />
-      </DialogPrimitive.Overlay>
+      {showOverlay && (
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-modal bg-bg-overlay backdrop-blur-sm"
+          asChild
+        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+        </DialogPrimitive.Overlay>
+      )}
       <DialogPrimitive.Content asChild {...props}>
         <motion.div
-          initial={{ x: '100%' }}
+          initial={{ x: offscreen }}
           animate={{ x: 0 }}
-          exit={{ x: '100%' }}
+          exit={{ x: offscreen }}
           transition={{ type: 'spring', stiffness: 350, damping: 34 }}
           style={{ width: `${width}px` }}
           className={cn(
-            'fixed top-0 bottom-0 right-0 z-modal',
-            'bg-bg-primary border-l border-border-subtle shadow-shadow-lg',
+            'fixed top-0 bottom-0 z-modal',
+            isLeft ? 'left-0 border-r border-border-subtle' : 'right-0 border-l border-border-subtle',
+            'bg-bg-primary shadow-shadow-lg',
             'flex flex-col',
             'focus:outline-none',
             className

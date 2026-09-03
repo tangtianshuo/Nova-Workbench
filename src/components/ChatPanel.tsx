@@ -166,8 +166,15 @@ export function ChatPanel() {
     event.preventDefault();
   };
   return (
-    <Drawer open={isOpen} onOpenChange={setOpen}>
-      <DrawerContent width={480} className="max-w-[100vw]" onOpenAutoFocus={textareaFocus}>
+    <Drawer open={isOpen} onOpenChange={setOpen} modal={false}>
+      <DrawerContent
+        width={480}
+        side="left"
+        showOverlay={false}
+        className="max-w-[100vw]"
+        onOpenAutoFocus={textareaFocus}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DrawerHeader title="AI 助手" description={`当前 provider：${PROVIDER_LABELS[provider]}`} />
         {chatPanelMode === 'scoped' ? (
           <ScopedSelectorRow />

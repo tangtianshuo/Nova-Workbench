@@ -40,6 +40,11 @@ interface UIState {
   // AgentConsole (sets input + focuses, clears the slot). Never persisted.
   pendingChatPrefill: string | null;
 
+  // Phase 31 — right-edge doc workspace panel (flex aside, not a Drawer).
+  // Both persisted so reload keeps open state and width.
+  docWorkspaceOpen: boolean;
+  docWorkspaceWidth: number;
+
   // Actions
   setActiveTab: (tab: string) => void;
   setSelectedProductId: (id: string | null) => void;
@@ -57,6 +62,8 @@ interface UIState {
   setTaskKanbanView: (view: 'category' | 'date') => void;
   setTaskKanbanCategory: (name: string | null) => void;
   setPendingChatPrefill: (v: string | null) => void;
+  toggleDocWorkspace: () => void;
+  setDocWorkspaceWidth: (w: number) => void;
 
   // Persistence
   _hasHydrated: boolean;
@@ -84,6 +91,9 @@ export const useUIStore = create<UIState>()(
   taskKanbanCategory: null,
 
   pendingChatPrefill: null,
+
+  docWorkspaceOpen: true,
+  docWorkspaceWidth: 420,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSelectedProductId: (id) => set({ selectedProductId: id }),
@@ -113,6 +123,8 @@ export const useUIStore = create<UIState>()(
     })),
   setTaskKanbanCategory: (name) => set({ taskKanbanCategory: name }),
   setPendingChatPrefill: (v) => set({ pendingChatPrefill: v }),
+  toggleDocWorkspace: () => set((s) => ({ docWorkspaceOpen: !s.docWorkspaceOpen })),
+  setDocWorkspaceWidth: (w) => set({ docWorkspaceWidth: w }),
 
   // Persistence
   _hasHydrated: false,
@@ -130,6 +142,8 @@ export const useUIStore = create<UIState>()(
         selectedProductId: s.selectedProductId,
         activeAIProvider: s.activeAIProvider,
         ollamaModel: s.ollamaModel,
+        docWorkspaceOpen: s.docWorkspaceOpen,
+        docWorkspaceWidth: s.docWorkspaceWidth,
       }),
       migrate: (persisted, _version) => persisted as Partial<UIState>,
       onRehydrateStorage: () => (state) => {

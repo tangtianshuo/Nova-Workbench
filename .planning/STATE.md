@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 31-03-PLAN.md
-last_updated: "2026-09-03T08:04:33.853Z"
+stopped_at: Completed 31-04-PLAN.md
+last_updated: "2026-09-03T08:09:35.951Z"
 last_activity: 2026-09-03
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 21
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 31 (doc-workspace) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
 Last activity: 2026-09-03
@@ -75,6 +75,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 30 P04 | 20m | 2 tasks | 6 files |
 | Phase 31 P02 | 18m | 2 tasks | 4 files |
 | Phase 31 P03 | 16m | 2 tasks | 5 files |
+| Phase 31 P04 | 35m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 30]: [30-04] distill 走 workflowStore.createTemplate → executeTool('workflow_create') 单一写路径;确定性提取不烧 LLM、不进 candidates 表;沉淀入口空结果 disabled+Tooltip
 - [Phase 31]: [31-02] doc_kind 哨兵方案落地:migration 0014 加列默认 document,全局笔记 product_id='__global__',FTS/版本链零改动;docWorkspaceStore 不 persist(面板态归 uiStore)
 - [Phase 31]: [31-03] 非 modal Drawer 三件套 modal={false}+showOverlay={false}+onInteractOutside preventDefault(Radix 非 modal 默认外点仍 dismiss);常驻面板= flex aside + uiStore persist
+- [Phase 31]: [31-04] 确认卡多宿主:工作区渲染宿主直调 chatConsoleStore 既有 actions,真相源零改动;非 md 判定用标题扩展名(doc_kind 无文件类型维度)
 
 ### TODOs (pending)
 
@@ -135,8 +137,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-03T08:04:30.219Z
-Stopped at: Completed 31-03-PLAN.md
+Last session: 2026-09-03T08:09:35.945Z
+Stopped at: Completed 31-04-PLAN.md
 Resume file: None
 
 If resuming after context loss:

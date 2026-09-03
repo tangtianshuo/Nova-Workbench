@@ -147,6 +147,23 @@ const getProd = (productId: string): Product | null => {
   return products.find((p) => p.id === productId) ?? null;
 };
 
+// quick-260903-gh0: latest knowledge archive per category — pure selector backing
+// the DeliverableDocCard knowledge fallback (knowledge_write flow → tab card).
+// updatedAt missing is treated as '' (sorts last); ties keep array order.
+export function getLatestKnowledgeByCategory(
+  items: ProductKnowledgeItem[],
+  category: ProductKnowledgeItem['category'],
+): ProductKnowledgeItem | undefined {
+  return items
+    .filter((k) => k.category === category)
+    .reduce<ProductKnowledgeItem | undefined>((best, cur) => {
+      if (!best) return cur;
+      const a = best.updatedAt ?? '';
+      const b = cur.updatedAt ?? '';
+      return b > a ? cur : best;
+    }, undefined);
+}
+
 // Phase 15: KnowledgeDoc (repo) → ProductKnowledgeItem (projection). readTime
 // lives only in the projection; repo docs carry no reading-time estimate.
 export function docToItem(doc: { docId: string; productId: string; title: string; category: string; tags: string[]; summary: string; content: string; author: string; updatedAt: string }): ProductKnowledgeItem {

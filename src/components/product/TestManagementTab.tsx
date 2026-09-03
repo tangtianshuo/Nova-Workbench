@@ -23,6 +23,7 @@ import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { Tooltip } from '@/src/components/ui/Tooltip';
 import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { DeliverableDocCard } from '@/src/components/rnd/DeliverableDocCard';
 import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
 import { buildCoreContext } from '@/src/ai/context';
 import { isTauri } from '@/src/lib/api';
@@ -103,6 +104,13 @@ export function TestManagementTab({ product }: Props) {
   return (
     <div className="space-y-6">
       <TabRunPanel tabId="test" />
+
+      {/* 质量验收产物投影(DEL-TST-03 QA Sign-Off),纯增量 */}
+      <DeliverableDocCard
+        productId={product.id}
+        code="DEL-TST-03"
+        title="阶段质量验收与发版准入评估报告"
+      />
 
       {/* Toast */}
       {toastMessage && (

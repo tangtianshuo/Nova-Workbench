@@ -20,6 +20,7 @@ import {
 import { Card } from '@/src/components/ui/Card';
 import { Tooltip } from '@/src/components/ui/Tooltip';
 import { TabRunPanel } from '@/src/components/rnd/TabRunPanel';
+import { DeliverableDocCard } from '@/src/components/rnd/DeliverableDocCard';
 import { useTabRunStore, ACTIVE } from '@/src/stores/tabRunStore';
 import { useRndStore } from '@/src/stores/rndStore';
 import { buildCoreContext } from '@/src/ai/context';
@@ -160,6 +161,13 @@ export function CodeManagementTab({ product }: Props) {
           </p>
         </Card>
       )}
+
+      {/* 代码 tab 产物投影(DEL-DEV-01 架构方案):此前 slot 已接线但内容从未渲染,补上 */}
+      <DeliverableDocCard
+        productId={product.id}
+        code="DEL-DEV-01"
+        title="系统总体技术架构设计方案"
+      />
     </div>
   );
 }

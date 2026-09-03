@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
-status: verifying
-stopped_at: Completed 31-06-PLAN.md
-last_updated: "2026-09-03T08:53:02.851Z"
-last_activity: 2026-09-03
+status: executing
+stopped_at: 31-05 UAT checkpoint — SC-1.1 failed (编辑器空白,根因已定位) + 多 tab 功能请求,裁定进 31-07
+last_updated: "2026-09-03T09:19:16.293Z"
+last_activity: 2026-09-03 -- Phase 31 execution started
 progress:
   total_phases: 10
   completed_phases: 3
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 31 (doc-workspace) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
+Plan: 1 of 6
+Status: Executing Phase 31
 Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
-Last activity: 2026-09-03
+Last activity: 2026-09-03 -- Phase 31 execution started
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/
 

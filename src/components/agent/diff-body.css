@@ -1,0 +1,14 @@
+/* Phase 32 (32-04) — react-diff-view color overrides from design tokens
+   (UI-SPEC Typography: added = success tint, removed = danger tint; no hex).
+   Raw HSL component vars from tokens.css (theme vars are already hsl()). */
+.diff-body {
+  --diff-background: hsl(var(--bg-app));
+  --diff-gutter-color: hsl(var(--text-tertiary));
+  --diff-gutter-background: hsl(var(--bg-secondary));
+  --diff-code-color: hsl(var(--text-primary));
+  --diff-code-edit-background: hsl(var(--accent) / 0.08);
+  --diff-code-insert-background: hsl(var(--success) / 0.1);
+  --diff-code-insert-edit-background: hsl(var(--success) / 0.18);
+  --diff-code-delete-background: hsl(var(--danger) / 0.1);
+  --diff-code-delete-edit-background: hsl(var(--danger) / 0.18);
+}

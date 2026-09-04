@@ -10,7 +10,7 @@ import { computeParamsHash } from './paramsHash';
 
 // 'deliverable_draft' (Phase 16): PRD-pipeline candidates — see confirmations.ts.
 // 'exec_approval' / 'fs_write' (24-03): Rust-native engine candidates (restore path).
-export type ConfirmationKind = 'knowledge_write' | 'destructive_action' | 'deliverable_draft' | 'exec_approval' | 'fs_write';
+export type ConfirmationKind = 'knowledge_write' | 'destructive_action' | 'deliverable_draft' | 'exec_approval' | 'fs_write' | 'pm_write' | 'code_edit';
 export type ConfirmationStatus = 'pending' | 'confirmed' | 'consumed' | 'rejected';
 
 export interface PersistedConfirmation {

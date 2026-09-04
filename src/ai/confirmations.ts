@@ -483,6 +483,61 @@ export async function listPendingFsWrites(sessionId?: string): Promise<FsWritePe
     }));
 }
 
+/* === Phase 32 (32-04, CODE-02): code_edit candidates === */
+
+export interface CodeEditCandidate {
+  confirmationToken: string;
+  operation: 'edit' | 'write';
+  path: string;
+  oldString?: string;
+  /** new_string (edit) / new_content (write). */
+  newString?: string;
+  root?: string;
+  /** Live engine candidate display field — NOT persisted (CP-2 params lock);
+   * restored rows lack it and the card falls back to old/new excerpts. */
+  diffText?: string;
+  summary: string;
+  sessionId: string | null;
+}
+
+/** Accepts either a persisted row (params) or a live engine candidate
+ * (args + top-level diff) — same CP-2 five-key shape on both paths. */
+export function parseCodeEditCandidate(row: {
+  kind?: string;
+  confirmationToken?: string;
+  summary?: string | null;
+  params?: Record<string, unknown>;
+  args?: Record<string, unknown>;
+  sessionId?: string | null;
+  diff?: unknown;
+}): CodeEditCandidate | null {
+  if (row.kind !== 'code_edit' || !row.confirmationToken) return null;
+  const p = (row.params ?? row.args ?? {}) as Record<string, unknown>;
+  return {
+    confirmationToken: row.confirmationToken,
+    operation: p.operation === 'write' ? 'write' : 'edit',
+    path: String(p.path ?? ''),
+    oldString: typeof p.old_string === 'string' ? p.old_string : undefined,
+    newString: typeof p.new_string === 'string'
+      ? p.new_string
+      : typeof p.new_content === 'string'
+        ? p.new_content
+        : undefined,
+    root: typeof p.root === 'string' ? p.root : undefined,
+    diffText: typeof row.diff === 'string' ? row.diff : undefined,
+    summary: String(row.summary ?? ''),
+    sessionId: row.sessionId ?? null,
+  };
+}
+
+export async function listPendingCodeEdits(sessionId?: string): Promise<CodeEditCandidate[]> {
+  const rows = await getConfirmationStore().listActive('code_edit');
+  return rows
+    .filter((row) => sessionId === undefined || row.sessionId === sessionId)
+    .map(parseCodeEditCandidate)
+    .filter((c): c is CodeEditCandidate => c !== null);
+}
+
 export async function listRejectedDeliverableDrafts(limit = 5): Promise<DeliverableDraftCandidate[]> {
   const rows = await getConfirmationStore().listRejected('deliverable_draft', limit);
   return rows.map(deliverableFromRow);

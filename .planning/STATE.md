@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: 紧凑产研版 — coding Agent + 子 Agent + Pipeline + Skill
-status: executing
-stopped_at: Completed 32-04-PLAN.md
-last_updated: "2026-09-04T08:24:56.486Z"
+status: verifying
+stopped_at: Completed 32-05-PLAN.md
+last_updated: "2026-09-04T08:28:39.661Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-09-04, v0.4 started)
 
 Phase: 32 (coding) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Next: `/gsd:plan-phase 32`(建议先 `/gsd:research-phase 32` 处理 Windows npm .cmd flag;Phase 33 首个 plan 前必须裁定 cap-3 死锁方案)
 Last activity: 2026-09-04
 
@@ -49,6 +49,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)
 | Phase 32 P02 | 50m | 2 tasks | 7 files |
 | Phase 32 P03 | 95m | 3 tasks | 10 files |
 | Phase 32 P04 | 65m | 4 tasks | 9 files |
+| Phase 32 P05 | 75m | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,7 @@ v0.3.3 key decisions (2026-09-04 archive):
 - [Phase 32]: CP-3 stale 检测用候选行 base_hash 列(sha256)而非 params 快照 — params 保持 CP-2 五键锁形
 - [Phase 32]: code_edit 取消级联落 commands.rs run-settle 分支(scheduler 无 DB 访问);migration 0016 单文件承载 kind+reject_reason+base_hash
 - [Phase 32]: 32-04: 恢复路径 diff 不落库(CP-2)→ 卡片 old/new 摘录 fallback;沉淀复用 TS knowledge_write 候选流零新管线
+- [Phase 32]: 32-05: ToolStart channel 携带 engine 侧 target hint(不暴露 args);repo 绑定 UI 镜像 engine 表;ENGINE-01 契约 repo_root 条件注入
 
 ### TODOs (pending)
 
@@ -88,8 +90,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-04T08:24:56.481Z
-Stopped at: Completed 32-04-PLAN.md
+Last session: 2026-09-04T08:28:33.932Z
+Stopped at: Completed 32-05-PLAN.md
 Resume file: None
 
 If resuming after context loss:

@@ -48,6 +48,11 @@ export interface MarkdownEditorHandle {
    ponytail: only <br> is converted; other raw HTML round-trips untouched as
    Milkdown html nodes — add per-tag rules here if more show up. */
 const BR_RE = /<br\s*\/?>/gi;
+// 31-09 fix (gap #2): Milkdown serializes empty non-last paragraphs as a lone
+// `<br />` line. Converting that to `\` re-parses as a literal backslash text
+// node (UAT #2 enter-slash pollution). A line that is ONLY a br placeholder is
+// left untouched so it round-trips back to an empty paragraph losslessly.
+const BR_ONLY_RE = /^\s*<br\s*\/?>\s*$/i;
 function normalizeMarkdown(md: string): string {
   let inFence = false;
   return md
@@ -55,6 +60,7 @@ function normalizeMarkdown(md: string): string {
     .map((line) => {
       if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
       if (inFence || /^\s*(```|~~~)/.test(line)) return line;
+      if (BR_ONLY_RE.test(line)) return line;
       return line.replace(BR_RE, '\\\n');
     })
     .join('\n');

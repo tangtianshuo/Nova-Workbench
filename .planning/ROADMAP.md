@@ -134,7 +134,7 @@ Plans:
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
 | 29. PM CRUD 工具原生化 — agent 写路径 | 4/4 | Complete | 2026-09-02 |
 | 30. 参考模板数据化 + 工作流用户自组织 | 4/4 | Complete | 2026-09-03 |
-| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 6/7 | In Progress|  |
+| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 7/9 | In Progress|  |
 
 ## Historical Milestones
 

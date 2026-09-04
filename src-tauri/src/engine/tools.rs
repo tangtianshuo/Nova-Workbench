@@ -58,6 +58,10 @@ const WORKFLOW_SEARCH_DESCRIPTION: &str = "List available workflow templates (bu
 const WORKFLOW_CREATE_DESCRIPTION: &str = "Create a workflow template and apply it immediately — no confirmation needed. steps is an ordered array of {name, prompt, expectedSlotCode?, toolHint?}. source defaults to 'user'; 'distilled' marks templates distilled from a past run. Never pass 'builtin' — builtins are packaged, not stored.";
 const WORKFLOW_UPDATE_DESCRIPTION: &str = "Update name/description/steps (whole-array replace) of an existing workflow template and apply immediately — no confirmation needed. Deleting is NOT possible here; use workflow_delete.";
 const WORKFLOW_DELETE_DESCRIPTION: &str = "Delete a workflow template. Requires user confirmation: the first call returns a candidate card; the deletion only happens after the user approves.";
+const CODE_READ_DESCRIPTION: &str = "Read a source file inside the bound code repository (repo-root-relative path, UTF-8 text only). Paginated: default head 2000 lines, use offset/limit for more. 研究类工具,先侦察后行动 — read/grep before proposing edits.";
+const CODE_GREP_DESCRIPTION: &str = "Regex-search the bound code repository; returns file:line:text matches (.gitignore respected, max 200 results). Narrow with pattern/path when truncated. 研究类工具,先侦察后行动 — read/grep before proposing edits.";
+const CODE_WRITE_DESCRIPTION: &str = "Write a whole file (create or overwrite) inside the bound code repository. Returns a confirmation candidate with a unified diff — the write only happens after the user approves (engine_code_apply).";
+const CODE_EDIT_DESCRIPTION: &str = "Edit a repo file by exact string replacement: old_string must match exactly once. 0 or 2+ matches fail with line numbers — re-read the file and retry with more context. Returns a confirmation candidate with a unified diff; the edit only happens after the user approves (engine_code_apply).";
 
 const CONFIRMATION_REQUIRED_KNOWLEDGE: &str = "Explicit confirmation is required before writing knowledge.";
 const CONFIRMATION_REQUIRED_PM_WRITE: &str = "Explicit confirmation is required before deleting or further writing PM data.";
@@ -144,6 +148,7 @@ pub enum ToolKind {
     Deliverable,
     Ingest,
     Pm,
+    Code,
 }
 
 pub struct ToolSpec {
@@ -568,6 +573,71 @@ pub fn registry() -> Vec<ToolSpec> {
             kind: ToolKind::Pm,
             idempotency: "verify_first",
         },
+        // 32-03: coding tools — read/grep are zero-confirmation recon inside
+        // the bound repo; write/edit produce code_edit HITL candidates.
+        ToolSpec {
+            name: "code_read",
+            description: CODE_READ_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "offset": { "type": "integer", "minimum": 1, "description": "1-based starting line" },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 2000 }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Code,
+            idempotency: "rerunnable",
+        },
+        ToolSpec {
+            name: "code_grep",
+            description: CODE_GREP_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "pattern": { "type": "string", "minLength": 1, "description": "Rust regex" },
+                    "path": { "type": "string", "description": "Optional repo-relative subdirectory to scope the search" },
+                    "max_results": { "type": "integer", "minimum": 1, "maximum": 200 }
+                },
+                "required": ["pattern"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Code,
+            idempotency: "rerunnable",
+        },
+        ToolSpec {
+            name: "code_write",
+            description: CODE_WRITE_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "new_content": { "type": "string" }
+                },
+                "required": ["path", "new_content"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Code,
+            idempotency: "verify_first",
+        },
+        ToolSpec {
+            name: "code_edit",
+            description: CODE_EDIT_DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "old_string": { "type": "string", "minLength": 1 },
+                    "new_string": { "type": "string" }
+                },
+                "required": ["path", "old_string", "new_string"],
+                "additionalProperties": false
+            }),
+            kind: ToolKind::Code,
+            idempotency: "verify_first",
+        },
     ]
 }
 
@@ -652,6 +722,8 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "workflow_create" => execute_workflow_create(conn, args, ctx),
         "workflow_update" => execute_workflow_update(conn, args, ctx),
         "workflow_delete" => execute_workflow_delete(conn, args, ctx),
+        "code_read" => crate::engine::code_ops::code_read(conn, args, ctx),
+        "code_grep" => crate::engine::code_ops::code_grep(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,

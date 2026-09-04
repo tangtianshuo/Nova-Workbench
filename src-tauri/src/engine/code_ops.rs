@@ -11,9 +11,171 @@
 
 use std::path::{Path, PathBuf};
 
+use grep_regex::RegexMatcher;
+use grep_searcher::{sinks, Searcher};
 use rusqlite::Connection;
+use serde_json::{json, Value};
 
-use crate::engine::tools::ToolOutcome;
+use crate::engine::tools::{ToolCtx, ToolOutcome};
+
+pub const CODE_EDIT_KIND: &str = "code_edit";
+/// UI-locked copy (32-03 truth): all four code_* tools fail with this exact
+/// text when the workspace has no repo binding.
+pub const NO_REPO_MSG: &str = "未绑定代码仓库 — 请在设置中指定 repo 目录";
+/// code_grep hard cap (MP-10) — beyond this the model must narrow pattern/path.
+pub const MAX_GREP_RESULTS: usize = 200;
+/// code_read default window (MP-10): head 2000 lines, paginate with offset/limit.
+const DEFAULT_READ_LINES: usize = 2000;
+/// Whole-file read ceiling for code_read — larger code files must paginate
+/// (they still can, lines are cheap; this only stops pathological payloads).
+const MAX_CODE_READ_BYTES: u64 = 4 * 1024 * 1024;
+
+fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
+    args.get(key).and_then(|v| v.as_str()).filter(|s| !s.is_empty())
+}
+
+fn arg_fail(tool: &str, why: &str) -> ToolOutcome {
+    ToolOutcome::Failed {
+        message: format!("Tool \"{tool}\" arg validation failed: {why}"),
+        arg_error: true,
+    }
+}
+
+fn repo_root_or_fail(ctx: &ToolCtx<'_>) -> Result<PathBuf, ToolOutcome> {
+    ctx.repo_root
+        .clone()
+        .ok_or_else(|| ToolOutcome::Failed { message: NO_REPO_MSG.into(), arg_error: false })
+}
+
+/// Nova's own data dir guard, derived from the connection's DB file parent
+/// (in-memory test connections have no path — guard skipped, fine).
+fn nova_guard(conn: &Connection, path: &Path) -> Option<ToolOutcome> {
+    let db_path = conn.path()?;
+    if db_path.is_empty() {
+        return None;
+    }
+    if is_nova_data_path(path, Path::new(db_path).parent()?) {
+        Some(ToolOutcome::Failed {
+            message: format!("路径超出仓库范围,已拒绝:{}", path.display()),
+            arg_error: true,
+        })
+    } else {
+        None
+    }
+}
+
+/// Shared scope lock for every code_* tool: repo binding → resolve_repo →
+/// nova-data-dir fallback rejection (32-RESEARCH Open Question 2 ruling).
+fn resolve_code_target(conn: &Connection, ctx: &ToolCtx<'_>, rel: &str) -> Result<PathBuf, ToolOutcome> {
+    let root = repo_root_or_fail(ctx)?;
+    let path = resolve_repo(&root, rel)?;
+    if let Some(o) = nova_guard(conn, &path) {
+        return Err(o);
+    }
+    Ok(path)
+}
+
+/* === Reads (zero-confirmation inside the repo) === */
+
+pub fn code_read(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let Some(rel) = str_arg(args, "path") else {
+        return arg_fail("code_read", "path must be a non-empty string");
+    };
+    let path = match resolve_code_target(conn, ctx, rel) {
+        Ok(p) => p,
+        Err(o) => return o,
+    };
+    let len = match std::fs::metadata(&path) {
+        Ok(m) => m.len(),
+        Err(e) => return ToolOutcome::Failed { message: format!("stat failed: {e}"), arg_error: false },
+    };
+    if len > MAX_CODE_READ_BYTES {
+        return arg_fail("code_read", &format!("file is {len} bytes, over the {MAX_CODE_READ_BYTES} limit"));
+    }
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => return ToolOutcome::Failed { message: format!("read failed: {e}"), arg_error: false },
+    };
+    if bytes.iter().take(8192).any(|&b| b == 0) {
+        return arg_fail("code_read", "binary file (NUL byte in first 8KB) — not readable as text");
+    }
+    let Ok(content) = String::from_utf8(bytes) else {
+        return arg_fail("code_read", "file is not valid UTF-8");
+    };
+    let lines: Vec<&str> = content.split('\n').collect();
+    let total = lines.len();
+    let offset = args.get("offset").and_then(|v| v.as_i64()).unwrap_or(1).max(1) as usize;
+    let limit = args
+        .get("limit")
+        .and_then(|v| v.as_i64())
+        .map(|n| n.clamp(1, DEFAULT_READ_LINES as i64) as usize)
+        .unwrap_or(DEFAULT_READ_LINES);
+    let start = (offset - 1).min(total);
+    let end = (start + limit).min(total);
+    ToolOutcome::Executed(json!({
+        "path": rel,
+        "offset": offset,
+        "limit": limit,
+        "totalLines": total,
+        "hasNext": end < total,
+        "content": lines[start..end].join("\n"),
+    }))
+}
+
+pub fn code_grep(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let Some(pattern) = str_arg(args, "pattern") else {
+        return arg_fail("code_grep", "pattern must be a non-empty string");
+    };
+    let path = match resolve_code_target(conn, ctx, str_arg(args, "path").unwrap_or("")) {
+        Ok(p) => p,
+        Err(o) => return o,
+    };
+    let max_results = args
+        .get("max_results")
+        .and_then(|v| v.as_i64())
+        .map(|n| n.clamp(1, MAX_GREP_RESULTS as i64) as usize)
+        .unwrap_or(MAX_GREP_RESULTS);
+    let matcher = match RegexMatcher::new(&pattern) {
+        Ok(m) => m,
+        Err(e) => return arg_fail("code_grep", &format!("invalid regex pattern: {e}")),
+    };
+    let root = repo_root_or_fail(ctx).expect("resolve_code_target already checked");
+    let rel_of = |p: &Path| -> String {
+        p.strip_prefix(&root).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_else(|_| p.to_string_lossy().to_string())
+    };
+    let mut matches: Vec<Value> = Vec::new();
+    let mut truncated = false;
+    let mut searcher = Searcher::new();
+    for entry in ignore::WalkBuilder::new(&path).build().flatten() {
+        if !entry.file_type().map_or(false, |t| t.is_file()) {
+            continue;
+        }
+        let file = entry.path();
+        let mut file_hits = 0usize;
+        let sink = sinks::UTF8(|line_num, line| {
+            if matches.len() + file_hits >= max_results {
+                truncated = true;
+                return Ok(false);
+            }
+            matches.push(json!({
+                "file": rel_of(file),
+                "line": line_num,
+                "text": line.trim_end_matches(['\n', '\r']),
+            }));
+            file_hits += 1;
+            Ok(true)
+        });
+        // Invalid-UTF-8 / binary files: skipped, not failed. No early break:
+        // the sink is what sets `truncated` when it refuses a hit.
+        let _ = searcher.search_path(&matcher, file, sink);
+    }
+    ToolOutcome::Executed(json!({
+        "pattern": pattern,
+        "matches": matches,
+        "truncated": truncated,
+        "note": if truncated { Some("结果超过上限,请收窄 pattern 或指定 path 子目录") } else { None },
+    }))
+}
 
 /// UI-SPEC locked copy (32-UI-SPEC): escape rejections use this exact text.
 fn escape_error(path: &Path) -> ToolOutcome {
@@ -263,5 +425,131 @@ mod tests {
         // None clears
         bind_repo_root(&conn, "w1", None).unwrap();
         assert_eq!(get_repo_root(&conn, "w1"), None);
+    }
+
+    /* === 32-03: code_read / code_grep === */
+
+    use serde_json::json;
+
+    fn tool_ctx<'a>(repo: Option<PathBuf>) -> ToolCtx<'a> {
+        ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: repo, pm_writes_used: 0 }
+    }
+
+    fn write_lines(repo: &Path, rel: &str, n: usize) {
+        let body: String = (1..=n).map(|i| format!("line {i}\n")).collect();
+        fs::write(repo.join(rel), body).unwrap();
+    }
+
+    #[test]
+    fn code_read_default_window_and_pagination() {
+        let conn = mem_conn();
+        let repo = make_repo("read");
+        write_lines(&repo, "big.txt", 2005);
+        let c = tool_ctx(Some(repo.clone()));
+        // default: head 2000 lines + hasNext
+        match code_read(&conn, &json!({"path": "big.txt"}), &c) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["totalLines"], 2006); // trailing newline → 2006 split parts
+                assert_eq!(v["hasNext"], true);
+                assert_eq!(v["offset"], 1);
+                assert!(v["content"].as_str().unwrap().starts_with("line 1\n"));
+            }
+            other => panic!("{other:?}"),
+        }
+        // offset/limit window
+        match code_read(&conn, &json!({"path": "big.txt", "offset": 2000, "limit": 10}), &c) {
+            ToolOutcome::Executed(v) => {
+                assert!(v["content"].as_str().unwrap().starts_with("line 2000"));
+            }
+            other => panic!("{other:?}"),
+        }
+        // tail window ends exactly
+        match code_read(&conn, &json!({"path": "big.txt", "offset": 2004, "limit": 100}), &c) {
+            ToolOutcome::Executed(v) => assert_eq!(v["hasNext"], false),
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn code_read_escape_and_nova_data_rejected() {
+        let conn = mem_conn();
+        let repo = make_repo("read-guard");
+        let c = tool_ctx(Some(repo.clone()));
+        match code_read(&conn, &json!({"path": "../outside.txt"}), &c) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("路径超出仓库范围"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        // Nova data dir fallback: bind repo_root INSIDE the (fake) data dir tree.
+        let data_dir = temp_dir("read-nova");
+        let nested_repo = data_dir.join("repo");
+        fs::create_dir_all(nested_repo.join(".git")).unwrap();
+        fs::write(nested_repo.join("a.txt"), "x").unwrap();
+        let file_conn = crate::engine::db::testing::open_file(&data_dir.join("nova.db"));
+        match code_read(&file_conn, &json!({"path": "a.txt"}), &tool_ctx(Some(nested_repo.clone()))) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("路径超出仓库范围"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&repo).ok();
+        fs::remove_dir_all(&data_dir).ok();
+    }
+
+    #[test]
+    fn code_grep_hits_truncates_and_respects_gitignore() {
+        let conn = mem_conn();
+        let repo = make_repo("grep");
+        fs::write(repo.join("keep.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
+        fs::create_dir_all(repo.join("sub")).unwrap();
+        fs::write(repo.join("sub/mod.rs"), "fn alpha_twice() {}\n").unwrap();
+        fs::write(repo.join("ignored.rs"), "fn alpha_ignored() {}\n").unwrap();
+        fs::write(repo.join(".gitignore"), "ignored.rs\n").unwrap();
+        let c = tool_ctx(Some(repo.clone()));
+        match code_grep(&conn, &json!({"pattern": "alpha"}), &c) {
+            ToolOutcome::Executed(v) => {
+                let hits = v["matches"].as_array().unwrap();
+                let files: Vec<&str> = hits.iter().map(|h| h["file"].as_str().unwrap()).collect();
+                assert!(files.contains(&"keep.rs") && files.contains(&"sub/mod.rs"), "{files:?}");
+                assert!(!files.contains(&"ignored.rs"), "gitignore must be respected: {files:?}");
+                let keep = hits.iter().find(|h| h["file"] == "keep.rs").unwrap();
+                assert_eq!(keep["line"], 1);
+                assert_eq!(keep["text"], "fn alpha() {}");
+                assert_eq!(v["truncated"], false);
+            }
+            other => panic!("{other:?}"),
+        }
+        // truncation + 收窄 hint
+        match code_grep(&conn, &json!({"pattern": "alpha", "max_results": 1}), &c) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["matches"].as_array().unwrap().len(), 1);
+                assert_eq!(v["truncated"], true);
+                assert!(v["note"].as_str().unwrap().contains("收窄"), "{:?}", v["note"]);
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn no_repo_binding_all_code_tools_fail_locked_message() {
+        let conn = mem_conn();
+        let c = tool_ctx(None);
+        for (name, out) in [
+            ("code_read", code_read(&conn, &json!({"path": "a.txt"}), &c)),
+            ("code_grep", code_grep(&conn, &json!({"pattern": "x"}), &c)),
+        ] {
+            match out {
+                ToolOutcome::Failed { message, arg_error } => {
+                    assert_eq!(message, NO_REPO_MSG, "{name}");
+                    assert!(!arg_error);
+                }
+                other => panic!("{name}: {other:?}"),
+            }
+        }
     }
 }

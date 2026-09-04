@@ -14,6 +14,7 @@ use rusqlite::Connection;
 use serde_json::json;
 
 use crate::engine::event_log::{self, AgentEvent, EventInput};
+use crate::engine::exec::normalize_command;
 use crate::engine::fork;
 
 pub const DEFAULT_RESTORE_TOKEN_BUDGET: i64 = 8_000;
@@ -127,6 +128,11 @@ pub fn restore_session(conn: &Connection, session_id: &str) -> Result<Option<Res
     // Marker appends must leave the stream invariant-clean.
     event_log::check_event_stream(&events)?;
 
+    // 3) CP-8 (32-02): orphaned exec processes — pids recorded in the orphan
+    // tool_call payloads at spawn time — are killed and audited.
+    reap_orphaned_execs(conn, session_id, &orphans)
+        .map_err(|e| format!("restore: orphan exec reap failed: {e}"))?;
+
     // 2) Crash tail cut + budget (sessionRestore.ts:139-147).
     let cut_seq = find_crash_tail_cut_seq(&events);
     let trimmed_tail_event_count = events.iter().filter(|e| e.seq > cut_seq).count() as i64;
@@ -156,6 +162,84 @@ pub fn restore_latest_session(conn: &Connection) -> Result<Option<RestoreReport>
         return Ok(None);
     };
     restore_session(conn, &latest.session_id)
+}
+
+/* === CP-8 (32-02): orphaned exec process reaping === */
+
+/// (pid, command) pairs recorded in orphan exec tool_call payloads.
+fn orphan_exec_pids(orphans: &[AgentEvent]) -> Vec<(u32, String)> {
+    orphans
+        .iter()
+        .filter(|e| e.payload.get("toolName").and_then(|v| v.as_str()) == Some("exec"))
+        .filter_map(|e| {
+            let pid = e.payload.get("pid")?.as_u64()?;
+            let command = e.payload.get("args")?.get("command")?.as_str()?.to_string();
+            Some((pid as u32, command))
+        })
+        .collect()
+}
+
+/// Kill surviving orphan exec processes and append an `orphan_exec_killed`
+/// audit event per orphan (killed, already dead, name mismatch — every
+/// finding is audited). Never re-executes anything; never fails the restore
+/// on an individual reap error.
+pub fn reap_orphaned_execs(conn: &Connection, session_id: &str, orphans: &[AgentEvent]) -> Result<(), String> {
+    for (pid, command) in orphan_exec_pids(orphans) {
+        let action = {
+            let mut sys = sysinfo::System::new_all();
+            let base = normalize_command(&command);
+            match sys.process(sysinfo::Pid::from_u32(pid)) {
+                None => "not-running".to_string(),
+                Some(proc) => {
+                    let pname = proc.name().to_string_lossy().to_lowercase();
+                    if !pname.contains(&base) {
+                        // PID-reuse double check — never kill on pid alone.
+                        "pid-reused-name-mismatch".to_string()
+                    } else if kill_tree_by_pid(pid) {
+                        "killed".to_string()
+                    } else {
+                        "kill-failed".to_string()
+                    }
+                }
+            }
+        };
+        event_log::append(
+            conn,
+            &EventInput {
+                session_id: session_id.to_string(),
+                event_type: "orphan_exec_killed".into(),
+                workspace_id: orphans.first().and_then(|o| o.workspace_id.clone()),
+                product_id: None,
+                project_id: None,
+                correlation_id: orphans.first().and_then(|o| o.correlation_id.clone()),
+                payload: json!({ "pid": pid, "command": command, "action": action }),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Tree-kill by PID (same taskkill /T /F shape exec::kill_tree uses).
+/// macOS/Linux: TODO debt (32-02 plan) — kill(2) by pid needs libc; return
+/// false so the audit records kill-failed instead of pretending.
+fn kill_tree_by_pid(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    {
+        // ponytail: posix kill via libc when a mac/linux crash-recovery UAT lands.
+        let _ = pid;
+        false
+    }
 }
 
 /* === Tests (port shapes from sessionRestore.ts + phase14 restore tests) === */
@@ -281,5 +365,77 @@ mod tests {
         let report = restore_latest_session(&conn).unwrap().expect("latest restored");
         assert_eq!(report.session_id, "s1");
         assert_eq!(report.interrupted_tool_call_ids.len(), 1);
+    }
+
+    /* === CP-8 (32-02): orphan exec reaping === */
+
+    #[test]
+    fn dead_orphan_exec_pid_audited_not_killed() {
+        let conn = mem_conn();
+        push(&conn, "user_message", json!({"content": "go"}));
+        // pid 2_000_000_000 is never allocated — no kill, but an audit lands.
+        push(
+            &conn,
+            "tool_call",
+            json!({"toolCallId": "t1", "toolName": "exec", "args": {"command": "fakecmd"}, "pid": 2_000_000_000_u64}),
+        );
+        let report = restore_session(&conn, "s1").unwrap().expect("report");
+        assert_eq!(report.interrupted_tool_call_ids, vec!["t1".to_string()]);
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let audit = events
+            .iter()
+            .find(|e| e.event_type == "orphan_exec_killed")
+            .expect("audit event");
+        assert_eq!(audit.payload["pid"], 2_000_000_000_u64);
+        assert_eq!(audit.payload["command"], "fakecmd");
+        assert_eq!(audit.payload["action"], "not-running");
+        // marker (tool_result) + audit both present; stream stays clean
+        assert!(event_log::check_event_stream(&events).is_ok());
+    }
+
+    #[test]
+    fn orphan_exec_without_pid_or_non_exec_tool_skips_reap() {
+        let conn = mem_conn();
+        push(&conn, "user_message", json!({"content": "go"}));
+        // exec orphan WITHOUT pid — nothing to reap, no audit
+        push(&conn, "tool_call", json!({"toolCallId": "t1", "toolName": "exec", "args": {"command": "x"}}));
+        // non-exec orphan with a pid — not an exec concern
+        push(&conn, "tool_call", json!({"toolCallId": "t2", "toolName": "fs_read", "pid": 2_000_000_000_u64}));
+        restore_session(&conn, "s1").unwrap().expect("report");
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        assert!(!events.iter().any(|e| e.event_type == "orphan_exec_killed"));
+        assert!(event_log::check_event_stream(&events).is_ok());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn live_orphan_exec_process_is_killed_and_audited() {
+        let conn = mem_conn();
+        push(&conn, "user_message", json!({"content": "go"}));
+        // Real short-lived-ish process: cmd /c ping (30s). Plan suggested
+        // `cmd /c timeout`, but timeout.exe hard-fails under redirected stdin.
+        let mut child = std::process::Command::new("cmd")
+            .args(["/c", "ping", "-n", "30", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        std::thread::sleep(std::time::Duration::from_millis(600)); // visible to sysinfo
+        push(
+            &conn,
+            "tool_call",
+            json!({"toolCallId": "t1", "toolName": "exec", "args": {"command": "cmd", "args": ["/c", "ping"]}, "pid": pid}),
+        );
+        restore_session(&conn, "s1").unwrap().expect("report");
+        let events = event_log::list_events(&conn, "s1").unwrap();
+        let audit = events
+            .iter()
+            .find(|e| e.event_type == "orphan_exec_killed")
+            .expect("audit event");
+        assert_eq!(audit.payload["action"], "killed");
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        assert!(child.try_wait().unwrap().is_some(), "orphan process was tree-killed");
+        let _ = child.wait();
     }
 }

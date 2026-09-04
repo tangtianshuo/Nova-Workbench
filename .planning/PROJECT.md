@@ -8,9 +8,21 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 
-## Current Milestone: 无(v0.3.3 已 shipped 2026-09-04,下一个里程碑经 `/gsd:new-milestone` 定义)
+## Current Milestone: v0.4 紧凑产研版 — coding Agent + 子 Agent + Skill
 
-**v0.4 候选方向**(用户 2026-09-02 定):coding 5 工具 + diff 审批、spawn_subagent(ADR-0004)、pipeline 编排 run + 确认门、Skill(999.2 + 999.4 剩余);v0.5+ 池:MCP(999.3)、IM 入口、hashline、向量 P2。**携带债务**:Phase 27 UAT 回归(`--gaps-only` 可恢复)、REV-01/02 反向创建、cap-5 resume 计数 — 详见 `milestones/v0.3.3-ROADMAP.md` Known Gaps。
+**Goal:** 让 agent 获得真实代码工作能力(coding 工具 + diff 审批),并以此为地基长出多 Agent 编排(spawn_subagent + pipeline)与领域知识复用(Skill),完成产研半落地的第二层。
+
+**Target features:**
+- A. coding 5 工具(read/write/edit/exec/grep)落 Rust 引擎 + diff 审批卡 + exec 白名单 — 用户真实仓库 + Nova 狗粮双场景
+- B. spawn_subagent(ADR-0004):专家 manifest + 子 run 上下文隔离 + 摘要回传;首批 prd-writer / prototype-builder;双入口 persona(助手/coding,modelHint)
+- C. pipeline 编排 run + 可配置确认门(默认带门,会话级跳过开关)
+- D. Skill 系统(999.2):manifest + FTS5 按需检索加载 + 从对话沉淀 skill 入口;复用 Phase 30 模板格式与 skill 字段预留
+
+**边界与前置裁定:**
+- 前置调研(D-07 预留任务):omp TS harness 结构 + Rust 原语 crate(pi-walker/pi-ast/grep/diff、pi-natives cdylib)可分离性评估,能直接进 Cargo 的走 vendoring — research 阶段重点
+- 既有裁定锁定:sidecar 否决(D-06);v0.4 edit = str-replace + old_string 唯一性校验 + 失败回带行号,hashline 留 v0.5(D-13);exec 不嵌 bash;子 agent 不递归 spawn(深度 1)
+- v0.3.3 债务全部后推(27 UAT 回归 / REV-01/02 / cap-5 / params_hash 不进本里程碑)
+- v0.5+ 池不进:MCP(999.3)、IM 入口、hashline、向量 P2、LSP/DAP
 
 ## Current State (after v0.3.3)
 
@@ -197,4 +209,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 31 (2026-09-04)**: 文档工作区 — Milkdown core headless 编辑器 + 右侧常驻面板;MDXEditor 退役;doc_kind=note 笔记 + FTS5;确认卡第三宿主;⌘K 左滑。UAT 9/9(5 gaps→resolved,gap 收口 31-08/31-09 + round-2 根因修复:codeBlock contentDOM、表格行 <br> guard)。
 
 ---
-*Last updated: 2026-09-04 after v0.3.3 milestone(带债收口,archive: milestones/v0.3.3-*)*
+*Last updated: 2026-09-04 — Milestone v0.4 started(紧凑产研版:coding Agent + 子 Agent + Skill)*

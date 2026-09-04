@@ -1,36 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: TBD
-milestone_name: (v0.3.3 shipped 2026-09-04; next via /gsd:new-milestone)
+milestone: v0.4
+milestone_name: 紧凑产研版 — coding Agent + 子 Agent + Skill
 status: planning
-stopped_at: v0.3.3 milestone complete (2026-09-04)
-last_updated: "2026-09-04T08:00:00.000Z"
+stopped_at: Milestone v0.4 started (2026-09-04)
+last_updated: "2026-09-04T09:00:00.000Z"
 last_activity: 2026-09-04
 progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 25
-  completed_plans: 24
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-04, after v0.3.3)
+See: .planning/PROJECT.md (updated 2026-09-04, v0.4 started)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.3.3 已带债收口;下一步 `/gsd:new-milestone` 定义 v0.4(coding agent + subagent + Skill 候选方向)
+**Current focus:** v0.4 紧凑产研版 — coding 工具+diff 审批 / spawn_subagent / pipeline 编排 / Skill;债务全部后推
 
 ## Current Position
 
-Phase: none active — v0.3.3 shipped 2026-09-04(带债收口,tag v0.3.3)
-Status: planning next milestone
-Next: `/gsd:new-milestone`(v0.4 候选:coding 5 工具 + diff 审批、spawn_subagent ADR-0004、pipeline 编排、Skill;债务带入决策:27 UAT 回归 / REV-01/02 / cap-5 resume 计数)
-Last activity: 2026-09-04
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Next: research(含 omp 原语 vendoring 专项 D-07)→ REQUIREMENTS → ROADMAP(phase 编号续 32)
+Last activity: 2026-09-04 — Milestone v0.4 started
 
 ```
-milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 (shipped 2026-09-04) → next TBD
+milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)
 ```
 
 ## Performance Metrics

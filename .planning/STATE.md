@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: 紧凑产研版 — coding Agent + 子 Agent + Skill
 status: planning
-stopped_at: Milestone v0.4 started (2026-09-04)
-last_updated: "2026-09-04T09:00:00.000Z"
+stopped_at: v0.4 roadmap created — 4 phases (32-35), ready for plan-phase (2026-09-04)
+last_updated: "2026-09-04T12:00:00.000Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 0
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-09-04, v0.4 started)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 32 (coding 工具地基) — not started
 Plan: —
-Status: Defining requirements
-Next: research(含 omp 原语 vendoring 专项 D-07)→ REQUIREMENTS → ROADMAP(phase 编号续 32)
-Last activity: 2026-09-04 — Milestone v0.4 started
+Status: Milestone planning complete (REQUIREMENTS 24 REQs + ROADMAP 4 phases 32-35)
+Next: `/gsd:plan-phase 32`(建议先 `/gsd:research-phase 32` 处理 Windows npm .cmd flag;Phase 33 首个 plan 前必须裁定 cap-3 死锁方案)
+Last activity: 2026-09-04 — v0.4 requirements (67b5b2c) + roadmap (17d85e0)
 
 ```
 milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)

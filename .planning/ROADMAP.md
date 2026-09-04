@@ -45,7 +45,7 @@
 Plans:
 - [x] 32-01-PLAN.md — CP-4 流程门(事件清单+CI 互锁)+ repo 绑定底座 + dunce 边界三件套
 - [x] 32-02-PLAN.md — exec.rs 四绕过面收口(CP-6)+ pid 落事件 + CP-8 孤儿清杀
-- [ ] 32-03-PLAN.md — code_ops 四工具 + code_edit 确认管线 + apply 重校验(CP-3)+ parity fixture
+- [x] 32-03-PLAN.md — code_ops 四工具 + code_edit 确认管线 + apply 重校验(CP-3)+ parity fixture
 - [ ] 32-04-PLAN.md — 前端 diff 审批卡(第四宿主)+ exec 三选卡 + 沉淀入口
 - [ ] 32-05-PLAN.md — TabRunPanel 进度/取消 + repo 绑定 UI + ENGINE-01 prompt 契约
 
@@ -117,7 +117,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 32. coding 工具地基 | 2/5 | In Progress|  |
+| 32. coding 工具地基 | 3/5 | In Progress|  |
 | 33. spawn_subagent 引擎机制 | 0/TBD | Not started | - |
 | 34. persona + prototype-builder + Pipeline | 0/TBD | Not started | - |
 | 35. Skill 系统 | 0/TBD | Not started | - |

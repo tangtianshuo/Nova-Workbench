@@ -9,7 +9,7 @@
 
 ## Engine — Research-Action 循环
 
-- [ ] **ENGINE-01**: agent 循环对标 pi-agent-core 的 Research-Action 语义 — coding agent 以「研究 → 行动 → 观察 → 迭代」循环工作直至任务完成,而非一次性生成
+- [x] **ENGINE-01**: agent 循环对标 pi-agent-core 的 Research-Action 语义 — coding agent 以「研究 → 行动 → 观察 → 迭代」循环工作直至任务完成,而非一次性生成
   - 研究类工具(read/grep/glob)零确认、不限次自由调用
   - 行动类工具(write/edit/exec)一律走门(diff 卡 / exec 白名单)— 与 pi 的 read|write|exec 分级同构,D-12 一致
   - coding persona system prompt 显式编码「先研究后行动」契约(侦察 → 定位 → 修改 → 验证)
@@ -17,10 +17,10 @@
 
 ## A. Coding Agent(5 工具 + diff 审批 + exec 白名单)
 
-- [ ] **CODE-01**: coding 5 工具(read/write/edit/exec/grep)Rust 原生落 code_ops,exec 扩展现有 exec.rs 不新建
+- [x] **CODE-01**: coding 5 工具(read/write/edit/exec/grep)Rust 原生落 code_ops,exec 扩展现有 exec.rs 不新建
   - edit = str-replace:old_string 唯一性校验 + 失败回带行号(D-13);错误消息语义对照 pi-edit 惯例(错误文案即模型接口)
   - apply 前重读文件重校验(stale-anchor 等价,CP-3 必有)
-- [ ] **CODE-02**: write/edit 每文件一张 diff 审批卡(确认队列新 kind `code_edit`,hash 域 = {path, old_string, new_string},CP-2)
+- [x] **CODE-02**: write/edit 每文件一张 diff 审批卡(确认队列新 kind `code_edit`,hash 域 = {path, old_string, new_string},CP-2)
   - diff 视图:增删行高亮 + 上下文行(react-diff-view + diff,懒加载);confirmed 重放走 Rust `tools::execute` 先例
 - [x] **CODE-03**: exec 白名单 — 已知命令直接跑,首遇未知弹「允许一次 / 总是允许 / 拒绝」;「总是」写入白名单(用户自组织)
   - 四绕过面收口(CP-6):学习粒度=命令+首参数二元组、env 过滤(不泄 *KEY*)、PATH 解析、git 危险 flag 黑名单

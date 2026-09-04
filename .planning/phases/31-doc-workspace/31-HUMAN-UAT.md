@@ -3,7 +3,7 @@ status: diagnosed
 phase: 31-doc-workspace
 source: [31-HUMAN-UAT.md checklist (31-05 Task 1), 31-07-SUMMARY.md]
 started: 2026-09-03T16:00:00+08:00
-updated: 2026-09-04T11:00:00+08:00
+updated: 2026-09-04T10:20:00+08:00
 ---
 
 运行方式:`npm run tauri:dev`,真实 Tauri 应用逐项执行。
@@ -18,7 +18,13 @@ updated: 2026-09-04T11:00:00+08:00
 
 ## Current Test
 
-[testing complete 2026-09-04] 9/9 测毕:7 pass / 2 issue(5 gaps);诊断进行中
+[awaiting human retest 2026-09-04] 5 gap 修复已落地(31-08/31-09),代码层验证 7/7 通过(31-VERIFICATION.md,status: human_needed);待真机复测下列 5 项后签核:
+
+1. SC-2.3 KB 搜索结果点击 → 右侧面板打开该笔记(fix: c928a67)
+2. 样式后回车 → 无孤立反斜杠、不落库污染(fix: BR_ONLY_RE guard,d2a22e7)
+3. 代码块点击 → 语言下拉 + prismjs 高亮(fix: af24585)
+4. 表格内光标 + toolbar → 前/后插行/插列(fix: b9f9ce9)
+5. 面板宽度缩窗等比例、60vw 上限含重启陈旧值(fix: 84d151c)
 
 ## Tests
 
@@ -91,6 +97,7 @@ skipped: 0
   missing:
     - "搜索结果行 onClick 追加 openDoc(hit.docId),与主列表行同款,单行修复"
   debug_session: .planning/debug/kb-search-open-doc.md
+  fix: "c928a67 (31-08): 搜索结果行 onClick 追加 openDoc(hit.docId);代码验证通过,待真机复测"
 
 - truth: "编辑器:对已加样式(粗体等)的文本按回车换行,不应出现多余斜杠字符"
   status: failed
@@ -107,6 +114,7 @@ skipped: 0
     - "把 <br> 归一化移出 value-sync effect,只在 ingest/AI 入库路径执行一次(或跳过 Milkdown 自产的独立段落 <br /> 占位)"
     - "回归验证:.planning/debug/repro-enter-slash.mjs Case J/K(修复后 Enter 不触发 replaceAll、doc 无 \\ 文本节点)"
   debug_session: .planning/debug/editor-enter-slash.md
+  fix: "d2a22e7 (31-08 并行覆盖): value-sync 归一化加 BR_ONLY_RE guard,孤立 <br /> 不再改写为 \\;repro Case J/K 5/5 PASS;待真机复测"
 
 - truth: "代码块/行内代码:点击后应出现语法/格式控制,可修改代码语言与关键词高亮"
   status: failed
@@ -123,6 +131,7 @@ skipped: 0
     - ".use(codeBlockComponent.configure(...))(headless 自定义 render 提供语言下拉,样式 Nova tokens)+ .use(prism) 高亮"
     - "行内代码语言标注:标为可选自定义 mark 升级(标准 markdown 不支持)"
   debug_session: .planning/debug/editor-code-lang-controls.md
+  fix: "af24585 (31-09): 自建 codeBlock NodeView($view)+ 语言下拉 + prismjs 高亮(8 语言包);行内代码语言标注按计划边界不做(CommonMark 无语言属性);待真机复测"
 
 - truth: "面板宽度自适应:窗口最大化下拉宽编辑区后缩小客户端窗口,编辑区应等比例缩小而非固定宽度"
   status: failed
@@ -138,6 +147,7 @@ skipped: 0
   missing:
     - "aside 加 maxWidth: '60vw'(纯 CSS 一行,同时覆盖缩窗与重启陈旧值;可选 resize 监听 clamp 存量值)"
   debug_session: .planning/debug/panel-width-not-responsive.md
+  fix: "84d151c (31-08): aside maxWidth: '60vw' 纯 CSS 上限,同时覆盖缩窗与重启陈旧 px;待真机复测"
 
 - truth: "表格编辑:应支持插入行/插入列操作"
   status: failed
@@ -154,3 +164,4 @@ skipped: 0
     - "首选(改动最小):toolbar 加 4 个行列按钮,import preset-gfm 命令复用 runCmd 模式,光标在表内时生效(可按选区 disable)"
     - "备选:tableBlockComponent 完整体验,但外部组件样式与 D-01 全 tokens 约定冲突需额外覆盖"
   debug_session: .planning/debug/editor-table-insert.md
+  fix: "b9f9ce9 (31-09): toolbar 4 个 preset-gfm 命令按钮(addRow/Col Before/After);待真机复测"

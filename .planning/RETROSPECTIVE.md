@@ -170,6 +170,49 @@
 
 ---
 
+## Milestone: v0.3.3 — 产研半落地 + 工作区入驻
+
+**Shipped:** 2026-09-04(带债收口)
+**Phases:** 6 (26-31;4 complete + 27 suspended 3/4 + 28 postponed)| **Plans:** 25(24 complete)| **Commits:** 169 | **Timeline:** 2026-08-31 → 2026-09-04(5 天)
+
+### What Was Built
+- Mock 全清 + tab 接引擎(26):产研各 tab AI 按钮接真实 engine_run,knowledge_docs 唯一真相源,调度双队列,一键十八份 = 单 run 多步
+- PM CRUD 工具原生化(29):9 工具三档风险 + 关系表 + kv 幂等搬移 + SQL 单真相源,Rust 一事务确认收口
+- 工作流用户自组织(30):catalog 单源 JSON(TS+Rust 同读)、workflow_ 工具族、「工作流」视图 + 5 内置模板、确定性沉淀链(零 LLM)
+- 文档工作区(31):Milkdown core headless 全量替换 MDXEditor,右侧常驻面板、doc_kind=note、确认卡第三宿主、⌘K 左滑
+- 纯 Rust 文档摄取(27,3/4 挂起):pdf_oxide 中文提取 + 批量 HITL 后端 + 前端流;UAT-2 修复已提交待回归
+
+### What Worked
+- **优先级重定果断**:2026-09-02 用户基于真实使用反馈(四大缺口)砍 27/28、promote 999.6,三天连续交付 29/30/31 三个 UAT 全过 phase — 路线图服从真实价值,沉没成本不绑架
+- **产品哲学先行**:Phase 30 立项前定「工作流用户自组织、严禁刚性 pipeline」红线,VERIFICATION 显式做哲学红线检查 — scope 约束前置到 discuss 阶段
+- **UAT 驱动三轮迭代闭环(31)**:round-0 五 gap 诊断 → 修复 → round-1 暴露新引入缺陷 → 根因修复(repro 脚本 4 断言)→ round-2 全过;每轮 gap 全录 root_cause + debug session
+- **knowledge_docs 单管线复用**:tab 产物/摄取/笔记/模板确认全走同一候选→HITL→版本化管线,四个 phase 共享零重复建设
+
+### What Was Inefficient
+- **31-09 首轮实现引入 2 个缺陷**(codeBlock 缺 contentDOM、normalizeMarkdown 改写 GFM 表格行):修复计划(plan-checker 两轮)严,但实现时未跑已有 repro 模式 — NodeView 契约(contentDOM 必需)与序列化 round-trip 应在实现前写断言,可省一轮复测
+- **REQUIREMENTS 未随 promote 更新**:29/30/31 的 PM/WF/DOC 需求在 discuss 里定义,从未回填 REQUIREMENTS.md,verifier 记流程债 — promote 流程缺需求登记门
+- **Phase 27 挂起半途**:UAT-2 修复已提交却未回归即挂起,「差一步完成」状态将持续产生恢复成本(需记忆 + 恢复文档)
+- complete-milestone 时 gsd-tools 缺 roadmap/milestone 子命令,归档全手工(v0.3.1 已发生,工具债持续)
+
+### Patterns Established
+- **NodeView + Decoration 扩展模式**:Milkdown/ProseMirror 自定义节点 = $view 纯 DOM + contentDOM 契约 + Prism.tokenize→Decoration.inline(不碰 PM 拥有的 DOM)— 可编辑 + 高亮并存
+- **jsdom repro harness**:编辑器序列化 round-trip 问题在 Node 侧最小复现(显式替换 CustomEvent/getComputedStyle),4 断言脚本进 .planning/debug/
+- **确定性沉淀链**:从事件日志确定性提取(零 LLM)→ Dialog 人工编辑 → 单一写路径落库 — 「AI 提议、人拍板」的最廉价形态
+- **单源 JSON 双语言消费**:TS import + Rust include_str! 读同一文件,catalog 漂移在结构上不可能
+
+### Key Lessons
+1. 里程碑中期可以(且应该)重定优先级 — 用户真实使用反馈比路线图完整性值钱;前提是债务显式记录(带债收口)
+2. 编辑器类功能的验收门 = 真机 IME/round-trip UAT,自动化 lint/tsc 测不出 contentDOM 缺失与序列化污染
+3. 序列化归一化(normalizeMarkdown)必须按行类型分 guard —「一处归一化全场景适用」的假设在 GFM 表格上翻车
+4. promote(999.6→Phase 29)必须携带需求登记,否则 traceability 断链
+
+### Cost Observations
+- Timeline: 5 天 6 phases(29 四天三 phase 高速;31 一个 phase 含三轮 UAT 占两天)
+- Tests: npm 222 → 234(+12,主要为 workflow/catalog);replay parity 保持
+- Notable: 27-04 挂起为唯一未收口 plan;31 gap closure 占 9 plans 中的 4 个(31-06..09)
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -180,6 +223,7 @@
 | v0.3.0 | 5 | 依赖链拆 phase + 冻结签名重构 + 永久不变量测试;统一延后 UAT + DB 代查双签核;gap 当场修(零 gap-closure phase) |
 | v0.3.1 | 4 | 纯函数层 TDD(fork.ts)+ 系统性读路径清点;Playwright 半自动 UAT(无凭据环境 fallback 代验);收口顺序失误教训(complete-milestone 须先于 new-milestone) |
 | v0.3.2 | 4+3gap | 跨语言迁移 = fixture 单源双侧 + 逐位回放验收;跨边界不变量双侧互锁测试(常量互锁模式);TS 测试定性为可执行规格 |
+| v0.3.3 | 6(4+2挂起) | 里程碑中期优先级重定(用户真实使用反馈驱动)+ 带债收口;产品哲学红线前置到 discuss;编辑器类功能以真机 IME/round-trip UAT 为验收门 |
 
 ### Top Lessons (Verified Across Milestones)
 

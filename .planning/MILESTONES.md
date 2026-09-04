@@ -1,5 +1,32 @@
 # Milestones
 
+## v0.3.3 产研半落地 + 工作区入驻 (Shipped: 2026-09-04, 带债收口)
+
+**Phases completed:** 6 phases (26-31) — 4 complete(26/29/30/31)+ 27 suspended 3/4 + 28 postponed;25 plans(24 complete),42+ tasks
+**Timeline:** 2026-08-31 → 2026-09-04 (5 days, 169 commits, 185 files, +21,658/−5,286 LOC)
+**Audit:** 未跑独立 milestone audit — 用户裁定带债收口(v0.3.1 先例);各 phase VERIFICATION + 真机 UAT 覆盖(29 UAT 8/8、30 UAT 8/8 + 13/13、31 UAT 9/9 三轮复测);234 TS tests + replay parity 保持
+
+**Key accomplishments:**
+
+1. **Mock 全清 + tab 接引擎**(Phase 26)— rndStore 六个 `generate*AI`/`runProductSkill` mock 全删,产研各 tab AI 按钮触发带 tab 上下文的真实 `engine_run`(独立 sessionId、流式/取消/审计统一),产物统一候选→HITL→版本化落槽(knowledge_docs 唯一真相源裁定);调度器双队列(interactive 严格优先 batch);一键十八份 = 单 run 多步
+2. **PM CRUD 工具原生化 — agent 写路径**(Phase 29,999.6 promote)— 9 个 task/schedule CRUD 引擎工具 + 三档风险(读/轻写免确认,delete+cap-5 走 pm_write HITL);migration 0012 关系表 + kv 一次性幂等搬移;Tauri 下 persist 退役、SQL 单真相源;Rust 一事务收口确认路径 + 双侧 parity fixture
+3. **参考模板数据化 + 工作流用户自组织**(Phase 30)— deliverables-catalog.json 单源(TS import + Rust include_str! 同读,999.4 投资前置)、workflow_templates 表 + 4 个 workflow_ 工具、「工作流」顶层视图 + 5 内置参考模板 + 单 run 多步剧本、确定性沉淀链(事件日志提取→Dialog→落库,零 LLM);产品哲学红线(严禁刚性 pipeline)贯穿
+4. **文档工作区**(Phase 31)— Milkdown core headless 全量替换 MDXEditor(自建 toolbar/live preview/codeBlock NodeView + prismjs Decoration 高亮/表格行列操作),右侧常驻 overlay 面板(多 tab/800ms 自动保存/禅模式/60vw),⌘K Drawer 左滑并存,doc_kind=note 全局笔记 + FTS5,确认卡第三宿主;UAT 三轮迭代 9/9(两轮根因修复:codeBlock contentDOM、GFM 表格行 `<br>` guard)
+5. **工作区文档摄取(3/4,挂起)**(Phase 27)— 纯 Rust 提取地基(pdf_oxide 中文 PoC/zip deflate/quick-xml)+ 三态/hash 幂等/截断 + 批量 HITL 后端(consume 事务幂等)+ 前端摄取流;UAT-2 修复已提交,UAT-2..7 回归随挂起待恢复
+6. **优先级重定与产品哲学定案**(2026-09-02)— 用户真实使用四大缺口驱动:27 挂起/28 顺延,999.6 promote 第一优先,Phase 30/31 由此而来;「工作流用户自组织,Nova 只给参考+模板」成为后续 scope 裁定红线
+
+### Known Gaps (tech debt)
+
+- **Phase 27 挂起**:UAT-2..7 回归未执行(修复已提交 61f9089/a070c41/07e44fd;恢复 = `/gsd:execute-phase 27 --gaps-only`);27-04-SUMMARY 未生成,ING-03..06 真机验证 deferred
+- **REV-01/02 反向创建产品**(Phase 28)顺延未实施,随后续里程碑
+- 里程碑统一 UAT(parity 收口 gate + ≥20 文档批量摄取 + 托盘后台 run)未跑 — 部分由 29/30 fixture 前缀约定承接
+- REQUIREMENTS 未登记 PM/WF/DOC 需求(promote 时定义,流程债;见 v0.3.3-REQUIREMENTS.md 归档说明)
+- cap-5 计数 resume 重置(pm_writes_used run 局部;升级路径 = agent_events 数 session 轻写)
+- Phase 31 局部:docx/pdf/excel/ppt 预览不进 v1、行内代码无语言标注(CommonMark 边界)
+- 结转 tech debt:22-UAT Test 7 人工复测、update-path params_hash 双源、FTS5 packaged-build probe、真进程 kill 恢复实测、中文长尾 recall、产品 chip × 语义、云 provider 凭据 UAT、CSP null
+
+---
+
 ## v0.3.2 Rust Run Engine (Shipped: 2026-08-31)
 
 **Phases completed:** 4 phases (22-25), 21 plans (含 22-08/09/10 三轮 UAT gap closure), 42 tasks

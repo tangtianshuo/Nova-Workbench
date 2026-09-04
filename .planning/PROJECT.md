@@ -2,27 +2,26 @@
 
 ## What This Is
 
-Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付 PM 视图框架 + 设计系统 + Rust 原生底座;v0.2.0 交付任务/日程 CRUD、跨模块弱关联、Markdown WYSIWYG、AI 助手全链路;v0.3.0 功能闭环(2026-08-17):以「事件日志 + 增强 tool loop + SQLite FTS5」为架构真相源,agent 成为有记忆、可恢复、可追责的一等执行者;v0.3.1 多 Session 会话体系(2026-08-19):sessions 数据模型 + 多会话运行时 + 引用式 fork + 真实 session 列表与 LLM 自动命名;**v0.3.2 Rust Run Engine 已 shipped(2026-08-31)**:agent 运行时整体迁入 Rust 常驻引擎(多 run 并行 + 托盘后台 + 事件唯一写者 + replay parity 逐位锁定),webview 退化为投影 + HITL UI,为 IM/MCP/Skill 多入口铺平道路。
+Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + React 19。v0.1.0 交付 PM 视图框架 + 设计系统 + Rust 原生底座;v0.2.0 交付任务/日程 CRUD、跨模块弱关联、Markdown WYSIWYG、AI 助手全链路;v0.3.0 功能闭环(2026-08-17):以「事件日志 + 增强 tool loop + SQLite FTS5」为架构真相源,agent 成为有记忆、可恢复、可追责的一等执行者;v0.3.1 多 Session 会话体系(2026-08-19);v0.3.2 Rust Run Engine(2026-08-31):agent 运行时整体迁入 Rust 常驻引擎,webview 退化为投影 + HITL UI;**v0.3.3 产研半落地 + 工作区入驻已 shipped(2026-09-04,带债收口)**:mock 全清接引擎、agent 真实写路径(PM CRUD 三档风险)、工作流用户自组织(模板数据化 + 「工作流」视图)、文档工作区(Milkdown + 右侧常驻面板)、纯 Rust 文档摄取(3/4 挂起)。
 
 ## Core Value
 
 让产品经理拥有一个**懂你、能替你干活**的桌面 AI Agent —— 不是 chatbot,而是能跑 Pipeline(需求→PRD→原型→代码→测试)、有第二大脑、关键节点 HITL 的真 Agent。
 
-## Current Milestone: v0.3.3 产研半落地 + 工作区入驻(RND-ROLLOUT ①层)
+## Current Milestone: 无(v0.3.3 已 shipped 2026-09-04,下一个里程碑经 `/gsd:new-milestone` 定义)
 
-**Goal:** 把产研中心从 mock 演示转正为真实 AI 驱动 —— mock 全清接 Rust 引擎(接线只做一遍)、各 tab AI 按钮触发带上下文的真实 run、用户以工作区文档为起点入驻产品。
+**v0.4 候选方向**(用户 2026-09-02 定):coding 5 工具 + diff 审批、spawn_subagent(ADR-0004)、pipeline 编排 run + 确认门、Skill(999.2 + 999.4 剩余);v0.5+ 池:MCP(999.3)、IM 入口、hashline、向量 P2。**携带债务**:Phase 27 UAT 回归(`--gaps-only` 可恢复)、REV-01/02 反向创建、cap-5 resume 计数 — 详见 `milestones/v0.3.3-ROADMAP.md` Known Gaps。
 
-**Target features:**
-- mock 全清:rndStore 六个 `generate*AI` + `FullDeliverablesTab` 一键生成 + `productStore.runProductSkill` 残留 mock,统一接 Rust 引擎 run
-- 候选→HITL 确认→落槽模式统一(复用 Phase 16 PRD 生产线模式 + knowledge_docs 版本化卡槽)
-- tab 接 run:各产研 tab AI 按钮触发带 tab 上下文 run,tab 内嵌进度/事件流投影;tab 不废弃(D-05)
-- 999.1 工作区入驻:文档摄取(docx/pdf→文本,Rust 零 sidecar)+ 摄取编排(扫描→分类→抽取草稿→批量 HITL)+ 从工作区反向创建产品;plans 按 Rust 引擎校准后执行(D-06)
+## Current State (after v0.3.3)
 
-**边界:** 原型/代码/测试 tab = 文档级生成,不写真文件(v0.4.0 coding 工具的事);不做 subagent/pipeline/Skill/MCP。路线来源:`research/RND-ROLLOUT-V0.3-V0.4.md`(2026-08-24 discuss-phase 预决策)。
+**v0.3.3 产研半落地 + 工作区入驻 shipped 2026-09-04(带债收口)** — 6 phases (26-31), 25 plans(24 complete), 169 commits, 5 天。验证:各 phase VERIFICATION + 真机 UAT(29 8/8、30 8/8 + 13/13、31 9/9 三轮复测)+ 234 TS tests + replay parity 保持;无独立 audit(用户裁定)。
 
-## Current State (v0.3.3 进行中)
-
-**v0.3.3 活跃 phase 已全部收口(2026-09-04)**:Phase 26 mock 全清(4/4)、Phase 29 PM CRUD 工具原生化(4/4,agent 写路径 + 三档风险)、Phase 30 参考模板数据化 + 工作流用户自组织(4/4,VERIFICATION 13/13 + 真机 UAT 8/8)、**Phase 31 文档工作区(9/9,2026-09-04,UAT 9/9 三轮复测)** — Milkdown core headless 全量替换 MDXEditor(自建 toolbar + live preview decoration + codeBlock NodeView/prismjs decoration 高亮 + 表格行列操作),右侧常驻 overlay 工作区面板(多 tab/自动保存/禅模式/60vw 宽度上限),⌘K Drawer 左滑并存,笔记落 knowledge_docs(doc_kind=note,migration 0014),确认卡第三宿主。Phase 27(工作区文档摄取)挂起 —— UAT-2「摄取 0 候选」未修,连带 5 项 UAT 跳过待回归;Phase 28(反向创建产品)顺延。里程碑收口决策点:处理 27/28 债务或直接 close v0.3.3。Phase 30 关键落地:交付物 catalog 单源 JSON(TS+Rust 同读,999.4 投资前置)、workflow_templates 表 + 4 个 workflow_ 引擎工具(删除走 pm_write HITL)、「工作流」顶层视图 + 5 内置参考模板 + 单 run 多步剧本、确定性沉淀链(事件日志提取 → Dialog 编辑 → 直接落库,零 LLM)。
+- **Mock 全清 + tab 接引擎**(Phase 26):产研各 tab AI 按钮接真实 `engine_run`(独立 session、流式/取消/审计),knowledge_docs 唯一真相源,调度双队列,一键十八份 = 单 run 多步
+- **PM CRUD 工具原生化**(Phase 29):9 个 task/schedule 引擎工具 + 三档风险(读/轻写免确认,delete+cap-5 走 pm_write HITL);关系表 migration 0012 + kv 幂等搬移;SQL 单真相源
+- **工作流用户自组织**(Phase 30):catalog 单源 JSON(TS+Rust 同读)、workflow_templates + 4 工具、「工作流」视图 + 5 内置模板、确定性沉淀链(零 LLM);产品哲学红线(严禁刚性 pipeline)贯穿
+- **文档工作区**(Phase 31):Milkdown core headless 全量替换 MDXEditor(自建 toolbar + codeBlock NodeView/prismjs 高亮 + 表格行列操作),右侧常驻面板(多 tab/自动保存/禅模式/60vw),⌘K 左滑并存,doc_kind=note 笔记 + FTS5,确认卡第三宿主
+- **文档摄取 3/4 挂起**(Phase 27):纯 Rust 提取 + 批量 HITL 后端 + 前端流已交付;UAT-2 修复已提交,UAT-2..7 回归待恢复(`--gaps-only`)
+- **已知债务**:REV-01/02(Phase 28 顺延)、REQUIREMENTS 未登记 PM/WF/DOC 需求(流程债)、cap-5 resume 重置、22-UAT Test 7 补验、CSP null 等结转(完整清单见 `milestones/v0.3.3-ROADMAP.md`)
 
 ## Current State (after v0.3.2)
 
@@ -154,7 +153,12 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 | [v0.3.0] harness 复用 = 设计思想 + 纯函数算法,不引入框架 | dsh 是 Node 运行时违反零 sidecar;MIT 归属入 ADR-0002 | ✓ Good |
 | [v0.3.2] Agent 核心迁 Rust run engine,webview 退化为投影 + HITL UI | 三驱动:后台长跑 / 多 session 并行 / IM-MCP-Skill 多入口;TS 运行时已完成语义验证;事件日志 schema 即迁移契约 | ✓ Validated in v0.3.2 — ADR-0003 Accepted,replay parity 逐位锁定 |
 | [v0.3.2] 不采用 Rig / GraphFlow,自写调度器,omp 借模式不引依赖 | Rig 只供 loop 骨架+provider(最廉价部分)且 AgentRun 与事件日志双记账;GraphFlow 静态图 vs subAgent 动态拓扑相克;调度器 ≈ 数百行 tokio | ✓ Validated in v0.3.2 — 调度器 VecDeque FIFO + per-run Connection 按期落地 |
-| [v0.3.2] TS 工具桥整体取消,PM CRUD 缺席降级 | 业务数据为 kv_store JSON 快照,桥为建即拆的过渡架构;v0.3.3 关系化后原生回归 | ✓ Validated in v0.3.2 — 无头/有头工具集一致(TOOL-04) |
+| [v0.3.2] TS 工具桥整体取消,PM CRUD 缺席降级 | 业务数据为 kv_store JSON 快照,桥为建即拆的过渡架构;v0.3.3 关系化后原生回归 | ✓ Validated in v0.3.3 — Phase 29 关系表 + 9 工具原生落地 |
+| [v0.3.3] 2026-09-02 优先级重定:27 挂起/28 顺延,999.6 promote 第一优先 | 用户真实使用四大缺口(agent 不能干活/数据是壳/AI 产出不可用/流程刚性)优先于路线图完整性 | ✓ Validated — 29/30/31 连续三 phase UAT 全过 |
+| [v0.3.3] 产品哲学:工作流用户自组织,Nova 只给参考+模板 | 刚性 pipeline 与「一键十八份」否决为里程碑目标;模板/参考是增益不是束缚 | ✓ Validated in Phase 30(VERIFICATION 13/13 + 哲学红线检查) |
+| [v0.3.3] knowledge_docs 唯一真相源(tab 产物/摄取/笔记/模板同管线) | 单管线版本化 + FTS5 + 确认卡复用;弃 kv JSON 快照 | ✓ Validated in 26/27/30/31 |
+| [v0.3.3] Milkdown core headless + 全自建 UI(D-01) | 零外部编辑器主题;tokens/Phosphor 一致性;NodeView + Decoration 扩展模式 | ✓ Validated — UAT 9/9(IME/round-trip 含) |
+| [v0.3.3] 带债收口(REV-01/02 + 27 UAT 回归记 Known Gaps) | 27/28 价值让位于 v0.4 coding agent;债务显式记录优于无限期收口 | ✓ 2026-09-04 用户裁定 |
 
 ## Evolution
 
@@ -193,4 +197,4 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 31 (2026-09-04)**: 文档工作区 — Milkdown core headless 编辑器 + 右侧常驻面板;MDXEditor 退役;doc_kind=note 笔记 + FTS5;确认卡第三宿主;⌘K 左滑。UAT 9/9(5 gaps→resolved,gap 收口 31-08/31-09 + round-2 根因修复:codeBlock contentDOM、表格行 <br> guard)。
 
 ---
-*Last updated: 2026-09-04 — Phase 31 complete(文档工作区);v0.3.3 剩余:27 UAT 回归 / 28 顺延决策 / complete-milestone*
+*Last updated: 2026-09-04 after v0.3.3 milestone(带债收口,archive: milestones/v0.3.3-*)*

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 31-08-PLAN.md
-last_updated: "2026-09-04T01:59:44.031Z"
+stopped_at: Completed 31-09-PLAN.md
+last_updated: "2026-09-04T02:13:55.208Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 31 (doc-workspace) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
 Last activity: 2026-09-04
@@ -79,6 +79,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 (shipped 2026-08-31) → v0.
 | Phase 31 P06 | 45m | 2 tasks | 8 files |
 | Phase 31 P07 | 25m | 2 tasks | 2 files |
 | Phase 31 P08 | 10m | 2 tasks | 2 files |
+| Phase 31 P09 | 45m | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,7 @@ v0.3.3 roadmap decisions (2026-08-31):
 - [Phase 31]: 31-06: PrdDraftDialog 保留(内存候选稿+落槽 commit 为独立工作流,先落库再 open 会持久化取消稿);openDoc/createNote store 单点 expandPanel;收起面板自动退出禅模式
 - [Phase 31]: 31-07: D-14 采纳 effect deps=(activeDocId, version)+editing 跳过;D-15 多 tab openDocIds/activeDocId+closeDoc 左邻激活,tab 栏在 Content 渲染、zen/单 tab 隐藏;D-16 flushPendingSave 先于切/关
 - [Phase 31]: 31-08: maxWidth 60vw 纯 CSS clamp(SC-2.3 搜索行补 openDoc),不做 resize 监听
+- [Phase 31]: 31-09: BR-only guard 保住 ingest 归一化;codeBlock=\(codeBlockSchema.node) 纯 DOM NodeView + prismjs 按需语言包,D-01 零外部主题;toolbar 行列 4 按钮文本标签(行↑/行↓/列←/列→)
 
 ### TODOs (pending)
 
@@ -143,8 +145,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-04T01:59:44.025Z
-Stopped at: Completed 31-08-PLAN.md
+Last session: 2026-09-04T02:13:55.201Z
+Stopped at: Completed 31-09-PLAN.md
 Resume file: None
 
 If resuming after context loss:

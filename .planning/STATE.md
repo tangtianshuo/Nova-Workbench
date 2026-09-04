@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: 紧凑产研版 — coding Agent + 子 Agent + Pipeline + Skill
 status: executing
-stopped_at: Completed 32-01-PLAN.md
-last_updated: "2026-09-04T07:17:39.251Z"
+stopped_at: Completed 32-02-PLAN.md
+last_updated: "2026-09-04T07:39:09.788Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-09-04, v0.4 started)
 ## Current Position
 
 Phase: 32 (coding) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Next: `/gsd:plan-phase 32`(建议先 `/gsd:research-phase 32` 处理 Windows npm .cmd flag;Phase 33 首个 plan 前必须裁定 cap-3 死锁方案)
 Last activity: 2026-09-04
@@ -46,6 +46,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)
 
 (完整 plan 级校准数据见 git history;已随 v0.3.3 归档)
 | Phase 32 P01 | 45m | 2 tasks | 11 files |
+| Phase 32 P02 | 50m | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,7 @@ v0.3.3 key decisions (2026-09-04 archive):
 (phase 级 decisions 随 v0.3.3 归档:26/29/30/31 各 plan 裁定见 milestones/v0.3.3-ROADMAP.md 与各 SUMMARY)
 
 - [Phase 32]: workspace repo 绑定落独立表 workspace_repo_roots(无 workspaces SQL 表;kv blob 是 workspace 真相源)
+- [Phase 32]: exec pid 记录点 = spawn 即写入在途 tool_call(record_exec_pid);on_pid 回调自开 Connection 规避 rusqlite !Sync
 
 ### TODOs (pending)
 
@@ -81,8 +83,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-04T07:17:39.246Z
-Stopped at: Completed 32-01-PLAN.md
+Last session: 2026-09-04T07:39:09.782Z
+Stopped at: Completed 32-02-PLAN.md
 Resume file: None
 
 If resuming after context loss:

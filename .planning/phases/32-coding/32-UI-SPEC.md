@@ -1,7 +1,8 @@
 ---
 phase: 32
 slug: coding
-status: draft
+status: approved
+reviewed_at: 2026-09-04
 shadcn_initialized: false
 preset: none
 created: 2026-09-04
@@ -42,16 +43,18 @@ Declared values (multiples of 4, project-compact):
 | lg | 16px | Card section spacing (`space-y-4`) |
 | xl | 24px | TabRunPanel section breaks |
 
-Exceptions: Tailwind half-steps already in use (`py-1.5`, `pt-0.5`, `space-y-1.5`) follow existing confirm-card precedent — allowed for compact card internals. No new values outside the existing token scale.
+Exceptions: Tailwind half-steps already in use (`py-1.5`, `pt-0.5`, `space-y-1.5`) follow existing confirm-card precedent — allowed for compact card internals. 12px (`p-3` md) is project-compact convention locked by CLAUDE.md, not a deviation to re-litigate. No new values outside the existing token scale.
 
 ---
 
 ## Typography
 
+Two weights only (compact UI noise rule):
+
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body / card copy | 13px (`text-sm`) | 400 | 1.5 |
-| Label / chip / badge | 12px (`text-xs`) | 500 | 1.4 |
+| Label / chip / badge | 12px (`text-xs`) | 600 (`font-semibold`) | 1.4 |
 | Card heading / CTA | 14px (`text-md`) | 600 (`font-semibold`) | 1.4 |
 | Diff / code / exec output | 12px (`font-mono text-xs`) | 400 | 1.6 (relaxed for scanability) |
 
@@ -130,11 +133,11 @@ Accent reserved for: approve/confirm primary buttons, repo-bound badge, "current
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (revision 1, 2026-09-04)

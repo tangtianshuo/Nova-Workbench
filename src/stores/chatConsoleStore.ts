@@ -46,6 +46,7 @@ import { getEventStore } from '@/src/ai/events/eventStore';
 import type { AgentEvent } from '@/src/ai/events/types';
 import { useUIStore } from '@/src/stores/uiStore';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { useTabRunStore } from '@/src/stores/tabRunStore';
 import { useTaskStore } from '@/src/stores/taskStore';
 import { useScheduleStore } from '@/src/stores/scheduleStore';
 import { useWorkflowStore } from '@/src/stores/workflowStore';
@@ -1166,6 +1167,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       try {
         const result = await engineCodeApply(activeSessionId, candidate.confirmationToken);
         const error = typeof result.error === 'string' ? result.error : null;
+        if (!error) {
+          useTabRunStore.getState().settleTabCodeEdit(activeSessionId, candidate.path, 'applied');
+        }
         set((current) => ({
           pendingCodeEdits: current.pendingCodeEdits.filter((c) => c.confirmationToken !== candidate.confirmationToken),
           messages: [...current.messages, {
@@ -1199,6 +1203,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       } catch (error) {
         console.error('[code-edit] reject failed', error);
       }
+      const { activeSessionId } = get();
+      useTabRunStore.getState().settleTabCodeEdit(activeSessionId, candidate.path, 'rejected');
       set((current) => ({
         pendingCodeEdits: current.pendingCodeEdits.filter((c) => c.confirmationToken !== candidate.confirmationToken),
         messages: [...current.messages, {

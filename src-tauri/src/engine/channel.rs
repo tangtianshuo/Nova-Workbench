@@ -31,7 +31,9 @@ pub enum EngineEvent {
     #[serde(rename = "token")]
     Token { text: String },
     #[serde(rename = "tool_start")]
-    ToolStart { name: String },
+    /// 32-05: `target` = display hint for the run panel (code tools → path,
+    /// exec → command). None for tools without an obvious target.
+    ToolStart { name: String, target: Option<String> },
     #[serde(rename = "tool_end")]
     ToolEnd { name: String, ok: bool },
     #[serde(rename = "tool_output")]

@@ -329,7 +329,7 @@ pub async fn run_tool_loop(
                 }),
                 &on_event,
             )?;
-            on_event(EngineEvent::ToolStart { name: call.name.clone() });
+            on_event(EngineEvent::ToolStart { name: call.name.clone(), target: tools::tool_target(&call.name, &call.arguments) });
 
             let tool_ctx = tools::ToolCtx {
                 session_id: &scope.session_id,

@@ -44,6 +44,14 @@ export interface TabRunEventRow {
   summary?: string;
 }
 
+/** 32-05: changed-file chip status (code_edit candidate lifecycle). */
+export type ChangedFileStatus = 'pending' | 'applied' | 'rejected';
+
+export interface TabRunChangedFile {
+  path: string;
+  status: ChangedFileStatus;
+}
+
 export interface TabRunRecord {
   runId: string;
   tabId: string;
@@ -61,6 +69,12 @@ export interface TabRunRecord {
   startedAt: number;
   error?: string;
   candidateCount: number;
+  /** 32-05: current tool display hint (code tools → path; exec → command). */
+  currentTool?: { name: string; target?: string; targetFull?: string };
+  /** 32-05: exec tail ring buffer (UI-SPEC §3 — never full params/output). */
+  execTail: string[];
+  /** 32-05: code_edit candidate files with review status. */
+  changedFiles: TabRunChangedFile[];
 }
 
 export interface StartTabRunParams {
@@ -100,6 +114,9 @@ interface TabRunState {
   tabDeliverableBusy: boolean;
   startTabRun: (params: StartTabRunParams) => string;
   cancelTabRun: (runId: string) => Promise<void>;
+  /** 32-05: settle a code_edit chip after apply/reject (called by the
+   *  confirmation surface; also used by the cancel cascade below). */
+  settleTabCodeEdit: (sessionId: string, path: string, status: ChangedFileStatus) => void;
   rejectTabDeliverable: (confirmationToken: string) => Promise<void>;
   commitTabDeliverable: (editedDraft: string, confirmationToken: string) => Promise<boolean>;
   rehydrateTabRuns: () => Promise<void>;
@@ -108,6 +125,19 @@ interface TabRunState {
 
 /** Cap per-run event rows — batch runs (18 deliverables) must not grow unbounded. */
 const MAX_EVENTS = 200;
+/** 32-05: exec tail ring buffer cap (UI-SPEC Interaction 3). */
+const EXEC_TAIL_LINES = 50;
+/** 32-05: exec command chip truncation (UI-SPEC locks ~60ch display). */
+const EXEC_TARGET_MAX = 60;
+
+function truncateTarget(s: string): string {
+  return s.length > EXEC_TARGET_MAX ? `${s.slice(0, EXEC_TARGET_MAX - 1)}…` : s;
+}
+
+function appendTail(tail: string[], chunk: string): string[] {
+  const next = [...tail, ...chunk.split(/\r?\n/)];
+  return next.length > EXEC_TAIL_LINES ? next.slice(next.length - EXEC_TAIL_LINES) : next;
+}
 export const ACTIVE: readonly TabRunStatus[] = ['queued', 'running', 'waiting-for-confirmation'];
 
 function appendEvent(run: TabRunRecord, row: TabRunEventRow): TabRunRecord {
@@ -177,6 +207,8 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
       events: [],
       startedAt: Date.now(),
       candidateCount: 0,
+      execTail: [],
+      changedFiles: [],
     };
     set((state) => ({
       runs: { ...state.runs, [runId]: record },
@@ -214,6 +246,17 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
             }
             if (msg.kind === 'confirmation' && msg.data?.candidate) {
               const cand = msg.data.candidate;
+              // 32-05: code_edit candidate → changed-file chip (pending until
+              // the confirmation surface settles it via settleTabCodeEdit).
+              if (cand.kind === 'code_edit') {
+                const path = String(cand.args?.path ?? '');
+                if (path) {
+                  patchRun(set, runId, (run) =>
+                    run.changedFiles.some((f) => f.path === path && f.status === 'pending')
+                      ? run
+                      : { ...run, changedFiles: [...run.changedFiles, { path, status: 'pending' }] });
+                }
+              }
               if (cand.kind === 'ingestion_batch') {
                 // 27-03 D-09: the batch candidate routes to the ingestion
                 // aggregate view (FileArchiveView), not the console PRD chain.
@@ -246,8 +289,11 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
             }
             if (msg.kind === 'tool_start' && msg.data?.name) {
               const name = msg.data.name;
+              const rawTarget = msg.data.target ?? undefined;
+              const target = rawTarget ? truncateTarget(rawTarget) : undefined;
               patchRun(set, runId, (run) => ({
                 ...appendEvent(run, { ts: Date.now(), kind: 'tool_start', name }),
+                currentTool: { name, target, targetFull: rawTarget },
                 currentStep: `正在调用 ${name}…`,
               }));
               return;
@@ -262,7 +308,12 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
               return;
             }
             if (msg.kind === 'tool_output' && msg.data?.name) {
-              patchRun(set, runId, (run) => appendEvent(run, { ts: Date.now(), kind: 'tool_output', name: msg.data!.name }));
+              const stream = msg.data.stream ?? '';
+              patchRun(set, runId, (run) => ({
+                ...appendEvent(run, { ts: Date.now(), kind: 'tool_output', name: msg.data!.name }),
+                // exec tail ring buffer (32-05) — non-exec tools emit no stream.
+                ...(msg.data.name === 'exec' && stream ? { execTail: appendTail(run.execTail, stream) } : {}),
+              }));
               return;
             }
             if (msg.kind === 'token' && msg.data?.text) {
@@ -305,10 +356,28 @@ export const useTabRunStore = create<TabRunState>()((set, get) => ({
 
   cancelTabRun: async (runId) => {
     await engineCancel(runId);
-    patchRun(set, runId, (run) => ({ ...run, status: 'cancelled', currentStep: '已取消' }));
+    // 32-05: run-cancel cascade mirrors the engine's auto_reject — pending
+    // code_edit chips flip to rejected (Rust settles the candidates itself).
+    patchRun(set, runId, (run) => ({
+      ...run,
+      status: 'cancelled',
+      currentStep: '已取消',
+      changedFiles: run.changedFiles.map((f) => (f.status === 'pending' ? { ...f, status: 'rejected' as const } : f)),
+    }));
     set((state) => {
       const entries = Object.entries(state.runsByTab).filter(([, id]) => id !== runId);
       return { runsByTab: Object.fromEntries(entries) };
+    });
+  },
+
+  settleTabCodeEdit: (sessionId, path, status) => {
+    set((state) => {
+      const runs = { ...state.runs };
+      for (const [rid, r] of Object.entries(runs)) {
+        if (r.sessionId !== sessionId) continue;
+        runs[rid] = { ...r, changedFiles: r.changedFiles.map((f) => (f.path === path && f.status === 'pending' ? { ...f, status } : f)) };
+      }
+      return { runs };
     });
   },
 

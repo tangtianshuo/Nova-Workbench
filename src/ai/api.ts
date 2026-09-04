@@ -37,6 +37,8 @@ export interface EngineEventMsg {
   data?: {
     text?: string;
     name?: string;
+    /** tool_start (32-05): display hint — code tools → path, exec → command. */
+    target?: string;
     /** tool_output: exec stdout/stderr chunk (23-02 renders it). */
     stream?: string;
     isStderr?: boolean;

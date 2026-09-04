@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BookmarkSimple, CaretDown, CheckCircle, CircleNotch } from '@phosphor-icons/react';
+import { BookmarkSimple, CaretDown, CheckCircle, CircleNotch, Code, MagnifyingGlass, Terminal } from '@phosphor-icons/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
@@ -49,6 +49,24 @@ function summaryCopy(run: TabRunRecord): string {
       return `生成失败：${(run.error ?? '未知错误').slice(0, 80)}。可重试；若持续失败请检查引擎日志后重试。`;
   }
 }
+
+/** 32-05: current-tool icon (UI-SPEC §3 — code/exec/research triple). */
+function ToolIcon({ name, size = 14 }: { name: string; size?: number }) {
+  const Icon = name === 'exec' ? Terminal : name.startsWith('code_') ? Code : MagnifyingGlass;
+  return <Icon size={size} weight="duotone" className="text-text-tertiary shrink-0" />;
+}
+
+const CHANGED_FILE_DOT: Record<string, string> = {
+  pending: 'bg-warning',
+  applied: 'bg-success',
+  rejected: 'bg-danger',
+};
+
+const CHANGED_FILE_LABEL: Record<string, string> = {
+  pending: '待审',
+  applied: '已应用',
+  rejected: '已拒绝',
+};
 
 function StatusBadge({ run }: { run: TabRunRecord }) {
   switch (run.status) {
@@ -112,6 +130,7 @@ export function TabRunPanel({ tabId, className }: Props) {
 
   const isActive = !!run && ACTIVE.includes(run.status);
   const [expanded, setExpanded] = useState(true);
+  const [execOpen, setExecOpen] = useState(false);
   const [, forceTick] = useState(0);
 
   // Per-second elapsed refresh while a run is active.
@@ -296,6 +315,61 @@ export function TabRunPanel({ tabId, className }: Props) {
 
       {/* Indeterminate progress while running */}
       {run.status === 'running' && <ProgressBar value={0} indeterminate variant="accent" />}
+
+      {/* 32-05: current tool + target chip (UI-SPEC Interaction 3) */}
+      {run.currentTool && (
+        <div className="flex items-center gap-2 min-w-0 text-xs">
+          <ToolIcon name={run.currentTool.name} />
+          <span className="font-semibold text-text-secondary shrink-0">{run.currentTool.name}</span>
+          {run.currentTool.target && (
+            <span
+              className="min-w-0 truncate max-w-[280px] rounded-[var(--radius-sm)] border border-border-subtle bg-bg-secondary px-2 py-0.5 font-mono text-text-primary"
+              title={run.currentTool.targetFull ?? run.currentTool.target}
+            >
+              {run.currentTool.target}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 32-05: exec tail output — collapsed by default, live tail refresh */}
+      {run.execTail.length > 0 && (
+        <div className="rounded-[var(--radius-sm)] border border-border-subtle bg-bg-secondary overflow-hidden">
+          <button
+            onClick={() => setExecOpen((v) => !v)}
+            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary"
+          >
+            <CaretDown size={12} weight="duotone" className={cn('transition-transform', execOpen && 'rotate-180')} />
+            输出(尾部 {run.execTail.length} 行)
+          </button>
+          {execOpen && (
+            <div className="max-h-40 overflow-y-auto border-t border-border-subtle px-3 py-1.5 space-y-0.5">
+              {run.execTail.map((line, i) => (
+                <div key={i} className="font-mono text-xs leading-relaxed text-text-secondary whitespace-pre-wrap break-all">
+                  {line || ' '}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 32-05: changed files with review status dots */}
+      {run.changedFiles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {run.changedFiles.map((f) => (
+            <span
+              key={f.path}
+              className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-bg-secondary px-2 py-0.5 text-xs text-text-primary"
+              title={`${f.path} · ${CHANGED_FILE_LABEL[f.status]}`}
+            >
+              <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', CHANGED_FILE_DOT[f.status])} />
+              <span className="font-mono truncate max-w-[220px]">{f.path}</span>
+              <span className="text-text-tertiary shrink-0">{CHANGED_FILE_LABEL[f.status]}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Event list */}
       <AnimatePresence initial={false}>

@@ -665,6 +665,19 @@ pub fn idempotency(name: &str) -> &'static str {
         .unwrap_or("verify_first")
 }
 
+/// 32-05: display hint for the run panel's current-tool row — code tools →
+/// target path, exec → command, code_grep → path (or pattern). None when the
+/// tool has no obvious target. Display-only; never reaches tool execution.
+pub fn tool_target(name: &str, args: &Value) -> Option<String> {
+    let pick = |k: &str| args.get(k).and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string());
+    match name {
+        "exec" => pick("command"),
+        "code_read" | "code_write" | "code_edit" => pick("path"),
+        "code_grep" => pick("path").or_else(|| pick("pattern")),
+        _ => None,
+    }
+}
+
 /// Execution outcome. AwaitConfirmation carries the HITL candidate JSON plus
 /// the WAIT detail (key/value) the loop embeds in the tool_result payload —
 /// key order `{ok, awaitingConfirmation, <key>}` is composed by the loop.

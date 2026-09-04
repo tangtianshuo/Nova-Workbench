@@ -18,7 +18,7 @@ use crate::engine::channel::{EngineEvent, EngineRunResult};
 use crate::engine::event_log::{self, EventInput};
 use crate::engine::chat_session::LlmMessage;
 use crate::engine::loop_runner::{self, BoxLlmFuture, EventCallback, Llm, LlmToolCall, LlmTurn, LoopContext, LoopError, TokenSink};
-use crate::engine::{confirmations, exec, fs_ops, tools};
+use crate::engine::{code_ops, confirmations, exec, fs_ops, tools};
 use crate::engine::ingest;
 use crate::engine::pm_store;
 use crate::engine::workflow_store;
@@ -543,6 +543,41 @@ pub async fn engine_whitelist_add(command: String, db: State<'_, EngineDb>) -> R
     with_conn(&db, |conn| {
         exec::add_command_to_whitelist(conn, &command).map_err(|e| AppError::InternalError(e.to_string()))
     })
+}
+
+/// 32-01: bind/unbind a workspace's git repo root (settings page). None clears
+/// the binding. Returns the stored value for round-trip verification.
+#[tauri::command]
+pub async fn engine_workspace_bind_repo(
+    workspace_id: String,
+    repo_root: Option<String>,
+    db: State<'_, EngineDb>,
+) -> Result<Option<String>, AppError> {
+    with_conn(&db, |conn| {
+        code_ops::bind_repo_root(conn, &workspace_id, repo_root.as_deref())
+            .map(|_| code_ops::get_repo_root(conn, &workspace_id).map(|p| p.to_string_lossy().to_string()))
+            .map_err(|e| AppError::InternalError(e.to_string()))
+    })
+}
+
+/// 32-01: detect the git root above `start_path` (usually the workspace
+/// folderPath) and bind it to the workspace. Returns the detected root, or
+/// None when no .git was found (binding left untouched).
+#[tauri::command]
+pub async fn engine_workspace_detect_repo(
+    workspace_id: String,
+    start_path: String,
+    db: State<'_, EngineDb>,
+) -> Result<Option<String>, AppError> {
+    let detected = code_ops::detect_repo_root(std::path::Path::new(&start_path))
+        .map(|p| p.to_string_lossy().to_string());
+    if let Some(root) = &detected {
+        with_conn(&db, |conn| {
+            code_ops::bind_repo_root(conn, &workspace_id, Some(root))
+                .map_err(|e| AppError::InternalError(e.to_string()))
+        })?;
+    }
+    Ok(detected)
 }
 
 /// Confirm an fs_write candidate, execute the write in Rust (23-03, TOOL-04:
@@ -1253,7 +1288,7 @@ mod tests {
             let ctx = ToolCtx {
                 session_id: "s1",
                 product_id: None,
-                workspace_root: Some(std::path::PathBuf::from(&cwd)),
+                workspace_root: Some(std::path::PathBuf::from(&cwd)), repo_root: None,
                 pm_writes_used: 0,
             };
             let outcome = tokio::runtime::Builder::new_current_thread()
@@ -1326,7 +1361,7 @@ mod tests {
         // fs_write tool → fs_write candidate
         let token = {
             use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-            let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: Some(root.clone()), pm_writes_used: 0 };
+            let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: Some(root.clone()), repo_root: None, pm_writes_used: 0 };
             match execute(&conn, "fs_write", &json!({"path": "out.md", "content": "confirmed"}), &ctx) {
                 ToolOutcome::AwaitConfirmation { candidate, .. } => {
                     candidate["confirmationToken"].as_str().unwrap().to_string()
@@ -1364,7 +1399,7 @@ mod tests {
     /// Queue a deliverable_draft candidate via the native tool (product p1).
     fn queue_deliverable(conn: &Connection) -> String {
         use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v1", "draft": "D"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 candidate["confirmationToken"].as_str().unwrap().to_string()
@@ -1414,7 +1449,7 @@ mod tests {
         // candidate is still active and would dedup the queue call.)
         let token2 = {
             use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
             match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v2", "draft": "D"}), &ctx) {
                 ToolOutcome::AwaitConfirmation { candidate, .. } => candidate["confirmationToken"].as_str().unwrap().to_string(),
                 other => panic!("expected candidate, got {other:?}"),
@@ -1424,7 +1459,7 @@ mod tests {
         // Rejected candidate → confirm fails non-AlreadySettled → error, no event.
         let token3 = {
             use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+            let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
             match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "PRD v3", "draft": "D"}), &ctx) {
                 ToolOutcome::AwaitConfirmation { candidate, .. } => candidate["confirmationToken"].as_str().unwrap().to_string(),
                 other => panic!("expected candidate, got {other:?}"),
@@ -1557,7 +1592,7 @@ mod tests {
 
     fn queue_ingestion_batch(conn: &Connection, items: Value) -> String {
         use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(conn, "ingest_submit", &json!({"workspaceId": "w1", "items": items}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 candidate["confirmationToken"].as_str().unwrap().to_string()
@@ -1694,7 +1729,7 @@ mod tests {
 
     fn queue_pm_delete(conn: &Connection, tool: &str, id_arg: &str, id: &str) -> String {
         use crate::engine::tools::{execute, ToolCtx, ToolOutcome};
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({ id_arg: id });
         match execute(conn, tool, &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {

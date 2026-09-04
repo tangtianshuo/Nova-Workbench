@@ -106,6 +106,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0014_doc_kind_note.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 15,
+            description: "workspace repo binding (coding scope lock)",
+            sql: include_str!("../migrations/0015_workspace_repo_root.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -234,6 +240,8 @@ pub fn run() {
             engine::commands::engine_list_workflows,
             engine::commands::engine_ingest_pending_count,
             engine::commands::engine_reject_memory,
+            engine::commands::engine_workspace_bind_repo,
+            engine::commands::engine_workspace_detect_repo,
         ])
         // 24-02 hide-on-close (SCHED-02): closing the window hides it — runs
         // keep going; real exit is tray 「退出」 only.

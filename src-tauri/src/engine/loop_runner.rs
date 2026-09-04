@@ -21,7 +21,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::engine::channel::{EngineEvent, EngineRunResult};
 use crate::engine::chat_session::{ChatRole, ChatSession, LlmMessage, DEFAULT_TOKEN_BUDGET};
-use crate::engine::{compaction, context_assembler, event_log, tools};
+use crate::engine::{code_ops, compaction, context_assembler, event_log, tools};
 
 pub const MAX_ITERATIONS: u32 = 8;
 
@@ -335,6 +335,8 @@ pub async fn run_tool_loop(
                 session_id: &scope.session_id,
                 product_id: ctx.product_id.as_deref(),
                 workspace_root: ctx.workspace_root.clone(),
+                // 32-01: repo binding read once per run (per-workspace row).
+                repo_root: scope.workspace_id.as_deref().and_then(|wid| code_ops::get_repo_root(ctx.conn, wid)),
                 pm_writes_used,
             };
             match tools::execute_async(ctx.conn, &call.name, &call.arguments, &tool_ctx, cancel.clone(), on_event.as_ref()).await {

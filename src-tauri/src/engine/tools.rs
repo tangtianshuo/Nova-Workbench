@@ -617,6 +617,9 @@ pub struct ToolCtx<'a> {
     pub session_id: &'a str,
     pub product_id: Option<&'a str>,
     pub workspace_root: Option<std::path::PathBuf>,
+    /// Bound git repo root (32-01, workspace_repo_roots table). None = the
+    /// workspace has no repo binding; code_* tools fail-safe on it (32-03).
+    pub repo_root: Option<std::path::PathBuf>,
     /// Confirmation-free PM writes already landed this run (cap-5 input,
     /// maintained by loop_runner; 0 for one-shot webview actions).
     pub pm_writes_used: u32,
@@ -1486,7 +1489,7 @@ mod tests {
     #[test]
     fn generate_deliverable_queues_candidate_and_dedups() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({"code": "prd", "title": "PRD v1", "draft": "# 草稿"});
         let token = match execute(&conn, "generate_deliverable", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -1528,7 +1531,7 @@ mod tests {
     #[test]
     fn generate_deliverable_arg_errors_and_no_product() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         for (args, why) in [
             (json!({}), "no fields"),
             (json!({"code": "prd"}), "missing title/draft"),
@@ -1541,7 +1544,7 @@ mod tests {
             }
         }
         // No product selected → non-arg failure (precondition, retry can't fix).
-        let no_product = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let no_product = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "generate_deliverable", &json!({"code": "prd", "title": "T", "draft": "D"}), &no_product) {
             ToolOutcome::Failed { arg_error: false, .. } => {}
             other => panic!("expected precondition Failed, got {other:?}"),
@@ -1552,7 +1555,7 @@ mod tests {
     fn knowledge_search_executes_fts() {
         let conn = mem_conn();
         seed_knowledge(&conn);
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_search", &json!({"query": "需求"}), &ctx) {
             ToolOutcome::Executed(value) => {
                 assert_eq!(value["retrieval"], "fts5-hybrid");
@@ -1566,7 +1569,7 @@ mod tests {
     #[test]
     fn knowledge_search_arg_error_is_retryable() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_search", &json!({}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("arg validation failed"));
@@ -1579,7 +1582,7 @@ mod tests {
     #[test]
     fn knowledge_write_creates_candidate_and_waits() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_key, wait_value } => {
@@ -1607,7 +1610,7 @@ mod tests {
     #[test]
     fn knowledge_write_invalid_category_rejected_pre_candidate() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "C", "category": "介绍"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
@@ -1630,7 +1633,7 @@ mod tests {
     #[test]
     fn knowledge_write_valid_category_creates_candidate() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["kind"], "knowledge_write");
@@ -1643,7 +1646,7 @@ mod tests {
     #[test]
     fn knowledge_write_defaults_tags_to_empty_array() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["tags"], json!([]));
@@ -1657,7 +1660,7 @@ mod tests {
     #[test]
     fn knowledge_write_uses_ctx_product_id_when_model_omits_it() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["productId"], "p1");
@@ -1676,7 +1679,7 @@ mod tests {
     #[test]
     fn knowledge_write_without_product_id_and_no_ctx_arg_errors() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert!(message.contains("no product selected"), "{message}");
@@ -1689,7 +1692,7 @@ mod tests {
     #[test]
     fn knowledge_write_explicit_product_id_wins_over_ctx() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "knowledge_write", &json!({"productId": "p9", "title": "T", "content": "C", "category": "最佳实践"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["args"]["productId"], "p9");
@@ -1706,7 +1709,7 @@ mod tests {
         // knowledgeParams(resolveDraft(...))-equivalent object) via npx tsx.
         // Memory-parity precedent: commands.rs:1099.
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "C".repeat(120), "category": "最佳实践"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
@@ -1721,7 +1724,7 @@ mod tests {
     #[test]
     fn knowledge_write_normalizes_to_exact_ts_shape() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "title": "T", "content": "X".repeat(150), "category": "最佳实践", "unknownExtra": "junk"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
@@ -1746,7 +1749,7 @@ mod tests {
     fn knowledge_write_preserves_explicit_fields_and_computes_update_operation() {
         let conn = mem_conn();
         seed_knowledge(&conn); // doc_id "d1" exists in knowledge_docs
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let args = json!({"productId": "p1", "itemId": "d1", "title": "T", "content": "C", "category": "最佳实践",
             "tags": ["a", "b"], "summary": "S", "author": "Me", "readTime": "5 min"});
         match execute(&conn, "knowledge_write", &args, &ctx) {
@@ -1777,7 +1780,7 @@ mod tests {
     #[test]
     fn knowledge_write_rejects_bad_tags_pre_card() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         for (args, why) in [
             (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": ["ok", ""]}), "empty string tag"),
             (json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践", "tags": ["ok", 3]}), "non-string tag"),
@@ -1800,7 +1803,7 @@ mod tests {
     #[test]
     fn memory_write_inserts_memory_candidate_and_waits() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "memory_write", &json!({"content": "用户喜欢简短回复"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
                 assert_eq!(wait_value, "Explicit confirmation is required before saving memory.");
@@ -1822,7 +1825,7 @@ mod tests {
     #[test]
     fn unknown_tool_fails_without_arg_error() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "createTask", &json!({"title": "x"}), &ctx) {
             ToolOutcome::Failed { message, arg_error } => {
                 assert_eq!(message, "Unknown tool: createTask");
@@ -1845,7 +1848,7 @@ mod tests {
     #[test]
     fn ingest_submit_creates_batch_candidate() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": ingest_items()}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["kind"], "ingestion_batch");
@@ -1863,7 +1866,7 @@ mod tests {
     #[test]
     fn ingest_submit_arg_errors() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let cases = [
             (json!({"items": ingest_items()}), "missing workspaceId"),
             (json!({"workspaceId": "w1", "items": []}), "empty items"),
@@ -1879,7 +1882,7 @@ mod tests {
             }
         }
         // no product in args or ctx → arg_error
-        let no_prod = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let no_prod = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "ingest_submit", &json!({"workspaceId": "w1", "items": ingest_items()}), &no_prod) {
             ToolOutcome::Failed { arg_error: true, .. } => {}
             other => panic!("no product: expected arg_error Failed, got {other:?}"),
@@ -1893,7 +1896,7 @@ mod tests {
     #[test]
     fn ingest_submit_rejects_drafts_over_cap() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         // 6 task_draft on the same sourcePath → D-14 cap 5 exceeded.
         let over: Vec<Value> = (0..6)
             .map(|i| json!({"id": format!("ing-t{i}"), "type": "task_draft", "title": format!("t{i}"), "sourcePath": "docs/same.docx"}))
@@ -1923,7 +1926,7 @@ mod tests {
     #[test]
     fn task_create_inserts_row_and_returns_id() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "task_create", &json!({"title": "写 PRD", "priority": "high", "deadline": "2026-09-03"}), &ctx) {
             ToolOutcome::Executed(v) => {
                 assert_eq!(v["created"], true);
@@ -1945,7 +1948,7 @@ mod tests {
     #[test]
     fn task_create_arg_errors() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         for (args, why) in [
             (json!({}), "missing title"),
             (json!({"title": "t", "priority": "urgent"}), "bad priority enum"),
@@ -1962,7 +1965,7 @@ mod tests {
     #[test]
     fn task_update_and_complete_hit_and_miss() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let id = pm_store::insert_task(&conn, &json!({"title": "T"})).unwrap();
         match execute(&conn, "task_update", &json!({"taskId": id, "updates": {"status": "进行中"}}), &ctx) {
             ToolOutcome::Executed(v) => assert_eq!(v["updated"], true),
@@ -1988,7 +1991,7 @@ mod tests {
     #[test]
     fn task_delete_returns_pm_write_candidate_and_dedups() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let id = pm_store::insert_task(&conn, &json!({"title": "要删的任务"})).unwrap();
         let args = json!({"taskId": id});
         let token = match execute(&conn, "task_delete", &args, &ctx) {
@@ -2026,7 +2029,7 @@ mod tests {
     #[test]
     fn schedule_crud_roundtrip_via_tools() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         let id = match execute(&conn, "schedule_create",
             &json!({"title": "评审会", "date": "2026-09-03", "time": "10:00", "type": "meeting"}), &ctx) {
             ToolOutcome::Executed(v) => {
@@ -2062,7 +2065,7 @@ mod tests {
     #[test]
     fn pm_create_defaults_project_id_from_ctx() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         match execute(&conn, "task_create", &json!({"title": "t"}), &ctx) {
             ToolOutcome::Executed(v) => {
                 let id = v["taskId"].as_str().unwrap();
@@ -2093,7 +2096,7 @@ mod tests {
     #[test]
     fn pm_search_filters_and_limit_cap() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         pm_store::insert_task(&conn, &json!({"title": "a", "status": "未开始"})).unwrap();
         pm_store::insert_task(&conn, &json!({"title": "b", "status": "进行中"})).unwrap();
         match execute(&conn, "task_search", &json!({"status": "未开始"}), &ctx) {
@@ -2120,7 +2123,7 @@ mod tests {
     #[test]
     fn pm_light_write_cap_escalates_to_pm_write() {
         let conn = mem_conn();
-        let capped = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: PM_WRITE_CAP };
+        let capped = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: PM_WRITE_CAP };
         match execute(&conn, "task_create", &json!({"title": "第6条"}), &capped) {
             ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
                 assert_eq!(wait_value, CONFIRMATION_REQUIRED_PM_WRITE);
@@ -2136,7 +2139,7 @@ mod tests {
         }
         // escalated candidate params carry the ctx product fallback (consume
         // replays them with no run ctx — UAT step 7 gap)
-        let capped_pid = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: PM_WRITE_CAP };
+        let capped_pid = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: PM_WRITE_CAP };
         match execute(&conn, "task_create", &json!({"title": "第7条"}), &capped_pid) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 let token = candidate["confirmationToken"].as_str().unwrap();
@@ -2149,7 +2152,7 @@ mod tests {
         let n: i64 = conn.query_row("SELECT COUNT(*) FROM tasks", [], |r| r.get(0)).unwrap();
         assert_eq!(n, 0);
         // one under the cap writes normally
-        let under = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: PM_WRITE_CAP - 1 };
+        let under = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: PM_WRITE_CAP - 1 };
         match execute(&conn, "task_create", &json!({"title": "第5条"}), &under) {
             ToolOutcome::Executed(v) => assert_eq!(v["created"], true),
             other => panic!("expected Executed, got {other:?}"),
@@ -2170,7 +2173,7 @@ mod tests {
     #[test]
     fn workflow_crud_via_tools_three_tiers() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: 0 };
         // search: builtin ∪ user, keyword filter
         match execute(&conn, "workflow_search", &json!({}), &ctx) {
             ToolOutcome::Executed(v) => {
@@ -2230,7 +2233,7 @@ mod tests {
     #[test]
     fn workflow_light_write_counts_toward_cap5() {
         let conn = mem_conn();
-        let capped = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, pm_writes_used: PM_WRITE_CAP };
+        let capped = ToolCtx { session_id: "s1", product_id: None, workspace_root: None, repo_root: None, pm_writes_used: PM_WRITE_CAP };
         match execute(&conn, "workflow_create", &json!({"name": "第6条", "steps": [{"name": "s", "prompt": "p"}]}), &capped) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => {
                 assert_eq!(candidate["kind"], "pm_write");
@@ -2246,7 +2249,7 @@ mod tests {
     #[test]
     fn generate_deliverable_accepts_user_catalog_code() {
         let conn = mem_conn();
-        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, pm_writes_used: 0 };
+        let ctx = ToolCtx { session_id: "s1", product_id: Some("p1"), workspace_root: None, repo_root: None, pm_writes_used: 0 };
         workflow_store::insert_catalog_user(&conn, &json!({"code": "DEL-USR-01", "title": "自定义产物"})).unwrap();
         match execute(&conn, "generate_deliverable", &json!({"code": "DEL-USR-01", "title": "T", "draft": "D"}), &ctx) {
             ToolOutcome::AwaitConfirmation { candidate, .. } => assert_eq!(candidate["code"], "DEL-USR-01"),

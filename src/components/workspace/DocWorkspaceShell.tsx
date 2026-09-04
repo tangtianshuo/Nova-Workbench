@@ -85,7 +85,9 @@ export function DocWorkspaceShell({ children }: { children?: React.ReactNode }) 
         'border-l border-border-subtle shadow-2xl',
         zen && 'left-0 border-l-0'
       )}
-      style={zen ? undefined : { width }}
+      // SC-7.5: cap at 60vw so the panel never covers the main workspace
+      // (also clamps stale persisted px widths after restart).
+      style={zen ? undefined : { width, maxWidth: '60vw' }}
     >
       {/* Drag-to-resize handle (hidden in zen — panel already spans full width) */}
       {!zen && (

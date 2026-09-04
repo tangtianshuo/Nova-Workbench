@@ -181,6 +181,39 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// CP-4 interlock (32-01): every `- event:` entry in
+    /// docs/events/EVENT-SCHEMA-V0.4.md marked `fixture: yes` must appear as a
+    /// string in at least one projection fixture JSON. Entries marked
+    /// `fixture: pending-*` are skipped (not yet landed); flipping to `yes`
+    /// without adding a fixture fails here.
+    #[test]
+    fn event_schema_fixture_interlock() {
+        let doc = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../docs/events/EVENT-SCHEMA-V0.4.md"),
+        )
+        .expect("docs/events/EVENT-SCHEMA-V0.4.md exists (CP-4 gate)");
+        let mut entries = 0usize;
+        for line in doc.lines().filter(|l| l.starts_with("- event: ")) {
+            entries += 1;
+            let name = line["- event: ".len()..].split_whitespace().next().expect("entry name");
+            let fixture_marker = line
+                .split("fixture:")
+                .nth(1)
+                .and_then(|rest| rest.split_whitespace().next())
+                .unwrap_or("");
+            assert!(!fixture_marker.is_empty(), "entry {name}: missing fixture: marker");
+            if !fixture_marker.starts_with("pending-") {
+                let covered = fixture_files().iter().any(|f| {
+                    std::fs::read_to_string(f).unwrap_or_default().contains(name)
+                });
+                assert!(covered, "event schema entry '{name}' claims fixture: {fixture_marker} but no fixture JSON contains it — add a projection case or mark pending");
+            }
+        }
+        // Parser-drift guard: the doc must yield entries at all (32-01 baseline = 12).
+        assert!(entries >= 12, "interlock found only {entries} entries — doc format or parser drifted");
+    }
+
     /// Rule 2 lock: whitelisted timestamp/ID string fields become placeholders;
     /// modelText and other strings stay byte-identical (rule 5).
     #[test]

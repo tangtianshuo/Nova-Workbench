@@ -53,6 +53,19 @@ unicode-normalization = "0.1"
 pdf_oxide = "0.3.77"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 quick-xml = "0.42.0"
+# --- Phase 32 (v0.4) coding tools additions ---
+# dunce: canonicalize without Windows \\\\?\\ verbatim prefix (path compare)
+dunce = "1"
+# similar: code_edit diffs (32-03)
+similar = "3"
+# ignore + grep-searcher/grep-regex: code_read/code_grep repo traversal (32-03)
+ignore = "0.4"
+grep-searcher = "0.1"
+grep-regex = "0.1"
+# which: exec whitelist resolution (CP-8)
+which = "7"
+# sysinfo: orphan exec pid kill on run recovery (CP-8)
+sysinfo = "0.33"
 
 [profile.release]
 panic = "abort"

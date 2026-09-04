@@ -330,7 +330,11 @@ export function KnowledgeBaseView() {
                 (results ?? []).map((hit) => (
                   <button
                     key={hit.docId}
-                    onClick={() => void selectSearchHit(hit.docId)}
+                    onClick={() => {
+                      void selectSearchHit(hit.docId);
+                      // SC-2.3: search hit also opens the doc in the workspace panel.
+                      openDoc(hit.docId);
+                    }}
                     className="w-full flex flex-col gap-0.5 px-3 py-2 rounded-[var(--radius-sm)] text-sm text-text-secondary hover:bg-bg-secondary text-left"
                   >
                     <span className="truncate font-medium text-text-primary">{hit.title}</span>

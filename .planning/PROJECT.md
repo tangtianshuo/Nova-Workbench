@@ -22,7 +22,7 @@ Nova 是一个 **AI native 的产品经理桌面工作台**,基于 Tauri v2 + Re
 
 ## Current State (v0.3.3 进行中)
 
-**v0.3.3 活跃 phase 已全部收口(2026-09-03)**:Phase 26 mock 全清(4/4)、Phase 29 PM CRUD 工具原生化(4/4,agent 写路径 + 三档风险)、Phase 30 参考模板数据化 + 工作流用户自组织(4/4,VERIFICATION 13/13 + 真机 UAT 8/8)。Phase 27(工作区文档摄取)挂起 —— UAT-2「摄取 0 候选」未修,连带 5 项 UAT 跳过待回归;Phase 28(反向创建产品)顺延。里程碑收口决策点:处理 27/28 债务或直接 close v0.3.3。Phase 30 关键落地:交付物 catalog 单源 JSON(TS+Rust 同读,999.4 投资前置)、workflow_templates 表 + 4 个 workflow_ 引擎工具(删除走 pm_write HITL)、「工作流」顶层视图 + 5 内置参考模板 + 单 run 多步剧本、确定性沉淀链(事件日志提取 → Dialog 编辑 → 直接落库,零 LLM)。
+**v0.3.3 活跃 phase 已全部收口(2026-09-04)**:Phase 26 mock 全清(4/4)、Phase 29 PM CRUD 工具原生化(4/4,agent 写路径 + 三档风险)、Phase 30 参考模板数据化 + 工作流用户自组织(4/4,VERIFICATION 13/13 + 真机 UAT 8/8)、**Phase 31 文档工作区(9/9,2026-09-04,UAT 9/9 三轮复测)** — Milkdown core headless 全量替换 MDXEditor(自建 toolbar + live preview decoration + codeBlock NodeView/prismjs decoration 高亮 + 表格行列操作),右侧常驻 overlay 工作区面板(多 tab/自动保存/禅模式/60vw 宽度上限),⌘K Drawer 左滑并存,笔记落 knowledge_docs(doc_kind=note,migration 0014),确认卡第三宿主。Phase 27(工作区文档摄取)挂起 —— UAT-2「摄取 0 候选」未修,连带 5 项 UAT 跳过待回归;Phase 28(反向创建产品)顺延。里程碑收口决策点:处理 27/28 债务或直接 close v0.3.3。Phase 30 关键落地:交付物 catalog 单源 JSON(TS+Rust 同读,999.4 投资前置)、workflow_templates 表 + 4 个 workflow_ 引擎工具(删除走 pm_write HITL)、「工作流」顶层视图 + 5 内置参考模板 + 单 run 多步剧本、确定性沉淀链(事件日志提取 → Dialog 编辑 → 直接落库,零 LLM)。
 
 ## Current State (after v0.3.2)
 
@@ -190,6 +190,7 @@ This document evolves at phase transitions and milestone boundaries.
 - **Phase 26 (2026-08-xx)**: mock 全清 — 产研中心各 tab AI 按钮接真实引擎 run,流式/取消/审计统一,产物走候选→HITL→版本化落槽。VERIFICATION PASS(4/4 plans)。
 - **Phase 29 (2026-09-02)**: PM CRUD 工具原生化 — task/schedule CRUD 引擎工具 + 三档风险标注(999.5 D-12),agent 获得真实写路径。VERIFICATION PASS(4/4 plans)。
 - **Phase 30 (2026-09-03)**: 参考模板数据化 + 工作流用户自组织 — catalog 单源 JSON、workflow_ 工具族、「工作流」视图 + 模板 run、确定性沉淀链。VERIFICATION PASS(13/13)+ 真机 UAT 8/8(哲学红线无违反)。
+- **Phase 31 (2026-09-04)**: 文档工作区 — Milkdown core headless 编辑器 + 右侧常驻面板;MDXEditor 退役;doc_kind=note 笔记 + FTS5;确认卡第三宿主;⌘K 左滑。UAT 9/9(5 gaps→resolved,gap 收口 31-08/31-09 + round-2 根因修复:codeBlock contentDOM、表格行 <br> guard)。
 
 ---
-*Last updated: 2026-09-03 — Phase 30 complete,v0.3.3 活跃 phase 收口;27 挂起(UAT-2 摄取 0 候选)/ 28 顺延*
+*Last updated: 2026-09-04 — Phase 31 complete(文档工作区);v0.3.3 剩余:27 UAT 回归 / 28 顺延决策 / complete-milestone*

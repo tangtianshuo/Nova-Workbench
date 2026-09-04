@@ -19,7 +19,7 @@
 - [ ] **Phase 28: 反向创建产品 + 收口** - 从工作区反向创建产品(自动关联源工作区/productId)+ 里程碑 parity 收口与 UAT(顺延 2026-09-02)
 - [x] **Phase 29: PM CRUD 工具原生化 — agent 写路径** - task/schedule(及 product 视讨论)的 CRUD 操作原生化为引擎工具 + 三档风险 HITL,助手能真实替用户干活(2026-09-02 自 999.6 promote,第一优先)✅(2026-09-02,UAT 8/8 + verifier GO 4/4)
 - [x] **Phase 30: 参考模板数据化 + 工作流用户自组织** - 交付物 catalog/模板数据化(内置 JSON 只读层 + SQLite 用户层)+ 侧边栏顶层「工作流」视图(模板库 + 运行)+ 单 run 多步逐步 HITL 执行 + agent 对话创建/沉淀模板;严禁刚性 pipeline(2026-09-02 立项 + discuss 完成,30-CONTEXT 16 项裁定)✅(2026-09-03,UAT 8/8 + verifier 13/13)
-- [ ] **Phase 31: 文档工作区 — Milkdown 编辑器 + 右侧常驻面板** - 右侧常驻可收/调宽文档工作区(Milkdown core headless,Nova tokens 自建 UI),承载修改 AI 产出/日常笔记/阅读审批三场景;笔记落 knowledge_docs(doc_kind=note);确认卡工作区多宿主;⌘K Drawer 改左滑;MDXEditor 全量退役(删 vendored patch)(2026-09-03 discuss 完成,31-CONTEXT 8 项裁定)
+- [x] **Phase 31: 文档工作区 — Milkdown 编辑器 + 右侧常驻面板** - 右侧常驻可收/调宽文档工作区(Milkdown core headless,Nova tokens 自建 UI),承载修改 AI 产出/日常笔记/阅读审批三场景;笔记落 knowledge_docs(doc_kind=note);确认卡工作区多宿主;⌘K Drawer 改左滑;MDXEditor 全量退役(删 vendored patch)(2026-09-03 discuss 完成,31-CONTEXT 8 项裁定)✅(2026-09-04,UAT 9/9 三轮复测,gap 收口 31-08/31-09 + round-2 根因修复)
 
 ## Phase Details
 
@@ -115,13 +115,13 @@ Plans:
   5. MDXEditor 全量退役:3 个使用点(KnowledgeBaseView/ProductKnowledgeTab/PrdDraftDialog)迁 Milkdown,`@mdxeditor` 依赖与 vendored patch 删除,grep 零残留
   6. 编辑器 UI(toolbar/主题)全 Nova tokens + Phosphor 构建,无外部编辑器默认主题 CSS 覆盖
   7. 中文输入法、表格/代码块 round-trip 真机 UAT 通过;docx/pdf/excel/ppt 预览记技术债不进 v1
-**Plans:** 5 plans
+**Plans:** 9 plans
 Plans:
 - [x] 31-01-PLAN.md — Milkdown 受控编辑器重写 + 自建 toolbar + MDXEditor 全量退役(含 IME/round-trip PoC checkpoint)
 - [x] 31-02-PLAN.md — migration 0014 doc_kind + knowledgeRepo 扩展 + docWorkspaceStore
 - [x] 31-03-PLAN.md — ⌘K Drawer 左滑非模态 + 右侧常驻工作区面板壳(收起/拖宽/persist)
 - [x] 31-04-PLAN.md — 工作区业务:三过滤文档列表 + 编辑器自动保存 + 全局笔记 + 确认卡第三宿主
-- [ ] 31-05-PLAN.md — Phase 31 端到端真机 UAT(SC-1..7)
+- [x] 31-05-PLAN.md — Phase 31 端到端真机 UAT(SC-1..7)
 **UI hint**: yes
 **排期**: 2026-09-03 立项(discuss 完成,31-CONTEXT D-01..D-08);挂 v0.3.3「工作区入驻」主题
 
@@ -134,7 +134,7 @@ Plans:
 | 28. 反向创建产品 + 收口 | 0/? | Postponed (2026-09-02 priority shift) | - |
 | 29. PM CRUD 工具原生化 — agent 写路径 | 4/4 | Complete | 2026-09-02 |
 | 30. 参考模板数据化 + 工作流用户自组织 | 4/4 | Complete | 2026-09-03 |
-| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 8/9 | In Progress|  |
+| 31. 文档工作区 — Milkdown 编辑器 + 右侧常驻面板 | 9/9 | Complete | 2026-09-04 |
 
 ## Historical Milestones
 

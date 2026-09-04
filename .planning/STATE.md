@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3.3
 milestone_name: 产研半落地 + 工作区入驻
 status: executing
-stopped_at: Completed 31-09-PLAN.md
-last_updated: "2026-09-04T02:13:55.208Z"
+stopped_at: Phase 31 complete (2026-09-04)
+last_updated: "2026-09-04T03:15:00.000Z"
 last_activity: 2026-09-04
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Project State
@@ -20,14 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** Phase 31 — doc-workspace
+**Current focus:** v0.3.3 收口 — 27 UAT 回归 / 里程碑决策
 
 ## Current Position
 
-Phase: 31 (doc-workspace) — EXECUTING
-Plan: 3 of 9
-Status: Ready to execute
-Next: /gsd:plan-phase 31(research 建议:Milkdown PoC — 中文 IME/round-trip/受控同步/bundle);里程碑决策点仍开放(27 UAT 回归 / 28 顺延 / complete-milestone)
+Phase: 31 (doc-workspace) — COMPLETE ✅(2026-09-04,UAT 9/9 三轮复测 + gap 收口 31-08/31-09)
+Status: v0.3.3 剩余收口:27 UAT-2..7 回归(verify-work 27)/ 28 顺延决策 / complete-milestone
+Next: /gsd:verify-work 27(UAT 回归)或 /gsd:audit-milestone;随后 v0.4(coding agent + subagent + Skill)
 Last activity: 2026-09-04
 
 v0.3.2 已 shipped(2026-08-31,milestone audit passed,16/16 需求)— 归档: milestones/v0.3.2-*(ROADMAP/REQUIREMENTS/AUDIT/phases 22-25);phase 目录已移出 .planning/phases/

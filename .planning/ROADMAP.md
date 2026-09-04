@@ -40,7 +40,15 @@
   5. 长任务可取消、TabRunPanel 显示当前工具与改动文件;diff 卡改动摘要可一键沉淀进第二大脑(复用 knowledge_write 候选流)
 **Research needs**(`/gsd:research-phase`): Windows 无 shell 调 npm(.cmd/.bat;exec.rs normalize 只剥 .exe)— MEDIUM
 **必避 pitfalls**: CP-2/3/6/7/8 + MP-1(同 turn 变更集聚合卡)/MP-10(grep/read 服务端限流+分页)/MP-11
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 32-01-PLAN.md — CP-4 流程门(事件清单+CI 互锁)+ repo 绑定底座 + dunce 边界三件套
+- [ ] 32-02-PLAN.md — exec.rs 四绕过面收口(CP-6)+ pid 落事件 + CP-8 孤儿清杀
+- [ ] 32-03-PLAN.md — code_ops 四工具 + code_edit 确认管线 + apply 重校验(CP-3)+ parity fixture
+- [ ] 32-04-PLAN.md — 前端 diff 审批卡(第四宿主)+ exec 三选卡 + 沉淀入口
+- [ ] 32-05-PLAN.md — TabRunPanel 进度/取消 + repo 绑定 UI + ENGINE-01 prompt 契约
+
 **UI hint**: yes(diff 审批卡第四宿主、TabRunPanel 进度)
 
 #### Phase 33: spawn_subagent 引擎机制
@@ -109,7 +117,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 32. coding 工具地基 | 0/TBD | Not started | - |
+| 32. coding 工具地基 | 0/5 | Not started | - |
 | 33. spawn_subagent 引擎机制 | 0/TBD | Not started | - |
 | 34. persona + prototype-builder + Pipeline | 0/TBD | Not started | - |
 | 35. Skill 系统 | 0/TBD | Not started | - |

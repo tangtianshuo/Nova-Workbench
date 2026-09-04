@@ -161,7 +161,7 @@ export function DocWorkspaceContent() {
               onChange={handleChange}
               placeholder="开始书写…"
               minHeight="100%"
-              className="min-h-full"
+              className="h-full"
             />
           </div>
         ) : (

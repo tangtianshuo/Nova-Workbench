@@ -262,14 +262,19 @@ pub fn resolve_repo(repo_root: &Path, rel: &str) -> Result<PathBuf, ToolOutcome>
     {
         return Err(escape_error(rel_path));
     }
-    let mut current = root_canon;
+    let mut current = root_canon.clone();
     for seg in rel.split(['/', '\\']).filter(|s| !s.is_empty()) {
         current.push(seg);
         if let Ok(c) = dunce::canonicalize(&current) {
             current = c;
         }
     }
-    if !within_repo(&current, repo_root) {
+    // Final boundary check. within_repo canonicalizes both sides — but write
+    // targets may have missing parent segments (root/a/new-file). The walk
+    // above canonicalized every EXISTING segment, so `current` is either
+    // fully canonical or canonical-root + not-yet-existing tail; the lexical
+    // prefix check is safe for the latter (tail segments cannot be links).
+    if !within_repo(&current, repo_root) && !prefix_contains(&root_canon, &current) {
         return Err(escape_error(&current));
     }
     Ok(current)
@@ -311,6 +316,160 @@ pub fn get_repo_root(conn: &Connection, workspace_id: &str) -> Option<PathBuf> {
     )
     .ok()
     .map(PathBuf::from)
+}
+
+/* === Writes (code_edit HITL candidates → engine_code_apply) === */
+
+const CONFIRMATION_REQUIRED_CODE: &str = "Explicit confirmation is required before editing code.";
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::Digest;
+    let mut h = sha2::Sha256::new();
+    h.update(bytes);
+    h.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Unified diff (display field, NOT stored in params — CP-2). similar crate
+/// with 3 lines of context, matching the plan's context_radius(3).
+fn unified_diff(old: &str, new: &str) -> String {
+    similar::udiff::unified_diff(similar::Algorithm::Myers, old, new, 3, Some(("old", "new")))
+}
+
+/// Read + hash the target file for proposal stamping. Fails for missing
+/// files (edit), missing parents are fine for write (apply creates them).
+fn read_for_proposal(path: &Path, must_exist: bool) -> Result<(Vec<u8>, String), ToolOutcome> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok((bytes.clone(), sha256_hex(&bytes))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound && !must_exist => {
+            Ok((Vec::new(), sha256_hex(&[])))
+        }
+        Err(e) => Err(ToolOutcome::Failed { message: format!("read failed: {e}"), arg_error: false }),
+    }
+}
+
+/// Shared candidate creation: params EXACTLY the CP-2 shape (operation/path/
+/// old_string|new_content/new_string/root — no snapshot, no diff text);
+/// base_hash rides the dedicated column; the diff is a display payload field.
+fn code_candidate(
+    conn: &Connection,
+    ctx: &ToolCtx<'_>,
+    params: Value,
+    base_hash: &str,
+    summary: &str,
+    diff: Option<String>,
+) -> ToolOutcome {
+    match crate::engine::confirmations::create_candidate(
+        conn,
+        CODE_EDIT_KIND,
+        &params,
+        Some(summary),
+        Some(ctx.session_id),
+    ) {
+        Ok(candidate) => {
+            let _ = crate::engine::confirmations::stamp_base_hash(conn, &candidate.confirmation_token, base_hash);
+            let mut payload = json!({
+                "kind": CODE_EDIT_KIND,
+                "confirmationToken": candidate.confirmation_token,
+                "summary": candidate.summary,
+                "args": params,
+            });
+            if let (Some(dst), Some(d)) = (payload.as_object_mut(), diff) {
+                dst.insert("diff".into(), json!(d));
+            }
+            ToolOutcome::AwaitConfirmation {
+                candidate: payload,
+                wait_key: "error",
+                wait_value: CONFIRMATION_REQUIRED_CODE.into(),
+            }
+        }
+        Err(e) => ToolOutcome::Failed { message: e.to_string(), arg_error: false },
+    }
+}
+
+fn root_str(ctx: &ToolCtx<'_>) -> String {
+    ctx.repo_root.as_deref().unwrap_or_else(|| Path::new("")).to_string_lossy().to_string()
+}
+
+/// Byte-exact old_string match: all 1-based line numbers of matches
+/// (Pitfall 3/MP-11 — only the path is normalized, content matches raw bytes).
+fn match_lines(content: &str, needle: &str) -> Vec<usize> {
+    let byte_start = content.as_bytes().windows(needle.len()).enumerate().filter(|(_, w)| *w == needle.as_bytes()).map(|(i, _)| i);
+    byte_start
+        .map(|i| content[..i].matches('\n').count() + 1)
+        .collect()
+}
+
+pub fn code_edit(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let (Some(rel), Some(old_string), Some(new_string)) =
+        (str_arg(args, "path"), str_arg(args, "old_string"), args.get("new_string").and_then(|v| v.as_str()))
+    else {
+        return arg_fail("code_edit", "path, old_string and new_string must be non-empty strings");
+    };
+    let path = match resolve_code_target(conn, ctx, rel) {
+        Ok(p) => p,
+        Err(o) => return o,
+    };
+    let (bytes, base_hash) = match read_for_proposal(&path, true) {
+        Ok(v) => v,
+        Err(o) => return o,
+    };
+    let Ok(content) = String::from_utf8(bytes) else {
+        return arg_fail("code_edit", "target file is not valid UTF-8");
+    };
+    let lines = match_lines(&content, old_string);
+    match lines.len() {
+        0 => {
+            return ToolOutcome::Failed {
+                message: format!(
+                    "old_string not found in {rel} — re-read the file and retry with the exact current text"
+                ),
+                arg_error: true,
+            }
+        }
+        1 => {}
+        n => {
+            return ToolOutcome::Failed {
+                message: format!(
+                    "old_string found {n} times in {rel} (lines: {:?}) — include more surrounding context so it matches exactly once",
+                    lines
+                ),
+                arg_error: true,
+            }
+        }
+    }
+    let params = json!({
+        "operation": "edit",
+        "path": rel,
+        "old_string": old_string,
+        "new_string": new_string,
+        "root": root_str(ctx),
+    });
+    let diff = unified_diff(old_string, new_string);
+    code_candidate(conn, ctx, params, &base_hash, &format!("edit {rel} (line {})", lines[0]), Some(diff))
+}
+
+pub fn code_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOutcome {
+    let (Some(rel), Some(new_content)) =
+        (str_arg(args, "path"), args.get("new_content").and_then(|v| v.as_str()))
+    else {
+        return arg_fail("code_write", "path and new_content must be non-empty strings");
+    };
+    let path = match resolve_code_target(conn, ctx, rel) {
+        Ok(p) => p,
+        Err(o) => return o,
+    };
+    let (bytes, base_hash) = match read_for_proposal(&path, false) {
+        Ok(v) => v,
+        Err(o) => return o,
+    };
+    let params = json!({
+        "operation": "write",
+        "path": rel,
+        "new_content": new_content,
+        "root": root_str(ctx),
+    });
+    let diff = std::str::from_utf8(&bytes).ok().map(|old| unified_diff(old, new_content));
+    code_candidate(conn, ctx, params, &base_hash, &format!("write {rel} ({} bytes)", new_content.len()), diff)
 }
 
 /* === Tests: boundary trio (junction / case / nova-data-path) === */
@@ -551,5 +710,154 @@ mod tests {
                 other => panic!("{name}: {other:?}"),
             }
         }
+    }
+
+    /* === 32-03: code_write / code_edit candidates === */
+
+    fn edit_outcome(conn: &Connection, c: &ToolCtx, args: Value) -> ToolOutcome {
+        code_edit(conn, &args, c)
+    }
+
+    fn candidate_payload(o: ToolOutcome) -> Value {
+        match o {
+            ToolOutcome::AwaitConfirmation { candidate, wait_value, .. } => {
+                assert_eq!(wait_value, "Explicit confirmation is required before editing code.");
+                candidate
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    fn write_src(repo: &Path) {
+        fs::write(repo.join("src.rs"), "fn main() {\n    let a = 1;\n}\n").unwrap();
+    }
+
+    #[test]
+    fn code_edit_zero_match_fails_with_retry_guidance() {
+        let conn = mem_conn();
+        let repo = make_repo("edit0");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        match edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "not there", "new_string": "x"})) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("old_string not found in src.rs"), "{message}");
+                assert!(message.contains("re-read the file and retry"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM agent_confirmation_candidates", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn code_edit_multi_match_fails_with_all_line_numbers() {
+        let conn = mem_conn();
+        let repo = make_repo("edit2");
+        fs::write(repo.join("src.rs"), "dup\nkeep\ndup\n").unwrap();
+        let c = tool_ctx(Some(repo.clone()));
+        match edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "dup", "new_string": "x"})) {
+            ToolOutcome::Failed { message, .. } => {
+                assert!(message.contains("found 2 times in src.rs"), "{message}");
+                assert!(message.contains("lines: [1, 3]"), "{message}");
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn code_edit_unique_creates_candidate_exact_params_and_diff() {
+        let conn = mem_conn();
+        let repo = make_repo("edit1");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        let cand = candidate_payload(edit_outcome(
+            &conn,
+            &c,
+            json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 2;"}),
+        ));
+        assert_eq!(cand["kind"], "code_edit");
+        // CP-2: params EXACTLY the five keys — no snapshot, no diff text.
+        let mut keys: Vec<&str> = cand["args"].as_object().unwrap().keys().map(|k| k.as_str()).collect();
+        keys.sort();
+        assert_eq!(keys, vec!["new_string", "old_string", "operation", "path", "root"]);
+        assert_eq!(cand["args"]["operation"], "edit");
+        assert_eq!(cand["args"]["root"].as_str().unwrap(), dunce::canonicalize(&repo).unwrap().to_string_lossy());
+        // display diff present with both markers
+        let diff = cand["diff"].as_str().unwrap();
+        assert!(diff.contains("-let a = 1;") && diff.contains("+let a = 2;"), "{diff}");
+        // base_hash column stamped
+        let base: Option<String> = conn
+            .query_row(
+                "SELECT base_hash FROM agent_confirmation_candidates WHERE confirmation_token = ?1",
+                rusqlite::params![cand["confirmationToken"].as_str().unwrap()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(base.is_some());
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn code_edit_cp2_two_edits_two_tokens_same_edit_same_token() {
+        let conn = mem_conn();
+        let repo = make_repo("cp2");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        let a = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 2;"})));
+        let b = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 3;"})));
+        assert_ne!(a["confirmationToken"], b["confirmationToken"], "different edits = different tokens");
+        let again = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 2;"})));
+        assert_eq!(a["confirmationToken"], again["confirmationToken"], "same params retry = same token");
+        let hashes: Vec<String> = conn
+            .prepare("SELECT params_hash FROM agent_confirmation_candidates ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(hashes.len(), 2, "dedup kept two rows only");
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn code_write_candidate_params_shape() {
+        let conn = mem_conn();
+        let repo = make_repo("cw");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        let cand = candidate_payload(code_write(&conn, &json!({"path": "src.rs", "new_content": "fn main() {}\n"}), &c));
+        assert_eq!(cand["args"]["operation"], "write");
+        assert_eq!(cand["args"]["new_content"], "fn main() {}\n");
+        let mut keys: Vec<&str> = cand["args"].as_object().unwrap().keys().map(|k| k.as_str()).collect();
+        keys.sort();
+        assert_eq!(keys, vec!["new_content", "operation", "path", "root"]);
+        // new file target also resolves (missing leaf OK)
+        let new_file = candidate_payload(code_write(&conn, &json!({"path": "new/mod.rs", "new_content": "x\n"}), &c));
+        assert_eq!(new_file["args"]["path"], "new/mod.rs");
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn reject_with_reason_lands_in_column() {
+        let conn = mem_conn();
+        let repo = make_repo("rej");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        let cand = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 2;"})));
+        let token = cand["confirmationToken"].as_str().unwrap().to_string();
+        assert!(crate::engine::confirmations::reject(&conn, &token, Some("改错了变量名")));
+        let (status, reason): (String, Option<String>) = conn
+            .query_row(
+                "SELECT status, reject_reason FROM agent_confirmation_candidates WHERE confirmation_token = ?1",
+                rusqlite::params![token],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(status, "rejected");
+        assert_eq!(reason.as_deref(), Some("改错了变量名"));
+        fs::remove_dir_all(&repo).ok();
     }
 }

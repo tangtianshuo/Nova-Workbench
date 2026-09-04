@@ -592,7 +592,7 @@ mod tests {
         for absent in ["createTask", "updateTask", "deleteTask", "createSchedule", "updateSchedule", "createProject"] {
             assert!(!names.contains(&absent), "schema must not contain {absent}");
         }
-        assert_eq!(schemas.len(), 26); // 29-02 +9 PM CRUD; 30-02 +4 workflow
+        assert_eq!(schemas.len(), 30); // 29-02 +9 PM CRUD; 30-02 +4 workflow; 32-03 +4 code tools
     }
 
     // 30-02: template short list appended to the system prompt (builtin ∪ user).

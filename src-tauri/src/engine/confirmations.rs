@@ -72,6 +72,11 @@ pub struct Candidate {
     pub confirmed_at: Option<String>,
     pub consumed_at: Option<String>,
     pub rejected_at: Option<String>,
+    /// 32-03: why the candidate was rejected (user reason or run-cancel cascade).
+    pub reject_reason: Option<String>,
+    /// 32-03 CP-3: sha256 of the target file content at proposal time —
+    /// code_edit stale-detection at apply. NULL for other kinds.
+    pub base_hash: Option<String>,
 }
 
 /// Row-shaped input for the raw INSERT (shared by create_candidate and
@@ -102,10 +107,12 @@ fn row_to_candidate(row: &rusqlite::Row<'_>) -> rusqlite::Result<Candidate> {
         confirmed_at: row.get(9)?,
         consumed_at: row.get(10)?,
         rejected_at: row.get(11)?,
+        reject_reason: row.get(12)?,
+        base_hash: row.get(13)?,
     })
 }
 
-const CANDIDATE_COLUMNS: &str = "confirmation_token, kind, status, params_hash, params_json, summary, session_id, created_at, expires_at, confirmed_at, consumed_at, rejected_at";
+const CANDIDATE_COLUMNS: &str = "confirmation_token, kind, status, params_hash, params_json, summary, session_id, created_at, expires_at, confirmed_at, consumed_at, rejected_at, reject_reason, base_hash";
 
 pub fn get(conn: &Connection, token: &str) -> Result<Option<Candidate>> {
     let found = conn
@@ -168,7 +175,7 @@ pub fn create_candidate(
     summary: Option<&str>,
     session_id: Option<&str>,
 ) -> Result<Candidate> {
-    if matches!(kind, "destructive_action" | "deliverable_draft" | "exec_approval" | "fs_write" | "pm_write") {
+    if matches!(kind, "destructive_action" | "deliverable_draft" | "exec_approval" | "fs_write" | "pm_write" | "code_edit") {
         let hash = params_hash(params);
         for row in list_pending(conn, kind)? {
             let dup = if kind != "deliverable_draft" {
@@ -266,20 +273,33 @@ pub fn consume(
     get(conn, token).ok().flatten().ok_or(ConfirmationFailure::NotFound)
 }
 
-/// reject — confirmationStore.ts:334-347, SQL verbatim. True iff rowsAffected == 1.
-pub fn reject(conn: &Connection, token: &str) -> bool {
+/// reject — confirmationStore.ts:334-347 SQL + 32-03 reject_reason column.
+/// True iff rowsAffected == 1. `reason` lands in reject_reason (run-restore
+/// and cancel-cascade audit read it back).
+pub fn reject(conn: &Connection, token: &str, reason: Option<&str>) -> bool {
     let now = now_iso();
     conn.execute(
         "UPDATE agent_confirmation_candidates
-            SET status = 'rejected', rejected_at = $2
+            SET status = 'rejected', rejected_at = $2, reject_reason = $3
           WHERE confirmation_token = $1
             AND status IN ('pending', 'confirmed')
             AND consumed_at IS NULL
             AND expires_at > $2",
-        named_params! {"$1": token, "$2": now},
+        named_params! {"$1": token, "$2": now, "$3": reason},
     )
     .map(|n| n == 1)
     .unwrap_or(false)
+}
+
+/// 32-03: stamp the code_edit proposal-time file hash (idempotent — a dedup'd
+/// retry keeps the ORIGINAL base_hash, first-writer-wins via IS NULL).
+pub fn stamp_base_hash(conn: &Connection, token: &str, hash: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE agent_confirmation_candidates SET base_hash = ?2
+          WHERE confirmation_token = ?1 AND base_hash IS NULL",
+        params![token, hash],
+    )?;
+    Ok(())
 }
 
 /// listActive — confirmationStore.ts:349-363, SQL verbatim.
@@ -650,8 +670,8 @@ mod tests {
     fn reject_then_consume_fails() {
         let conn = mem_conn();
         let c = create_candidate(&conn, "knowledge_write", &json!({"a": 1}), None, None).unwrap();
-        assert!(reject(&conn, &c.confirmation_token));
-        assert!(!reject(&conn, &c.confirmation_token), "already settled");
+        assert!(reject(&conn, &c.confirmation_token, None));
+        assert!(!reject(&conn, &c.confirmation_token, None), "already settled");
         assert_eq!(consume(&conn, &c.confirmation_token, None).unwrap_err().code(), "already_settled");
     }
 

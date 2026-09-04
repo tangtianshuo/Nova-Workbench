@@ -378,15 +378,17 @@ pub async fn engine_confirm_candidate(
     })
 }
 
-/// Reject a HITL candidate. Ok(()) even when the token is unknown/already
-/// settled — reject is the cancel semantics, and cancelling twice is fine.
+/// Reject a HITL candidate (32-03: optional reason lands in reject_reason).
+/// Ok(()) even when the token is unknown/already settled — reject is the
+/// cancel semantics, and cancelling twice is fine.
 #[tauri::command]
 pub async fn engine_reject_candidate(
     token: String,
+    reason: Option<String>,
     db: State<'_, EngineDb>,
 ) -> Result<(), AppError> {
     with_conn(&db, |conn| {
-        confirmations::reject(conn, &token);
+        confirmations::reject(conn, &token, reason.as_deref());
         Ok(())
     })
 }
@@ -1481,7 +1483,7 @@ mod tests {
                 other => panic!("expected candidate, got {other:?}"),
             }
         };
-        confirmations::reject(&conn, &token3);
+        confirmations::reject(&conn, &token3, None);
         let err = commit_deliverable_inner(&conn, "s1", &token3, "prd", "PRD v3", "p1", "d3", 1, 0, false).unwrap_err();
         assert!(err.to_string().contains("already_settled") || err.to_string().contains("not_confirmed"), "{err}");
         assert_eq!(event_log::list_events(&conn, "s1").unwrap().len(), 2);
@@ -1736,7 +1738,7 @@ mod tests {
         let token3 = queue_ingestion_batch(&conn, json!([
             {"id": "ing-r1", "type": "task_draft", "title": "y", "sourcePath": "r.docx", "selected": true},
         ]));
-        confirmations::reject(&conn, &token3);
+        confirmations::reject(&conn, &token3, None);
         let err = consume_ingestion_batch_inner(&conn, &token3, &[]).unwrap_err();
         assert!(err.to_string().contains("already_settled"), "{err}");
     }

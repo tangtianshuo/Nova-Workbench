@@ -112,6 +112,12 @@ fn sql_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0015_workspace_repo_root.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 16,
+            description: "code_edit confirmation kind + reject_reason + base_hash",
+            sql: include_str!("../migrations/0016_confirmation_code_edit.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

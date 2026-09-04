@@ -724,6 +724,8 @@ pub fn execute(conn: &Connection, name: &str, args: &Value, ctx: &ToolCtx<'_>) -
         "workflow_delete" => execute_workflow_delete(conn, args, ctx),
         "code_read" => crate::engine::code_ops::code_read(conn, args, ctx),
         "code_grep" => crate::engine::code_ops::code_grep(conn, args, ctx),
+        "code_write" => crate::engine::code_ops::code_write(conn, args, ctx),
+        "code_edit" => crate::engine::code_ops::code_edit(conn, args, ctx),
         _ => ToolOutcome::Failed {
             message: format!("Unknown tool: {name}"),
             arg_error: false,
@@ -1504,7 +1506,8 @@ mod tests {
             "generate_deliverable", "ingest_scan", "ingest_submit",
             "task_create", "task_update", "task_complete", "task_delete", "task_search",
             "schedule_create", "schedule_update", "schedule_delete", "schedule_search",
-            "workflow_search", "workflow_create", "workflow_update", "workflow_delete"
+            "workflow_search", "workflow_create", "workflow_update", "workflow_delete",
+            "code_read", "code_grep", "code_write", "code_edit"
         ]);
         for s in &schemas {
             assert!(s["description"].as_str().unwrap().ends_with(PORT_01_SUFFIX));

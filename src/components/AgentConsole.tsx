@@ -25,6 +25,8 @@ import {
   type ToolTraceStatus,
 } from '@/src/stores/chatConsoleStore';
 import { PrdDraftDialog } from '@/src/components/PrdDraftDialog';
+import { CodeEditConfirmCard } from '@/src/components/agent/CodeEditConfirmCard';
+import { Tooltip } from '@/src/components/ui/Tooltip';
 import { cn } from '@/src/lib/utils';
 
 function TraceIcon({ status }: { status: ToolTraceStatus }) {
@@ -87,6 +89,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
     pendingExecApproval,
     pendingFsWrite,
     pendingPmWrite,
+    pendingCodeEdits,
     pendingMemory,
     autoRemembered,
     memoryBusy,
@@ -147,7 +150,7 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [messages, streamingResponse, streamingTrace, pendingMemory, autoRemembered, pendingPrdDraft]);
+  }, [messages, streamingResponse, streamingTrace, pendingMemory, autoRemembered, pendingPrdDraft, pendingCodeEdits.length]);
 
   const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && restoreComplete) {
@@ -293,19 +296,40 @@ export function AgentConsole({ layout = 'drawer' }: { layout?: 'drawer' | 'page'
         {pendingExecApproval && (
           <div className="rounded-[var(--radius-lg)] border border-warning/30 bg-bg-secondary px-3.5 py-3 text-sm text-text-primary">
             <div className="font-medium">需要确认的命令执行</div>
-            <div className="mt-1 font-mono text-xs text-text-secondary">{pendingExecApproval.summary}</div>
+            {/* 32-04 (CODE-03): 学习粒度可见 — learned pair (command + first
+                arg) rendered as a chip; whitelist scope is what「总是允许」learns. */}
+            <div className="mt-1 flex flex-wrap items-center gap-1 font-mono text-xs text-text-secondary">
+              <span className="rounded-[var(--radius-sm)] bg-accent-subtle px-1.5 py-0.5 text-accent underline decoration-accent/50">
+                {[pendingExecApproval.command, pendingExecApproval.args[0]].filter(Boolean).join(' ')}
+              </span>
+              {pendingExecApproval.args.length > 1 && (
+                <span className="text-text-tertiary">{pendingExecApproval.args.slice(1).join(' ')}</span>
+              )}
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Button type="button" variant="primary" size="sm" onClick={() => void confirmExec(true)} disabled={loading}>
-                永久加入白名单
+              <Button type="button" variant="primary" size="sm" onClick={() => void confirmExec(false)} disabled={loading}>
+                允许一次
               </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={() => void confirmExec(false)} disabled={loading}>
-                仅本次允许
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => void rejectExec()} disabled={loading}>
+              <Tooltip content="记住此命令，仅当前工作区生效">
+                <Button type="button" variant="secondary" size="sm" onClick={() => void confirmExec(true)} disabled={loading}>
+                  总是允许
+                </Button>
+              </Tooltip>
+              <Button type="button" variant="danger" size="sm" onClick={() => void rejectExec()} disabled={loading}>
                 拒绝
               </Button>
             </div>
           </div>
+        )}
+        {pendingCodeEdits.length > 0 && (
+          /* 32-04 (CODE-02): fourth confirmation host — head-of-queue diff
+             card + 「另有 N 张待审」 badge (MP-1). Empty state reuses the
+             console's existing 暂无 conversation placeholder (no code-specific
+             empty state needed — queue is empty ⟹ no card). */
+          <CodeEditConfirmCard
+            candidate={pendingCodeEdits[0]}
+            queueCount={pendingCodeEdits.length - 1}
+          />
         )}
         {pendingFsWrite && (
           <div className="rounded-[var(--radius-lg)] border border-warning/30 bg-bg-secondary px-3.5 py-3 text-sm text-text-primary">

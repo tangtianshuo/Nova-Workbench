@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Bell, Shield, Palette, Layout, Globe, Robot, FloppyDisk, Sun, Moon, Desktop } from '@phosphor-icons/react';
+import { User, Bell, Shield, Palette, Layout, Globe, Robot, FloppyDisk, Sun, Moon, Desktop, FolderOpen, GitBranch } from '@phosphor-icons/react';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -10,6 +10,9 @@ import { Switch } from '@/src/components/ui/Switch';
 import { SegmentedControl } from '@/src/components/ui/SegmentedControl';
 import { useTheme } from '@/src/hooks/useTheme';
 import { SettingsApiKeySection } from '@/src/components/SettingsApiKeySection';
+import { useToast } from '@/src/components/ui/Toast';
+import { isTauri } from '@/src/lib/api';
+import { useWorkspaceStore } from '@/src/stores/workspaceStore';
 import { cn } from '@/src/lib/utils';
 
 const NAV_ITEMS = [
@@ -20,6 +23,7 @@ const NAV_ITEMS = [
   { id: 'appearance', icon: Palette, label: '外观主题', group: '系统偏好' },
   { id: 'layout', icon: Layout, label: '界面布局', group: '系统偏好' },
   { id: 'locale', icon: Globe, label: '语言与时区', group: '系统偏好' },
+  { id: 'workspace', icon: FolderOpen, label: '工作区与仓库', group: '系统偏好' },
 ];
 
 export function SettingsView() {
@@ -127,6 +131,9 @@ export function SettingsView() {
           {/* Provider/API key management stays inside the existing settings ownership boundary. */}
           {activeSection === 'ai' && <SettingsApiKeySection />}
 
+          {/* 32-05: workspace repo binding (CODE-04) */}
+          {activeSection === 'workspace' && <WorkspaceRepoSection />}
+
           {activeSection === 'privacy' && (
             <div className="space-y-6">
               <div>
@@ -145,7 +152,7 @@ export function SettingsView() {
           )}
 
           {/* Other nav items fall through to placeholder */}
-          {activeSection !== 'account' && activeSection !== 'appearance' && activeSection !== 'privacy' && activeSection !== 'ai' && (
+          {activeSection !== 'account' && activeSection !== 'appearance' && activeSection !== 'privacy' && activeSection !== 'ai' && activeSection !== 'workspace' && (
             <div className="text-center text-text-tertiary py-20">即将上线</div>
           )}
         </div>
@@ -173,6 +180,111 @@ function AppearanceSection() {
             { id: 'system', label: '系统', icon: <Desktop size={14} weight="duotone" /> },
           ]}
         />
+      </div>
+    </div>
+  );
+}
+
+/* === Workspace Repo Section (32-05, CODE-04: repo_root binding + dogfood) === */
+function WorkspaceRepoSection() {
+  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId));
+  const bindRepoRoot = useWorkspaceStore((s) => s.bindRepoRoot);
+  const updateWorkspace = useWorkspaceStore((s) => s.updateWorkspace);
+  const [repoRoot, setRepoRoot] = useState(workspace?.repoRoot ?? '');
+  const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+
+  const workspaceId = workspace?.id;
+  const isDesktop = isTauri();
+
+  const handleBrowse = async () => {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false });
+    if (typeof selected === 'string') setRepoRoot(selected);
+  };
+
+  const handleBind = async () => {
+    if (!workspaceId || busy) return;
+    setBusy(true);
+    const stored = await bindRepoRoot(workspaceId, repoRoot.trim() || null);
+    setBusy(false);
+    if (stored === null && repoRoot.trim()) {
+      toast({ type: 'error', title: '绑定失败', description: '请检查路径是否为有效目录' });
+    } else {
+      setRepoRoot(stored ?? '');
+      toast({ type: 'success', title: stored ? '已绑定仓库' : '已清除绑定', description: stored ?? undefined });
+    }
+  };
+
+  const handleDogfood = async () => {
+    if (!workspaceId || busy) return;
+    setBusy(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const root = await invoke<string | null>('engine_workspace_bind_dev_repo', { workspaceId });
+      updateWorkspace(workspaceId, { repoRoot: root ?? undefined });
+      setRepoRoot(root ?? '');
+      toast({
+        type: root ? 'success' : 'error',
+        title: root ? '已绑定 Nova 仓库（狗粮）' : '未检测到 Nova 仓库',
+        description: root ?? undefined,
+      });
+    } catch (e) {
+      toast({ type: 'error', title: '绑定失败', description: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold text-text-primary">工作区与仓库</h2>
+        <p className="text-sm text-text-secondary mt-1">
+          绑定 git 仓库后，agent 的 code_read / code_grep / code_write / code_edit 工具在该仓库范围内可用。
+        </p>
+      </div>
+      <Separator />
+      <div className="rounded-[var(--radius-lg)] border border-border-subtle p-5 space-y-4">
+        <div>
+          <p className="text-sm font-medium text-text-primary">当前工作区</p>
+          <p className="text-xs text-text-tertiary mt-0.5">{workspace ? `${workspace.name} · ${workspace.folderPath}` : '未选择工作区'}</p>
+        </div>
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input
+              label="代码仓库根目录 (repo_root)"
+              placeholder="例如 D:\Projects\my-repo"
+              value={repoRoot}
+              onChange={(e) => setRepoRoot(e.target.value)}
+              icon={<GitBranch size={16} weight="duotone" />}
+              disabled={!isDesktop || !workspaceId}
+            />
+          </div>
+          {isDesktop && (
+            <Button variant="secondary" size="md" onClick={() => void handleBrowse()} disabled={!workspaceId}>
+              浏览
+            </Button>
+          )}
+          <Button variant="primary" size="md" onClick={() => void handleBind()} disabled={busy || !workspaceId}>
+            重绑仓库
+          </Button>
+        </div>
+        <p className="text-xs text-text-tertiary">
+          留空并点击「重绑仓库」可清除绑定；未绑定时 coding 工具会拒绝执行并提示。
+        </p>
+        {import.meta.env.DEV && isDesktop && (
+          <div className="flex items-center justify-between rounded-[var(--radius-md)] bg-bg-secondary px-3 py-2.5">
+            <div>
+              <p className="text-sm font-medium text-text-primary">绑定 Nova 仓库（狗粮）</p>
+              <p className="text-xs text-text-tertiary">开发模式专属：一键把当前工作区绑定到 Nova 自身仓库。</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => void handleDogfood()} disabled={busy}>
+              <GitBranch size={14} weight="duotone" />
+              一键绑定
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

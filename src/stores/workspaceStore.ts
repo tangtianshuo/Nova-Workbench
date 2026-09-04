@@ -23,6 +23,9 @@ export interface Workspace {
   files: WorkspaceFile[];
   summary?: string;
   createdAt: string;
+  /** 32-05: bound git repo root (coding tools scope; engine table is the
+   *  source of truth — this is the webview mirror for badge/settings UI). */
+  repoRoot?: string;
 }
 
 export interface LocalIndexedFile {
@@ -125,6 +128,14 @@ interface WorkspaceState {
 
   scanWorkspaceFiles: (workspaceId: string) => Promise<void>;
 
+  // ── 32-05: repo binding (engine_workspace_bind_repo / detect) ───────────
+  /** Bind/unbind the workspace's repo root (None clears). Persists in the
+   *  engine's workspace_repo_roots table + mirrors into the workspace row. */
+  bindRepoRoot: (workspaceId: string, repoRoot?: string | null) => Promise<string | null>;
+  /** Detect the git root above the workspace folder and bind it. Returns
+   *  the detected root, or null when no .git was found. */
+  detectRepoRoot: (workspaceId: string) => Promise<string | null>;
+
   // ── Persistence ────────────────────────────────────────────────────────
   _hasHydrated: boolean;
   _setHydrated: () => void;
@@ -183,8 +194,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
   scanWorkspaceFiles: async (workspaceId) => {
     if (!isTauri()) return; // web dev keeps mock files
-    const store = useWorkspaceStore.getState();
-    const ws = store.workspaces.find((w) => w.id === workspaceId);
+    const ws = get().workspaces.find((w) => w.id === workspaceId);
     if (!ws?.folderPath) return;
     const { invoke } = await import('@tauri-apps/api/core');
     try {
@@ -198,6 +208,42 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       if (result.truncated) console.warn('工作区文件扫描已截断(>1000 文件或 >6 层)');
     } catch (e) {
       console.error('scan_workspace_folder failed:', e);
+    }
+  },
+
+  bindRepoRoot: async (workspaceId, repoRoot) => {
+    if (!isTauri()) return null;
+    const { invoke } = await import('@tauri-apps/api/core');
+    try {
+      const stored = await invoke<string | null>('engine_workspace_bind_repo', {
+        workspaceId,
+        repoRoot: repoRoot ?? null,
+      });
+      useWorkspaceStore.getState().updateWorkspace(workspaceId, { repoRoot: stored ?? undefined });
+      return stored;
+    } catch (e) {
+      console.error('engine_workspace_bind_repo failed:', e);
+      return null;
+    }
+  },
+
+  detectRepoRoot: async (workspaceId) => {
+    if (!isTauri()) return null;
+    const ws = get().workspaces.find((w) => w.id === workspaceId);
+    if (!ws?.folderPath) return null;
+    const { invoke } = await import('@tauri-apps/api/core');
+    try {
+      const detected = await invoke<string | null>('engine_workspace_detect_repo', {
+        workspaceId,
+        startPath: ws.folderPath,
+      });
+      if (detected) {
+        useWorkspaceStore.getState().updateWorkspace(workspaceId, { repoRoot: detected });
+      }
+      return detected;
+    } catch (e) {
+      console.error('engine_workspace_detect_repo failed:', e);
+      return null;
     }
   },
 

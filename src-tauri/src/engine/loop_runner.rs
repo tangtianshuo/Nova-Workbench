@@ -239,7 +239,13 @@ pub async fn run_tool_loop(
         &ctx.user_message,
     );
     let core_context = assembled["coreContext"].as_str().unwrap_or_default().to_string();
-    let system_prompt = append_workflow_list(ctx.conn, build_system_prompt(&core_context));
+    // 32-01: repo binding read once per run (per-workspace row) — also gates
+    // the ENGINE-01 research-first contract (32-05).
+    let repo_root = scope.workspace_id.as_deref().and_then(|wid| code_ops::get_repo_root(ctx.conn, wid));
+    let system_prompt = context_assembler::append_code_contract(
+        append_workflow_list(ctx.conn, build_system_prompt(&core_context)),
+        repo_root.as_deref(),
+    );
     append_event(ctx.conn, &scope, "context_injected", assembled["audit"].clone(), &on_event)?;
 
     let mut arg_error_count: HashMap<String, u32> = HashMap::new();
@@ -335,8 +341,9 @@ pub async fn run_tool_loop(
                 session_id: &scope.session_id,
                 product_id: ctx.product_id.as_deref(),
                 workspace_root: ctx.workspace_root.clone(),
-                // 32-01: repo binding read once per run (per-workspace row).
-                repo_root: scope.workspace_id.as_deref().and_then(|wid| code_ops::get_repo_root(ctx.conn, wid)),
+                // 32-01: repo binding read once per run (outer, shared with the
+                // prompt contract above).
+                repo_root: repo_root.clone(),
                 pm_writes_used,
             };
             match tools::execute_async(ctx.conn, &call.name, &call.arguments, &tool_ctx, cancel.clone(), on_event.as_ref()).await {

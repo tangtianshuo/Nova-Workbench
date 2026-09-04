@@ -20,6 +20,20 @@ pub const RECENT_DIALOG_RESERVED: i64 = 1200;
 pub const FTS_TOP_K: usize = 5;
 pub const REJECTED_LIMIT: usize = 5;
 
+/// 32-05 (ENGINE-01): research-first contract injected into the system prompt
+/// when the workspace has a bound repo root (coding toolset available).
+/// Four steps: 侦察 → 定位 → 修改 → 验证.
+pub const CODE_CONTRACT_PROMPT: &str = "## 代码工作契约\n\n你拥有代码工作能力。遵循先研究后行动:先用 code_read/code_grep 侦察理解现状,再定位修改点,然后用 code_write/code_edit 提出修改并等待确认,最后用 exec 验证。研究类工具(code_read/code_grep)零确认自由调用;行动类工具(code_write/code_edit/exec)每步过审批。未绑定仓库或路径越界会被拒绝,按错误提示调整。";
+
+/// Append the ENGINE-01 contract to the system prompt iff the workspace has
+/// a bound repo root; unbound workspaces get no coding prompt at all.
+pub fn append_code_contract(prompt: String, repo_root: Option<&std::path::Path>) -> String {
+    match repo_root {
+        Some(_) => format!("{prompt}\n\n{CODE_CONTRACT_PROMPT}"),
+        None => prompt,
+    }
+}
+
 const QUOTA_CORE: i64 = 600;
 const QUOTA_PENDING: i64 = 200;
 const QUOTA_MEMORIES: i64 = 500;
@@ -406,6 +420,19 @@ mod tests {
         let (same, truncated) = clamp_to_tokens("短", 100);
         assert_eq!(same, "短");
         assert!(!truncated);
+    }
+
+    #[test]
+    fn code_contract_gated_on_repo_root() {
+        // bound repo → ENGINE-01 contract present
+        let bound = append_code_contract("base".into(), Some(std::path::Path::new("/repo")));
+        assert!(bound.contains("先研究后行动"));
+        assert!(bound.starts_with("base"));
+        assert!(bound.contains("code_read/code_grep"));
+        // unbound → no coding prompt at all
+        let unbound = append_code_contract("base".into(), None);
+        assert_eq!(unbound, "base");
+        assert!(!unbound.contains("先研究后行动"));
     }
 
     #[test]

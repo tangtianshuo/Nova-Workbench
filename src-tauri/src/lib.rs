@@ -249,6 +249,7 @@ pub fn run() {
             engine::commands::engine_reject_memory,
             engine::commands::engine_workspace_bind_repo,
             engine::commands::engine_workspace_detect_repo,
+            engine::commands::engine_workspace_bind_dev_repo,
         ])
         // 24-02 hide-on-close (SCHED-02): closing the window hides it — runs
         // keep going; real exit is tray 「退出」 only.

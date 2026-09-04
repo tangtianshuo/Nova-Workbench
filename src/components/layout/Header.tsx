@@ -10,9 +10,11 @@ import { cn } from '@/src/lib/utils';
 interface HeaderProps {
   title: string;
   subtitle: string;
+  /** 32-05: optional badge next to the title (e.g. Repo: {basename}). */
+  badge?: React.ReactNode;
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, badge }: HeaderProps) {
   const { resolved, toggle } = useTheme();
   const isSearchOpen = useUIStore((s) => s.isSearchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -26,13 +28,16 @@ export function Header({ title, subtitle }: HeaderProps) {
         )}
       >
         {/* Left: Title */}
-        <div>
-          <h1 className="text-md font-semibold text-text-primary tracking-tight">
-            {title}
-          </h1>
-          <p className="text-xs text-text-tertiary mt-0.5">
-            {subtitle}
-          </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-md font-semibold text-text-primary tracking-tight">
+              {title}
+            </h1>
+            <p className="text-xs text-text-tertiary mt-0.5">
+              {subtitle}
+            </p>
+          </div>
+          {badge}
         </div>
 
         {/* Right: Actions */}

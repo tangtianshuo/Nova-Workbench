@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GitBranch } from '@phosphor-icons/react';
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar, MENU_ITEMS } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -17,6 +18,7 @@ import { HydrationGate } from './components/HydrationGate';
 import { CmdKPalette } from './components/CmdKPalette';
 import { useCmdK } from './hooks/useCmdK';
 import { useUIStore } from './stores/uiStore';
+import { useWorkspaceStore } from './stores/workspaceStore';
 import { IngestionBatchCard } from './components/workspace/IngestionBatchCard';
 import { DocWorkspaceShell } from './components/workspace/DocWorkspaceShell';
 import { DocWorkspaceContent } from './components/workspace/DocWorkspaceContent';
@@ -69,6 +71,28 @@ function MainLayout() {
 
   const headerInfo = getHeaderInfo();
 
+  // 32-05: repo badge — driven by the active workspace's repoRoot mirror.
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeWorkspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId));
+  const detectRepoRoot = useWorkspaceStore((s) => s.detectRepoRoot);
+
+  // Background auto-detect once per workspace when no binding is known yet
+  // (32-01 detect command; engine table stays the source of truth).
+  useEffect(() => {
+    if (!activeWorkspaceId || activeWorkspace?.repoRoot) return;
+    void detectRepoRoot(activeWorkspaceId);
+  }, [activeWorkspaceId, activeWorkspace?.repoRoot, detectRepoRoot]);
+
+  const repoBadge = activeWorkspace?.repoRoot ? (
+    <span
+      className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent shrink-0"
+      title={activeWorkspace.repoRoot}
+    >
+      <GitBranch size={12} weight="duotone" />
+      Repo: {activeWorkspace.repoRoot.split(/[\\/]/).filter(Boolean).pop()}
+    </span>
+  ) : undefined;
+
   const handleNavigateToRnd = (productId: string) => {
     if (productId) {
       setSelectedProductId(productId);
@@ -117,7 +141,7 @@ function MainLayout() {
         <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
           {!docZenMode && (
             <>
-              <Header title={headerInfo.label} subtitle={headerInfo.subtitle} />
+              <Header title={headerInfo.label} subtitle={headerInfo.subtitle} badge={repoBadge} />
 
               <main className="flex-1 overflow-auto p-6">
                 <Suspense fallback={<ViewLoading />}>

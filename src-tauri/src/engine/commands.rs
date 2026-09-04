@@ -607,6 +607,26 @@ pub async fn engine_workspace_detect_repo(
     Ok(detected)
 }
 
+/// 32-05 dev dogfood: bind the workspace to Nova's own repo root — the git
+/// root above the dev process cwd. The frontend gates this on
+/// import.meta.env.DEV; the command itself is harmless anywhere (same
+/// detect + bind path as the settings page).
+#[tauri::command]
+pub async fn engine_workspace_bind_dev_repo(
+    workspace_id: String,
+    db: State<'_, EngineDb>,
+) -> Result<Option<String>, AppError> {
+    let cwd = std::env::current_dir().map_err(|e| AppError::InternalError(e.to_string()))?;
+    let detected = code_ops::detect_repo_root(&cwd).map(|p| p.to_string_lossy().to_string());
+    if let Some(root) = &detected {
+        with_conn(&db, |conn| {
+            code_ops::bind_repo_root(conn, &workspace_id, Some(root))
+                .map_err(|e| AppError::InternalError(e.to_string()))
+        })?;
+    }
+    Ok(detected)
+}
+
 /// Confirm an fs_write candidate, execute the write in Rust (23-03, TOOL-04:
 /// zero webview dependency) and settle via append_tool_result_inner
 /// ([confirmed rerun] pairing). Fully sync — fs ops are std::fs, no awaits,

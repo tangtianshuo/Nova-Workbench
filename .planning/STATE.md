@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.4
-milestone_name: 紧凑产研版 — coding Agent + 子 Agent + Skill
-status: planning
-stopped_at: v0.4 roadmap created — 4 phases (32-35), ready for plan-phase (2026-09-04)
-last_updated: "2026-09-04T12:00:00.000Z"
+milestone_name: 紧凑产研版 — coding Agent + 子 Agent + Pipeline + Skill
+status: executing
+stopped_at: Completed 32-01-PLAN.md
+last_updated: "2026-09-04T07:17:39.251Z"
 last_activity: 2026-09-04
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
@@ -20,15 +20,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-04, v0.4 started)
 
 **Core value:** 让产品经理拥有一个懂你、能替你干活的桌面 AI Agent(Pipeline + 第二大脑 + HITL)
-**Current focus:** v0.4 紧凑产研版 — coding 工具+diff 审批 / spawn_subagent / pipeline 编排 / Skill;债务全部后推
+**Current focus:** Phase 32 — coding
 
 ## Current Position
 
-Phase: 32 (coding 工具地基) — not started
-Plan: —
-Status: Milestone planning complete (REQUIREMENTS 24 REQs + ROADMAP 4 phases 32-35)
+Phase: 32 (coding) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 Next: `/gsd:plan-phase 32`(建议先 `/gsd:research-phase 32` 处理 Windows npm .cmd flag;Phase 33 首个 plan 前必须裁定 cap-3 死锁方案)
-Last activity: 2026-09-04 — v0.4 requirements (67b5b2c) + roadmap (17d85e0)
+Last activity: 2026-09-04
 
 ```
 milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)
@@ -45,6 +45,7 @@ milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)
 | Historical (v0.3.1) | 4/4 phases, 217/217 tests |
 
 (完整 plan 级校准数据见 git history;已随 v0.3.3 归档)
+| Phase 32 P01 | 45m | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -58,6 +59,8 @@ v0.3.3 key decisions (2026-09-04 archive):
 - [Milestone]: 2026-09-02 优先级重定(四大缺口驱动)与产品哲学红线(工作流用户自组织,严禁刚性 pipeline)是本里程碑最重要的两个 scope 决策,详见 RETROSPECTIVE v0.3.3
 
 (phase 级 decisions 随 v0.3.3 归档:26/29/30/31 各 plan 裁定见 milestones/v0.3.3-ROADMAP.md 与各 SUMMARY)
+
+- [Phase 32]: workspace repo 绑定落独立表 workspace_repo_roots(无 workspaces SQL 表;kv blob 是 workspace 真相源)
 
 ### TODOs (pending)
 
@@ -78,8 +81,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-09-04
-Stopped at: v0.3.3 complete-milestone done
+Last session: 2026-09-04T07:17:39.246Z
+Stopped at: Completed 32-01-PLAN.md
 Resume file: None
 
 If resuming after context loss:

@@ -25,7 +25,7 @@
 - [ ] **CODE-03**: exec 白名单 — 已知命令直接跑,首遇未知弹「允许一次 / 总是允许 / 拒绝」;「总是」写入白名单(用户自组织)
   - 四绕过面收口(CP-6):学习粒度=命令+首参数二元组、env 过滤(不泄 *KEY*)、PATH 解析、git 危险 flag 黑名单
   - exec 结果结构化回传(stdout/stderr/exit code 分开)
-- [ ] **CODE-04**: repo 作用域锁 — 打开本地 repo 目录绑定 repo_root(git 检测);write/edit/exec 锁 repo 内,read/grep 放宽到工作区
+- [x] **CODE-04**: repo 作用域锁 — 打开本地 repo 目录绑定 repo_root(git 检测);write/edit/exec 锁 repo 内,read/grep 放宽到工作区
   - repo_root ≠ workspace_root 显式边界,工具不得读写 Nova 自身数据(CP-7);TOCTOU 再 resolve + Windows 大小写 canonicalize
 - [ ] **CODE-05**: 取消与进度可见 — 长任务可停(复用 run 取消级联 + exec 子进程 kill);TabRunPanel 显示当前工具、正在改哪个文件;崩溃后孤儿 exec 进程恢复清杀(CP-8)
 - [ ] **CODE-06**: diff 卡落槽知识库 — 改动摘要可一键沉淀进第二大脑(复用 knowledge_write 候选流)

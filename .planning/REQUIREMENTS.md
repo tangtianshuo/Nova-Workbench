@@ -28,7 +28,7 @@
 - [x] **CODE-04**: repo 作用域锁 — 打开本地 repo 目录绑定 repo_root(git 检测);write/edit/exec 锁 repo 内,read/grep 放宽到工作区
   - repo_root ≠ workspace_root 显式边界,工具不得读写 Nova 自身数据(CP-7);TOCTOU 再 resolve + Windows 大小写 canonicalize
 - [x] **CODE-05**: 取消与进度可见 — 长任务可停(复用 run 取消级联 + exec 子进程 kill);TabRunPanel 显示当前工具、正在改哪个文件;崩溃后孤儿 exec 进程恢复清杀(CP-8)
-- [ ] **CODE-06**: diff 卡落槽知识库 — 改动摘要可一键沉淀进第二大脑(复用 knowledge_write 候选流)
+- [x] **CODE-06**: diff 卡落槽知识库 — 改动摘要可一键沉淀进第二大脑(复用 knowledge_write 候选流)
 
 ## B. spawn_subagent(双入口 Persona + 专家子 run)
 

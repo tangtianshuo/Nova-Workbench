@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 31-doc-workspace
 source: [31-HUMAN-UAT.md checklist (31-05 Task 1), 31-07-SUMMARY.md]
 started: 2026-09-03T16:00:00+08:00
-updated: 2026-09-04T10:45:00+08:00
+updated: 2026-09-04T11:05:00+08:00
 ---
 
 运行方式:`npm run tauri:dev`,真实 Tauri 应用逐项执行。
@@ -18,10 +18,7 @@ updated: 2026-09-04T10:45:00+08:00
 
 ## Current Test
 
-[awaiting human retest round-2 2026-09-04] round-1 复测 5 项:1/2/5 签核通过;3(代码块无法输入文本)、4(表格点击后损坏)为 31-09 新引入缺陷,根因已修(57a92a7),待复测:
-
-3. 代码块:点击进入可正常输入文本;语言下拉 + prismjs 高亮仍生效(fix round-2: NodeView 补 contentDOM,高亮改 decoration)
-4. 表格:点击 3x3 或插行/插列按钮后表格保持完整(空单元格 round-trip 不再被 normalizeMarkdown 拆断),样式正常
+[resolved 2026-09-04] round-2 复测全过:5 gap 全部 resolved(1/2/5 round-1 通过;3/4 round-2 修复 57a92a7 后通过)。后续 polish:工作区编辑器 toolbar 锚定悬浮(e9772af,面板槽位有界高度 + 编辑器内部滚动),超出本清单范围,待用户过目。
 
 ## Tests
 
@@ -37,10 +34,8 @@ result: pass
 
 ### 3. SC-2 全局笔记 + FTS5 检索
 expected: 2.1 知识库 header「新建笔记」右侧面板开空白笔记(product_id='__global__');2.2 输入含独特中文关键词内容并保存;2.3 知识库全局搜索该关键词命中且可打开
-result: issue
-reported: "笔记命中，但没有打开文档编辑区"
-severity: major
-note: 2.1/2.2 正常(创建+保存+搜索命中);2.3 点击搜索结果未打开右侧编辑面板
+result: pass
+note: 2.1/2.2 正常;2.3 round-1 issue → 修复 c928a67 → 2026-09-04 复测通过
 
 ### 4. SC-3 确认卡第三宿主
 expected: 3.1 触发 agent 产出待确认文档;3.2 确认卡出现在右侧工作区内;3.3 工作区点确认:落库且 AgentConsole 队列同步清空;3.4 工作区点拒绝:队列移除、不落库
@@ -61,10 +56,8 @@ result: pass
 
 ### 8. SC-7 中文 IME + round-trip + 面板交互
 expected: 7.1 IME 四场景(候选上屏/组合不丢字/组合中点 toolbar/中英混排);7.2 表格;7.3 代码块;7.4 嵌套列表 round-trip 无损;7.5 拖宽流畅、收起/展开重启保持
-result: issue
-reported: "在样式后 输入回车换行，会异常出现 斜杠字符。 2、代码块，行内代码，点击后没有出现原语，无法修改代码格式 以及高亮关键词。3、面板交互 在最大化的时候，拉宽编辑区，缩小外层客户端， 编辑区没有等比例缩小。还是固定宽度。4、表格没有办法插入一行或者一列。"
-severity: major
-note: 7.1 IME 四场景本身未见报告(未明确失败);四个子问题见 Gaps #2..#5
+result: pass
+note: 7.1/7.4 无报告;7.2/7.3 round-1 issue → 修复 d2a22e7/57a92a7/b9f9ce9 → 2026-09-04 复测通过(7.3 可输入+语言下拉+高亮;7.2 表格完整+行列插入);7.5 round-1 修复 84d151c 复测通过
 
 ### 9. SC-8 overlay 联动 + 禅模式 + 入口移交(31-06 D-09..D-13)
 expected: 8.1 面板右侧滑出 overlay 主工作区不挤压;8.2 点主工作区面板不抢焦点不收起;8.3 禅模式进出+收起自动退出+重启保持;8.4 面板内无文档列表;8.5 新建笔记/编辑入口全收敛到面板
@@ -73,8 +66,8 @@ result: pass
 ## Summary
 
 total: 9
-passed: 7
-issues: 2
+passed: 9
+issues: 0
 pending: 0
 skipped: 0
 
@@ -114,7 +107,7 @@ skipped: 0
   fix: "d2a22e7 (31-08 并行覆盖): value-sync 归一化加 BR_ONLY_RE guard,孤立 <br /> 不再改写为 \\;repro Case J/K 5/5 PASS;复测通过 2026-09-04"
 
 - truth: "代码块/行内代码:点击后应出现语法/格式控制,可修改代码语言与关键词高亮"
-  status: failed
+  status: resolved
   reason: "User reported: 代码块，行内代码，点击后没有出现原语，无法修改代码格式 以及高亮关键词"
   severity: major
   test: 8
@@ -130,7 +123,7 @@ skipped: 0
   debug_session: .planning/debug/editor-code-lang-controls.md
   fix: "af24585 (31-09): 自建 codeBlock NodeView($view)+ 语言下拉 + prismjs 高亮(8 语言包);行内代码语言标注按计划边界不做(CommonMark 无语言属性)"
   retest_issue: "round-1 复测(2026-09-04):代码块无法正常输入文本"
-  retest_fix: "57a92a7: NodeView 缺 contentDOM(ProseMirror 规则:无 contentDOM 的内容节点不可编辑);补 contentDOM 恢复编辑,高亮改 Prism.tokenize→Decoration.inline(不再重写 innerHTML);待 round-2 复测"
+  retest_fix: "57a92a7: NodeView 缺 contentDOM(ProseMirror 规则:无 contentDOM 的内容节点不可编辑);补 contentDOM 恢复编辑,高亮改 Prism.tokenize→Decoration.inline(不再重写 innerHTML);round-2 复测通过 2026-09-04"
 
 - truth: "面板宽度自适应:窗口最大化下拉宽编辑区后缩小客户端窗口,编辑区应等比例缩小而非固定宽度"
   status: resolved
@@ -149,7 +142,7 @@ skipped: 0
   fix: "84d151c (31-08): aside maxWidth: '60vw' 纯 CSS 上限,同时覆盖缩窗与重启陈旧 px;复测通过 2026-09-04"
 
 - truth: "表格编辑:应支持插入行/插入列操作"
-  status: failed
+  status: resolved
   reason: "User reported: 表格没有办法插入一行或者一列"
   severity: major
   test: 8
@@ -165,4 +158,4 @@ skipped: 0
   debug_session: .planning/debug/editor-table-insert.md
   fix: "b9f9ce9 (31-09): toolbar 4 个 preset-gfm 命令按钮(addRow/Col Before/After)"
   retest_issue: "round-1 复测(2026-09-04):点击后生成的表格样式加载失败/疑似语法错误。根因:preset-gfm 把空单元格序列化为 | <br /> |(GFM cell-break),normalizeMarkdown 改写为 \\+换行拆断表格行,replaceAll 重解析后 table 节点消失(repro-table-roundtrip.mjs 复现)"
-  retest_fix: "57a92a7: normalizeMarkdown 跳过 | 开头表格行的 <br> 改写;repro 4 断言全 PASS(空表/插行列 round-trip 无损,段落 <br> ingest 路径不受影响);待 round-2 复测"
+  retest_fix: "57a92a7: normalizeMarkdown 跳过 | 开头表格行的 <br> 改写;repro 4 断言全 PASS(空表/插行列 round-trip 无损,段落 <br> ingest 路径不受影响);round-2 复测通过 2026-09-04"

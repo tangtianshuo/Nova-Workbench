@@ -8,6 +8,7 @@ import {
   engineAppendToolResult,
   engineCommitDeliverable,
   engineConfirmCandidate,
+  engineCodeApply,
   engineConsumeMemory,
   engineConsumePmWrite,
   engineExecConfirmed,
@@ -21,10 +22,14 @@ import {
 import { buildCoreContext } from '@/src/ai/context';
 import {
   confirmDeliverableDraft,
+  createKnowledgeWriteCandidate,
+  listPendingCodeEdits,
   listPendingDeliverableDrafts,
   listPendingExecApprovals,
   listPendingFsWrites,
+  parseCodeEditCandidate,
   rejectDeliverableDraft,
+  type CodeEditCandidate,
   type DestructiveActionCandidate,
   type KnowledgeWriteCandidate,
   type DeliverableDraftCandidate,
@@ -168,6 +173,8 @@ function toPmWriteCandidate(candidate: EnginePendingCandidate): PmWriteCandidate
 export function routeEngineCandidateToConsole(candidate: EnginePendingCandidate, sessionId: string): void {
   if (candidate.kind === 'knowledge_write') {
     useChatConsoleStore.setState({ pendingConfirmation: toKnowledgeWriteCandidate(candidate, sessionId) });
+  } else if (candidate.kind === 'code_edit') {
+    enqueueCodeEdit(parseCodeEditCandidate({ ...candidate, sessionId }));
   } else if (candidate.kind === 'destructive_action') {
     useChatConsoleStore.setState({ pendingDestructiveAction: toDestructiveCandidate(candidate) });
   } else if (candidate.kind === 'exec_approval') {
@@ -199,6 +206,24 @@ export function routeEngineCandidateToConsole(candidate: EnginePendingCandidate,
   }
   // memory_write candidates surface via the memory card store's own refresh
   // path — nothing to enqueue here.
+}
+
+/** Props for the diff approval card (32-04): head-of-queue candidate + queue
+ * tail count (「另有 N 张待审」). */
+export interface CodeEditCardProps {
+  candidate: CodeEditCandidate;
+  queueCount: number;
+}
+
+/** 32-04 (MP-1) — code_edit queue append (token dedupe; CP-2 rerun keeps the
+ * same token, so a model retry never stacks a duplicate card). */
+function enqueueCodeEdit(candidate: CodeEditCandidate | null): void {
+  if (!candidate) return;
+  useChatConsoleStore.setState((state) =>
+    state.pendingCodeEdits.some((c) => c.confirmationToken === candidate.confirmationToken)
+      ? state
+      : { pendingCodeEdits: [...state.pendingCodeEdits, candidate] },
+  );
 }
 
 /* === Toast bridge (component binds useToast; store stays React-free) === */
@@ -285,6 +310,10 @@ interface ChatConsoleState {
   pendingExecApproval: ExecApprovalCandidate | null;
   pendingFsWrite: FsWriteCandidate | null;
   pendingPmWrite: PmWriteCandidate | null;
+  /** 32-04 (CODE-02) — code_edit queue: head renders the full diff card,
+   * tail counts into the 「另有 N 张待审」 badge (MP-1). */
+  pendingCodeEdits: CodeEditCandidate[];
+  codeEditBusy: boolean;
   pendingMemory: MemoryCandidate | null;
   autoRemembered: MemoryCandidate | null;
   memoryBusy: boolean;
@@ -321,6 +350,13 @@ interface ChatConsoleState {
   rejectFsWrite: () => Promise<void>;
   confirmPmWrite: () => Promise<void>;
   rejectPmWrite: () => Promise<void>;
+  /** 32-04 (CODE-02/CODE-06): confirm/reject the head-of-queue code_edit
+   * candidate; deposit routes a change summary into the knowledge_write
+   * candidate flow (second confirmation, zero new pipeline). */
+  confirmCodeEdit: () => Promise<void>;
+  rejectCodeEdit: (reason?: string) => Promise<void>;
+  depositCodeEditSummary: () => Promise<void>;
+  refreshCodeEdits: () => Promise<void>;
   confirmMemory: () => Promise<void>;
   rejectMemory: () => Promise<void>;
   rejectDraft: () => Promise<void>;
@@ -362,6 +398,22 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     } catch (error) {
       console.error('[memory-cards] refresh failed', error);
       emitToast({ type: 'error', title: '检索失败,请稍后重试;若持续失败请重启应用。' });
+    }
+  };
+
+  // 32-04 (CODE-02) — refresh the code_edit queue from persisted candidates
+  // (restart/session-switch re-surface). Restored rows carry no diff text
+  // (CP-2: display-only field) — the card falls back to old/new excerpts.
+  const refreshCodeEdits = async (sessionId?: string) => {
+    try {
+      const pending = await listPendingCodeEdits(sessionId ?? get().activeSessionId);
+      useChatConsoleStore.setState((state) => {
+        // Live diff text beats the restored excerpt fallback — keep it per token.
+        const byToken = new Map(state.pendingCodeEdits.map((c) => [c.confirmationToken, c]));
+        return { pendingCodeEdits: pending.map((c) => ({ ...c, diffText: byToken.get(c.confirmationToken)?.diffText ?? c.diffText })) };
+      });
+    } catch (error) {
+      console.error('[code-edit] refresh failed', error);
     }
   };
 
@@ -492,6 +544,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     pendingExecApproval: null,
     pendingFsWrite: null,
     pendingPmWrite: null,
+    pendingCodeEdits: [],
+    codeEditBusy: false,
     pendingMemory: null,
     autoRemembered: null,
     memoryBusy: false,
@@ -568,6 +622,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           // Pending memory/PRD cards still surface cross-session (Phase 15/16).
           void refreshMemoryCards();
           void refreshPrdCard();
+          void refreshCodeEdits();
           // 24-03 carry-in: exec/fs HITL cards re-surface on app restart too.
           void refreshExecFsCards();
         } catch (error) {
@@ -591,6 +646,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         pendingExecApproval: null,
         pendingFsWrite: null,
         pendingPmWrite: null,
+        pendingCodeEdits: [],
         pendingPrdDraft: null,
         pendingMemory: null,
         forkableIds: new Set<number>(),
@@ -599,6 +655,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       });
       void refreshMemoryCards();
       void refreshPrdCard();
+      void refreshCodeEdits();
       return { success: true };
     },
 
@@ -632,12 +689,14 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         pendingExecApproval: null,
         pendingFsWrite: null,
         pendingPmWrite: null,
+        pendingCodeEdits: [],
         forkableIds: new Set<number>(),
         parentSessionId: null,
         parentTitle: null,
       });
       void refreshMemoryCards();
       void refreshPrdCard();
+      void refreshCodeEdits(restored.sessionId);
       void refreshExecFsCards(restored.sessionId);
       await refreshForkable();
       await refreshParentMeta();
@@ -788,6 +847,9 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
                 engineFsCandidate = toFsWriteCandidate(candidate);
               } else if (candidate.kind === 'pm_write') {
                 enginePmCandidate = toPmWriteCandidate(candidate);
+              } else if (candidate.kind === 'code_edit') {
+                // 32-04: queue — one card per file, head renders (MP-1).
+                enqueueCodeEdit(parseCodeEditCandidate({ ...candidate, sessionId: get().activeSessionId }));
               } else if (candidate.kind === 'memory_write') {
                 void refreshMemoryCards();
               }
@@ -872,7 +934,25 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       } catch (error) {
         console.error('[engine] cancel failed', error);
       }
-      set({ activeRunId: null, loading: false, isQueued: false, streamingResponse: '', streamingTrace: [] });
+      // 32-04: run-cancel cascade — the engine auto-rejects this run's pending
+      // code_edit candidates (commands.rs run-settle) with audit events; the
+      // transient "run 已取消" message is the in-console trace before dismissal.
+      const cancelledEdits = state.pendingCodeEdits;
+      set((current) => ({
+        activeRunId: null,
+        loading: false,
+        isQueued: false,
+        streamingResponse: '',
+        streamingTrace: [],
+        pendingCodeEdits: cancelledEdits.length === 0 ? current.pendingCodeEdits : [],
+        messages: cancelledEdits.length === 0
+          ? current.messages
+          : [...current.messages, {
+              id: nextId++,
+              role: 'assistant' as const,
+              content: `run 已取消，改动未应用（${cancelledEdits.map((c) => c.path).join('、')}）`,
+            }],
+      }));
       streamingResponseRef = '';
       streamingTraceRef = [];
     },
@@ -1075,6 +1155,99 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       }));
     },
 
+    // 32-04 (CODE-02) — apply the head-of-queue code_edit candidate: Rust does
+    // confirm + consume + CP-3 stale re-check + write + tool_result settlement
+    // in one engine_code_apply invoke; the frontend only renders the result.
+    confirmCodeEdit: async () => {
+      const { pendingCodeEdits, codeEditBusy, activeSessionId } = get();
+      const candidate = pendingCodeEdits[0];
+      if (!candidate || codeEditBusy) return;
+      set({ codeEditBusy: true });
+      try {
+        const result = await engineCodeApply(activeSessionId, candidate.confirmationToken);
+        const error = typeof result.error === 'string' ? result.error : null;
+        set((current) => ({
+          pendingCodeEdits: current.pendingCodeEdits.filter((c) => c.confirmationToken !== candidate.confirmationToken),
+          messages: [...current.messages, {
+            id: nextId++,
+            role: 'assistant' as const,
+            content: error
+              ? `文件已变化，无法应用此修改 — agent 将重读文件后重试。（${candidate.path}：${error}）`
+              : `已应用改动：${candidate.path}`,
+          }],
+        }));
+      } catch (err) {
+        emitToast({
+          type: 'error',
+          title: '应用改动失败',
+          description: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        set({ codeEditBusy: false });
+      }
+    },
+
+    // 32-04 (CODE-02) — reject with optional reason: rides migration 0016
+    // reject_reason; the run continues and the agent sees the reason (agent
+    // adjusts and retries — copywriting contract).
+    rejectCodeEdit: async (reason) => {
+      const { pendingCodeEdits } = get();
+      const candidate = pendingCodeEdits[0];
+      if (!candidate) return;
+      try {
+        await engineRejectCandidate(candidate.confirmationToken, reason?.trim() || undefined);
+      } catch (error) {
+        console.error('[code-edit] reject failed', error);
+      }
+      set((current) => ({
+        pendingCodeEdits: current.pendingCodeEdits.filter((c) => c.confirmationToken !== candidate.confirmationToken),
+        messages: [...current.messages, {
+          id: nextId++,
+          role: 'assistant' as const,
+          content: `已拒绝对 ${candidate.path} 的修改${reason?.trim() ? `（原因：${reason.trim()}）` : ''}。该文件不会落盘，agent 会根据原因调整重试。`,
+        }],
+      }));
+    },
+
+    // 32-04 (CODE-06) — deposit the change summary into the knowledge_write
+    // candidate flow (second confirmation, zero new pipeline): TS candidate
+    // create on the shared db, then surface via the existing pendingConfirmation
+    // card + confirmKnowledgeWrite action.
+    depositCodeEditSummary: async () => {
+      const { pendingCodeEdits } = get();
+      const candidate = pendingCodeEdits[0];
+      if (!candidate) return;
+      const basename = candidate.path.split(/[\\/]/).pop() ?? candidate.path;
+      try {
+        const draft = await createKnowledgeWriteCandidate({
+          productId: useUIStore.getState().selectedProductId ?? '',
+          operation: 'created',
+          title: `改动摘要：${basename}`,
+          category: '经验沉淀',
+          tags: ['code-edit', candidate.operation],
+          content: [
+            `路径：${candidate.path}`,
+            candidate.summary ? `变更：${candidate.summary}` : '',
+            candidate.diffText ? '```diff\n' + candidate.diffText + '\n```' : [
+              candidate.oldString ? '修改前：\n```\n' + candidate.oldString.slice(0, 2000) + '\n```' : '',
+              candidate.newString ? '修改后：\n```\n' + candidate.newString.slice(0, 2000) + '\n```' : '',
+            ].filter(Boolean).join('\n'),
+          ].filter(Boolean).join('\n\n'),
+          summary: candidate.summary || `agent 对 ${basename} 的修改记录`,
+          author: 'AI',
+          readTime: '1 min',
+        });
+        set({ pendingConfirmation: draft });
+        emitToast({ type: 'success', title: '已存入第二大脑候选，待确认' });
+      } catch (error) {
+        emitToast({
+          type: 'error',
+          title: '沉淀失败',
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+
     confirmKnowledgeWrite: async () => {
       const { pendingConfirmation, loading } = get();
       if (!pendingConfirmation || loading) return;
@@ -1274,6 +1447,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
 
     refreshMemoryCards,
     refreshPrdCard,
+    refreshCodeEdits,
     maybeGenerateTitle,
   };
 });

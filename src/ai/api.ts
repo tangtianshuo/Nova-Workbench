@@ -107,10 +107,11 @@ export async function engineConfirmCandidate(confirmationToken: string): Promise
   await invoke('engine_confirm_candidate', { token: confirmationToken });
 }
 
-/** Reject a HITL candidate — also the cancel semantics for a waiting card. */
-export async function engineRejectCandidate(confirmationToken: string): Promise<void> {
+/** Reject a HITL candidate — also the cancel semantics for a waiting card.
+ * 32-04: optional reason (code_edit) rides migration 0016 reject_reason. */
+export async function engineRejectCandidate(confirmationToken: string, reason?: string): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('engine_reject_candidate', { token: confirmationToken });
+  await invoke('engine_reject_candidate', { token: confirmationToken, reason: reason ?? null });
 }
 
 /**
@@ -147,6 +148,16 @@ export async function engineWhitelistAdd(command: string): Promise<void> {
 export async function engineFsApply(sessionId: string, confirmationToken: string): Promise<Record<string, unknown>> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke('engine_fs_apply', { sessionId, token: confirmationToken });
+}
+
+/**
+ * 32-03/32-04 (CODE-02): confirm a code_edit candidate and execute the edit in
+ * Rust (confirm + consume + CP-3 base_hash re-check + write + tool_result
+ * settlement, one invoke). Resolves with the apply payload or {error}.
+ */
+export async function engineCodeApply(sessionId: string, confirmationToken: string): Promise<Record<string, unknown>> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('engine_code_apply', { sessionId, token: confirmationToken });
 }
 
 /**

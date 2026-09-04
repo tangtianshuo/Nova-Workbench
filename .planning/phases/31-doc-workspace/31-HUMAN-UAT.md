@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 31-doc-workspace
 source: [31-HUMAN-UAT.md checklist (31-05 Task 1), 31-07-SUMMARY.md]
 started: 2026-09-03T16:00:00+08:00
@@ -82,37 +82,75 @@ skipped: 0
   reason: "User reported: 笔记命中，但没有打开文档编辑区"
   severity: major
   test: 3
-  artifacts: []  # Filled by diagnosis
-  missing: []    # Filled by diagnosis
+  root_cause: "搜索结果行 onClick 只调 selectSearchHit(仅切换左侧预览态),未调 docWorkspaceStore.openDoc;31-07 round-2(bae50c6)只给主列表行加了 openDoc。面板开合仅由 openDoc 驱动,故面板永不打开"
+  artifacts:
+    - path: "src/views/KnowledgeBaseView.tsx"
+      issue: ":331-341 搜索结果行 onClick 缺 openDoc(病灶);:379-384 主列表行已正确(参照物)"
+    - path: "src/stores/docWorkspaceStore.ts"
+      issue: "openDoc 本身无问题(:53-62,唯一 expandPanel 入口)"
+  missing:
+    - "搜索结果行 onClick 追加 openDoc(hit.docId),与主列表行同款,单行修复"
+  debug_session: .planning/debug/kb-search-open-doc.md
 
 - truth: "编辑器:对已加样式(粗体等)的文本按回车换行,不应出现多余斜杠字符"
   status: failed
   reason: "User reported: 在样式后 输入回车换行，会异常出现 斜杠字符"
   severity: major
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "MarkdownEditorInner 的 value-sync effect 中 normalizeMarkdown 把 Milkdown「文档中间空段落」输出的字面 <br /> 占位改写为孤立 \\ 行;replaceAll 重解析后成为字面反斜杠文本节点(可见斜杠),再序列化为 \\\\ 随自动保存落库造成持久污染。真实触发条件是「回车在文档中间产生空段落」(样式后回车恰是此场景),与粗体本身无关"
+  artifacts:
+    - path: "src/components/ui/MarkdownEditorInner.tsx"
+      issue: "normalizeMarkdown(L44-61) 在每次 value-sync 执行 <br>→\\\\n 替换;该归一化本意只针对 ingest 的 AI 文档"
+    - path: "node_modules/@milkdown/preset-commonmark paragraph 序列化器"
+      issue: "空且非最后块输出字面 <br />(上游行为,非缺陷)"
+  missing:
+    - "把 <br> 归一化移出 value-sync effect,只在 ingest/AI 入库路径执行一次(或跳过 Milkdown 自产的独立段落 <br /> 占位)"
+    - "回归验证:.planning/debug/repro-enter-slash.mjs Case J/K(修复后 Enter 不触发 replaceAll、doc 无 \\ 文本节点)"
+  debug_session: .planning/debug/editor-enter-slash.md
 
 - truth: "代码块/行内代码:点击后应出现语法/格式控制,可修改代码语言与关键词高亮"
   status: failed
   reason: "User reported: 代码块，行内代码，点击后没有出现原语，无法修改代码格式 以及高亮关键词"
   severity: major
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "功能未实现(非故障):headless 组装仅 commonmark/gfm/history/listener/clipboard + 自建插件,未 configure @milkdown/kit 的 codeBlockComponent(语言选择/格式控件)与 plugin/prism(高亮),代码块渲染为裸节点。行内代码的 CommonMark inline_code mark 本身无语言属性,官方也无控件,属能力边界需产品决策"
+  artifacts:
+    - path: "src/components/ui/MarkdownEditorInner.tsx"
+      issue: ".use() 链缺 codeBlockComponent 与 prism"
+    - path: "src/components/ui/MarkdownToolbar.tsx"
+      issue: "仅有创建按钮(toggleInlineCode/createCodeBlock),无语言选择 UI"
+  missing:
+    - ".use(codeBlockComponent.configure(...))(headless 自定义 render 提供语言下拉,样式 Nova tokens)+ .use(prism) 高亮"
+    - "行内代码语言标注:标为可选自定义 mark 升级(标准 markdown 不支持)"
+  debug_session: .planning/debug/editor-code-lang-controls.md
 
 - truth: "面板宽度自适应:窗口最大化下拉宽编辑区后缩小客户端窗口,编辑区应等比例缩小而非固定宽度"
   status: failed
   reason: "User reported: 面板交互 在最大化的时候，拉宽编辑区，缩小外层客户端， 编辑区没有等比例缩小。还是固定宽度"
   severity: major
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "面板宽度是 persist 的绝对 px(uiStore.docWorkspaceWidth),DocWorkspaceShell.tsx:88 直接 style={{width}} 渲染;60vw clamp 只在拖拽 mousemove 期间计算(:29-30),无 CSS max-width、无 window resize 监听,拖拽结束后无任何限制"
+  artifacts:
+    - path: "src/components/workspace/DocWorkspaceShell.tsx"
+      issue: ":88 原始 px 直接渲染无上限;:29-30 clamp 仅拖拽期间生效"
+    - path: "src/stores/uiStore.ts"
+      issue: ":101,138,158 docWorkspaceWidth 持久化绝对值,无 resize 逻辑"
+  missing:
+    - "aside 加 maxWidth: '60vw'(纯 CSS 一行,同时覆盖缩窗与重启陈旧值;可选 resize 监听 clamp 存量值)"
+  debug_session: .planning/debug/panel-width-not-responsive.md
 
 - truth: "表格编辑:应支持插入行/插入列操作"
   status: failed
   reason: "User reported: 表格没有办法插入一行或者一列"
   severity: major
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "headless gfm preset 只提供表格 schema/解析与 insertTableCommand(建表),无行列操作 UI:kit 的 component/table-block 未引入,自建 toolbar 只有「表格(3x3)」按钮。但 preset-gfm 已导出 addRowBefore/addRowAfter/addColBefore/addColAfter/deleteSelectedCells 等命令,可直接 callCommand——纯缺 UI 接线,引擎层命令齐全"
+  artifacts:
+    - path: "src/components/ui/MarkdownToolbar.tsx"
+      issue: "L147 仅有 insertTableCommand{3x3},缺行列操作按钮"
+    - path: "src/components/ui/MarkdownEditorInner.tsx"
+      issue: "L175-181 未 configure tableBlockComponent(备选方案)"
+  missing:
+    - "首选(改动最小):toolbar 加 4 个行列按钮,import preset-gfm 命令复用 runCmd 模式,光标在表内时生效(可按选区 disable)"
+    - "备选:tableBlockComponent 完整体验,但外部组件样式与 D-01 全 tokens 约定冲突需额外覆盖"
+  debug_session: .planning/debug/editor-table-insert.md

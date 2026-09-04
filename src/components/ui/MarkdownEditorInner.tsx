@@ -65,6 +65,11 @@ const BR_RE = /<br\s*\/?>/gi;
 // node (UAT #2 enter-slash pollution). A line that is ONLY a br placeholder is
 // left untouched so it round-trips back to an empty paragraph losslessly.
 const BR_ONLY_RE = /^\s*<br\s*\/?>\s*$/i;
+// 31-09 retest fix (table corruption): preset-gfm serializes EMPTY table cells
+// as `| <br /> |` (GFM cell-break syntax). Rewriting that to `\`+newline splits
+// the table row and the next replaceAll re-parse destroys the table node.
+// Table lines keep their <br> — inside a row it is cell content, not markup.
+const TABLE_ROW_RE = /^\s*\|/;
 function normalizeMarkdown(md: string): string {
   let inFence = false;
   return md
@@ -73,6 +78,7 @@ function normalizeMarkdown(md: string): string {
       if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
       if (inFence || /^\s*(```|~~~)/.test(line)) return line;
       if (BR_ONLY_RE.test(line)) return line;
+      if (TABLE_ROW_RE.test(line)) return line;
       return line.replace(BR_RE, '\\\n');
     })
     .join('\n');
@@ -162,10 +168,14 @@ function placeholderPlugin(text: string) {
   );
 }
 
-/* --- codeBlock NodeView (31-09 gap #3) ---
-   $view override on code_block: native select for language + prismjs highlight.
+/* --- codeBlock NodeView (31-09 gap #3, retest fix) ---
+   $view override on code_block: native select for language, prismjs highlight.
    Pure DOM (no React) — ProseMirror owns the NodeView lifecycle (D-01: no
    @milkdown/components which are Vue-only in 7.22.1, no theme CSS).
+   Retest fix: contentDOM is REQUIRED for a content node — without it the
+   block renders but is not editable (cursor cannot enter). Highlighting must
+   NOT rewrite innerHTML (that would clobber PM-owned children); it runs as
+   inline decorations (codeHighlightPlugin below) over the same text.
    ponytail: fixed LANGS list; auto-detect from fence info string is not worth
    the guess-heuristics — add entries here when users hit a missing language. */
 const LANGS = [
@@ -205,24 +215,59 @@ const codeBlockView = $view(codeBlockSchema.node, () => (node, view, getPos) => 
   pre.appendChild(code);
   dom.append(bar, pre);
 
-  const highlight = (n: ProseNode) => {
-    code.textContent = n.textContent;
-    const lang = String(n.attrs.language || '');
-    code.className = 'milkdown-code-content' + (lang ? ` language-${lang}` : '');
-    if (lang && Prism.languages[lang]) Prism.highlightElement(code);
-  };
-  highlight(node);
-
   return {
     dom,
+    contentDOM: code,
     update: (n: ProseNode) => {
       if (n.type.name !== 'code_block') return false;
       node = n;
-      highlight(n);
+      select.value = String(n.attrs.language || 'plain');
       return true;
     },
   } satisfies NodeView;
 });
+
+/* --- prismjs highlight as inline decorations (31-09 retest fix) ---
+   Decoration classes reuse the existing `.token.*` CSS in index.css. Applied
+   in both editable and readonly editors — the plugin is not editable-gated. */
+function walkTokens(tokens: (string | Prism.Token)[], offset: number, add: (from: number, to: number, type: string) => void): number {
+  for (const t of tokens) {
+    if (typeof t === 'string') {
+      offset += t.length;
+      continue;
+    }
+    if (t.type) add(offset, offset + t.length, t.type);
+    if (Array.isArray(t.content)) offset = walkTokens(t.content, offset, add);
+    else offset += t.length;
+  }
+  return offset;
+}
+
+function codeHighlightPlugin() {
+  return $prose(
+    () =>
+      new Plugin({
+        props: {
+          decorations(state) {
+            const decos: Decoration[] = [];
+            state.doc.descendants((node, pos) => {
+              if (node.type.name !== 'code_block') return false;
+              const lang = String(node.attrs.language || '');
+              const grammar = lang ? Prism.languages[lang] : undefined;
+              if (!grammar) return false;
+              const start = pos + 1;
+              const add = (from: number, to: number, type: string) => {
+                decos.push(Decoration.inline(start + from, start + to, { class: `token ${type}` }));
+              };
+              walkTokens(Prism.tokenize(node.textContent, grammar), 0, add);
+              return false;
+            });
+            return decos.length ? DecorationSet.create(state.doc, decos) : undefined;
+          },
+        },
+      }),
+  );
+}
 
 /* --- editor core (must be inside MilkdownProvider) --- */
 interface EditorCoreProps extends MarkdownEditorProps {
@@ -259,7 +304,8 @@ function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef 
         .use(listener)
         .use(clipboard)
         .use(livePreviewPlugin())
-        .use(codeBlockView),
+        .use(codeBlockView)
+        .use(codeHighlightPlugin()),
     // ponytail: rebuild only on readOnly/placeholder toggle; onChange rides a ref
     // (research Pattern 1: useEditor deps change = destroy + recreate editor).
     [readOnly, placeholder],

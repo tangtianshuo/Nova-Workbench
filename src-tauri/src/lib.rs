@@ -239,6 +239,7 @@ pub fn run() {
             engine::commands::engine_exec_confirmed,
             engine::commands::engine_whitelist_add,
             engine::commands::engine_fs_apply,
+            engine::commands::engine_code_apply,
             engine::commands::engine_commit_deliverable,
             engine::commands::engine_consume_memory,
             engine::commands::engine_consume_ingestion_batch,

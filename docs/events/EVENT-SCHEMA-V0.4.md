@@ -10,15 +10,15 @@
 
 ## 增量条目
 
-- event: code_edit — 落点 agent_events(tool_call/tool_result 配对)— 消费: Rust 引擎(event_log 写入)+ TS 投影(ChatSession code_edit 卡片)— fixture: pending-32-03 — projection-cases.json(32-03 落地时新增 case)
-- event: code_read — 落点 agent_events(tool_call/tool_result)— 消费: Rust 引擎 + TS 投影 — fixture: pending-32-03 — projection-cases.json
-- event: code_grep — 落点 agent_events(tool_call/tool_result)— 消费: Rust 引擎 + TS 投影 — fixture: pending-32-03 — projection-cases.json
-- event: code_write — 落点 agent_events(tool_call/tool_result)+ agent_confirmation_candidates(kind=code_edit)— 消费: Rust 引擎 + TS 投影 + HITL 确认卡 — fixture: pending-32-03 — projection-cases.json
+- event: code_edit — 落点 agent_events(tool_call/tool_result 配对)— 消费: Rust 引擎(event_log 写入)+ TS 投影(ChatSession code_edit 卡片)— fixture: yes — projection-cases-code-edit.json(32-03)
+- event: code_read — 落点 agent_events(tool_call/tool_result)— 消费: Rust 引擎 + TS 投影 — fixture: yes — projection-cases-code-edit.json(32-03)
+- event: code_grep — 落点 agent_events(tool_call/tool_result)— 消费: Rust 引擎 + TS 投影 — fixture: yes — projection-cases-code-edit.json(32-03)
+- event: code_write — 落点 agent_events(tool_call/tool_result)+ agent_confirmation_candidates(kind=code_edit)— 消费: Rust 引擎 + TS 投影 + HITL 确认卡 — fixture: yes — projection-cases-code-edit.json(32-03)
 - event: exec pid — payload 增量字段 `pid: number`(32-02 落地:spawn 成功即 json_set 进在途 exec tool_call payload,tool_result payload 亦携带;CP-8 孤儿进程清杀的审计锚点)— 消费: Rust 引擎(exec.rs)+ TS 投影(可选展示)— fixture: pending-32-04 — realdb-sample(带 pid 的 exec 配对用例)
-- event: code_edit candidate kind — agent_confirmation_candidates 增量 kind `code_edit`(params = {operation, path, old_string, new_string, root})— 消费: Rust confirmations + TS HITL diff 审批卡 — fixture: pending-32-03 — projection-cases.json
-- event: reject_reason — agent_confirmation_candidates 增量列 `reject_reason TEXT`(migration 0016;拒绝时记录用户理由,供取消级联审计)— 消费: Rust confirmations + TS 拒绝流 — fixture: pending-32-03 — projection-cases.json
+- event: code_edit candidate kind — agent_confirmation_candidates 增量 kind `code_edit`(params = {operation, path, old_string, new_string, root})— 消费: Rust confirmations + TS HITL diff 审批卡 — fixture: yes — projection-cases-code-edit.json(32-03)
+- event: reject_reason — agent_confirmation_candidates 增量列 `reject_reason TEXT`(migration 0016;拒绝时记录用户理由,供取消级联审计)— 消费: Rust confirmations + TS 拒绝流 — fixture: yes — projection-cases-code-edit.json(32-03)
 - event: orphan_exec_killed — 新 event_type(32-02 已落地;恢复时孤儿 exec pid 清杀审计,action = killed/not-running/pid-reused-name-mismatch/kill-failed;CP-8)— 消费: Rust restore + TS 投影(审计展示)— fixture: pending-32-04 — realdb-sample(恢复场景用例)
-- event: code_edit_auto_rejected — 新 event_type(code_edit 确认被拒/取消的级联拒绝审计;32-03)— 消费: Rust confirmations + TS 投影 — fixture: pending-32-03 — projection-cases.json
+- event: code_edit_auto_rejected — 新 event_type(code_edit 确认被拒/取消的级联拒绝审计;32-03)— 消费: Rust confirmations + TS 投影 — fixture: yes — projection-cases-code-edit.json(32-03)
 - event: spawn — 预留(spawn_subagent,ADR-0004;Phase 33)— 落点/消费/fixture 待 Phase 33 登记时补 — fixture: pending-phase-33 —
 - event: pipeline_gate — 预留(pipeline 编排确认门;Phase 34)— fixture: pending-phase-34 —
 - event: skill_injected — 预留(Skill FTS5 检索注入审计;Phase 35)— fixture: pending-phase-35 —

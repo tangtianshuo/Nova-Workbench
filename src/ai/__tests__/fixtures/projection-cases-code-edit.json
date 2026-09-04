@@ -1,0 +1,334 @@
+[
+  {
+    "name": "code-recon-read-grep",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-cr-1",
+        "sessionId": "c-code-1",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "看一下 src.rs 里 let a 在哪"
+        }
+      },
+      {
+        "eventId": "ev-cr-2",
+        "sessionId": "c-code-1",
+        "seq": 2,
+        "eventType": "tool_call",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-cr-1",
+          "toolName": "code_grep",
+          "args": {
+            "pattern": "let a"
+          },
+          "content": "先搜索"
+        }
+      },
+      {
+        "eventId": "ev-cr-3",
+        "sessionId": "c-code-1",
+        "seq": 3,
+        "eventType": "tool_result",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-cr-1",
+          "toolName": "code_grep",
+          "modelText": "[tool_result code_grep] {\"pattern\":\"let a\",\"matches\":[{\"file\":\"src.rs\",\"line\":2,\"text\":\"    let a = 1;\"}],\"truncated\":false}"
+        }
+      },
+      {
+        "eventId": "ev-cr-4",
+        "sessionId": "c-code-1",
+        "seq": 4,
+        "eventType": "tool_call",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-cr-2",
+          "toolName": "code_read",
+          "args": {
+            "path": "src.rs"
+          },
+          "content": "读文件确认上下文"
+        }
+      },
+      {
+        "eventId": "ev-cr-5",
+        "sessionId": "c-code-1",
+        "seq": 5,
+        "eventType": "tool_result",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-cr-2",
+          "toolName": "code_read",
+          "modelText": "[tool_result code_read] {\"path\":\"src.rs\",\"totalLines\":3,\"hasNext\":false,\"content\":\"fn main() {\\n    let a = 1;\\n}\"}"
+        }
+      },
+      {
+        "eventId": "ev-cr-6",
+        "sessionId": "c-code-1",
+        "seq": 6,
+        "eventType": "assistant_message",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "在 src.rs 第 2 行。"
+        }
+      },
+      {
+        "eventId": "ev-cr-7",
+        "sessionId": "c-code-1",
+        "seq": 7,
+        "eventType": "turn_ended",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "completed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "看一下 src.rs 里 let a 在哪"
+      },
+      {
+        "role": "assistant",
+        "content": "先搜索"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result code_grep] {\"pattern\":\"let a\",\"matches\":[{\"file\":\"src.rs\",\"line\":2,\"text\":\"    let a = 1;\"}],\"truncated\":false}"
+      },
+      {
+        "role": "assistant",
+        "content": "读文件确认上下文"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result code_read] {\"path\":\"src.rs\",\"totalLines\":3,\"hasNext\":false,\"content\":\"fn main() {\\n    let a = 1;\\n}\"}"
+      },
+      {
+        "role": "assistant",
+        "content": "在 src.rs 第 2 行。"
+      }
+    ]
+  },
+  {
+    "name": "code-edit-awaits-confirmation-then-cancel-cascade",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-ce-1",
+        "sessionId": "c-code-2",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "把 let a = 1 改成 let a = 2"
+        }
+      },
+      {
+        "eventId": "ev-ce-2",
+        "sessionId": "c-code-2",
+        "seq": 2,
+        "eventType": "tool_call",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-ce-1",
+          "toolName": "code_edit",
+          "args": {
+            "path": "src.rs",
+            "old_string": "let a = 1;",
+            "new_string": "let a = 2;"
+          },
+          "content": "提议修改"
+        }
+      },
+      {
+        "eventId": "ev-ce-3",
+        "sessionId": "c-code-2",
+        "seq": 3,
+        "eventType": "tool_result",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-ce-1",
+          "toolName": "code_edit",
+          "modelText": "[tool_result code_edit] {\"ok\":false,\"awaitingConfirmation\":true,\"error\":\"Explicit confirmation is required before editing code.\",\"kind\":\"code_edit\",\"path\":\"src.rs\"}"
+        }
+      },
+      {
+        "eventId": "ev-ce-4",
+        "sessionId": "c-code-2",
+        "seq": 4,
+        "eventType": "code_edit_auto_rejected",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": "tok-ce-1",
+        "payload": {
+          "confirmationToken": "tok-ce-1",
+          "path": "src.rs",
+          "reject_reason": "run 已取消"
+        }
+      },
+      {
+        "eventId": "ev-ce-5",
+        "sessionId": "c-code-2",
+        "seq": 5,
+        "eventType": "turn_ended",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "cancelled"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "把 let a = 1 改成 let a = 2"
+      },
+      {
+        "role": "assistant",
+        "content": "提议修改"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result code_edit] {\"ok\":false,\"awaitingConfirmation\":true,\"error\":\"Explicit confirmation is required before editing code.\",\"kind\":\"code_edit\",\"path\":\"src.rs\"}"
+      }
+    ]
+  },
+  {
+    "name": "code-edit-stale-apply-failure",
+    "fork": null,
+    "budget": 8000,
+    "events": [
+      {
+        "eventId": "ev-cs-1",
+        "sessionId": "c-code-3",
+        "seq": 1,
+        "eventType": "user_message",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "content": "确认应用那个修改"
+        }
+      },
+      {
+        "eventId": "ev-cs-2",
+        "sessionId": "c-code-3",
+        "seq": 2,
+        "eventType": "tool_call",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-cs-1",
+          "toolName": "code_write",
+          "args": {
+            "path": "src.rs",
+            "new_content": "fn main() {}\n"
+          },
+          "content": "重写文件"
+        }
+      },
+      {
+        "eventId": "ev-cs-3",
+        "sessionId": "c-code-3",
+        "seq": 3,
+        "eventType": "tool_result",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "toolCallId": "tc-cs-1",
+          "toolName": "code_write",
+          "modelText": "[tool_result code_write] {\"ok\":false,\"error\":\"file changed since the edit was proposed: src.rs — old_string now at line 4; re-read the file and retry\"}"
+        }
+      },
+      {
+        "eventId": "ev-cs-4",
+        "sessionId": "c-code-3",
+        "seq": 4,
+        "eventType": "turn_ended",
+        "createdAt": "2026-09-04T00:00:00.000Z",
+        "workspaceId": null,
+        "productId": null,
+        "projectId": null,
+        "correlationId": null,
+        "payload": {
+          "outcome": "failed"
+        }
+      }
+    ],
+    "expectedMessages": [
+      {
+        "role": "user",
+        "content": "确认应用那个修改"
+      },
+      {
+        "role": "assistant",
+        "content": "重写文件"
+      },
+      {
+        "role": "tool",
+        "content": "[tool_result code_write] {\"ok\":false,\"error\":\"file changed since the edit was proposed: src.rs — old_string now at line 4; re-read the file and retry\"}"
+      }
+    ]
+  }
+]

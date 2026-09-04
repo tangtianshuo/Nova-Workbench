@@ -331,7 +331,16 @@ pub async fn engine_run(
             );
             Ok(run_result)
         }
-        Err(LoopError::Cancelled) => Err(AppError::Cancelled),
+        Err(LoopError::Cancelled) => {
+            // 32-03 cancel cascade: pending code_edit candidates of this run's
+            // session never get a user decision — auto-reject + audit. (The
+            // plan pointed at scheduler.rs; the run settle path lives here —
+            // scheduler has no DB access. See 32-03-SUMMARY deviations.)
+            if let Ok(conn) = open_run_conn(&db) {
+                code_ops::auto_reject_pending_code_edits(&conn, &notify_session);
+            }
+            Err(AppError::Cancelled)
+        }
         Err(e) => {
             notify::notify_if_background(
                 &app_handle,
@@ -637,6 +646,50 @@ pub fn fs_apply_inner(conn: &Connection, session_id: &str, token: &str) -> Resul
         }
     };
     let tool_name = format!("fs_{}", consumed.params["operation"].as_str().unwrap_or("write"));
+    append_tool_result_inner(conn, session_id, &uuid::Uuid::new_v4().to_string(), &tool_name, ok, &payload, Some(&consumed.params))
+        .map_err(AppError::InternalError)?;
+    Ok(payload)
+}
+
+/// 32-03: confirm a code_edit candidate and execute the edit/write in Rust
+/// (engine_fs_apply precedent — zero webview dependency). Stale files fail
+/// inside apply_edit (CP-3 base_hash re-check) and settle as a failed
+/// tool_result, so the model sees the retry guidance.
+#[tauri::command]
+pub async fn engine_code_apply(
+    session_id: String,
+    token: String,
+    db: State<'_, EngineDb>,
+) -> Result<Value, AppError> {
+    with_conn(&db, |conn| code_apply_inner(conn, &session_id, &token))
+}
+
+/// Testable core of engine_code_apply.
+pub fn code_apply_inner(conn: &Connection, session_id: &str, token: &str) -> Result<Value, AppError> {
+    let candidate = confirmations::get(conn, token)
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+        .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
+    if candidate.kind != code_ops::CODE_EDIT_KIND {
+        return Err(AppError::InternalError(format!(
+            "candidate kind {} is not {}",
+            candidate.kind,
+            code_ops::CODE_EDIT_KIND
+        )));
+    }
+    confirmations::confirm(conn, token)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+    let consumed = confirmations::consume(conn, token, None)
+        .map_err(|f| AppError::InternalError(f.to_string()))?;
+
+    let outcome = code_ops::apply_edit(conn, &consumed);
+    let (ok, payload) = match outcome {
+        tools::ToolOutcome::Executed(v) => (true, v),
+        tools::ToolOutcome::Failed { message, .. } => (false, json!({ "error": message })),
+        tools::ToolOutcome::AwaitConfirmation { .. } => {
+            return Err(AppError::InternalError("code apply cannot await confirmation".into()))
+        }
+    };
+    let tool_name = format!("code_{}", consumed.params["operation"].as_str().unwrap_or("edit"));
     append_tool_result_inner(conn, session_id, &uuid::Uuid::new_v4().to_string(), &tool_name, ok, &payload, Some(&consumed.params))
         .map_err(AppError::InternalError)?;
     Ok(payload)

@@ -472,6 +472,134 @@ pub fn code_write(conn: &Connection, args: &Value, ctx: &ToolCtx<'_>) -> ToolOut
     code_candidate(conn, ctx, params, &base_hash, &format!("write {rel} ({} bytes)", new_content.len()), diff)
 }
 
+/* === Confirmed apply (pure sync core; called by engine_code_apply) === */
+
+/// Execute a consumed code_edit candidate. CP-3 stale protection: the file is
+/// RE-READ and (a) the scope lock re-resolved (TOCTOU: a junction may have
+/// appeared between proposal and apply) and (b) its sha256 compared against
+/// the proposal-time base_hash — any drift (even one that keeps old_string
+/// unique) fails with the current line number so the model can re-read and
+/// re-propose (ROADMAP SC-1).
+pub fn apply_edit(conn: &Connection, candidate: &crate::engine::confirmations::Candidate) -> ToolOutcome {
+    let p = &candidate.params;
+    let rel = p.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let root = p.get("root").and_then(|v| v.as_str()).unwrap_or("");
+    let path = match resolve_repo(Path::new(root), rel) {
+        Ok(p) => p,
+        Err(o) => return o,
+    };
+    if let Some(o) = nova_guard(conn, &path) {
+        return o;
+    }
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => return ToolOutcome::Failed { message: format!("read failed: {e}"), arg_error: false },
+    };
+    // (b) content drift check — base_hash from the proposal row.
+    if candidate.base_hash.as_deref() != Some(sha256_hex(&bytes).as_str()) {
+        let now_at = p.get("old_string")
+            .and_then(|v| v.as_str())
+            .and_then(|old| std::str::from_utf8(&bytes).ok().map(|c| match_lines(c, old)))
+            .map(|lines| match lines.first() {
+                Some(n) => format!(" — old_string now at line {n}"),
+                None => " — old_string no longer present".to_string(),
+            })
+            .unwrap_or_default();
+        return ToolOutcome::Failed {
+            message: format!("file changed since the edit was proposed: {rel}{now_at}; re-read the file and retry"),
+            arg_error: true,
+        };
+    }
+    match p.get("operation").and_then(|v| v.as_str()).unwrap_or("") {
+        "edit" => {
+            let Ok(content) = String::from_utf8(bytes) else {
+                return arg_fail("code_edit", "target file is not valid UTF-8");
+            };
+            let old_string = p.get("old_string").and_then(|v| v.as_str()).unwrap_or("");
+            let new_string = p.get("new_string").and_then(|v| v.as_str()).unwrap_or("");
+            let lines = match_lines(&content, old_string);
+            match lines.len() {
+                1 => {}
+                0 => {
+                    return ToolOutcome::Failed {
+                        message: format!(
+                            "old_string not found in {rel} — file changed since the edit was proposed; re-read the file and retry"
+                        ),
+                        arg_error: true,
+                    }
+                }
+                n => {
+                    return ToolOutcome::Failed {
+                        message: format!(
+                            "old_string found {n} times in {rel} (lines: {:?}) — include more surrounding context so it matches exactly once",
+                            lines
+                        ),
+                        arg_error: true,
+                    }
+                }
+            }
+            let replaced = content.replacen(old_string, new_string, 1);
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::write(&path, replaced) {
+                Ok(()) => ToolOutcome::Executed(json!({
+                    "operation": "edit", "path": rel, "applied": true, "line": lines[0],
+                })),
+                Err(e) => ToolOutcome::Failed { message: format!("write failed: {e}"), arg_error: false },
+            }
+        }
+        "write" => {
+            let new_content = p.get("new_content").and_then(|v| v.as_str()).unwrap_or("");
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::write(&path, new_content) {
+                Ok(()) => ToolOutcome::Executed(json!({
+                    "operation": "write", "path": rel, "applied": true, "bytes": new_content.len(),
+                })),
+                Err(e) => ToolOutcome::Failed { message: format!("write failed: {e}"), arg_error: false },
+            }
+        }
+        other => ToolOutcome::Failed { message: format!("unknown code operation: {other}"), arg_error: false },
+    }
+}
+
+/// Run-cancel cascade (32-03): every PENDING code_edit candidate of this
+/// session is auto-rejected with reject_reason「run 已取消」and audited via a
+/// `code_edit_auto_rejected` event per candidate. Returns the rejected tokens.
+pub fn auto_reject_pending_code_edits(conn: &Connection, session_id: &str) -> Vec<String> {
+    let mut rejected = Vec::new();
+    let Ok(pending) = crate::engine::confirmations::list_pending(conn, CODE_EDIT_KIND) else {
+        return rejected;
+    };
+    for c in pending {
+        if c.session_id.as_deref() != Some(session_id) {
+            continue;
+        }
+        if crate::engine::confirmations::reject(conn, &c.confirmation_token, Some("run 已取消")) {
+            let _ = crate::engine::event_log::append(
+                conn,
+                &crate::engine::event_log::EventInput {
+                    session_id: session_id.to_string(),
+                    event_type: "code_edit_auto_rejected".into(),
+                    workspace_id: None,
+                    product_id: None,
+                    project_id: None,
+                    correlation_id: Some(c.confirmation_token.clone()),
+                    payload: json!({
+                        "confirmationToken": c.confirmation_token,
+                        "path": c.params.get("path").cloned().unwrap_or(Value::Null),
+                        "reject_reason": "run 已取消",
+                    }),
+                },
+            );
+            rejected.push(c.confirmation_token);
+        }
+    }
+    rejected
+}
+
 /* === Tests: boundary trio (junction / case / nova-data-path) === */
 
 #[cfg(test)]
@@ -858,6 +986,167 @@ mod tests {
             .unwrap();
         assert_eq!(status, "rejected");
         assert_eq!(reason.as_deref(), Some("改错了变量名"));
+        fs::remove_dir_all(&repo).ok();
+    }
+    /* === 32-03: apply_edit + cancel cascade === */
+
+    fn propose_edit(conn: &Connection, repo: &Path, old: &str, new: &str) -> crate::engine::confirmations::Candidate {
+        let c = tool_ctx(Some(repo.to_path_buf()));
+        let cand = candidate_payload(edit_outcome(conn, &c, json!({"path": "src.rs", "old_string": old, "new_string": new})));
+        crate::engine::confirmations::get(conn, cand["confirmationToken"].as_str().unwrap()).unwrap().unwrap()
+    }
+
+    #[test]
+    fn apply_edit_success_replaces_exactly_once() {
+        let conn = mem_conn();
+        let repo = make_repo("apply-ok");
+        write_src(&repo);
+        let cand = propose_edit(&conn, &repo, "let a = 1;", "let a = 42;");
+        crate::engine::confirmations::confirm(&conn, &cand.confirmation_token).unwrap();
+        let consumed = crate::engine::confirmations::consume(&conn, &cand.confirmation_token, None).unwrap();
+        match apply_edit(&conn, &consumed) {
+            ToolOutcome::Executed(v) => {
+                assert_eq!(v["applied"], true);
+                assert_eq!(v["operation"], "edit");
+            }
+            other => panic!("{other:?}"),
+        }
+        let after = fs::read_to_string(repo.join("src.rs")).unwrap();
+        assert!(after.contains("let a = 42;") && !after.contains("let a = 1;"), "{after}");
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    /// CP-3 core: tamper on disk between proposal and apply — old_string still
+    /// unique, but the file drifted → Failed with current line number, file untouched.
+    #[test]
+    fn apply_edit_stale_after_tamper_fails_with_now_at_line() {
+        let conn = mem_conn();
+        let repo = make_repo("apply-stale");
+        write_src(&repo);
+        let cand = propose_edit(&conn, &repo, "let a = 1;", "let a = 2;");
+        // Tamper: prepend lines (old_string shifts to line 4, still unique).
+        fs::write(repo.join("src.rs"), "// touched\n// more\nfn main() {\n    let a = 1;\n}\n").unwrap();
+        crate::engine::confirmations::confirm(&conn, &cand.confirmation_token).unwrap();
+        let consumed = crate::engine::confirmations::consume(&conn, &cand.confirmation_token, None).unwrap();
+        match apply_edit(&conn, &consumed) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("file changed since the edit was proposed"), "{message}");
+                assert!(message.contains("now at line 4"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        // file NOT modified by the failed apply
+        let after = fs::read_to_string(repo.join("src.rs")).unwrap();
+        assert!(after.starts_with("// touched"), "{after}");
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    /// TOCTOU: a junction inside the repo appears between proposal and apply —
+    /// the apply-time resolve_repo re-run must reject it.
+    #[test]
+    fn apply_edit_toctou_junction_rejected() {
+        let conn = mem_conn();
+        let repo = make_repo("apply-toctou");
+        // Propose against a plain (non-link) path that will become a junction.
+        fs::create_dir_all(repo.join("evil")).unwrap();
+        fs::write(repo.join("evil/secret.txt"), "fn a() { let x = 1; }\n").unwrap();
+        let c = tool_ctx(Some(repo.clone()));
+        let cand = candidate_payload(edit_outcome(&conn, &c, json!({"path": "evil/secret.txt", "old_string": "let x = 1;", "new_string": "let x = 2;"})));
+        // Swap evil/ into a junction pointing OUTSIDE the repo.
+        fs::remove_dir_all(repo.join("evil")).unwrap();
+        let outside = temp_dir("toctou-outside");
+        fs::write(outside.join("secret.txt"), "fn a() { let x = 1; }\n").unwrap();
+        #[cfg(windows)]
+        {
+            let out = std::process::Command::new("cmd")
+                .args(["/c", "mklink", "/J"])
+                .arg(repo.join("evil"))
+                .arg(&outside)
+                .output()
+                .expect("mklink /J");
+            assert!(out.status.success(), "{:?}", out);
+        }
+        #[cfg(not(windows))]
+        std::os::unix::fs::symlink(&outside, repo.join("evil")).expect("symlink");
+        let token = cand["confirmationToken"].as_str().unwrap().to_string();
+        crate::engine::confirmations::confirm(&conn, &token).unwrap();
+        let consumed = crate::engine::confirmations::consume(&conn, &token, None).unwrap();
+        match apply_edit(&conn, &consumed) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("路径超出仓库范围"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&repo).ok();
+        fs::remove_dir_all(&outside).ok();
+    }
+
+    #[test]
+    fn cancel_run_auto_rejects_pending_code_edits_with_audit() {
+        let conn = mem_conn();
+        let repo = make_repo("cascade");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        let _ = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 2;"})));
+        let _ = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "fn main()", "new_string": "pub fn main()"})));
+        // another session's candidate must survive
+        let c2 = ToolCtx { session_id: "s2", product_id: None, workspace_root: None, repo_root: Some(repo.clone()), pm_writes_used: 0 };
+        let _ = candidate_payload(edit_outcome(&conn, &c2, json!({"path": "src.rs", "old_string": "}", "new_string": "} // end"})));
+
+        let rejected = auto_reject_pending_code_edits(&conn, "s1");
+        assert_eq!(rejected.len(), 2);
+        let rows: Vec<(String, Option<String>)> = conn
+            .prepare("SELECT session_id, reject_reason FROM agent_confirmation_candidates WHERE status = 'rejected'")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|(_, reason)| reason.as_deref() == Some("run 已取消")));
+        // s2's candidate still pending
+        let pending_s2: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM agent_confirmation_candidates WHERE session_id = 's2' AND status = 'pending'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pending_s2, 1);
+        // one audit event per rejected candidate
+        let audits: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM agent_events WHERE event_type = 'code_edit_auto_rejected' AND session_id = 's1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(audits, 2);
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn code_apply_inner_settles_tool_result_event() {
+        let conn = mem_conn();
+        let repo = make_repo("cmd-apply");
+        write_src(&repo);
+        let c = tool_ctx(Some(repo.clone()));
+        let cand = candidate_payload(edit_outcome(&conn, &c, json!({"path": "src.rs", "old_string": "let a = 1;", "new_string": "let a = 9;"})));
+        let payload = crate::engine::commands::code_apply_inner(&conn, "s1", cand["confirmationToken"].as_str().unwrap()).unwrap();
+        assert_eq!(payload["applied"], true);
+        // settled as a paired tool_result for the session
+        let tool: String = conn
+            .query_row(
+                "SELECT json_extract(payload_json, '$.toolName') FROM agent_events WHERE session_id = 's1' AND event_type = 'tool_result'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tool, "code_edit");
+        // consumed — second apply fails
+        assert!(crate::engine::commands::code_apply_inner(&conn, "s1", cand["confirmationToken"].as_str().unwrap()).is_err());
         fs::remove_dir_all(&repo).ok();
     }
 }

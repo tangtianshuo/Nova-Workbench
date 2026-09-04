@@ -4,6 +4,13 @@
 // Process management lives in spawn_core: tokio::process, kill_on_drop,
 // timeout, CancellationToken, line-streamed stdout/stderr via
 // EngineEvent::ToolOutput. No webview callback anywhere (TOOL-04).
+//
+// Phase 32 (32-02, CP-6) — four bypass surfaces closed:
+//   1. which-based resolution against a repo-scrubbed PATH (no PATH hijack,
+//      no bare-name shell tricks; resolved path inside the repo → Failed)
+//   2. env scrub: no *KEY*/*TOKEN*/*SECRET*/*PASSWORD* var reaches the child
+//   3. git dangerous-flag blacklist → straight Failed, never a HITL card
+//   4. binary-pair learning (`npm install` ≠ `npm publish`) per workspace
 
 use std::path::{Path, PathBuf};
 
@@ -13,7 +20,9 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use crate::engine::channel::EngineEvent;
+use crate::engine::code_ops;
 use crate::engine::confirmations;
+use crate::engine::event_log;
 use crate::engine::tools::{ToolCtx, ToolOutcome};
 
 pub const WHITELIST_KEY: &str = "agent.exec.whitelist";
@@ -24,6 +33,12 @@ pub const MAX_TIMEOUT_MS: u64 = 600_000;
 const MAX_STREAM_BYTES: usize = 64 * 1024;
 
 const EXEC_DESCRIPTION_NOTE: &str = "Explicit confirmation is required before running this command.";
+
+/// CP-6: git flags that turn a read-only-looking call into arbitrary
+/// command/transport execution. Case-insensitive arg prefix match.
+const GIT_DANGEROUS_FLAGS: [&str; 5] = ["--output", "--upload-pack", "-c", "--exec", "--exec-path"];
+/// CP-6: env var names containing any marker (uppercase compare) are stripped.
+const SECRET_ENV_MARKERS: [&str; 4] = ["KEY", "TOKEN", "SECRET", "PASSWORD"];
 
 /* === Whitelist === */
 
@@ -49,10 +64,23 @@ pub fn default_whitelist() -> Vec<WhitelistEntry> {
     vec![git(), cmd("dir"), cmd("ls"), cmd("type"), cmd("cat"), cmd("rg"), cmd("grep"), cmd("findstr"), cmd("where"), cmd("pwd")]
 }
 
-/// argv[0] normalization: lowercase, strip path + .exe suffix.
-fn normalize_command(s: &str) -> String {
+/// argv[0] normalization: lowercase, strip path + .exe/.cmd/.bat suffix.
+pub fn normalize_command(s: &str) -> String {
     let base = Path::new(s).file_name().and_then(|f| f.to_str()).unwrap_or(s).to_lowercase();
-    base.strip_suffix(".exe").unwrap_or(&base).to_string()
+    for suffix in [".exe", ".cmd", ".bat"] {
+        if let Some(stripped) = base.strip_suffix(suffix) {
+            return stripped.to_string();
+        }
+    }
+    base
+}
+
+/// CP-6: any arg prefixed (case-insensitive) by a dangerous git flag.
+fn git_dangerous_flag(args: &[String]) -> Option<&'static str> {
+    args.iter().find_map(|a| {
+        let lower = a.to_lowercase();
+        GIT_DANGEROUS_FLAGS.into_iter().find(|f| lower.starts_with(f))
+    })
 }
 
 pub fn whitelist_matches(entries: &[WhitelistEntry], command: &str, args: &[String]) -> bool {
@@ -71,12 +99,27 @@ pub fn whitelist_matches(entries: &[WhitelistEntry], command: &str, args: &[Stri
     })
 }
 
+/// Workspace-scoped whitelist key (32-02 CP-6): `agent.exec.whitelist.{wid}`
+/// from the session's workspace binding. Sessions without a workspace keep
+/// the legacy shared key, so old rows still read.
+pub fn whitelist_key_for_session(conn: &Connection, session_id: &str) -> String {
+    let wid: Option<String> = conn
+        .query_row(
+            "SELECT workspace_id FROM sessions WHERE session_id = ?1",
+            params![session_id],
+            |r| r.get(0),
+        )
+        .ok()
+        .flatten();
+    wid.map(|w| format!("{WHITELIST_KEY}.{w}")).unwrap_or_else(|| WHITELIST_KEY.to_string())
+}
+
 /// Default set + kv_store-learned entries (kv read failure → defaults only).
-pub fn merged_whitelist(conn: &Connection) -> Vec<WhitelistEntry> {
+pub fn merged_whitelist(conn: &Connection, key: &str) -> Vec<WhitelistEntry> {
     let mut all = default_whitelist();
     if let Ok(raw) = conn.query_row(
         "SELECT value FROM kv_store WHERE key = ?1",
-        params![WHITELIST_KEY],
+        params![key],
         |r| r.get::<_, String>(0),
     ) {
         if let Ok(learned) = serde_json::from_str::<Vec<WhitelistEntry>>(&raw) {
@@ -86,25 +129,38 @@ pub fn merged_whitelist(conn: &Connection) -> Vec<WhitelistEntry> {
     all
 }
 
-/// HITL learning: append a command-level entry (no subcommands) if absent.
-pub fn add_command_to_whitelist(conn: &Connection, command: &str) -> Result<(), rusqlite::Error> {
+/// HITL learning: append a command+first-arg pair (32-02 binary-pair
+/// granularity — `npm install` learned ≠ `npm publish` allowed). Commands
+/// executed with no args keep subcommands None (command-level allow).
+pub fn add_command_to_whitelist(
+    conn: &Connection,
+    key: &str,
+    command: &str,
+    first_arg: Option<&str>,
+) -> Result<(), rusqlite::Error> {
     let normalized = normalize_command(command);
+    let pair = first_arg.map(|a| vec![a.to_string()]);
     let mut learned: Vec<WhitelistEntry> = conn
         .query_row(
             "SELECT value FROM kv_store WHERE key = ?1",
-            params![WHITELIST_KEY],
+            params![key],
             |r| r.get::<_, String>(0),
         )
         .ok()
         .and_then(|raw| serde_json::from_str(&raw).ok())
         .unwrap_or_default();
-    if !learned.iter().any(|e| normalize_command(&e.command) == normalized) {
-        learned.push(WhitelistEntry { command: normalized, subcommands: None });
+    let same_pair = |e: &WhitelistEntry| match (&e.subcommands, &pair) {
+        (Some(a), Some(b)) => a.len() == b.len() && a[0].eq_ignore_ascii_case(&b[0]),
+        (None, None) => true,
+        _ => false,
+    };
+    if !learned.iter().any(|e| normalize_command(&e.command) == normalized && same_pair(e)) {
+        learned.push(WhitelistEntry { command: normalized, subcommands: pair });
     }
     conn.execute(
         "INSERT INTO kv_store (key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![WHITELIST_KEY, serde_json::to_string(&learned).unwrap_or_default()],
+        params![key, serde_json::to_string(&learned).unwrap_or_default()],
     )?;
     Ok(())
 }
@@ -122,8 +178,50 @@ pub struct CoreResult {
     pub kind: CoreOutcomeKind,
     pub ok: bool,
     pub exit_code: Option<i32>,
+    pub pid: Option<u32>,
     pub stdout: String,
     pub stderr: String,
+}
+
+/* === CP-6: resolution + env hygiene === */
+
+fn is_secret_env(name: &str) -> bool {
+    let upper = name.to_uppercase();
+    SECRET_ENV_MARKERS.iter().any(|m| upper.contains(m))
+}
+
+fn path_is_under(p: &Path, root: &Path) -> bool {
+    p.starts_with(root) || dunce::canonicalize(p).map(|c| c.starts_with(root)).unwrap_or(false)
+}
+
+/// System PATH minus entries under repo_root (PATH hijack surface removal).
+fn sanitized_path(repo_root: Option<&Path>) -> std::ffi::OsString {
+    let Some(raw) = std::env::var_os("PATH") else { return std::ffi::OsString::new() };
+    let Some(root) = repo_root else { return raw };
+    let kept: Vec<PathBuf> =
+        std::env::split_paths(&raw).filter(|p| !path_is_under(p, root)).collect();
+    std::env::join_paths(kept).unwrap_or(raw)
+}
+
+/// Resolve `command` via `which` against the (already scrubbed) PATH in cwd.
+/// The resolved absolute path landing inside repo_root → hijack refusal.
+pub fn resolve_in(
+    path: &std::ffi::OsStr,
+    command: &str,
+    cwd: &Path,
+    repo_root: Option<&Path>,
+) -> std::io::Result<PathBuf> {
+    let resolved = which::which_in(command, Some(path), cwd).map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, format!("command not found: {command}"))
+    })?;
+    if let Some(root) = repo_root {
+        if code_ops::within_repo(&resolved, root) {
+            return Err(std::io::Error::other(format!(
+                "refused: {command} resolves inside the bound repo (PATH hijack guard)"
+            )));
+        }
+    }
+    Ok(resolved)
 }
 
 /// Tree-kill the child. kill_on_drop covers the normal paths; this is the
@@ -163,6 +261,10 @@ fn push_capped(buf: &mut String, line: &str) {
 
 /// Spawn `command args` in `cwd` with no shell; stream each stdout/stderr line
 /// through on_event as EngineEvent::ToolOutput; cancel/timeout tree-kill.
+/// CP-6: `command` is resolved via which against a repo-scrubbed PATH, the
+/// child env is a secret-scrubbed copy of the parent env (PATH re-scrubbed),
+/// and `on_pid` fires synchronously right after a successful spawn (before
+/// any await — the CP-8 crash-recovery audit anchor).
 pub async fn spawn_core(
     command: &str,
     args: &[String],
@@ -170,16 +272,42 @@ pub async fn spawn_core(
     timeout_ms: u64,
     cancel: CancellationToken,
     on_event: &(dyn Fn(EngineEvent) + Send + Sync),
+    repo_root: Option<&Path>,
+    on_pid: Option<&(dyn Fn(u32) + Send + Sync)>,
 ) -> std::io::Result<CoreResult> {
     use tokio::io::{AsyncBufReadExt, BufReader};
 
-    let mut child = tokio::process::Command::new(command)
+    let path = sanitized_path(repo_root);
+    let resolved = resolve_in(&path, command, cwd, repo_root)?;
+    let mut builder = tokio::process::Command::new(&resolved);
+    builder
         .args(args)
         .current_dir(cwd)
         .kill_on_drop(true)
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()?;
+        .stderr(std::process::Stdio::piped());
+    for (k, v) in std::env::vars_os() {
+        let name = k.to_string_lossy();
+        if is_secret_env(&name) {
+            // env() adds/overrides but never clears — remove explicitly.
+            builder.env_remove(&k);
+            continue;
+        }
+        if name.eq_ignore_ascii_case("PATH") {
+            builder.env(k, &path);
+        } else {
+            builder.env(k, v);
+        }
+    }
+    let mut child = builder.spawn()?;
+    let pid = child.id();
+    {
+        // Scoped: on_pid must NOT live across the first await (keeps the
+        // future Send/Sync-free of the &Connection the loop-path closure holds).
+        if let (Some(cb), Some(pid)) = (on_pid, pid) {
+            cb(pid);
+        }
+    }
 
     let stdout = child.stdout.take().expect("piped stdout");
     let stderr = child.stderr.take().expect("piped stderr");
@@ -242,11 +370,12 @@ pub async fn spawn_core(
             kind,
             ok: status.success(),
             exit_code: status.code(),
+            pid,
             stdout: out_buf,
             stderr: err_buf,
         });
     }
-    Ok(CoreResult { kind, ok: false, exit_code: None, stdout: out_buf, stderr: err_buf })
+    Ok(CoreResult { kind, ok: false, exit_code: None, pid, stdout: out_buf, stderr: err_buf })
 }
 
 /* === exec::run (loop-facing; falls to exec_approval candidate) === */
@@ -308,11 +437,22 @@ pub async fn run(
         Err(outcome) => return outcome,
     };
 
-    if !whitelist_matches(&merged_whitelist(conn), &parsed.command, &parsed.args) {
+    // CP-6: git dangerous flags fail outright — no HITL card, no learning.
+    if normalize_command(&parsed.command) == "git" {
+        if let Some(flag) = git_dangerous_flag(&parsed.args) {
+            return ToolOutcome::Failed { message: format!("已拒绝:git 危险操作({flag})"), arg_error: false };
+        }
+    }
+
+    // 32-02 (Pitfall 8): exec cwd is the bound repo root when present; the
+    // candidate params carry the same cwd so the confirmed replay matches.
+    let cwd = ctx.repo_root.clone().unwrap_or(workspace_root);
+    let key = whitelist_key_for_session(conn, ctx.session_id);
+    if !whitelist_matches(&merged_whitelist(conn, &key), &parsed.command, &parsed.args) {
         let params = json!({
             "command": parsed.command,
             "args": parsed.args,
-            "cwd": workspace_root.to_string_lossy(),
+            "cwd": cwd.to_string_lossy(),
         });
         let summary = format!("{} {}", parsed.command, parsed.args.join(" "));
         return match confirmations::create_candidate(conn, "exec_approval", &params, Some(&summary), Some(ctx.session_id)) {
@@ -330,7 +470,45 @@ pub async fn run(
         };
     }
 
-    execute_core(&parsed.command, &parsed.args, &workspace_root, parsed.timeout_ms, cancel, on_event).await
+    // CP-8 anchor: pid lands in the session's in-flight exec tool_call payload
+    // the moment the spawn succeeds (crash-mid-exec is exactly the case it is
+    // for). The closure must be Send+Sync (spawn_core is also the Send-safe
+    // confirmed-replay seam), so it opens its own Connection from the DB path
+    // instead of capturing this &Connection (rusqlite is !Sync).
+    // ponytail: per-spawn connection open; only reached for file-backed DBs —
+    // :memory: test conns skip pid recording.
+    let db_path = conn.path().filter(|p| !p.is_empty()).map(PathBuf::from);
+    let pid_session = ctx.session_id.to_string();
+    let on_pid = move |pid: u32| {
+        let Some(path) = &db_path else { return };
+        if let Ok(c) = crate::engine::db::open(path) {
+            let _ = event_log::record_exec_pid(&c, &pid_session, pid);
+        }
+    };
+    match spawn_core(&parsed.command, &parsed.args, &cwd, parsed.timeout_ms, cancel, on_event, ctx.repo_root.as_deref(), Some(&on_pid)).await {
+        Ok(core) => core_to_outcome(core, &parsed.command, &parsed.args, parsed.timeout_ms),
+        Err(e) => ToolOutcome::Failed {
+            message: format!("spawn failed: {e}"),
+            arg_error: false,
+        },
+    }
+}
+
+/// CoreResult → ToolOutcome (shared by run and execute_core).
+fn core_to_outcome(core: CoreResult, command: &str, args: &[String], timeout_ms: u64) -> ToolOutcome {
+    match core.kind {
+        CoreOutcomeKind::Done => ToolOutcome::Executed(json!({
+            "command": command,
+            "args": args,
+            "exitCode": core.exit_code,
+            "ok": core.ok,
+            "pid": core.pid,
+            "stdout": core.stdout,
+            "stderr": core.stderr,
+        })),
+        CoreOutcomeKind::Cancelled => ToolOutcome::Failed { message: "cancelled".into(), arg_error: false },
+        CoreOutcomeKind::Timeout => ToolOutcome::Failed { message: format!("timeout after {timeout_ms}ms"), arg_error: false },
+    }
 }
 
 /// Shared execution tail (spawn_core → ToolOutcome). Also the seam the
@@ -342,20 +520,16 @@ pub async fn execute_core(
     timeout_ms: u64,
     cancel: CancellationToken,
     on_event: &(dyn Fn(EngineEvent) + Send + Sync),
+    repo_root: Option<&Path>,
 ) -> ToolOutcome {
-    match spawn_core(command, args, cwd, timeout_ms, cancel, on_event).await {
-        Ok(core) => match core.kind {
-            CoreOutcomeKind::Done => ToolOutcome::Executed(json!({
-                "command": command,
-                "args": args,
-                "exitCode": core.exit_code,
-                "ok": core.ok,
-                "stdout": core.stdout,
-                "stderr": core.stderr,
-            })),
-            CoreOutcomeKind::Cancelled => ToolOutcome::Failed { message: "cancelled".into(), arg_error: false },
-            CoreOutcomeKind::Timeout => ToolOutcome::Failed { message: format!("timeout after {timeout_ms}ms"), arg_error: false },
-        },
+    // CP-6 blacklist re-check: covers the confirmed-replay seam too.
+    if normalize_command(command) == "git" {
+        if let Some(flag) = git_dangerous_flag(args) {
+            return ToolOutcome::Failed { message: format!("已拒绝:git 危险操作({flag})"), arg_error: false };
+        }
+    }
+    match spawn_core(command, args, cwd, timeout_ms, cancel, on_event, repo_root, None).await {
+        Ok(core) => core_to_outcome(core, command, args, timeout_ms),
         Err(e) => ToolOutcome::Failed {
             // Matching a whitelist entry ≠ the binary exists; spawn errors go
             // straight back to the model (documented, non-defect).
@@ -420,20 +594,132 @@ mod tests {
     #[test]
     fn learned_whitelist_persists_and_dedups() {
         let conn = mem_conn();
-        add_command_to_whitelist(&conn, "npm").unwrap();
-        add_command_to_whitelist(&conn, "NPM.EXE").unwrap(); // dedup
-        add_command_to_whitelist(&conn, "cargo").unwrap();
-        let merged = merged_whitelist(&conn);
+        add_command_to_whitelist(&conn, WHITELIST_KEY, "npm", None).unwrap();
+        add_command_to_whitelist(&conn, WHITELIST_KEY, "NPM.EXE", None).unwrap(); // dedup
+        add_command_to_whitelist(&conn, WHITELIST_KEY, "cargo", None).unwrap();
+        let merged = merged_whitelist(&conn, WHITELIST_KEY);
         assert!(whitelist_matches(&merged, "npm", &["test".to_string()]));
         assert!(whitelist_matches(&merged, "cargo", &["build".to_string()]));
         assert!(!whitelist_matches(&merged, "rm", &[]));
     }
 
     #[test]
+    fn learned_pair_scopes_first_arg() {
+        let conn = mem_conn();
+        add_command_to_whitelist(&conn, WHITELIST_KEY, "npm", Some("install")).unwrap();
+        let merged = merged_whitelist(&conn, WHITELIST_KEY);
+        assert!(whitelist_matches(&merged, "npm", &["install".to_string()]), "learned pair allowed");
+        assert!(
+            !whitelist_matches(&merged, "npm", &["publish".to_string()]),
+            "same command, different first arg still escalates"
+        );
+        assert!(!whitelist_matches(&merged, "npm", &[]), "bare npm not covered by the pair");
+    }
+
+    #[test]
+    fn whitelist_key_is_workspace_scoped() {
+        let conn = mem_conn();
+        event_log::upsert_session(&conn, "s1", Some("w9"), None, None, None, None).unwrap();
+        assert_eq!(whitelist_key_for_session(&conn, "s1"), "agent.exec.whitelist.w9");
+        assert_eq!(whitelist_key_for_session(&conn, "missing"), WHITELIST_KEY);
+    }
+
+    #[test]
+    fn normalize_command_strips_cmd_and_bat() {
+        assert_eq!(normalize_command("npm.cmd"), "npm");
+        assert_eq!(normalize_command("NPM.CMD"), "npm");
+        assert_eq!(normalize_command("C:\\x\\GIT.EXE"), "git");
+        assert_eq!(normalize_command("run.bat"), "run");
+        assert_eq!(normalize_command("cargo"), "cargo");
+    }
+
+    #[test]
+    fn git_dangerous_flags_fail_without_candidate() {
+        let conn = mem_conn();
+        for args in [
+            vec!["-c", "core.editor=evil"],
+            vec!["--upload-pack", "x"],
+            vec!["log", "--output=/tmp/x"],
+        ] {
+            let args: Vec<String> = args.into_iter().map(String::from).collect();
+            match rt().block_on(run(
+                &conn,
+                &json!({"command": "git", "args": args}),
+                &ctx(Some(tmp_root())),
+                CancellationToken::new(),
+                &noop(),
+            )) {
+                ToolOutcome::Failed { message, .. } => {
+                    assert!(message.contains("已拒绝"), "{message}");
+                }
+                other => panic!("expected Failed for dangerous git args, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn spawned_env_has_no_secret_marker_vars() {
+        std::env::set_var("NOVA_TEST_API_KEY", "leak");
+        std::env::set_var("NOVA_TEST_TOKEN", "leak");
+        std::env::set_var("NOVA_TEST_PASSWORD", "leak");
+        let (cmd, args): (&str, Vec<String>) = if cfg!(windows) {
+            ("cmd", vec!["/c".into(), "set".into()]) // test-only env echo
+        } else {
+            ("env", vec![])
+        };
+        let outcome = rt().block_on(execute_core(
+            cmd,
+            &args,
+            &tmp_root(),
+            15_000,
+            CancellationToken::new(),
+            &noop(),
+            None,
+        ));
+        match outcome {
+            ToolOutcome::Executed(v) => {
+                let out = format!("{}{}", v["stdout"].as_str().unwrap_or(""), v["stderr"].as_str().unwrap_or(""));
+                assert!(out.contains("PATH"), "env echo ran: {out}");
+                assert!(!out.contains("NOVA_TEST_API_KEY"), "KEY var leaked: {out}");
+                assert!(!out.contains("NOVA_TEST_TOKEN"), "TOKEN var leaked: {out}");
+                assert!(!out.contains("NOVA_TEST_PASSWORD"), "PASSWORD var leaked: {out}");
+            }
+            other => panic!("expected Executed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn resolve_refuses_repo_path_hijack() {
+        let repo = std::env::temp_dir().join(format!("nova-hijack-{}", std::process::id()));
+        let bin = repo.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::write(bin.join("npm.cmd"), "@echo fake").unwrap();
+        // PATH with the repo bin FIRST — which would resolve the fake npm.
+        let raw = std::env::var_os("PATH").unwrap();
+        let path = std::env::join_paths(
+            std::iter::once(bin.clone().into()).chain(std::env::split_paths(&raw)),
+        )
+        .unwrap();
+        let err = resolve_in(&path, "npm.cmd", &std::env::temp_dir(), Some(&repo)).unwrap_err();
+        assert!(err.to_string().contains("refused"), "{err}");
+        // No repo binding → the same PATH is fine for names outside the repo.
+        assert!(resolve_in(&path, "ping", &std::env::temp_dir(), None).is_ok());
+        std::fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn resolve_missing_command_is_not_found() {
+        let path = std::env::var_os("PATH").unwrap();
+        let err = resolve_in(&path, "definitely-not-a-command-xyz", &std::env::temp_dir(), None).unwrap_err();
+        assert!(err.to_string().contains("command not found"), "{err}");
+    }
+
+    #[test]
     fn run_whitelist_hit_executes() {
         let conn = mem_conn();
         let (cmd, args) = echo_pair();
-        add_command_to_whitelist(&conn, cmd).unwrap();
+        add_command_to_whitelist(&conn, WHITELIST_KEY, cmd, None).unwrap();
         let outcome = rt().block_on(run(
             &conn,
             &json!({"command": cmd, "args": args}),
@@ -518,6 +804,7 @@ mod tests {
             DEFAULT_TIMEOUT_MS,
             cancel,
             &noop(),
+            None,
         ));
         match outcome {
             ToolOutcome::Failed { message, .. } => assert_eq!(message, "cancelled"),
@@ -528,7 +815,7 @@ mod tests {
     #[test]
     fn spawn_timeout_fires() {
         let (cmd, args) = sleep_pair();
-        let outcome = rt().block_on(execute_core(cmd, &args, &tmp_root(), 300, CancellationToken::new(), &noop()));
+        let outcome = rt().block_on(execute_core(cmd, &args, &tmp_root(), 300, CancellationToken::new(), &noop(), None));
         match outcome {
             ToolOutcome::Failed { message, .. } => assert!(message.starts_with("timeout after"), "{message}"),
             other => panic!("expected Failed(timeout), got {other:?}"),
@@ -547,7 +834,7 @@ mod tests {
                 }
             }
         };
-        let outcome = rt().block_on(execute_core(cmd, &args, &tmp_root(), 10_000, CancellationToken::new(), &on_event));
+        let outcome = rt().block_on(execute_core(cmd, &args, &tmp_root(), 10_000, CancellationToken::new(), &on_event, None));
         assert!(matches!(outcome, ToolOutcome::Executed(_)));
         let w = wires.lock().unwrap();
         assert!(w.iter().any(|e| e["kind"] == "tool_output" && e["data"]["name"] == "exec"), "{w:?}");

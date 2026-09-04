@@ -885,7 +885,16 @@ mod tests {
         } else {
             ("echo", vec!["loopok".into()])
         };
-        crate::engine::exec::add_command_to_whitelist(&conn, command).unwrap();
+        // 32-02: session s1 carries workspace w1 → workspace-scoped kv key.
+        // Pre-upsert so the key resolution matches the post-upsert loop read.
+        event_log::upsert_session(&conn, "s1", Some("w1"), None, None, None, None).unwrap();
+        crate::engine::exec::add_command_to_whitelist(
+            &conn,
+            &crate::engine::exec::whitelist_key_for_session(&conn, "s1"),
+            command,
+            None,
+        )
+        .unwrap();
         let llm = FakeLlm::new(vec![
             LlmTurn {
                 content: String::new(),

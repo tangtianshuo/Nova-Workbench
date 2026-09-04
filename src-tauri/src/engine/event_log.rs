@@ -190,6 +190,26 @@ pub fn upsert_session(
     Ok(())
 }
 
+/* === CP-8: exec pid anchor (32-02) === */
+
+/// Merge `pid` into the payload of the session's latest exec tool_call —
+/// the sole-writer UPDATE seam exec.rs uses right after a successful spawn.
+/// Per-session tools are sequential (streaming single-writer guard), so
+/// "latest exec tool_call" is the in-flight one. Best-effort: 0 rows updated
+/// is fine (webview-initiated confirmed replay appends no prior tool_call).
+pub fn record_exec_pid(conn: &Connection, session_id: &str, pid: u32) -> Result<()> {
+    conn.execute(
+        "UPDATE agent_events SET payload_json = json_set(payload_json, '$.pid', ?1)
+         WHERE event_id = (
+           SELECT event_id FROM agent_events
+           WHERE session_id = ?2 AND event_type = 'tool_call'
+             AND json_extract(payload_json, '$.toolName') = 'exec'
+           ORDER BY seq DESC LIMIT 1)",
+        params![pid, session_id],
+    )?;
+    Ok(())
+}
+
 /* === artifacts (eventStore.ts:229-255) === */
 
 pub fn save_artifact(conn: &Connection, artifact: &AgentArtifact) -> Result<()> {

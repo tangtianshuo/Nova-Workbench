@@ -446,10 +446,10 @@ pub async fn engine_exec_confirmed(
     let conn = open_run_conn(&db)?;
     // Sync prelude/settle around the await: &Connection is !Send, so it must
     // not live across the subprocess await.
-    let prepared = exec_confirmed_prepare(&conn, &token, allow_permanently);
+    let prepared = exec_confirmed_prepare(&conn, &session_id, &token, allow_permanently);
     let result = match prepared {
-        Ok((command, args, cwd, params)) => {
-            let outcome = exec::execute_core(&command, &args, &cwd, exec::DEFAULT_TIMEOUT_MS, CancellationToken::new(), &|_| {}).await;
+        Ok((command, args, cwd, params, repo_root)) => {
+            let outcome = exec::execute_core(&command, &args, &cwd, exec::DEFAULT_TIMEOUT_MS, CancellationToken::new(), &|_| {}, repo_root.as_deref()).await;
             exec_confirmed_settle(&conn, &session_id, &params, outcome)
         }
         Err(e) => Err(e),
@@ -457,13 +457,15 @@ pub async fn engine_exec_confirmed(
     result
 }
 
-/// Sync half 1: confirm+consume the candidate, learn the whitelist entry,
-/// extract owned (command, args, cwd, params).
+/// Sync half 1: confirm+consume the candidate, learn the whitelist entry
+/// (32-02: command+first-arg binary pair, workspace-scoped kv key),
+/// extract owned (command, args, cwd, params, repo_root).
 fn exec_confirmed_prepare(
     conn: &Connection,
+    session_id: &str,
     token: &str,
     allow_permanently: bool,
-) -> Result<(String, Vec<String>, std::path::PathBuf, Value), AppError> {
+) -> Result<(String, Vec<String>, std::path::PathBuf, Value, Option<std::path::PathBuf>), AppError> {
     let candidate = confirmations::get(conn, token)
         .map_err(|e| AppError::InternalError(e.to_string()))?
         .ok_or_else(|| AppError::InternalError("confirmation candidate not found".into()))?;
@@ -491,10 +493,22 @@ fn exec_confirmed_prepare(
         .unwrap_or_else(std::env::temp_dir);
 
     if allow_permanently && !command.is_empty() {
-        exec::add_command_to_whitelist(conn, &command)
+        let key = exec::whitelist_key_for_session(conn, session_id);
+        exec::add_command_to_whitelist(conn, &key, &command, args.first().map(|s| s.as_str()))
             .map_err(|e| AppError::InternalError(e.to_string()))?;
     }
-    Ok((command, args, cwd, consumed.params))
+    // 32-02: PATH-hijack guard scope for the replay — same repo root the
+    // candidate's cwd was stamped from (Pitfall 8 same-source replay).
+    let wid: Option<String> = conn
+        .query_row(
+            "SELECT workspace_id FROM sessions WHERE session_id = ?1",
+            rusqlite::params![session_id],
+            |r| r.get(0),
+        )
+        .ok()
+        .flatten();
+    let repo_root = wid.as_deref().and_then(|w| code_ops::get_repo_root(conn, w));
+    Ok((command, args, cwd, consumed.params, repo_root))
 }
 
 /// Sync half 2: settle the execution via append_tool_result_inner.
@@ -531,17 +545,19 @@ pub async fn exec_confirmed_inner(
     token: &str,
     allow_permanently: bool,
 ) -> Result<Value, AppError> {
-    let (command, args, cwd, params) = exec_confirmed_prepare(conn, token, allow_permanently)?;
-    let outcome = exec::execute_core(&command, &args, &cwd, exec::DEFAULT_TIMEOUT_MS, CancellationToken::new(), &|_| {}).await;
+    let (command, args, cwd, params, repo_root) = exec_confirmed_prepare(conn, session_id, token, allow_permanently)?;
+    let outcome = exec::execute_core(&command, &args, &cwd, exec::DEFAULT_TIMEOUT_MS, CancellationToken::new(), &|_| {}, repo_root.as_deref()).await;
     exec_confirmed_settle(conn, session_id, &params, outcome)
 }
 
 /// Standalone whitelist learning (backup path; the main path is
-/// engine_exec_confirmed allow_permanently=true).
+/// engine_exec_confirmed allow_permanently=true). Legacy shared key —
+/// no session context on this command's signature (32-02 note).
 #[tauri::command]
 pub async fn engine_whitelist_add(command: String, db: State<'_, EngineDb>) -> Result<(), AppError> {
     with_conn(&db, |conn| {
-        exec::add_command_to_whitelist(conn, &command).map_err(|e| AppError::InternalError(e.to_string()))
+        exec::add_command_to_whitelist(conn, exec::WHITELIST_KEY, &command, None)
+            .map_err(|e| AppError::InternalError(e.to_string()))
     })
 }
 
@@ -1322,7 +1338,7 @@ mod tests {
 
         // Learned permanently into kv_store
         assert!(crate::engine::exec::whitelist_matches(
-            &crate::engine::exec::merged_whitelist(&conn),
+            &crate::engine::exec::merged_whitelist(&conn, crate::engine::exec::WHITELIST_KEY),
             command,
             &args,
         ));

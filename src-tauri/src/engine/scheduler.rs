@@ -432,7 +432,7 @@ mod tests {
         let db = file_conn("cancel_chain_running");
         let db_path = std::path::PathBuf::from(db.path().expect("file-backed").to_string());
         let (sleep_cmd, sleep_args) = sleep_pair();
-        exec::add_command_to_whitelist(&db, sleep_cmd).unwrap();
+        exec::add_command_to_whitelist(&db, exec::WHITELIST_KEY, sleep_cmd, None).unwrap();
         let state = AppState::new();
         let sched = Scheduler::new();
 

@@ -195,6 +195,64 @@ html, body {
   padding: 1px 4px;
 }
 .milkdown-editor pre code { background: transparent; padding: 0; }
+/* --- codeBlock NodeView (31-09): Nova tokens, no prism/theme CSS imports (D-01) --- */
+.milkdown-editor .milkdown-code-block {
+  background: hsl(var(--bg-secondary));
+  border: 1px solid hsl(var(--border-secondary));
+  border-radius: var(--radius-md);
+  margin: 0.5em 0;
+  overflow: hidden;
+}
+.milkdown-editor .milkdown-code-block pre {
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+}
+.milkdown-editor .milkdown-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid hsl(var(--border-secondary));
+}
+.milkdown-editor .milkdown-code-bar-text {
+  color: hsl(var(--text-tertiary));
+  font-size: 12px;
+}
+.milkdown-editor .milkdown-code-lang {
+  background: hsl(var(--bg-tertiary));
+  color: hsl(var(--text-primary));
+  font-size: 12px;
+  border: 1px solid hsl(var(--border-subtle));
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.milkdown-editor .milkdown-code-lang:disabled { opacity: 0.5; cursor: default; }
+/* prism token colors — semantic tokens only */
+.milkdown-editor .token.comment,
+.milkdown-editor .token.prolog,
+.milkdown-editor .token.doctype,
+.milkdown-editor .token.cdata { color: hsl(var(--text-tertiary)); }
+.milkdown-editor .token.punctuation { color: hsl(var(--text-secondary)); }
+.milkdown-editor .token.keyword,
+.milkdown-editor .token.tag,
+.milkdown-editor .token.selector,
+.milkdown-editor .token.important,
+.milkdown-editor .token.atrule { color: hsl(var(--color-danger, 350 70% 55%)); }
+.milkdown-editor .token.string,
+.milkdown-editor .token.char,
+.milkdown-editor .token.attr-value { color: hsl(var(--color-success, 140 60% 45%)); }
+.milkdown-editor .token.function,
+.milkdown-editor .token.class-name { color: hsl(var(--accent)); }
+.milkdown-editor .token.number,
+.milkdown-editor .token.boolean,
+.milkdown-editor .token.constant,
+.milkdown-editor .token.symbol { color: hsl(var(--color-warning, 40 90% 50%)); }
+.milkdown-editor .token.property,
+.milkdown-editor .token.attr-name,
+.milkdown-editor .token.operator,
+.milkdown-editor .token.entity { color: hsl(var(--text-primary)); }
 .milkdown-editor blockquote {
   border-left: 2px solid hsl(var(--border-secondary));
   padding-left: 12px;

@@ -8,12 +8,24 @@ import '@milkdown/kit/prose/view/style/prosemirror.css';
 import '@milkdown/kit/prose/gapcursor/style/gapcursor.css';
 import '@milkdown/kit/prose/tables/style/tables.css';
 import { Editor, rootCtx, editorViewOptionsCtx } from '@milkdown/kit/core';
-import { commonmark } from '@milkdown/kit/preset/commonmark';
+import { commonmark, codeBlockSchema } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
-import { $prose, replaceAll, getMarkdown } from '@milkdown/kit/utils';
+import { $prose, $view, replaceAll, getMarkdown } from '@milkdown/kit/utils';
+import type { NodeView } from '@milkdown/kit/prose/view';
+import type { Node as ProseNode } from '@milkdown/kit/prose/model';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-yaml';
+// javascript/css/markup ship with prismjs core; typescript depends on javascript.
 import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
 import { Plugin } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
@@ -150,6 +162,68 @@ function placeholderPlugin(text: string) {
   );
 }
 
+/* --- codeBlock NodeView (31-09 gap #3) ---
+   $view override on code_block: native select for language + prismjs highlight.
+   Pure DOM (no React) — ProseMirror owns the NodeView lifecycle (D-01: no
+   @milkdown/components which are Vue-only in 7.22.1, no theme CSS).
+   ponytail: fixed LANGS list; auto-detect from fence info string is not worth
+   the guess-heuristics — add entries here when users hit a missing language. */
+const LANGS = [
+  'plain', 'typescript', 'javascript', 'json', 'bash', 'rust',
+  'python', 'markdown', 'sql', 'yaml', 'xml', 'css',
+];
+
+const codeBlockView = $view(codeBlockSchema.node, () => (node, view, getPos) => {
+  const dom = document.createElement('div');
+  dom.className = 'milkdown-code-block';
+  const bar = document.createElement('div');
+  bar.className = 'milkdown-code-bar';
+  const barText = document.createElement('span');
+  barText.className = 'milkdown-code-bar-text';
+  barText.textContent = '代码';
+  const select = document.createElement('select');
+  select.className = 'milkdown-code-lang';
+  select.disabled = !view.editable;
+  for (const l of LANGS) {
+    const o = document.createElement('option');
+    o.value = l;
+    o.textContent = l;
+    select.appendChild(o);
+  }
+  select.value = String(node.attrs.language || 'plain');
+  select.addEventListener('mousedown', (e) => e.stopPropagation());
+  select.addEventListener('change', () => {
+    const pos = typeof getPos === 'function' ? getPos() : undefined;
+    if (typeof pos !== 'number') return;
+    const language = select.value === 'plain' ? '' : select.value;
+    view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, language }));
+  });
+  bar.append(barText, select);
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  code.className = 'milkdown-code-content';
+  pre.appendChild(code);
+  dom.append(bar, pre);
+
+  const highlight = (n: ProseNode) => {
+    code.textContent = n.textContent;
+    const lang = String(n.attrs.language || '');
+    code.className = 'milkdown-code-content' + (lang ? ` language-${lang}` : '');
+    if (lang && Prism.languages[lang]) Prism.highlightElement(code);
+  };
+  highlight(node);
+
+  return {
+    dom,
+    update: (n: ProseNode) => {
+      if (n.type.name !== 'code_block') return false;
+      node = n;
+      highlight(n);
+      return true;
+    },
+  } satisfies NodeView;
+});
+
 /* --- editor core (must be inside MilkdownProvider) --- */
 interface EditorCoreProps extends MarkdownEditorProps {
   handleRef: RefObject<MarkdownEditorHandle | null>;
@@ -184,7 +258,8 @@ function EditorCore({ value, onChange, readOnly = false, placeholder, handleRef 
         .use(history)
         .use(listener)
         .use(clipboard)
-        .use(livePreviewPlugin()),
+        .use(livePreviewPlugin())
+        .use(codeBlockView),
     // ponytail: rebuild only on readOnly/placeholder toggle; onChange rides a ref
     // (research Pattern 1: useEditor deps change = destroy + recreate editor).
     [readOnly, placeholder],

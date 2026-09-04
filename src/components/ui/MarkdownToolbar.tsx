@@ -13,7 +13,14 @@ import {
   createCodeBlockCommand,
   toggleLinkCommand,
 } from '@milkdown/kit/preset/commonmark';
-import { insertTableCommand, toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
+import {
+  insertTableCommand,
+  toggleStrikethroughCommand,
+  addRowBeforeCommand,
+  addRowAfterCommand,
+  addColBeforeCommand,
+  addColAfterCommand,
+} from '@milkdown/kit/preset/gfm';
 import { callCommand } from '@milkdown/kit/utils';
 import type { CmdKey } from '@milkdown/core';
 import { useInstance } from '@milkdown/react';
@@ -146,6 +153,18 @@ export function MarkdownToolbar() {
       </ToolbarButton>
       <ToolbarButton label="表格 (3x3)" onClick={runCmd(insertTableCommand.key, { row: 3, col: 3 })}>
         <Table size={14} weight="duotone" />
+      </ToolbarButton>
+      <ToolbarButton label="上方插行" onClick={runCmd(addRowBeforeCommand.key)}>
+        <span className="text-[11px] font-semibold leading-none">行↑</span>
+      </ToolbarButton>
+      <ToolbarButton label="下方插行" onClick={runCmd(addRowAfterCommand.key)}>
+        <span className="text-[11px] font-semibold leading-none">行↓</span>
+      </ToolbarButton>
+      <ToolbarButton label="左侧插列" onClick={runCmd(addColBeforeCommand.key)}>
+        <span className="text-[11px] font-semibold leading-none">列←</span>
+      </ToolbarButton>
+      <ToolbarButton label="右侧插列" onClick={runCmd(addColAfterCommand.key)}>
+        <span className="text-[11px] font-semibold leading-none">列→</span>
       </ToolbarButton>
     </div>
   );

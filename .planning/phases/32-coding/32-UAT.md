@@ -3,7 +3,7 @@ status: diagnosed
 phase: 32-coding
 source: [32-01-SUMMARY.md, 32-02-SUMMARY.md, 32-03-SUMMARY.md, 32-04-SUMMARY.md, 32-05-SUMMARY.md]
 started: 2026-09-07T09:45:00+08:00
-updated: 2026-09-07T10:25:00+08:00
+updated: 2026-09-07T11:30:00+08:00
 ---
 
 ## Current Test
@@ -37,7 +37,9 @@ result: [pending]
 
 ### 6. exec 三选卡 + 尾部输出
 expected: 让 agent 跑首遇命令(如 `npm --version`)。exec 卡三按钮:允许一次(primary)/总是允许(secondary,tooltip 记住此命令仅当前工作区)/拒绝(danger),命令+首参数学习粒度 chip 高亮;允许后 TabRunPanel「输出(尾部 N 行)」mono 区实时显示;「总是允许」后同命令再跑不再弹卡
-result: [pending]
+result: issue
+reported: "HITL 的确认卡在点击确认后,后续就无输出了。问「当前repo 的位置在哪儿?」→ fs_list 失败 → exec(git rev-parse --show-toplevel) 已完成并返回 D:/Projects/Nova/nova-pm-workspace → 确认执行后 run 不再继续,无后续输出/最终回答"
+severity: blocker
 
 ### 7. 篡改场景(CP-3 stale 重校验)
 expected: diff 卡 pending 期间手动编辑目标文件(如用编辑器改一行),再点「应用改动」。卡片报 stale 错误:file changed since the edit was proposed ... now at line {N};文件不被错误覆盖,agent 可 re-read 重试
@@ -86,3 +88,13 @@ blocked: 0
     - "resolve_code_target 改 user_specified_root > repo_root > workspace_root 兜底;裁定 code_read/grep 是否仍强制 repo 绑定"
     - "detect 向上找 .git 静默逃逸的提示或限制(repo_root ≠ workspace 路径时 UI 可见)"
   debug_session: .planning/debug/workspace-repo-product-binding.md
+
+- truth: "exec 确认卡点击确认后,命令执行成功落 tool_result,run 续跑下一轮 LLM 并给出最终回答"
+  status: failed
+  reason: "User reported: HITL 的确认卡在点击确认后,后续就无输出了。exec git rev-parse --show-toplevel 已完成并返回结果,但 run 不再继续,无后续输出/最终回答。同 run 内 fs_list 先失败。"
+  severity: blocker
+  test: 6
+  root_cause: ""
+  artifacts: []
+  missing: []
+  debug_session: ""

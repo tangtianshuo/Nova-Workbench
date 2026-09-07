@@ -3,8 +3,6 @@
 // load → sanity SELECT → version check → has_seeded gate → seed → flip flag.
 import { lazySqlite } from './lazySqlite';
 
-export const APP_SCHEMA_VERSION = 14;
-
 interface MetaRow {
   value: string;
 }
@@ -33,15 +31,18 @@ export async function initializeDatabase(): Promise<void> {
     );
   }
 
-  // Step 4 (D-04): schema_version guard (refuse to start on too-new DB)
+  // Step 4 (260907-D94): schema_version guard. Expected version comes from the
+  // Rust migration registry (invoke) — the registry is the ONLY source of truth.
+  const { invoke } = await import('@tauri-apps/api/core');
+  const appMaxVersion = await invoke<number>('max_schema_version');
   const versionRows = await db.select<MetaRow[]>(
     'SELECT value FROM meta WHERE key = $1',
     ['schema_version'],
   );
   const dbVersion = parseInt(versionRows[0]?.value ?? '0', 10);
-  if (dbVersion > APP_SCHEMA_VERSION) {
+  if (dbVersion > appMaxVersion) {
     throw new Error(
-      `[initializeDatabase] DB schema_version (${dbVersion}) is newer than app expected (${APP_SCHEMA_VERSION}). ` +
+      `[initializeDatabase] DB schema_version (${dbVersion}) is newer than app expected (${appMaxVersion}). ` +
         'Refusing to start — upgrade the app.',
     );
   }

@@ -146,6 +146,14 @@ fn get_gnome_color_scheme() -> Option<String> {
     None
 }
 
+// 260907-D94: single source of truth for the schema_version guard.
+// Derived from the registry — NEVER a literal (a literal re-creates the
+// dual-source bug this command exists to fix).
+#[tauri::command]
+fn max_schema_version() -> i64 {
+    sql_migrations().iter().map(|m| m.version).max().unwrap_or(0)
+}
+
 // 27-04: registry completeness — Rust unit tests run migrations by scanning the
 // directory (db.rs testing::run_migrations), but production registers them here.
 // If these two paths diverge, tests stay green while real devices are missing
@@ -193,6 +201,12 @@ mod migration_registry_tests {
             "max registered version must equal max file prefix"
         );
     }
+
+    #[test]
+    fn max_schema_version_matches_registry_max() {
+        // 260907-D94: bump with each migration — fails loudly if derivation breaks
+        assert_eq!(max_schema_version(), 16);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -209,6 +223,7 @@ pub fn run() {
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             get_gnome_color_scheme,
+            max_schema_version,
             commands::generate_project,
             commands::cancel_generate_project,
             commands::has_api_key,

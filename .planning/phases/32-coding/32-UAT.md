@@ -9,7 +9,7 @@ updated: 2026-09-07T11:30:00+08:00
 ## Current Test
 <!-- OVERWRITE each test - shows where we are -->
 
-[testing paused — 6 items outstanding, fixing Gap test#3 first per user request]
+[32-07 已合并(16baa7a):HITL 续跑修复 — 真机重测 test#4/#5/#6 中]
 
 ## Tests
 

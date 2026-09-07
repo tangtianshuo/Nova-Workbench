@@ -338,6 +338,8 @@ interface ChatConsoleState {
   startNewSession: () => { success: boolean; reason?: string };
   switchSession: (sessionId: string) => Promise<{ success: boolean; reason?: string }>;
   submit: (event?: { preventDefault?: () => void }) => Promise<void>;
+  /** 32-07: HITL settle 后自动续跑(engineRun resume 模式)。 */
+  resumeAfterSettle: () => Promise<void>;
   /** 24-05 SCHED-04: cancel the active session's in-flight run (engine_cancel).
    * cancel fn injectable for tests (defaults to engineCancel). */
   cancelRun: (sessionId?: string, cancel?: (runId: string) => Promise<void>) => Promise<void>;
@@ -530,6 +532,206 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
     }
   };
 
+  // 32-07 — shared engine turn (submit 与 HITL settle 后的 resumeAfterSettle
+  // 共用一条路径):engineRun + onEvent 投影 + finally 清理。resume 模式不落
+  // user_message,标题生成跳过(会话已命名)。
+  const runEngineTurn = async (opts: { userMessage: string; resume?: boolean }) => {
+    const provider = useUIStore.getState().activeAIProvider;
+    try {
+      // Phase 25: Rust engine_run is the sole agent runtime (engine_run +
+      // Channel<EngineEvent>) — the TS loop was deleted at migration closeout.
+      let engineKnowledgeCandidate: KnowledgeWriteCandidate | null = null;
+      let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
+      let engineExecCandidate: ExecApprovalCandidate | null = null;
+      let engineFsCandidate: FsWriteCandidate | null = null;
+      let enginePmCandidate: PmWriteCandidate | null = null;
+      const toFsWriteCandidate = (candidate: EnginePendingCandidate): FsWriteCandidate => ({
+        confirmationToken: candidate.confirmationToken,
+        operation: (['write', 'mkdir', 'delete', 'move'] as const).includes(
+          candidate.args?.operation as FsWriteCandidate['operation'],
+        )
+          ? (candidate.args?.operation as FsWriteCandidate['operation'])
+          : 'write',
+        path: String(candidate.args?.path ?? candidate.args?.src ?? ''),
+        content: typeof candidate.args?.content === 'string' ? candidate.args.content : undefined,
+        summary: String(candidate.summary ?? ''),
+      });
+      // 24-02 tray run-list title: session title when named, else message prefix.
+      const sessionId = sessionRef.current.sessionId;
+      let sessionTitle: string;
+      try {
+        sessionTitle = (await getSessionRepo().getSession(sessionId))?.title || opts.userMessage.slice(0, 24);
+      } catch {
+        sessionTitle = opts.userMessage.slice(0, 24);
+      }
+      const runId = crypto.randomUUID();
+      set({ activeRunId: runId });
+      const result = await engineRun({
+        runId,
+        userMessage: opts.userMessage,
+        sessionId,
+        sessionTitle,
+        provider,
+        resume: opts.resume,
+        ollamaModel: provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
+        workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+        workspaceRoot: (() => {
+          const ws = useWorkspaceStore.getState();
+          return ws.workspaces.find((w) => w.id === ws.activeWorkspaceId)?.folderPath ?? null;
+        })(),
+        productId: useUIStore.getState().selectedProductId,
+        coreContext: buildCoreContext(),
+        onEvent: (msg) => {
+          // 24-01 scheduler lifecycle: queued → (slot frees) → running.
+          if (msg.kind === 'run_status' && msg.data?.status) {
+            if (msg.data.status === 'queued') {
+              set({ isQueued: true });
+            } else if (msg.data.status === 'running') {
+              set({ isQueued: false });
+            }
+            return;
+          }
+          if (msg.kind === 'token' && msg.data?.text) {
+            streamingResponseRef += msg.data.text;
+            set((current) => ({ streamingResponse: current.streamingResponse + msg.data!.text }));
+            return;
+          }
+          if (msg.kind === 'tool_start' && msg.data?.name) {
+            const name = msg.data.name;
+            updateTrace((current) => [
+              ...current,
+              { id: nextId++, name, status: 'running' },
+            ]);
+            return;
+          }
+          if (msg.kind === 'tool_end' && msg.data?.name) {
+            const name = msg.data.name;
+            const failed = msg.data.ok === false;
+            updateTrace((current) => {
+              const next = [...current];
+              for (let index = next.length - 1; index >= 0; index -= 1) {
+                if (next[index].name === name && next[index].status === 'running') {
+                  next[index] = { ...next[index], status: failed ? 'error' : 'ok' };
+                  break;
+                }
+              }
+              return next;
+            });
+            if (name === 'memory_write') void refreshMemoryCards();
+            // Phase 29 (29-04): PM 写已落库(tool_end 在写后触发),拉全表刷新视图。
+            // ponytail: 全表 refresh,增量投影当任务量真的大再做。
+            if (name.startsWith('task_')) void useTaskStore.getState().refreshFromSql();
+            else if (name.startsWith('schedule_')) void useScheduleStore.getState().refreshFromSql();
+            return;
+          }
+          if (msg.kind === 'tool_output' && msg.data?.name) {
+            // 23-02 exec streaming: append the line to the newest running
+            // trace item of this tool (display-only, no persistence).
+            const name = msg.data.name;
+            const line = { text: msg.data.stream ?? '', isStderr: msg.data.isStderr === true };
+            updateTrace((current) => {
+              const next = [...current];
+              for (let index = next.length - 1; index >= 0; index -= 1) {
+                if (next[index].name === name && next[index].status === 'running') {
+                  const outputLines = [...(next[index].outputLines ?? []), line].slice(-50);
+                  next[index] = { ...next[index], outputLines };
+                  break;
+                }
+              }
+              return next;
+            });
+            return;
+          }
+          if (msg.kind === 'confirmation' && msg.data?.candidate) {
+            const candidate = msg.data.candidate;
+            if (candidate.kind === 'knowledge_write') {
+              engineKnowledgeCandidate = toKnowledgeWriteCandidate(candidate, get().activeSessionId);
+            } else if (candidate.kind === 'destructive_action') {
+              engineDestructiveCandidate = toDestructiveCandidate(candidate);
+            } else if (candidate.kind === 'exec_approval') {
+              engineExecCandidate = {
+                confirmationToken: candidate.confirmationToken,
+                command: String(candidate.args?.command ?? ''),
+                args: Array.isArray(candidate.args?.args) ? (candidate.args?.args as string[]) : [],
+                summary: String(candidate.summary ?? ''),
+              };
+            } else if (candidate.kind === 'fs_write') {
+              engineFsCandidate = toFsWriteCandidate(candidate);
+            } else if (candidate.kind === 'pm_write') {
+              enginePmCandidate = toPmWriteCandidate(candidate);
+            } else if (candidate.kind === 'code_edit') {
+              // 32-04: queue — one card per file, head renders (MP-1).
+              enqueueCodeEdit(parseCodeEditCandidate({ ...candidate, sessionId: get().activeSessionId }));
+            } else if (candidate.kind === 'memory_write') {
+              void refreshMemoryCards();
+            }
+            return;
+          }
+          if (msg.kind === 'error' && msg.data?.message) {
+            console.error('[engine] stream error:', msg.data.message);
+          }
+        },
+      });
+
+      if (result.pendingConfirmation?.kind === 'knowledge_write' && !engineKnowledgeCandidate) {
+        engineKnowledgeCandidate = toKnowledgeWriteCandidate(result.pendingConfirmation, get().activeSessionId);
+      }
+      if (result.pendingConfirmation?.kind === 'exec_approval' && !engineExecCandidate) {
+        const pc = result.pendingConfirmation;
+        engineExecCandidate = {
+          confirmationToken: pc.confirmationToken,
+          command: String(pc.args?.command ?? ''),
+          args: Array.isArray(pc.args?.args) ? (pc.args?.args as string[]) : [],
+          summary: String(pc.summary ?? ''),
+        };
+      }
+      if (result.pendingConfirmation?.kind === 'fs_write' && !engineFsCandidate) {
+        engineFsCandidate = toFsWriteCandidate(result.pendingConfirmation);
+      }
+      if (result.pendingConfirmation?.kind === 'pm_write' && !enginePmCandidate) {
+        enginePmCandidate = toPmWriteCandidate(result.pendingConfirmation);
+      }
+
+      const assistantContent = result.content || streamingResponseRef || 'AI 没有返回内容';
+      set((current) => ({
+        messages: [
+          ...current.messages,
+          {
+            id: nextId++,
+            role: 'assistant' as const,
+            content: assistantContent,
+            toolTrace: streamingTraceRef.length > 0 ? streamingTraceRef : undefined,
+          },
+        ],
+        pendingConfirmation: engineKnowledgeCandidate ?? current.pendingConfirmation,
+        pendingDestructiveAction: engineDestructiveCandidate ?? current.pendingDestructiveAction,
+        pendingExecApproval: engineExecCandidate ?? current.pendingExecApproval,
+        pendingFsWrite: engineFsCandidate ?? current.pendingFsWrite,
+        pendingPmWrite: enginePmCandidate ?? current.pendingPmWrite,
+      }));
+
+      if (result.truncated) {
+        emitToast({
+          type: 'warning',
+          title: 'AI 工具调用达到上限',
+          description: '本轮最多执行 5 次迭代，已返回当前结果。',
+        });
+      }
+    } catch (error) {
+      emitToast({
+        type: 'error',
+        title: 'AI 调用失败',
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      set({ loading: false, isQueued: false, activeRunId: null, streamingResponse: '', streamingTrace: [] });
+      streamingResponseRef = '';
+      streamingTraceRef = [];
+      void refreshForkable();
+      if (!opts.resume) void get().maybeGenerateTitle(get().activeSessionId);
+    }
+  };
+
   return {
     activeSessionId: sessionRef.current.sessionId,
     messages: [],
@@ -709,7 +911,6 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       const state = get();
       const trimmed = state.input.trim();
       if (!state.restoreComplete || !trimmed || state.loading) return;
-      const provider = useUIStore.getState().activeAIProvider;
 
       const userMessage: ChatMessage = {
         id: nextId++,
@@ -727,198 +928,16 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       streamingResponseRef = '';
       streamingTraceRef = [];
 
-      try {
-        // Phase 25: Rust engine_run is the sole agent runtime (engine_run +
-        // Channel<EngineEvent>) — the TS loop was deleted at migration closeout.
-        let engineKnowledgeCandidate: KnowledgeWriteCandidate | null = null;
-        let engineDestructiveCandidate: DestructiveActionCandidate | null = null;
-        let engineExecCandidate: ExecApprovalCandidate | null = null;
-        let engineFsCandidate: FsWriteCandidate | null = null;
-        let enginePmCandidate: PmWriteCandidate | null = null;
-        const toFsWriteCandidate = (candidate: EnginePendingCandidate): FsWriteCandidate => ({
-          confirmationToken: candidate.confirmationToken,
-          operation: (['write', 'mkdir', 'delete', 'move'] as const).includes(
-            candidate.args?.operation as FsWriteCandidate['operation'],
-          )
-            ? (candidate.args?.operation as FsWriteCandidate['operation'])
-            : 'write',
-          path: String(candidate.args?.path ?? candidate.args?.src ?? ''),
-          content: typeof candidate.args?.content === 'string' ? candidate.args.content : undefined,
-          summary: String(candidate.summary ?? ''),
-        });
-        // 24-02 tray run-list title: session title when named, else message prefix.
-        const sessionId = sessionRef.current.sessionId;
-        let sessionTitle: string;
-        try {
-          sessionTitle = (await getSessionRepo().getSession(sessionId))?.title || trimmed.slice(0, 24);
-        } catch {
-          sessionTitle = trimmed.slice(0, 24);
-        }
-        const runId = crypto.randomUUID();
-        set({ activeRunId: runId });
-        const result = await engineRun({
-          runId,
-          userMessage: trimmed,
-          sessionId,
-          sessionTitle,
-          provider,
-          ollamaModel: provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
-          workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
-          workspaceRoot: (() => {
-            const ws = useWorkspaceStore.getState();
-            return ws.workspaces.find((w) => w.id === ws.activeWorkspaceId)?.folderPath ?? null;
-          })(),
-          productId: useUIStore.getState().selectedProductId,
-          coreContext: buildCoreContext(),
-          onEvent: (msg) => {
-            // 24-01 scheduler lifecycle: queued → (slot frees) → running.
-            if (msg.kind === 'run_status' && msg.data?.status) {
-              if (msg.data.status === 'queued') {
-                set({ isQueued: true });
-              } else if (msg.data.status === 'running') {
-                set({ isQueued: false });
-              }
-              return;
-            }
-            if (msg.kind === 'token' && msg.data?.text) {
-              streamingResponseRef += msg.data.text;
-              set((current) => ({ streamingResponse: current.streamingResponse + msg.data!.text }));
-              return;
-            }
-            if (msg.kind === 'tool_start' && msg.data?.name) {
-              const name = msg.data.name;
-              updateTrace((current) => [
-                ...current,
-                { id: nextId++, name, status: 'running' },
-              ]);
-              return;
-            }
-            if (msg.kind === 'tool_end' && msg.data?.name) {
-              const name = msg.data.name;
-              const failed = msg.data.ok === false;
-              updateTrace((current) => {
-                const next = [...current];
-                for (let index = next.length - 1; index >= 0; index -= 1) {
-                  if (next[index].name === name && next[index].status === 'running') {
-                    next[index] = { ...next[index], status: failed ? 'error' : 'ok' };
-                    break;
-                  }
-                }
-                return next;
-              });
-              if (name === 'memory_write') void refreshMemoryCards();
-              // Phase 29 (29-04): PM 写已落库(tool_end 在写后触发),拉全表刷新视图。
-              // ponytail: 全表 refresh,增量投影当任务量真的大再做。
-              if (name.startsWith('task_')) void useTaskStore.getState().refreshFromSql();
-              else if (name.startsWith('schedule_')) void useScheduleStore.getState().refreshFromSql();
-              return;
-            }
-            if (msg.kind === 'tool_output' && msg.data?.name) {
-              // 23-02 exec streaming: append the line to the newest running
-              // trace item of this tool (display-only, no persistence).
-              const name = msg.data.name;
-              const line = { text: msg.data.stream ?? '', isStderr: msg.data.isStderr === true };
-              updateTrace((current) => {
-                const next = [...current];
-                for (let index = next.length - 1; index >= 0; index -= 1) {
-                  if (next[index].name === name && next[index].status === 'running') {
-                    const outputLines = [...(next[index].outputLines ?? []), line].slice(-50);
-                    next[index] = { ...next[index], outputLines };
-                    break;
-                  }
-                }
-                return next;
-              });
-              return;
-            }
-            if (msg.kind === 'confirmation' && msg.data?.candidate) {
-              const candidate = msg.data.candidate;
-              if (candidate.kind === 'knowledge_write') {
-                engineKnowledgeCandidate = toKnowledgeWriteCandidate(candidate, get().activeSessionId);
-              } else if (candidate.kind === 'destructive_action') {
-                engineDestructiveCandidate = toDestructiveCandidate(candidate);
-              } else if (candidate.kind === 'exec_approval') {
-                engineExecCandidate = {
-                  confirmationToken: candidate.confirmationToken,
-                  command: String(candidate.args?.command ?? ''),
-                  args: Array.isArray(candidate.args?.args) ? (candidate.args?.args as string[]) : [],
-                  summary: String(candidate.summary ?? ''),
-                };
-              } else if (candidate.kind === 'fs_write') {
-                engineFsCandidate = toFsWriteCandidate(candidate);
-              } else if (candidate.kind === 'pm_write') {
-                enginePmCandidate = toPmWriteCandidate(candidate);
-              } else if (candidate.kind === 'code_edit') {
-                // 32-04: queue — one card per file, head renders (MP-1).
-                enqueueCodeEdit(parseCodeEditCandidate({ ...candidate, sessionId: get().activeSessionId }));
-              } else if (candidate.kind === 'memory_write') {
-                void refreshMemoryCards();
-              }
-              return;
-            }
-            if (msg.kind === 'error' && msg.data?.message) {
-              console.error('[engine] stream error:', msg.data.message);
-            }
-          },
-        });
+      await runEngineTurn({ userMessage: trimmed });
+    },
 
-        if (result.pendingConfirmation?.kind === 'knowledge_write' && !engineKnowledgeCandidate) {
-          engineKnowledgeCandidate = toKnowledgeWriteCandidate(result.pendingConfirmation, get().activeSessionId);
-        }
-        if (result.pendingConfirmation?.kind === 'exec_approval' && !engineExecCandidate) {
-          const pc = result.pendingConfirmation;
-          engineExecCandidate = {
-            confirmationToken: pc.confirmationToken,
-            command: String(pc.args?.command ?? ''),
-            args: Array.isArray(pc.args?.args) ? (pc.args?.args as string[]) : [],
-            summary: String(pc.summary ?? ''),
-          };
-        }
-        if (result.pendingConfirmation?.kind === 'fs_write' && !engineFsCandidate) {
-          engineFsCandidate = toFsWriteCandidate(result.pendingConfirmation);
-        }
-        if (result.pendingConfirmation?.kind === 'pm_write' && !enginePmCandidate) {
-          enginePmCandidate = toPmWriteCandidate(result.pendingConfirmation);
-        }
-
-        const assistantContent = result.content || streamingResponseRef || 'AI 没有返回内容';
-        set((current) => ({
-          messages: [
-            ...current.messages,
-            {
-              id: nextId++,
-              role: 'assistant' as const,
-              content: assistantContent,
-              toolTrace: streamingTraceRef.length > 0 ? streamingTraceRef : undefined,
-            },
-          ],
-          pendingConfirmation: engineKnowledgeCandidate ?? current.pendingConfirmation,
-          pendingDestructiveAction: engineDestructiveCandidate ?? current.pendingDestructiveAction,
-          pendingExecApproval: engineExecCandidate ?? current.pendingExecApproval,
-          pendingFsWrite: engineFsCandidate ?? current.pendingFsWrite,
-          pendingPmWrite: enginePmCandidate ?? current.pendingPmWrite,
-        }));
-
-        if (result.truncated) {
-          emitToast({
-            type: 'warning',
-            title: 'AI 工具调用达到上限',
-            description: '本轮最多执行 5 次迭代，已返回当前结果。',
-          });
-        }
-      } catch (error) {
-        emitToast({
-          type: 'error',
-          title: 'AI 调用失败',
-          description: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        set({ loading: false, isQueued: false, activeRunId: null, streamingResponse: '', streamingTrace: [] });
-        streamingResponseRef = '';
-        streamingTraceRef = [];
-        void refreshForkable();
-        void get().maybeGenerateTitle(get().activeSessionId);
-      }
+    // 32-07: HITL settle 后的续跑 — 以既有事件投影续上下文(resume 模式不落
+    // user_message)。并发守护即此一处:session 已有 run 在跑时静默跳过。
+    // ponytail: 不排队,重复确认点击靠 idempotent settle 天然安全。
+    resumeAfterSettle: async () => {
+      const { loading, activeRunId } = get();
+      if (loading || activeRunId) return;
+      await runEngineTurn({ userMessage: '', resume: true });
     },
 
     // 24-05 SCHED-04 — user cancel: engine_cancel is idempotent on the Rust
@@ -1019,6 +1038,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       const { pendingExecApproval, loading } = get();
       if (!pendingExecApproval || loading) return;
       set({ loading: true });
+      let settled = false;
       try {
         const candidate = pendingExecApproval;
         const result = await engineExecConfirmed(
@@ -1026,6 +1046,8 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           candidate.confirmationToken,
           allowPermanently,
         );
+        // settle 已落账(ok 与 error payload 都写了 tool_result)→ 续跑。
+        settled = true;
         const ok = result.ok === true;
         const snippet = ok
           ? String(result.stdout ?? '').trim().slice(0, 200)
@@ -1046,13 +1068,24 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         });
       } finally {
         set({ loading: false });
+        if (settled) void get().resumeAfterSettle();
       }
     },
 
     rejectExec: async () => {
       const { pendingExecApproval } = get();
       if (!pendingExecApproval) return;
-      await engineRejectCandidate(pendingExecApproval.confirmationToken);
+      const candidate = pendingExecApproval;
+      await engineRejectCandidate(candidate.confirmationToken);
+      // 拒绝落账为 tool_result(ok:false)→ 进入 LLM 上下文,再续跑。
+      await engineAppendToolResult({
+        sessionId: get().activeSessionId,
+        toolCallId: crypto.randomUUID(),
+        toolName: 'exec',
+        ok: false,
+        payloadJson: { error: '用户拒绝执行' },
+        args: { command: candidate.command, args: candidate.args },
+      });
       set((current) => ({
         pendingExecApproval: null,
         messages: [...current.messages, {
@@ -1061,6 +1094,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           content: '已拒绝本次命令执行。',
         }],
       }));
+      void get().resumeAfterSettle();
     },
 
     // 23-03 fs 写确认(确认/拒绝):Rust 侧 confirm+consume+执行+落库,
@@ -1069,9 +1103,11 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       const { pendingFsWrite, loading } = get();
       if (!pendingFsWrite || loading) return;
       set({ loading: true });
+      let settled = false;
       try {
         const candidate = pendingFsWrite;
         const result = await engineFsApply(get().activeSessionId, candidate.confirmationToken);
+        settled = true;
         const ok = result.error === undefined;
         set((current) => ({
           messages: [...current.messages, {
@@ -1091,13 +1127,23 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         });
       } finally {
         set({ loading: false });
+        if (settled) void get().resumeAfterSettle();
       }
     },
 
     rejectFsWrite: async () => {
       const { pendingFsWrite } = get();
       if (!pendingFsWrite) return;
-      await engineRejectCandidate(pendingFsWrite.confirmationToken);
+      const candidate = pendingFsWrite;
+      await engineRejectCandidate(candidate.confirmationToken);
+      await engineAppendToolResult({
+        sessionId: get().activeSessionId,
+        toolCallId: crypto.randomUUID(),
+        toolName: 'fs_write',
+        ok: false,
+        payloadJson: { error: '用户拒绝执行' },
+        args: { operation: candidate.operation, path: candidate.path },
+      });
       set((current) => ({
         pendingFsWrite: null,
         messages: [...current.messages, {
@@ -1106,6 +1152,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
           content: '已拒绝本次文件操作。',
         }],
       }));
+      void get().resumeAfterSettle();
     },
 
     // 29-03 pm_write 确认(确认/拒绝):Rust 侧 confirm+consume+写+审计一事务
@@ -1164,8 +1211,12 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       const candidate = pendingCodeEdits[0];
       if (!candidate || codeEditBusy) return;
       set({ codeEditBusy: true });
+      let settled = false;
       try {
         const result = await engineCodeApply(activeSessionId, candidate.confirmationToken);
+        // settle 已落账 — stale 失败的 tool_result 也已由 Rust 写入,agent
+        // 需要看到并重读重试 → 两种结果都续跑。
+        settled = true;
         const error = typeof result.error === 'string' ? result.error : null;
         if (!error) {
           useTabRunStore.getState().settleTabCodeEdit(activeSessionId, candidate.path, 'applied');
@@ -1188,6 +1239,7 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
         });
       } finally {
         set({ codeEditBusy: false });
+        if (settled) void get().resumeAfterSettle();
       }
     },
 
@@ -1198,21 +1250,33 @@ export const useChatConsoleStore = create<ChatConsoleState>()((set, get) => {
       const { pendingCodeEdits } = get();
       const candidate = pendingCodeEdits[0];
       if (!candidate) return;
+      const trimmedReason = reason?.trim() || undefined;
       try {
-        await engineRejectCandidate(candidate.confirmationToken, reason?.trim() || undefined);
+        await engineRejectCandidate(candidate.confirmationToken, trimmedReason);
       } catch (error) {
         console.error('[code-edit] reject failed', error);
       }
       const { activeSessionId } = get();
+      // 拒绝(+原因)落账为 tool_result → agent 看到原因并调整,再续跑。
+      // toolName 与 code_apply_inner 落账一致:code_${operation}。
+      await engineAppendToolResult({
+        sessionId: activeSessionId,
+        toolCallId: crypto.randomUUID(),
+        toolName: `code_${candidate.operation}`,
+        ok: false,
+        payloadJson: { error: `用户拒绝执行${trimmedReason ? '：' + trimmedReason : ''}` },
+        args: { operation: candidate.operation, path: candidate.path },
+      });
       useTabRunStore.getState().settleTabCodeEdit(activeSessionId, candidate.path, 'rejected');
       set((current) => ({
         pendingCodeEdits: current.pendingCodeEdits.filter((c) => c.confirmationToken !== candidate.confirmationToken),
         messages: [...current.messages, {
           id: nextId++,
           role: 'assistant' as const,
-          content: `已拒绝对 ${candidate.path} 的修改${reason?.trim() ? `（原因：${reason.trim()}）` : ''}。该文件不会落盘，agent 会根据原因调整重试。`,
+          content: `已拒绝对 ${candidate.path} 的修改${trimmedReason ? `（原因：${trimmedReason}）` : ''}。该文件不会落盘，agent 会根据原因调整重试。`,
         }],
       }));
+      void get().resumeAfterSettle();
     },
 
     // 32-04 (CODE-06) — deposit the change summary into the knowledge_write

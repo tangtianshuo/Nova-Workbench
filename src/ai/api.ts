@@ -71,6 +71,9 @@ export interface EngineRunParams {
   coreContext: string;
   /** 26-02 TAB-06: 'interactive' (default, chat) dequeues ahead of 'batch' (tab runs). */
   priority?: 'interactive' | 'batch';
+  /** 32-07: resume mode — skip the user_message append, continue from the
+   * existing event projection (post-HITL-settle 续跑). */
+  resume?: boolean;
   onEvent: (event: EngineEventMsg) => void;
 }
 
@@ -91,6 +94,7 @@ export async function engineRun(params: EngineRunParams): Promise<EngineRunResul
     sessionTitle: params.sessionTitle ?? null,
     coreContext: params.coreContext,
     priority: params.priority ?? null,
+    resume: params.resume ?? null,
     onEvent: channel,
   });
 }

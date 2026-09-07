@@ -19,9 +19,11 @@ use serde_json::{json, Value};
 use crate::engine::tools::{ToolCtx, ToolOutcome};
 
 pub const CODE_EDIT_KIND: &str = "code_edit";
-/// UI-locked copy (32-03 truth): all four code_* tools fail with this exact
-/// text when the workspace has no repo binding.
-pub const NO_REPO_MSG: &str = "未绑定代码仓库 — 请在设置中指定 repo 目录";
+/// UI-locked copy (32-03 truth; 32-06 dual semantics): all four code_* tools
+/// fail with this exact text when neither a repo binding nor a workspace
+/// folder is available. Constant name kept (NO_REPO_MSG) so 32-05 UI copy
+/// references stay linked.
+pub const NO_REPO_MSG: &str = "无可用代码根目录 — 工作区未指定且未绑定仓库";
 /// code_grep hard cap (MP-10) — beyond this the model must narrow pattern/path.
 pub const MAX_GREP_RESULTS: usize = 200;
 /// code_read default window (MP-10): head 2000 lines, paginate with offset/limit.
@@ -41,9 +43,13 @@ fn arg_fail(tool: &str, why: &str) -> ToolOutcome {
     }
 }
 
+/// 32-06: repo binding wins (user-explicit = bind); workspace folder is the
+/// fallback code root when unbound. CP-1 unchanged: whatever root is chosen
+/// goes through the same resolve_repo + nova_guard boundary.
 fn repo_root_or_fail(ctx: &ToolCtx<'_>) -> Result<PathBuf, ToolOutcome> {
     ctx.repo_root
         .clone()
+        .or_else(|| ctx.workspace_root.clone())
         .ok_or_else(|| ToolOutcome::Failed { message: NO_REPO_MSG.into(), arg_error: false })
 }
 
@@ -387,7 +393,12 @@ fn code_candidate(
 }
 
 fn root_str(ctx: &ToolCtx<'_>) -> String {
-    ctx.repo_root.as_deref().unwrap_or_else(|| Path::new("")).to_string_lossy().to_string()
+    ctx.repo_root
+        .as_deref()
+        .or_else(|| ctx.workspace_root.as_deref())
+        .unwrap_or_else(|| Path::new(""))
+        .to_string_lossy()
+        .to_string()
 }
 
 /// Byte-exact old_string match: all 1-based line numbers of matches
@@ -858,6 +869,80 @@ mod tests {
 
     fn write_src(repo: &Path) {
         fs::write(repo.join("src.rs"), "fn main() {\n    let a = 1;\n}\n").unwrap();
+    }
+
+    /* === 32-06: workspace_root fallback (repo unbound → workspace is the code root) === */
+
+    fn tool_ctx_rw<'a>(repo: Option<PathBuf>, ws: Option<PathBuf>) -> ToolCtx<'a> {
+        ToolCtx { session_id: "s1", product_id: None, workspace_root: ws, repo_root: repo, pm_writes_used: 0 }
+    }
+
+    #[test]
+    fn workspace_root_fallback_unbound_repo() {
+        let conn = mem_conn();
+        let ws = make_repo("ws-fallback");
+        let c = tool_ctx_rw(None, Some(ws.clone()));
+        // read resolves inside workspace_root
+        match code_read(&conn, &json!({"path": "a.txt"}), &c) {
+            ToolOutcome::Executed(v) => assert_eq!(v["content"], "x"),
+            other => panic!("{other:?}"),
+        }
+        // write proposal stamps workspace_root as params root (apply re-resolves from it)
+        match code_write(&conn, &json!({"path": "new.txt", "new_content": "hello"}), &c) {
+            ToolOutcome::AwaitConfirmation { candidate, .. } => {
+                assert_eq!(candidate["args"]["root"], dunce::canonicalize(&ws).unwrap().to_string_lossy().to_string());
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&ws).ok();
+    }
+
+    #[test]
+    fn repo_root_preferred_over_workspace() {
+        let conn = mem_conn();
+        let repo = make_repo("pref-repo");
+        let ws = make_repo("pref-ws");
+        let c = tool_ctx_rw(Some(repo.clone()), Some(ws.clone()));
+        match code_read(&conn, &json!({"path": "marker.txt"}), &c) {
+            ToolOutcome::Failed { message, .. } => assert!(message.contains("stat failed"), "{message}"), // repo has no marker.txt
+            other => panic!("expected read failure against repo root, got {other:?}"),
+        }
+        fs::write(repo.join("marker.txt"), "repo").unwrap();
+        fs::write(ws.join("marker.txt"), "ws").unwrap();
+        match code_read(&conn, &json!({"path": "marker.txt"}), &c) {
+            ToolOutcome::Executed(v) => assert_eq!(v["content"], "repo"),
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&repo).ok();
+        fs::remove_dir_all(&ws).ok();
+    }
+
+    #[test]
+    fn neither_root_fails_with_dual_hint() {
+        let conn = mem_conn();
+        let c = tool_ctx_rw(None, None);
+        match code_read(&conn, &json!({"path": "a.txt"}), &c) {
+            ToolOutcome::Failed { message, .. } => {
+                assert!(message.contains("无可用代码根目录"), "{message}");
+                assert!(message.contains("工作区") && message.contains("仓库"), "{message}");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn workspace_fallback_escape_rejected() {
+        let conn = mem_conn();
+        let ws = make_repo("ws-escape");
+        let c = tool_ctx_rw(None, Some(ws.clone()));
+        match code_read(&conn, &json!({"path": "../outside.txt"}), &c) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.contains("路径超出仓库范围"), "{message}");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&ws).ok();
     }
 
     #[test]

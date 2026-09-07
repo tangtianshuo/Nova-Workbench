@@ -312,6 +312,30 @@ mod tests {
         ToolCtx { session_id: "s1", product_id: None, workspace_root: root, repo_root: None, pm_writes_used: 0 }
     }
 
+    // 32-07: workspace root invalid must surface honestly (not masked as an
+    // escape arg_error) — directory invalid ≠ model argument error.
+    #[test]
+    fn invalid_workspace_root_reported_honestly_not_escape() {
+        let bad = PathBuf::from("/definitely/not/a/real/nova-root");
+        match fs_list(&json!({}), &ctx(Some(bad))) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert!(message.starts_with("workspace root invalid"), "{message}");
+                assert!(!arg_error, "directory invalid is not a model argument error");
+            }
+            other => panic!("{other:?}"),
+        }
+        // Real root: escapes stay the distinct arg_error they always were.
+        let d = temp_root();
+        match fs_read(&json!({"path": "../x"}), &ctx(Some(d.clone()))) {
+            ToolOutcome::Failed { message, arg_error } => {
+                assert_eq!(message, "path escapes workspace");
+                assert!(arg_error);
+            }
+            other => panic!("{other:?}"),
+        }
+        fs::remove_dir_all(&d).ok();
+    }
+
     #[test]
     fn fs_list_reads_freely() {
         let d = temp_root();

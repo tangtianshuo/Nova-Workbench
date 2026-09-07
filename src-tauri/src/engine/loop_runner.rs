@@ -86,6 +86,9 @@ pub struct LoopContext<'a> {
     pub llm: Box<dyn Llm + 'a>,
     /// Compaction summarizer; None disables compaction (pressure never relieved).
     pub summarizer: Option<&'a mut dyn FnMut(&str) -> Result<String, String>>,
+    /// 32-07: resume mode — skip the user_message append and continue the
+    /// session from its existing event projection (post-HITL-settle续跑).
+    pub resume: bool,
 }
 
 // Phase 23 (23-04) adapted guideline block: lists the ACTUAL native tool set
@@ -530,6 +533,7 @@ mod tests {
             core_context: "核心事实".into(),
             llm: Box::new(llm),
             summarizer: None,
+            resume: false,
         }
     }
 
@@ -1002,7 +1006,130 @@ mod tests {
         assert_eq!(turn["outcome"], "awaiting_confirmation");
     }
 
-    /* === 24-01 SCHED-01: two runs, two per-run connections, one WAL file DB === */
+    /* === 32-07: resume mode (HITL settle 续跑) === */
+
+    /// Capture LLM messages (FakeLlm that records every chat() call's input).
+    /// Shared via Arc so the test can read the captures after the run.
+    type SeenMessages = Arc<Mutex<Vec<Vec<LlmMessage>>>>;
+    struct RecordingLlm {
+        turns: Mutex<VecDeque<Result<LlmTurn, String>>>,
+        seen: SeenMessages,
+    }
+
+    impl Llm for RecordingLlm {
+        fn chat(&mut self, messages: Vec<LlmMessage>, _system_prompt: String, _on_token: TokenSink) -> BoxLlmFuture {
+            self.seen.lock().unwrap().push(messages);
+            let turn = self.turns.lock().unwrap().pop_front().expect("scripted turn");
+            Box::pin(async { turn })
+        }
+
+        fn chat_no_tools(&mut self, messages: Vec<LlmMessage>, system_prompt: String, on_token: TokenSink) -> BoxLlmFuture {
+            self.chat(messages, system_prompt, on_token)
+        }
+    }
+
+    /// Seed a session parked at awaiting_confirmation (run 1 WAITs on
+    /// knowledge_write), then settle a [confirmed rerun] tool_call/tool_result
+    /// pair the way engine_exec_confirmed does.
+    fn seed_awaiting_then_settle(conn: &Connection, marker: &str) {
+        let llm = FakeLlm::new(vec![LlmTurn {
+            content: "我来写入知识库".into(),
+            tool_calls: vec![LlmToolCall {
+                name: "knowledge_write".into(),
+                arguments: json!({"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"}),
+            }],
+        }]);
+        let (result, _) = run(conn, llm, CancellationToken::new());
+        assert!(result.unwrap().pending_confirmation.is_some(), "run 1 parks at WAIT");
+
+        let rerun_id = uuid::Uuid::new_v4().to_string();
+        for (event_type, payload) in [
+            ("tool_call", json!({
+                "toolCallId": rerun_id, "toolName": "knowledge_write",
+                "args": {"productId": "p1", "title": "T", "content": "C", "category": "最佳实践"},
+                "content": "[confirmed rerun]", "idempotency": "verify_first",
+            })),
+            ("tool_result", json!({
+                "toolCallId": rerun_id, "toolName": "knowledge_write",
+                "modelText": format!("[tool_result knowledge_write] {{\"ok\":true,\"data\":{{\"marker\":\"{marker}\"}}}}"),
+                "ok": true,
+            })),
+        ] {
+            event_log::append(conn, &event_log::EventInput {
+                session_id: "s1".into(),
+                event_type: event_type.into(),
+                workspace_id: None,
+                product_id: None,
+                project_id: None,
+                correlation_id: None,
+                payload,
+            })
+            .unwrap();
+        }
+    }
+
+    fn run_resume<L: Llm>(
+        conn: &Connection,
+        llm: L,
+    ) -> Result<EngineRunResult, LoopError> {
+        let ctx = LoopContext {
+            conn,
+            session_id: "s1".into(),
+            user_message: String::new(),
+            workspace_id: Some("w1".into()),
+            product_id: None,
+            provider: "deepseek".into(),
+            ollama_model: None,
+            workspace_root: None,
+            core_context: "核心事实".into(),
+            llm: Box::new(llm),
+            summarizer: None,
+            resume: true,
+        };
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(run_tool_loop(ctx, CancellationToken::new(), Arc::new(|_| {})))
+    }
+
+    // Test 1: resume run adds context_injected + assistant_message +
+    // turn_ended(completed) and NEVER a second user_message.
+    #[test]
+    fn resume_run_continues_without_new_user_message() {
+        let conn = mem_conn();
+        seed_awaiting_then_settle(&conn, "done");
+        let result = run_resume(&conn, FakeLlm::new(vec![LlmTurn { content: "根据结果回答".into(), tool_calls: vec![] }]))
+            .unwrap();
+        assert_eq!(result.content, "根据结果回答");
+
+        let events = events_of(&conn);
+        let user_messages = events.iter().filter(|e| e.event_type == "user_message").count();
+        assert_eq!(user_messages, 1, "resume must not append a second user_message");
+        // run-2 tail: context_injected → assistant_message → turn_ended(completed)
+        let tail: Vec<&str> = events.iter().rev().take(3).map(|e| e.event_type.as_str()).collect();
+        assert_eq!(tail, vec!["turn_ended", "assistant_message", "context_injected"]);
+        let turn = events.iter().rev().find(|e| e.event_type == "turn_ended").unwrap();
+        assert_eq!(turn.payload["outcome"], "completed");
+    }
+
+    // Test 2: the first resume LLM request carries the [confirmed rerun]
+    // tool_result modelText (the settle landed in the projection).
+    #[test]
+    fn resume_llm_request_sees_confirmed_rerun_tool_result() {
+        let conn = mem_conn();
+        seed_awaiting_then_settle(&conn, "CONFIRMED_OUTPUT_MARKER");
+        let seen: SeenMessages = Arc::new(Mutex::new(Vec::new()));
+        let llm = RecordingLlm {
+            turns: Mutex::new(vec![Ok(LlmTurn { content: "收到".into(), tool_calls: vec![] })].into()),
+            seen: seen.clone(),
+        };
+        run_resume(&conn, llm).unwrap();
+        let first_request = seen.lock().unwrap().first().cloned().expect("one LLM call");
+        assert!(
+            first_request.iter().any(|m| m.content.contains("CONFIRMED_OUTPUT_MARKER")),
+            "confirmed rerun tool_result must reach the resume LLM request: {first_request:?}"
+        );
+    }
+
+
 
     #[test]
     fn two_runs_parallel_file_db_streams_isolated() {
@@ -1028,6 +1155,7 @@ mod tests {
                     core_context: "核心事实".into(),
                     llm: Box::new(llm),
                     summarizer: None,
+                    resume: false,
                 };
                 let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
                 rt.block_on(run_tool_loop(ctx, CancellationToken::new(), Arc::new(|_| {}))).is_ok()

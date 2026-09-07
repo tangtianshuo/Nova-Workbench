@@ -192,6 +192,9 @@ pub async fn engine_run(
     // 26-02 TAB-06: optional scheduling priority. None/"interactive" = chat
     // semantics (unchanged); "batch" = tab generation runs queue behind chat.
     priority: Option<String>,
+    // 32-07: resume mode — Some(true) skips the user_message append and
+    // continues from the existing event projection (HITL settle 续跑).
+    resume: Option<bool>,
     on_event: Channel<EngineEvent>,
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
@@ -300,6 +303,8 @@ pub async fn engine_run(
             core_context,
             llm: Box::new(llm_adapter),
             summarizer: Some(&mut summarizer),
+            // 32-07: TS resume path (resumeAfterSettle) — skip user_message append.
+            resume: resume.unwrap_or(false),
         };
         let result = rt.block_on(loop_runner::run_tool_loop(ctx, cancel, on_event_cb));
         result

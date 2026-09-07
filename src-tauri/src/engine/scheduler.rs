@@ -408,6 +408,7 @@ mod tests {
                 core_context: "核心事实".into(),
                 llm: Box::new(FakeLlm::new(turns)),
                 summarizer: None,
+                resume: false,
             };
             let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
             rt.block_on(loop_runner::run_tool_loop(ctx, cancel, Arc::new(|_| {})))

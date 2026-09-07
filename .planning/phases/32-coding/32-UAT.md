@@ -94,7 +94,17 @@ blocked: 0
   reason: "User reported: HITL 的确认卡在点击确认后,后续就无输出了。exec git rev-parse --show-toplevel 已完成并返回结果,但 run 不再继续,无后续输出/最终回答。同 run 内 fs_list 先失败。"
   severity: blocker
   test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "HITL 确认后的 run 续跑机制从未存在(非 32-02/32-06 回归,自 23-02 引入 exec HITL 起即如此):Rust 侧 engine_exec_confirmed(commands.rs:449)只做 confirm+consume+重执行+append_tool_result_inner 落账后 return,engine_fs_apply(:635)/engine_code_apply(:679)同构同病,全引擎无 resume/spawn 续跑逻辑;TS 侧 confirmExec(chatConsoleStore.ts:1018)只 append 本地展示消息(不入事件流),从不重调 engineRun;loop_runner.rs:350-380 工具 AwaitConfirmation 时 run 直接 finish(pending_confirmation)——确认后 tool_result 躺库里,只有用户手动发下一条消息 LLM 才看到。nova.db session aae7ebec 取证:seq 9-10 [confirmed rerun] tool_call+tool_result 落账完美,之后事件流终止,无 error 无新 turn。全库历史仅 1 session 确认后有 assistant_message,系用户手动追问触发。"
+  artifacts:
+    - path: "src-tauri/src/engine/commands.rs"
+      issue: "engine_exec_confirmed/engine_fs_apply/engine_code_apply 三个确认 settle 路径均无续跑触发"
+    - path: "src/stores/chatConsoleStore.ts"
+      issue: "confirmExec(:1018)/confirmFsWrite(:1068)/code_edit apply 路径确认后不重调 engineRun"
+    - path: "src-tauri/src/engine/loop_runner.rs"
+      issue: "AwaitConfirmation → run finish(pending_confirmation),生命周期设计上 run 已终止"
+  missing:
+    - "确认 settle 成功后自动触发续跑 run,agent 继续直到给出最终回答(架构裁定:TS 确认 handler 重调 engineRun resume vs Rust scheduler settle 后自动 spawn 续跑)"
+    - "三个确认卡(exec/fs_write/code_edit)共用同一续跑路径,修一处不改三处"
+    - "fs_ops.rs:61 把 resolve_deep 所有错误吞成 escape 误报;workspace root invalid 应如实上报"
+    - "32-06 残留:产品联动可切到 mock workspace 假路径 folderPath,成为 agent run 的 workspace_root"
+  debug_session: .planning/debug/exec-confirm-run-stall.md

@@ -28,7 +28,7 @@ Phase: 32 (coding) — EXECUTING
 Plan: 5 of 5
 Status: Phase complete — ready for verification
 Next: `/gsd:plan-phase 32`(建议先 `/gsd:research-phase 32` 处理 Windows npm .cmd flag;Phase 33 首个 plan 前必须裁定 cap-3 死锁方案)
-Last activity: 2026-09-04
+Last activity: 2026-09-07 - Completed quick task 260907-d94: schema_version guard 单一真相源修复
 
 ```
 milestones: v0.2.0 → v0.3.0 → v0.3.1 → v0.3.2 → v0.3.3 → v0.4 (active)
@@ -87,6 +87,10 @@ None.
 ### Quick Tasks Completed
 
 (v0.3.3 期间 quick 任务记录见 git history;260903 系列三项已随里程碑交付)
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260907-d94 | 修复 schema_version guard 双真相源(TS 硬编码 14 vs Rust 注册表 16 启动拒绝;改为 invoke max_schema_version 单一真相源) | 2026-09-07 | 170b8e8 | [260907-d94-fix-schema-version-guard-dual-source-of-](./quick/260907-d94-fix-schema-version-guard-dual-source-of-/) |
 
 ## Session Continuity
 

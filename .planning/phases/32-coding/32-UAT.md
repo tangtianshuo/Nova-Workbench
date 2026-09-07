@@ -67,7 +67,7 @@ blocked: 0
 ## Gaps
 
 - truth: "workspace 与 repo 默认同路径;切换产品时工作区与代码仓库绑定随产品切换;agent 代码产出默认落工作区目录,除非用户显式指定"
-  status: failed
+  status: resolved (32-06: 5d2372a workspace_root 兜底 + ae66ba5 产品联动/路径提示/CmdKPalette 补线;verifier 28/28 代码验证;真机回归待 UAT test#3 重测)
   reason: "User reported: 工作区和仓库应该是默认在同一个路径下,切换了产品后,产品的工作区以及代码仓库都需要相应切换。代码生成应当也在工作区目录下进行生成,除非用户进行了指定。"
   severity: major
   test: 3

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Provider } from '@/src/lib/api';
+import { useWorkspaceStore } from './workspaceStore';
 import { sqliteStorage } from './storage/sqliteStorage';
 
 // Phase 17 UX-02: snapshot of the current view context carried into the agent
@@ -102,7 +103,18 @@ export const useUIStore = create<UIState>()(
   docZenMode: false,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
-  setSelectedProductId: (id) => set({ selectedProductId: id }),
+  // 32-06: switching product also switches to its bound workspace (if any) —
+  // repo binding is keyed by workspace_id, so it follows naturally. Reuses
+  // SESS-04 semantics (switch workspace = end current session, streaming guard).
+  setSelectedProductId: (id) => {
+    set({ selectedProductId: id });
+    if (!id) return;
+    const ws = useWorkspaceStore.getState();
+    const bound = ws.workspaces.find((w) => w.projectId === id);
+    if (bound && bound.id !== ws.activeWorkspaceId) {
+      ws.setActiveWorkspaceId(bound.id);
+    }
+  },
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setTheme: (theme) => set({ theme }),
   setActiveAIProvider: (provider) => set({ activeAIProvider: provider }),

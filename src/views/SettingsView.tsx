@@ -13,6 +13,8 @@ import { SettingsApiKeySection } from '@/src/components/SettingsApiKeySection';
 import { useToast } from '@/src/components/ui/Toast';
 import { isTauri } from '@/src/lib/api';
 import { useWorkspaceStore } from '@/src/stores/workspaceStore';
+import { useProductStore } from '@/src/stores/productStore';
+import { Badge } from '@/src/components/ui/Badge';
 import { cn } from '@/src/lib/utils';
 
 const NAV_ITEMS = [
@@ -186,8 +188,21 @@ function AppearanceSection() {
 }
 
 /* === Workspace Repo Section (32-05, CODE-04: repo_root binding + dogfood) === */
+
+// 32-06: repo vs workspace path compare — normalize separators + trailing
+// slash, case-insensitive (Windows). Non-canonical on purpose: detects the
+// user-visible "these are different strings" case, not symlink identity.
+function pathsEqual(a: string, b: string): boolean {
+  const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  return norm(a) === norm(b);
+}
+
 function WorkspaceRepoSection() {
   const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId));
+  // 32-06: product↔workspace relation made visible (minimal).
+  const productName = useProductStore((s) =>
+    workspace?.projectId ? s.products.find((p) => p.id === workspace.projectId)?.name : undefined,
+  );
   const bindRepoRoot = useWorkspaceStore((s) => s.bindRepoRoot);
   const updateWorkspace = useWorkspaceStore((s) => s.updateWorkspace);
   const [repoRoot, setRepoRoot] = useState(workspace?.repoRoot ?? '');
@@ -244,6 +259,12 @@ function WorkspaceRepoSection() {
           绑定 git 仓库后，agent 的 code_read / code_grep / code_write / code_edit 工具在该仓库范围内可用。
         </p>
       </div>
+      {productName && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-tertiary">关联产品</span>
+          <Badge variant="accent">{productName}</Badge>
+        </div>
+      )}
       <Separator />
       <div className="rounded-[var(--radius-lg)] border border-border-subtle p-5 space-y-4">
         <div>
@@ -271,8 +292,13 @@ function WorkspaceRepoSection() {
           </Button>
         </div>
         <p className="text-xs text-text-tertiary">
-          留空并点击「重绑仓库」可清除绑定；未绑定时 coding 工具会拒绝执行并提示。
+          留空并点击「重绑仓库」可清除绑定；未绑定时 coding 工具默认落工作区目录执行。
         </p>
+        {repoRoot.trim() && workspace?.folderPath && !pathsEqual(repoRoot.trim(), workspace.folderPath) && (
+          <p className="text-xs text-warning">
+            仓库根目录与工作区路径不同（工作区是仓库子目录，或绑定到了别处）。
+          </p>
+        )}
         {import.meta.env.DEV && isDesktop && (
           <div className="flex items-center justify-between rounded-[var(--radius-md)] bg-bg-secondary px-3 py-2.5">
             <div>

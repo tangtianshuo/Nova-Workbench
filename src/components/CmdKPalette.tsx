@@ -77,6 +77,10 @@ export function CmdKPalette() {
         provider,
         ollamaModel: provider === 'ollama' ? useUIStore.getState().ollamaModel : undefined,
         workspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+        workspaceRoot: (() => {
+          const ws = useWorkspaceStore.getState();
+          return ws.workspaces.find((w) => w.id === ws.activeWorkspaceId)?.folderPath ?? null;
+        })(),
         productId: useUIStore.getState().selectedProductId,
         coreContext: buildCoreContext(),
         onEvent: (msg) => {

@@ -232,7 +232,11 @@ pub async fn run_tool_loop(
             &on_event,
         )?;
     }
-    append_event(ctx.conn, &scope, "user_message", json!({"content": ctx.user_message}), &on_event)?;
+    // 32-07: resume mode skips the user_message append — the session already
+    // carries the settled tool_result; the loop continues from the projection.
+    if !ctx.resume {
+        append_event(ctx.conn, &scope, "user_message", json!({"content": ctx.user_message}), &on_event)?;
+    }
 
     // MEM-08 five-segment injection; only the assembled path emits the audit.
     let assembled = context_assembler::assemble_context(

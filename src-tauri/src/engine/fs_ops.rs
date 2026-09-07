@@ -58,7 +58,16 @@ fn resolve(ctx: &ToolCtx<'_>, rel: &str) -> Result<PathBuf, ToolOutcome> {
     let Some(root) = ctx.workspace_root.as_deref() else {
         return Err(ToolOutcome::Failed { message: "no workspace root".into(), arg_error: false });
     };
-    resolve_deep(root, rel).map_err(|_| escape_error())
+    // 32-07: a workspace root that cannot be resolved is an environment
+    // problem (32-06 mock workspace 假路径) — surface it honestly as a
+    // non-arg error; escapes stay the model-argument error they always were.
+    resolve_deep(root, rel).map_err(|e| {
+        if e.starts_with("workspace root invalid") {
+            ToolOutcome::Failed { message: e, arg_error: false }
+        } else {
+            escape_error()
+        }
+    })
 }
 
 fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {

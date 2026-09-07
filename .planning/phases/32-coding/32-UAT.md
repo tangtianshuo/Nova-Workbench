@@ -1,9 +1,9 @@
 ---
-status: partial
+status: diagnosed
 phase: 32-coding
 source: [32-01-SUMMARY.md, 32-02-SUMMARY.md, 32-03-SUMMARY.md, 32-04-SUMMARY.md, 32-05-SUMMARY.md]
 started: 2026-09-07T09:45:00+08:00
-updated: 2026-09-07T10:05:00+08:00
+updated: 2026-09-07T10:25:00+08:00
 ---
 
 ## Current Test
@@ -71,7 +71,18 @@ blocked: 0
   reason: "User reported: 工作区和仓库应该是默认在同一个路径下,切换了产品后,产品的工作区以及代码仓库都需要相应切换。代码生成应当也在工作区目录下进行生成,除非用户进行了指定。"
   severity: major
   test: 3
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "三个独立缺口叠加:(1) Product 与 workspace 数据模型零关联——activeWorkspaceId 是应用级全局,Product 无 workspaceId 字段,engine_run 直接取 activeWorkspaceId(chatConsoleStore.ts:766),切产品不影响它,workspace_repo_roots 绑定随之不联动;(2) 解析优先级相反——resolve_code_target 强制 repo_root(repo_root_or_fail,未绑定即 NO_REPO 失败),workspace_root 完全不参与 code_* 兜底,无 per-call 用户指定机制;(3) 同路径无保障——detect_repo_root 从 workspace 向上找 .git,workspace 是 repo 子目录时静默解析到祖先 repo"
+  artifacts:
+    - path: "src/data/mockProducts.ts"
+      issue: "Product 接口无 workspaceId——product↔workspace 关联在数据模型层不存在"
+    - path: "src/stores/uiStore.ts + src/stores/workspaceStore.ts"
+      issue: "selectedProductId 与 activeWorkspaceId 两个全局单值互不联动"
+    - path: "src/stores/chatConsoleStore.ts"
+      issue: "engine_run 入口取 activeWorkspaceId(tabRunStore.ts:228、CmdKPalette.tsx:79 同模式)"
+    - path: "src-tauri/src/engine/code_ops.rs"
+      issue: "resolve_code_target 无 workspace 兜底、无用户指定 root 通道"
+  missing:
+    - "Product↔workspace 关联字段 + 产品切换联动 activeWorkspaceId(engine_run 三入口自然继承,workspace_repo_roots 按 workspace_id 键绑定天然随切)"
+    - "resolve_code_target 改 user_specified_root > repo_root > workspace_root 兜底;裁定 code_read/grep 是否仍强制 repo 绑定"
+    - "detect 向上找 .git 静默逃逸的提示或限制(repo_root ≠ workspace 路径时 UI 可见)"
+  debug_session: .planning/debug/workspace-repo-product-binding.md
